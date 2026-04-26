@@ -33,7 +33,7 @@ export async function listMarkets(params: ListMarketsParams = {}): Promise<Marke
   const latest = db
     .select({
       marketId: priceSnapshots.marketId,
-      takenAt: sql<Date>`max(${priceSnapshots.takenAt})`.as("taken_at"),
+      takenAt: sql<Date>`max(${priceSnapshots.takenAt})`.as("max_taken_at"),
     })
     .from(priceSnapshots)
     .groupBy(priceSnapshots.marketId)
