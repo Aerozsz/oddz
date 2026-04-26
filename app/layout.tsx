@@ -24,6 +24,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <Link href="/divergence" className="hover:text-zinc-100">
                 Divergence
               </Link>
+              <Link href="/status" className="hover:text-zinc-100">
+                Status
+              </Link>
               <Link href="/api/v1/markets" className="hover:text-zinc-100">
                 API
               </Link>

@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { PriceHistoryChart, type HistoryPoint } from "@/features/charts/PriceHistoryChart";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { getMarket, getMarketHistory } from "@/features/markets/queries";
+import { buildReferralUrl } from "@/lib/referrals";
+import type { VenueSlug } from "@/lib/sources";
 import { formatPct } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +20,12 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
     .map((p) => ({ takenAt: p.takenAt.toISOString(), yes: p.prices[0] }));
 
   const latestYes = points.at(-1)?.yes;
+  const tradeUrl = buildReferralUrl({
+    venue: market.venue as VenueSlug,
+    slug: market.slug,
+    externalId: market.externalId,
+    sourceUrl: market.sourceUrl,
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -28,10 +36,10 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
         <div className="flex items-start justify-between gap-4">
           <h1 className="text-2xl font-semibold tracking-tight">{market.question}</h1>
           <a
-            href={market.sourceUrl}
+            href={tradeUrl}
             target="_blank"
-            rel="noreferrer"
-            className="rounded border border-zinc-700 px-3 py-1.5 text-xs hover:border-zinc-500"
+            rel="noopener noreferrer"
+            className="rounded bg-emerald-500 px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-emerald-400"
           >
             Trade on {market.venueName} ↗
           </a>

@@ -85,6 +85,7 @@ export async function getMarket(id: string) {
       venue: markets.venueSlug,
       venueName: venues.name,
       slug: markets.slug,
+      externalId: markets.externalId,
       question: markets.question,
       description: markets.description,
       category: markets.category,
