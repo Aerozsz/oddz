@@ -115,6 +115,42 @@ export async function getMarketHistory(marketId: string, sinceHours = 24 * 7) {
     .orderBy(priceSnapshots.takenAt);
 }
 
+/**
+ * Last `points` YES prices for a set of markets, oldest-first, in one
+ * query (row_number window over the snapshot history). Powers the
+ * sparkline column without an N+1 per row.
+ */
+export async function getSparklines(
+  marketIds: string[],
+  points = 24,
+): Promise<Map<string, number[]>> {
+  if (marketIds.length === 0) return new Map();
+
+  const rows = await db.execute<{ market_id: string; yes: number }>(sql`
+    SELECT market_id, (prices->>0)::float AS yes
+    FROM (
+      SELECT market_id, prices, taken_at,
+             row_number() OVER (PARTITION BY market_id ORDER BY taken_at DESC) AS rn
+      FROM price_snapshots
+      WHERE market_id IN (${sql.join(
+        marketIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})
+    ) ranked
+    WHERE rn <= ${points}
+    ORDER BY market_id, taken_at ASC
+  `);
+
+  const result = new Map<string, number[]>();
+  for (const r of rows.rows) {
+    if (!Number.isFinite(r.yes)) continue;
+    const arr = result.get(r.market_id);
+    if (arr) arr.push(r.yes);
+    else result.set(r.market_id, [r.yes]);
+  }
+  return result;
+}
+
 export async function getDataAge(): Promise<Date | null> {
   const [row] = await db
     .select({ latest: sql<Date>`max(${markets.lastSeenAt})` })

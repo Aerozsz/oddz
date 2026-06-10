@@ -8,7 +8,7 @@ import { allSources, type MarketSource, type NormalizedMarket } from "../lib/sou
 export interface SnapshotResult {
   runId: number;
   perVenue: Record<string, { fetched: number; written: number; error?: string }>;
-  reconciled: { matched: number; created: number };
+  reconciled: { matched: number; fuzzyMatched: number; created: number };
   durationMs: number;
 }
 
@@ -34,7 +34,7 @@ export async function runSnapshot(): Promise<SnapshotResult> {
 
   const reconciled = await reconcileEvents().catch((err) => {
     log.error("reconcile failed", { error: String(err) });
-    return { matched: 0, created: 0 };
+    return { matched: 0, fuzzyMatched: 0, created: 0 };
   });
 
   const durationMs = Date.now() - start;

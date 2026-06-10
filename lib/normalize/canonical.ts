@@ -79,12 +79,24 @@ const STOPWORDS = new Set([
   "how",
 ]);
 
+/**
+ * Light suffix stemmer so "reaches"/"reach", "wins"/"win" collide.
+ * Deliberately minimal — a full Porter stemmer overcorrects on proper
+ * nouns ("Texas" -> "Texa") which matter a lot in market titles.
+ */
+function stem(t: string): string {
+  if (t.length > 4 && t.endsWith("es")) return t.slice(0, -2);
+  if (t.length > 3 && t.endsWith("s") && !t.endsWith("ss")) return t.slice(0, -1);
+  return t;
+}
+
 export function tokens(text: string): string[] {
   return text
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)
-    .filter((t) => t.length > 1 && !STOPWORDS.has(t));
+    .filter((t) => t.length > 1 && !STOPWORDS.has(t))
+    .map(stem);
 }
 
 export function canonicalKey(text: string): string {
@@ -101,4 +113,33 @@ export function similarity(a: string, b: string): number {
   let intersection = 0;
   for (const t of ta) if (tb.has(t)) intersection++;
   return intersection / (ta.size + tb.size - intersection);
+}
+
+/**
+ * Numeric tokens (years, price levels, counts) carry the event identity:
+ * "Trump wins 2024" and "Trump wins 2028" share every word token but are
+ * different events. Two questions are only fuzzy-matchable when their
+ * numeric token sets agree exactly.
+ */
+export function numericTokens(text: string): Set<string> {
+  return new Set(tokens(text).filter((t) => /^\d+(k|m|bn)?$/.test(t)));
+}
+
+export function numbersAgree(a: string, b: string): boolean {
+  const na = numericTokens(a);
+  const nb = numericTokens(b);
+  if (na.size !== nb.size) return false;
+  for (const t of na) if (!nb.has(t)) return false;
+  return true;
+}
+
+/**
+ * Combined fuzzy-match decision. Conservative on purpose — a false
+ * divergence row is worse than a missing one.
+ */
+export const FUZZY_THRESHOLD = 0.75;
+
+export function isFuzzyMatch(a: string, b: string): boolean {
+  if (!numbersAgree(a, b)) return false;
+  return similarity(a, b) >= FUZZY_THRESHOLD;
 }

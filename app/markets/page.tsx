@@ -1,6 +1,6 @@
 import { Filters } from "@/features/markets/components/Filters";
 import { MarketTable } from "@/features/markets/components/MarketTable";
-import { getDataAge, listMarkets } from "@/features/markets/queries";
+import { getDataAge, getSparklines, listMarkets } from "@/features/markets/queries";
 import type { VenueSlug } from "@/lib/sources";
 import { timeAgo } from "@/lib/utils";
 
@@ -24,6 +24,10 @@ export default async function MarketsPage({
     listMarkets({ q: sp.q, venue, limit: 100 }),
     getDataAge(),
   ]);
+  const sparklines = await getSparklines(
+    rows.map((r) => r.id),
+    24,
+  );
 
   return (
     <div className="flex flex-col gap-4">
@@ -36,7 +40,7 @@ export default async function MarketsPage({
         </div>
       </div>
       <Filters />
-      <MarketTable rows={rows} />
+      <MarketTable rows={rows} sparklines={sparklines} />
     </div>
   );
 }

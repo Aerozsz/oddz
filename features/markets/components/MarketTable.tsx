@@ -2,9 +2,16 @@ import Link from "next/link";
 import type { MarketRow } from "../queries";
 import { formatUSD, timeAgo } from "@/lib/utils";
 import { PriceCell } from "./PriceCell";
+import { Sparkline } from "./Sparkline";
 import { VenueBadge } from "./VenueBadge";
 
-export function MarketTable({ rows }: { rows: MarketRow[] }) {
+export function MarketTable({
+  rows,
+  sparklines,
+}: {
+  rows: MarketRow[];
+  sparklines?: Map<string, number[]>;
+}) {
   if (rows.length === 0) {
     return (
       <div className="rounded border border-zinc-800 bg-zinc-900/40 p-8 text-center text-sm text-zinc-400">
@@ -23,6 +30,7 @@ export function MarketTable({ rows }: { rows: MarketRow[] }) {
             <th className="px-3 py-2 text-left">Market</th>
             <th className="px-3 py-2 text-left">Venue</th>
             <th className="px-3 py-2 text-right">Price</th>
+            <th className="px-3 py-2 text-center">Trend</th>
             <th className="px-3 py-2 text-right">24h Vol</th>
             <th className="px-3 py-2 text-right">Liquidity</th>
             <th className="px-3 py-2 text-right">Updated</th>
@@ -47,6 +55,9 @@ export function MarketTable({ rows }: { rows: MarketRow[] }) {
               </td>
               <td className="px-3 py-2 text-right">
                 <PriceCell outcomes={m.outcomes} prices={m.prices} />
+              </td>
+              <td className="px-3 py-2 text-center">
+                <Sparkline values={sparklines?.get(m.id) ?? []} />
               </td>
               <td className="px-3 py-2 text-right font-mono text-zinc-300">
                 {formatUSD(m.volume)}
