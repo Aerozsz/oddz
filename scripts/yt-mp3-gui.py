@@ -13,15 +13,74 @@ Run:  python3 yt-mp3-gui.py
 Only download content you have the right to download.
 """
 
+import glob
+import os
 import queue
 import shutil
 import subprocess
+import sys
 import threading
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 QUALITIES = ["0 (best)", "2 (high)", "5 (medium)", "9 (small)"]
+
+
+def find_yt_dlp():
+    """Return the command prefix to invoke yt-dlp, or None if unavailable.
+
+    pip installs the yt-dlp exe into a Scripts dir that often isn't on PATH
+    (especially on Windows), so fall back to running it as a module.
+    """
+    exe = shutil.which("yt-dlp")
+    if exe:
+        return [exe]
+    try:
+        import yt_dlp  # noqa: F401
+        return [sys.executable, "-m", "yt_dlp"]
+    except ImportError:
+        return None
+
+
+def find_ffmpeg():
+    """Return the path to ffmpeg, checking PATH plus common Windows locations."""
+    exe = shutil.which("ffmpeg")
+    if exe:
+        return exe
+    if os.name == "nt":
+        candidates = []
+        local = os.environ.get("LOCALAPPDATA")
+        if local:
+            candidates += glob.glob(
+                os.path.join(local, "Microsoft", "WinGet", "Packages",
+                             "*FFmpeg*", "**", "bin", "ffmpeg.exe"),
+                recursive=True,
+            )
+        candidates += [
+            r"C:\ffmpeg\bin\ffmpeg.exe",
+            os.path.expandvars(r"%ProgramFiles%\ffmpeg\bin\ffmpeg.exe"),
+        ]
+        for c in candidates:
+            if Path(c).is_file():
+                return c
+    return None
+
+
+def install_help():
+    if os.name == "nt":
+        return (
+            "In Command Prompt run:\n\n"
+            "    pip install yt-dlp\n"
+            "    winget install Gyan.FFmpeg\n\n"
+            "(two separate commands), then close and reopen this app."
+        )
+    return (
+        "Install with:\n\n"
+        "    pip install yt-dlp\n"
+        "    sudo apt install ffmpeg   (macOS: brew install ffmpeg)\n\n"
+        "then reopen this app."
+    )
 
 
 class App:
@@ -91,13 +150,14 @@ class App:
             messagebox.showwarning("No links", "Paste at least one video or playlist link.")
             return
 
-        missing = [c for c in ("yt-dlp", "ffmpeg") if shutil.which(c) is None]
+        yt_dlp_cmd = find_yt_dlp()
+        ffmpeg = find_ffmpeg()
+        missing = [name for name, found in
+                   (("yt-dlp", yt_dlp_cmd), ("ffmpeg", ffmpeg)) if not found]
         if missing:
             messagebox.showerror(
                 "Missing dependency",
-                f"Not found on PATH: {', '.join(missing)}.\n\n"
-                "Install with e.g.:\n  pip install yt-dlp\n  "
-                "apt/brew/winget install ffmpeg",
+                f"Could not find: {', '.join(missing)}.\n\n{install_help()}",
             )
             return
 
@@ -106,7 +166,8 @@ class App:
         quality = self.quality.get().split()[0]
 
         cmd = [
-            "yt-dlp",
+            *yt_dlp_cmd,
+            "--ffmpeg-location", ffmpeg,
             "--extract-audio", "--audio-format", "mp3", "--audio-quality", quality,
             "--embed-thumbnail", "--embed-metadata",
             "--ignore-errors", "--no-overwrites", "--restrict-filenames", "--newline",
@@ -122,9 +183,10 @@ class App:
 
     def run(self, cmd):
         try:
+            flags = subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0
             self.proc = subprocess.Popen(
                 cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1,
+                text=True, bufsize=1, creationflags=flags,
             )
             for line in self.proc.stdout:
                 self.log_queue.put(line)
