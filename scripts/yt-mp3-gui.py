@@ -67,6 +67,46 @@ def find_ffmpeg():
     return None
 
 
+def find_js_runtime():
+    """Return yt-dlp args enabling a JavaScript runtime, or None if none found.
+
+    yt-dlp needs a JS runtime (deno preferred) to extract YouTube formats;
+    without one most downloads fail with HTTP 403.
+    """
+    if shutil.which("deno"):
+        return []  # deno is enabled by default when on PATH
+    home_deno = Path.home() / ".deno" / "bin" / ("deno.exe" if os.name == "nt" else "deno")
+    if home_deno.is_file():
+        return ["--js-runtimes", f"deno:{home_deno}"]
+    for rt in ("node", "bun", "quickjs"):
+        if shutil.which(rt):
+            return ["--js-runtimes", rt]
+    return None
+
+
+def build_command(yt_dlp_cmd, ffmpeg, js_args, out_dir, quality, urls):
+    """Assemble the yt-dlp invocation. Kept as a plain function so it can be
+    tested without a display.
+
+    A single output template handles both cases: playlist items get a
+    subfolder named after the playlist with zero-padded track numbers,
+    single videos land directly in out_dir (yt-dlp drops the empty
+    playlist_title path component).
+    """
+    template = (str(out_dir)
+                + "/%(playlist_title|)s/%(playlist_index&{:02d} - |)s%(title)s.%(ext)s")
+    return [
+        *yt_dlp_cmd,
+        "--ffmpeg-location", str(ffmpeg),
+        *js_args,
+        "--extract-audio", "--audio-format", "mp3", "--audio-quality", quality,
+        "--embed-thumbnail", "--embed-metadata",
+        "--ignore-errors", "--no-overwrites", "--windows-filenames", "--newline",
+        "--output", template,
+        *urls,
+    ]
+
+
 def install_help():
     if os.name == "nt":
         return (
@@ -161,20 +201,25 @@ class App:
             )
             return
 
+        js_args = find_js_runtime()
+        if js_args is None:
+            hint = ("    winget install DenoLand.Deno" if os.name == "nt"
+                    else "    brew install deno   (or: curl -fsSL https://deno.land/install.sh | sh)")
+            if not messagebox.askyesno(
+                "No JavaScript runtime",
+                "No JavaScript runtime (deno/node) was found.\n"
+                "YouTube needs one — without it most downloads fail with HTTP 403.\n\n"
+                f"To fix, run:\n{hint}\n"
+                "then close and reopen this app.\n\n"
+                "Try downloading anyway?",
+            ):
+                return
+            js_args = []
+
         out = Path(self.out_dir.get()).expanduser()
         out.mkdir(parents=True, exist_ok=True)
         quality = self.quality.get().split()[0]
-
-        cmd = [
-            *yt_dlp_cmd,
-            "--ffmpeg-location", ffmpeg,
-            "--extract-audio", "--audio-format", "mp3", "--audio-quality", quality,
-            "--embed-thumbnail", "--embed-metadata",
-            "--ignore-errors", "--no-overwrites", "--restrict-filenames", "--newline",
-            "--output", str(out / "%(title)s.%(ext)s"),
-            "--output", f"playlist:{out / '%(playlist_title)s' / '%(playlist_index)02d - %(title)s.%(ext)s'}",
-            *urls,
-        ]
+        cmd = build_command(yt_dlp_cmd, ffmpeg, js_args, out, quality, urls)
 
         self.btn.configure(state="disabled")
         self.cancel_btn.configure(state="normal")

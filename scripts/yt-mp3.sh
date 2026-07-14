@@ -49,8 +49,25 @@ done
 
 mkdir -p "$OUT_DIR"
 
-# Playlists land in a subfolder named after the playlist, numbered by position;
-# single videos go straight into OUT_DIR. yt-dlp picks the right template itself.
+# yt-dlp needs a JavaScript runtime (deno preferred) for YouTube; without one
+# most downloads fail with HTTP 403. Enable an alternative if deno is absent.
+JS_ARGS=()
+if ! command -v deno >/dev/null 2>&1; then
+  for rt in node bun quickjs; do
+    if command -v "$rt" >/dev/null 2>&1; then
+      JS_ARGS=(--js-runtimes "$rt")
+      break
+    fi
+  done
+  if [ ${#JS_ARGS[@]} -eq 0 ]; then
+    echo "warning: no JavaScript runtime found (deno/node) — YouTube downloads" >&2
+    echo "         will likely fail with HTTP 403. Install deno: https://deno.land" >&2
+  fi
+fi
+
+# One template covers both cases: playlist items get a subfolder named after
+# the playlist with zero-padded track numbers; single videos land directly in
+# OUT_DIR (yt-dlp drops the empty playlist_title path component).
 exec yt-dlp \
   --extract-audio \
   --audio-format mp3 \
@@ -59,8 +76,8 @@ exec yt-dlp \
   --embed-metadata \
   --ignore-errors \
   --no-overwrites \
-  --restrict-filenames \
+  --windows-filenames \
   --newline \
-  --output "$OUT_DIR/%(title)s.%(ext)s" \
-  --output "playlist:$OUT_DIR/%(playlist_title)s/%(playlist_index)02d - %(title)s.%(ext)s" \
+  ${JS_ARGS[@]+"${JS_ARGS[@]}"} \
+  --output "$OUT_DIR/%(playlist_title|)s/%(playlist_index&{:02d} - |)s%(title)s.%(ext)s" \
   "$@"
