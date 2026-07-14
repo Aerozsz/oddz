@@ -1,0 +1,62 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: ["claude/youtube-mp3-downloader-nv160f"]
+    paths: ["android/**", ".github/workflows/android-apk.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.14.3"
+
+      - name: Build debug APK
+        run: gradle -p android :app:assembleDebug --no-daemon
+
+      - name: Show APK info
+        run: ls -lh android/app/build/outputs/apk/debug/
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: yt-mp3-apk
+          path: android/app/build/outputs/apk/debug/app-debug.apk
+
+  smoke-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: yt-mp3-apk
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Launch app in emulator and verify
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          disable-animations: true
+          script: |
+            adb install app-debug.apk
+            adb shell am start -n dev.aero.ytmp3/.MainActivity
+            sleep 30
+            adb shell uiautomator dump /sdcard/ui.xml
+            adb shell cat /sdcard/ui.xml > ui.xml
+            grep -q "Download" ui.xml && echo "UI CHECK PASSED: Download button visible"
+            grep -q "Engine ready" ui.xml && echo "ENGINE CHECK PASSED: yt-dlp initialized" || { echo "ENGINE CHECK FAILED — app log follows"; grep -o 'text="[^"]*"' ui.xml | head -30; adb logcat -d | grep -iE "ytmp3|youtubedl|AndroidRuntime" | tail -40; exit 1; }
