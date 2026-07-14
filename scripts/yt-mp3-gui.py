@@ -1,0 +1,162 @@
+#!/usr/bin/env python3
+"""yt-mp3-gui.py — paste YouTube video/playlist links, get MP3s.
+
+A minimal GUI over yt-dlp. Paste one or more links (one per line),
+pick an output folder, press Download.
+
+Requires: Python 3.8+, yt-dlp and ffmpeg on your PATH.
+  yt-dlp:  pip install yt-dlp   (or brew/choco/winget install yt-dlp)
+  ffmpeg:  apt install ffmpeg / brew install ffmpeg / winget install ffmpeg
+
+Run:  python3 yt-mp3-gui.py
+
+Only download content you have the right to download.
+"""
+
+import queue
+import shutil
+import subprocess
+import threading
+import tkinter as tk
+from pathlib import Path
+from tkinter import filedialog, messagebox, ttk
+
+QUALITIES = ["0 (best)", "2 (high)", "5 (medium)", "9 (small)"]
+
+
+class App:
+    def __init__(self, root: tk.Tk):
+        self.root = root
+        root.title("YouTube → MP3")
+        root.geometry("640x520")
+        root.minsize(520, 420)
+
+        self.proc = None
+        self.log_queue = queue.Queue()
+
+        frame = ttk.Frame(root, padding=10)
+        frame.pack(fill="both", expand=True)
+
+        ttk.Label(frame, text="Video or playlist links (one per line):").pack(anchor="w")
+        self.links = tk.Text(frame, height=6, wrap="none", undo=True)
+        self.links.pack(fill="x", pady=(2, 8))
+
+        row = ttk.Frame(frame)
+        row.pack(fill="x", pady=(0, 8))
+        ttk.Label(row, text="Save to:").pack(side="left")
+        self.out_dir = tk.StringVar(value=str(Path.home() / "Downloads" / "yt-mp3"))
+        ttk.Entry(row, textvariable=self.out_dir).pack(side="left", fill="x", expand=True, padx=6)
+        ttk.Button(row, text="Browse…", command=self.pick_dir).pack(side="left")
+
+        row2 = ttk.Frame(frame)
+        row2.pack(fill="x", pady=(0, 8))
+        ttk.Label(row2, text="Quality:").pack(side="left")
+        self.quality = tk.StringVar(value=QUALITIES[0])
+        ttk.Combobox(row2, textvariable=self.quality, values=QUALITIES,
+                     state="readonly", width=12).pack(side="left", padx=6)
+        self.btn = ttk.Button(row2, text="Download", command=self.start)
+        self.btn.pack(side="right")
+        self.cancel_btn = ttk.Button(row2, text="Cancel", command=self.cancel, state="disabled")
+        self.cancel_btn.pack(side="right", padx=6)
+
+        ttk.Label(frame, text="Log:").pack(anchor="w")
+        self.log = tk.Text(frame, height=14, state="disabled", wrap="word",
+                           background="#111", foreground="#ddd")
+        self.log.pack(fill="both", expand=True, pady=(2, 0))
+
+        root.after(100, self.drain_log)
+
+    def pick_dir(self):
+        chosen = filedialog.askdirectory(initialdir=self.out_dir.get() or str(Path.home()))
+        if chosen:
+            self.out_dir.set(chosen)
+
+    def append_log(self, text: str):
+        self.log.configure(state="normal")
+        self.log.insert("end", text)
+        self.log.see("end")
+        self.log.configure(state="disabled")
+
+    def drain_log(self):
+        try:
+            while True:
+                self.append_log(self.log_queue.get_nowait())
+        except queue.Empty:
+            pass
+        self.root.after(100, self.drain_log)
+
+    def start(self):
+        urls = [u.strip() for u in self.links.get("1.0", "end").splitlines() if u.strip()]
+        if not urls:
+            messagebox.showwarning("No links", "Paste at least one video or playlist link.")
+            return
+
+        missing = [c for c in ("yt-dlp", "ffmpeg") if shutil.which(c) is None]
+        if missing:
+            messagebox.showerror(
+                "Missing dependency",
+                f"Not found on PATH: {', '.join(missing)}.\n\n"
+                "Install with e.g.:\n  pip install yt-dlp\n  "
+                "apt/brew/winget install ffmpeg",
+            )
+            return
+
+        out = Path(self.out_dir.get()).expanduser()
+        out.mkdir(parents=True, exist_ok=True)
+        quality = self.quality.get().split()[0]
+
+        cmd = [
+            "yt-dlp",
+            "--extract-audio", "--audio-format", "mp3", "--audio-quality", quality,
+            "--embed-thumbnail", "--embed-metadata",
+            "--ignore-errors", "--no-overwrites", "--restrict-filenames", "--newline",
+            "--output", str(out / "%(title)s.%(ext)s"),
+            "--output", f"playlist:{out / '%(playlist_title)s' / '%(playlist_index)02d - %(title)s.%(ext)s'}",
+            *urls,
+        ]
+
+        self.btn.configure(state="disabled")
+        self.cancel_btn.configure(state="normal")
+        self.append_log(f"\n=== Downloading {len(urls)} link(s) to {out} ===\n")
+        threading.Thread(target=self.run, args=(cmd,), daemon=True).start()
+
+    def run(self, cmd):
+        try:
+            self.proc = subprocess.Popen(
+                cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, bufsize=1,
+            )
+            for line in self.proc.stdout:
+                self.log_queue.put(line)
+            code = self.proc.wait()
+            self.log_queue.put(
+                "\n=== Done ===\n" if code == 0
+                else f"\n=== Finished with errors (exit {code}) — see log above ===\n"
+            )
+        except Exception as exc:  # surface anything unexpected in the log
+            self.log_queue.put(f"\nerror: {exc}\n")
+        finally:
+            self.proc = None
+            self.root.after(0, lambda: (
+                self.btn.configure(state="normal"),
+                self.cancel_btn.configure(state="disabled"),
+            ))
+
+    def cancel(self):
+        if self.proc:
+            self.proc.terminate()
+            self.log_queue.put("\n=== Cancelled ===\n")
+
+
+def main():
+    root = tk.Tk()
+    try:
+        ttk.Style().theme_use("clam")
+    except tk.TclError:
+        pass
+    App(root)
+    root.mainloop()
+
+
+if __name__ == "__main__":
+    main()
