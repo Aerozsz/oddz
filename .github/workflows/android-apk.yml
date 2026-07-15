@@ -36,6 +36,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           name: YT-DL-apk
@@ -52,20 +54,6 @@ jobs:
           api-level: 30
           arch: x86_64
           disable-animations: true
-          script: |
-            adb install app-debug.apk
-            adb shell am start -n dev.aero.ytmp3/.MainActivity -e test_url "https://www.youtube.com/watch?v=jNQXAC9IVRw"
-            for i in $(seq 1 48); do
-              sleep 10
-              if adb shell "ls /sdcard/Download/yt-mp3/*.mp3" 2>/dev/null | grep -q '\.mp3'; then
-                echo "DOWNLOAD TEST PASSED — MP3 produced:"
-                adb shell ls -la /sdcard/Download/yt-mp3/
-                exit 0
-              fi
-            done
-            echo "DOWNLOAD TEST FAILED — app state follows"
-            adb shell uiautomator dump /sdcard/ui.xml
-            adb shell cat /sdcard/ui.xml | grep -o 'text="[^"]*"' | tail -50
-            adb shell ls -la /sdcard/Download/yt-mp3/ || true
-            adb logcat -d | grep -iE "ytmp3|youtubedl|python" | tail -60
-            exit 1
+          # The runner executes each script line as a separate shell, so the
+          # whole test lives in one script file invoked on a single line.
+          script: bash android/ci/download-test.sh app-debug.apk
