@@ -61,15 +61,32 @@ class MainActivity : AppCompatActivity() {
             try {
                 YoutubeDL.getInstance().init(this@MainActivity)
                 FFmpeg.getInstance().init(this@MainActivity)
-                engineReady = true
-                withContext(Dispatchers.Main) {
-                    log("Engine ready.")
-                    btnDownload.isEnabled = true
-                    btnUpdate.isEnabled = true
-                }
             } catch (e: Exception) {
                 Log.e("ytmp3", "init failed", e)
                 withContext(Dispatchers.Main) { log("Engine init failed: ${e.message}") }
+                return@launch
+            }
+            // YouTube breaks old yt-dlp versions within weeks, so always try
+            // to update to the latest stable on launch. Failure (e.g. offline)
+            // is fine — we just run with the bundled version.
+            withContext(Dispatchers.Main) { log("Checking for yt-dlp update…") }
+            try {
+                val status = YoutubeDL.getInstance().updateYoutubeDL(this@MainActivity)
+                withContext(Dispatchers.Main) { log("yt-dlp update: $status") }
+            } catch (e: Exception) {
+                Log.w("ytmp3", "update failed", e)
+                withContext(Dispatchers.Main) { log("yt-dlp update skipped: ${e.message}") }
+            }
+            engineReady = true
+            withContext(Dispatchers.Main) {
+                log("Engine ready.")
+                btnDownload.isEnabled = true
+                btnUpdate.isEnabled = true
+                // CI test hook: launch with `-e test_url <url>` to auto-download.
+                intent.getStringExtra("test_url")?.let {
+                    input.setText(it)
+                    ensurePermissionThenDownload()
+                }
             }
         }
     }
@@ -113,6 +130,10 @@ class MainActivity : AppCompatActivity() {
                         addOption("--embed-metadata")
                         addOption("--no-overwrites")
                         addOption("--windows-filenames")
+                        // We run yt-dlp from a zip (not an official binary), so
+                        // allow it to fetch the EJS challenge-solver scripts it
+                        // needs for YouTube; without them most downloads 403.
+                        addOption("--remote-components", "ejs:github")
                         addOption(
                             "-o",
                             outDir.absolutePath +
