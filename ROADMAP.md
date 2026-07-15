@@ -45,11 +45,11 @@ Neon Postgres + Drizzle, Tailwind, Recharts. Branch:
 
 - [ ] /events/[id] page: all venue legs, per-leg price, combined overlay chart
 - [ ] Link divergence rows and market detail to their event page
-- [ ] app/sitemap.ts (markets + events, top 1000 by volume)
-- [ ] app/robots.ts
-- [ ] generateMetadata on /markets/[id] (title = question, description = prices)
-- [ ] OpenGraph card metadata (static first; dynamic og-image later)
-- [ ] Landing page: live stats strip (market count, venues, snapshot count)
+- [x] app/sitemap.ts (markets + events, top 1000 by volume)
+- [x] app/robots.ts
+- [x] generateMetadata on /markets/[id] (title = question, description = prices)
+- [x] OpenGraph card metadata (static; dynamic og-image still open)
+- [x] Landing page: live stats strip (market count, venues, snapshot count)
 
 ## Phase: data quality (needs live prod data first)
 

@@ -1,6 +1,28 @@
 import Link from "next/link";
+import { sql } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { markets, priceSnapshots } from "@/lib/db/schema";
 
-export default function HomePage() {
+export const dynamic = "force-dynamic";
+export const revalidate = 60;
+
+async function stats() {
+  try {
+    const [[m], [s]] = await Promise.all([
+      db
+        .select({ n: sql<number>`count(*)::int` })
+        .from(markets)
+        .where(sql`${markets.closed} = 0`),
+      db.select({ n: sql<number>`count(*)::int` }).from(priceSnapshots),
+    ]);
+    return { markets: m?.n ?? 0, snapshots: s?.n ?? 0 };
+  } catch {
+    return { markets: 0, snapshots: 0 };
+  }
+}
+
+export default async function HomePage() {
+  const { markets: marketCount, snapshots } = await stats();
   return (
     <div className="flex flex-col gap-10 py-10">
       <section className="flex flex-col gap-4">
@@ -26,6 +48,22 @@ export default function HomePage() {
           </Link>
         </div>
       </section>
+
+      {marketCount > 0 && (
+        <section className="flex flex-wrap gap-6 text-sm text-zinc-400">
+          <div>
+            <span className="font-mono text-2xl text-zinc-100">{marketCount.toLocaleString()}</span>{" "}
+            live markets
+          </div>
+          <div>
+            <span className="font-mono text-2xl text-zinc-100">4</span> venues
+          </div>
+          <div>
+            <span className="font-mono text-2xl text-zinc-100">{snapshots.toLocaleString()}</span>{" "}
+            price snapshots stored
+          </div>
+        </section>
+      )}
 
       <section className="grid gap-6 sm:grid-cols-3">
         <Card title="Aggregated">

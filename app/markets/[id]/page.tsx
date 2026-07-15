@@ -9,6 +9,21 @@ import { formatPct } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const market = await getMarket(decodeURIComponent(id));
+  if (!market) return { title: "Market not found — Oddz" };
+  return {
+    title: `${market.question} — Oddz`,
+    description: `Live odds for "${market.question}" on ${market.venueName}, with price history and cross-venue comparison.`,
+    openGraph: {
+      title: market.question,
+      description: `Live prediction-market odds on ${market.venueName}. Track drift and relative value on Oddz.`,
+      type: "website",
+    },
+  };
+}
+
 export default async function MarketDetail({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const market = await getMarket(decodeURIComponent(id));
