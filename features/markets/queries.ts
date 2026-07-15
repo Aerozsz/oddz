@@ -19,15 +19,19 @@ export interface MarketRow {
   lastSeenAt: Date;
 }
 
+export type MarketSort = "volume" | "liquidity" | "updated";
+
 export interface ListMarketsParams {
   q?: string;
   venue?: VenueSlug;
+  category?: string;
+  sort?: MarketSort;
   limit?: number;
   offset?: number;
 }
 
 export async function listMarkets(params: ListMarketsParams = {}): Promise<MarketRow[]> {
-  const { q, venue, limit = 50, offset = 0 } = params;
+  const { q, venue, category, sort = "volume", limit = 50, offset = 0 } = params;
 
   // Subquery: most recent snapshot per market.
   const latest = db
@@ -41,11 +45,19 @@ export async function listMarkets(params: ListMarketsParams = {}): Promise<Marke
 
   const filters = [eq(markets.closed, 0)];
   if (venue) filters.push(eq(markets.venueSlug, venue));
+  if (category) filters.push(sql`lower(${markets.category}) = ${category.toLowerCase()}`);
   if (q && q.trim()) {
     const needle = `%${q.trim()}%`;
     const f = or(ilike(markets.question, needle), ilike(markets.category, needle));
     if (f) filters.push(f);
   }
+
+  const orderBy =
+    sort === "liquidity"
+      ? [desc(priceSnapshots.liquidity), desc(priceSnapshots.volume)]
+      : sort === "updated"
+        ? [desc(markets.lastSeenAt), desc(priceSnapshots.volume)]
+        : [desc(priceSnapshots.volume), desc(markets.lastSeenAt)];
 
   const rows = await db
     .select({
@@ -71,11 +83,26 @@ export async function listMarkets(params: ListMarketsParams = {}): Promise<Marke
       and(eq(priceSnapshots.marketId, latest.marketId), eq(priceSnapshots.takenAt, latest.takenAt)),
     )
     .where(and(...filters))
-    .orderBy(desc(priceSnapshots.volume), desc(markets.lastSeenAt))
+    .orderBy(...orderBy)
     .limit(limit)
     .offset(offset);
 
   return rows;
+}
+
+/** Top categories among open markets, normalized to lowercase, by count. */
+export async function topCategories(limit = 8): Promise<{ category: string; count: number }[]> {
+  const rows = await db
+    .select({
+      category: sql<string>`lower(${markets.category})`,
+      count: sql<number>`count(*)::int`,
+    })
+    .from(markets)
+    .where(and(eq(markets.closed, 0), sql`${markets.category} IS NOT NULL`))
+    .groupBy(sql`lower(${markets.category})`)
+    .orderBy(sql`count(*) DESC`)
+    .limit(limit);
+  return rows.filter((r) => r.category);
 }
 
 export async function getMarket(id: string) {

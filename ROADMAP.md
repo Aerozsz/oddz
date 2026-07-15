@@ -34,12 +34,12 @@ Neon Postgres + Drizzle, Tailwind, Recharts. Branch:
 - [x] Divergence table (cross-venue YES spread)
 - [x] Status page (runs, freshness)
 - [x] /api/health deploy verification
-- [ ] loading.tsx skeletons for /markets, /divergence, /markets/[id]
-- [ ] error.tsx + not-found.tsx (global + markets segment)
-- [ ] Pagination on /markets (offset-based, ?page= param, 100/page)
-- [ ] Category filter chips above market table (top 8 categories by count)
-- [ ] Sort control on /markets (volume | liquidity | recently-updated)
-- [ ] Mobile: collapse table to cards below sm breakpoint
+- [x] loading.tsx skeletons for /markets, /divergence, /markets/[id]
+- [x] error.tsx + not-found.tsx (global + markets segment)
+- [x] Pagination on /markets (offset-based, ?page= param, 100/page)
+- [x] Category filter chips above market table (top 8 categories by count)
+- [x] Sort control on /markets (volume | liquidity | recently-updated)
+- [x] Mobile: horizontal-scroll table with min-width (card collapse deferred)
 
 ## Phase: events & SEO
 

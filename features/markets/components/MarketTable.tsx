@@ -23,8 +23,8 @@ export function MarketTable({
   }
 
   return (
-    <div className="overflow-hidden rounded border border-zinc-800">
-      <table className="w-full border-collapse text-sm">
+    <div className="overflow-x-auto rounded border border-zinc-800">
+      <table className="w-full min-w-[720px] border-collapse text-sm">
         <thead className="bg-zinc-900/60 text-xs uppercase tracking-wider text-zinc-400">
           <tr>
             <th className="px-3 py-2 text-left">Market</th>
