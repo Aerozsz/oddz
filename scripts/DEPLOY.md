@@ -34,3 +34,21 @@ CRON_SECRET) -> /tmp/deploy-files.json, pass its array as deploy_to_vercel
 - GET https://<url>/api/health  -> expect ok:true
 - GET "https://<url>/api/cron/snapshot?key=<CRON_SECRET>" once to seed data
 - Check /status shows a run; cron (vercel.json) runs every 5 min
+
+## UPDATE: file-upload path is NOT viable from chat
+Confirmed: routing the ~150KB (73-file) source, or even a ~52KB gzip+base64
+blob, through deploy_to_vercel's inline `files` arg is not reliable — the
+assistant's file-read truncates at ~22KB and base64 has zero error
+tolerance, so exact bytes can't be moved by hand. Autonomous deploy needs
+the source to reach Vercel WITHOUT inlining. Two workable paths:
+
+1. GIT-CONNECT (cleanest, permanent): in the oddz project → Settings → Git,
+   connect aerozsz/oddz + branch claude/refactor-project-structure-JIiXS.
+   Vercel pulls directly, handles private-repo auth, auto-deploys on push.
+   Set env vars DATABASE_URL (pooled) + CRON_SECRET in the same settings.
+   The repo's committed package.json vercel-build (migrate && next build &&
+   seed) + vercel.json cron (Bearer, auto-signed when CRON_SECRET is set)
+   then just work.
+2. TEMP-PUBLIC (assistant does it autonomously): flip the repo public
+   briefly; the tested 3-file clone bootstrap (scripts/vercel-bootstrap-build.sh)
+   deploys via mcp deploy_to_vercel; flip back to private. Brief exposure.
