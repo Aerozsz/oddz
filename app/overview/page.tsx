@@ -106,7 +106,7 @@ export default async function OverviewPage() {
                   <tr key={c.category} className="border-t border-zinc-800">
                     <td className="px-3 py-2">
                       <Link
-                        href={`/markets?cat=${encodeURIComponent(c.category)}`}
+                        href={`/categories/${encodeURIComponent(c.category)}`}
                         className="capitalize text-zinc-200 hover:text-white"
                       >
                         {c.category}
