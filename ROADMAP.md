@@ -95,7 +95,7 @@ Derivable from CURRENT data (do these first):
 - [x] Overview dashboard: total volume, venue dominance, category rollup (/overview)
 - [x] "What you'd win" payout calculator w/ best-venue payout (market detail)
 - [x] Consensus / fair-value odds: volume-weighted, flags mispriced venue (/consensus)
-- [ ] Overround / vig per market (sum of outcome prices); multi-outcome
+- [x] Overround / vig per market (sum of outcome prices); multi-outcome
       buy-all-outcomes arb detection
 - [x] New markets feed: recently first-seen listings (/new)
 - [ ] Unusual activity: volume/liquidity surge vs trailing history
