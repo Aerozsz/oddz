@@ -69,7 +69,7 @@ export default async function OverviewPage() {
               {o.venues.map((v) => (
                 <tr key={v.venue} className="border-t border-zinc-800">
                   <td className="px-3 py-2">
-                    <Link href={`/markets?venue=${v.venue}`}>
+                    <Link href={`/venues/${v.venue}`}>
                       <VenueBadge venue={v.venue} />
                     </Link>
                   </td>

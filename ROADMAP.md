@@ -100,7 +100,7 @@ Derivable from CURRENT data (do these first):
 - [x] New markets feed: recently first-seen listings (/new)
 - [ ] Unusual activity: volume/liquidity surge vs trailing history
 - [x] Resolution calendar: markets ending soon (/resolving)
-- [ ] Venue pages /venues/[slug]: per-venue volume, market count, top markets
+- [x] Venue pages /venues/[slug]: per-venue volume, market count, share, top markets
 - [ ] Category pages /categories/[slug]: DefiLlama chain-page analog
 - [ ] Lead/lag analysis: which venue moves first on matched events (front-run signal)
 - [ ] Market efficiency / liquidity depth score per market
