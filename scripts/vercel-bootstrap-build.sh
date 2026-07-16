@@ -13,25 +13,19 @@ git clone --depth 1 -b "$BRANCH" "$REPO" _src
 cp -a _src/. .
 rm -rf _src
 
-echo "== injecting runtime secrets into next.config.ts =="
-cat > next.config.ts <<CFG
-import type { NextConfig } from "next";
-const config: NextConfig = {
-  typedRoutes: true,
-  env: {
-    DATABASE_URL: "${DB_POOLED}",
-    CRON_SECRET: "${SECRET}",
-  },
-  images: {
-    remotePatterns: [
-      { protocol: "https", hostname: "polymarket-upload.s3.us-east-2.amazonaws.com" },
-      { protocol: "https", hostname: "manifold.markets" },
-      { protocol: "https", hostname: "kalshi.com" },
-    ],
-  },
-};
-export default config;
-CFG
+echo "== injecting runtime secrets into next.config.ts (preserving headers etc.) =="
+# File-upload deploys have no dashboard env vars, so runtime serverless
+# functions need the secrets baked into next.config `env`. Insert an env
+# block into the existing config rather than overwriting it, so security
+# headers / images config survive.
+DB_POOLED="$DB_POOLED" SECRET="$SECRET" node -e '
+const fs = require("fs");
+let s = fs.readFileSync("next.config.ts", "utf8");
+const envBlock = `\n  env: { DATABASE_URL: ${JSON.stringify(process.env.DB_POOLED)}, CRON_SECRET: ${JSON.stringify(process.env.SECRET)} },`;
+s = s.replace(/const config: NextConfig = \{/, (m) => m + envBlock);
+fs.writeFileSync("next.config.ts", s);
+console.log("env injected into next.config.ts");
+'
 
 echo "== install =="
 npm install --no-audit --no-fund
