@@ -1,0 +1,20 @@
+name: snapshot
+
+# Every-5-minute market snapshot. Vercel Hobby caps cron at once/day, so
+# the frequent ingest runs here on GitHub's scheduler instead. Add a repo
+# Actions secret CRON_SECRET (Settings -> Secrets and variables -> Actions)
+# matching the Vercel CRON_SECRET env var.
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger snapshot ingest
+        run: |
+          curl -fsS --max-time 180 \
+            "https://oddz-aeriaszs-projects.vercel.app/api/cron/snapshot?key=${{ secrets.CRON_SECRET }}" \
+            -o /dev/null -w "snapshot status: %{http_code}\n"
