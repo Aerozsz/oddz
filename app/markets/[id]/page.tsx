@@ -62,6 +62,14 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
         <div className="flex items-center gap-2 text-sm text-zinc-400">
           <VenueBadge venue={market.venue} name={market.venueName} />
           {market.category && <span>· {market.category}</span>}
+          {market.eventId && (
+            <Link
+              href={`/events/${encodeURIComponent(market.eventId)}`}
+              className="text-emerald-400 hover:text-emerald-300"
+            >
+              · Compare venues →
+            </Link>
+          )}
           {latestYes !== undefined && (
             <span className="ml-auto font-mono text-emerald-300">YES {formatPct(latestYes)}</span>
           )}

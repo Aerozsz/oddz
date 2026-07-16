@@ -28,8 +28,13 @@ export function DivergenceTable({ rows }: { rows: DivergenceRow[] }) {
           {rows.map((r) => (
             <tr key={r.eventId} className="border-t border-zinc-800 hover:bg-zinc-900/40">
               <td className="px-3 py-2">
-                <div className="text-zinc-100">{r.title}</div>
-                {r.category && <div className="text-xs text-zinc-500">{r.category}</div>}
+                <Link
+                  href={`/events/${encodeURIComponent(r.eventId)}`}
+                  className="block text-zinc-100 hover:text-white"
+                >
+                  {r.title}
+                  {r.category && <div className="text-xs text-zinc-500">{r.category}</div>}
+                </Link>
               </td>
               <td className="px-3 py-2">
                 <div className="flex flex-wrap items-center gap-2">

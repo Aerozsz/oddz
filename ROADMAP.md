@@ -43,8 +43,8 @@ Neon Postgres + Drizzle, Tailwind, Recharts. Branch:
 
 ## Phase: events & SEO
 
-- [ ] /events/[id] page: all venue legs, per-leg price, combined overlay chart
-- [ ] Link divergence rows and market detail to their event page
+- [x] /events/[id] page: all venue legs, per-leg price, combined overlay chart
+- [x] Link divergence rows and market detail to their event page
 - [x] app/sitemap.ts (markets + events, top 1000 by volume)
 - [x] app/robots.ts
 - [x] generateMetadata on /markets/[id] (title = question, description = prices)
