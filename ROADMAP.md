@@ -64,7 +64,7 @@ Neon Postgres + Drizzle, Tailwind, Recharts. Branch:
 - [x] /docs API documentation page (endpoints, params, rate limits)
 - [x] scripts/create-api-key.ts — mint keys (prints raw once, stores hash)
 - [ ] Watchlists (needs auth — larger scope, design first)
-- [ ] Dynamic OG images per market (satori/@vercel/og)
+- [x] Dynamic OG images per market (next/og ImageResponse, live YES price)
 
 ## Phase: monetization surfaces (after live data)
 
