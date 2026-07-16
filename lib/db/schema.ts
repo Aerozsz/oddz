@@ -114,6 +114,20 @@ export const apiUsage = pgTable(
   (t) => [primaryKey({ columns: [t.identifier, t.windowStart] })],
 );
 
+export const watchlistItems = pgTable(
+  "watchlist_items",
+  {
+    // Anonymous device id from the `wid` cookie — no accounts in v1
+    // (docs/watchlists-design.md).
+    watcherId: text().notNull(),
+    marketId: text()
+      .notNull()
+      .references(() => markets.id, { onDelete: "cascade" }),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [primaryKey({ columns: [t.watcherId, t.marketId] })],
+);
+
 export const subscribers = pgTable("subscribers", {
   email: text().primaryKey(),
   source: text().notNull().default("landing"),

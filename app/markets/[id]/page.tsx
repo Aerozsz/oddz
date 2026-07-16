@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { PriceHistoryChart, type HistoryPoint } from "@/features/charts/PriceHistoryChart";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { getMarket, getMarketHistory } from "@/features/markets/queries";
+import { StarButton } from "@/features/watchlist/StarButton";
+import { getWatchedIds, getWid } from "@/features/watchlist/queries";
 import { buildReferralUrl } from "@/lib/referrals";
 import type { VenueSlug } from "@/lib/sources";
 import { formatPct } from "@/lib/utils";
@@ -34,6 +36,7 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
     .filter((p) => p.prices.length > 0)
     .map((p) => ({ takenAt: p.takenAt.toISOString(), yes: p.prices[0] }));
 
+  const watchedIds = await getWid().then(getWatchedIds);
   const latestYes = points.at(-1)?.yes;
   const isBinary = market.outcomes.length === 2 && /yes/i.test(market.outcomes[0] ?? "");
   const primaryLabel = isBinary ? "YES" : (market.outcomes[0] ?? "Top outcome");
@@ -51,7 +54,14 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
           ← Back to markets
         </Link>
         <div className="flex items-start justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight">{market.question}</h1>
+          <div className="flex items-start gap-3">
+            <StarButton
+              marketId={market.id}
+              initialWatched={watchedIds.has(market.id)}
+              className="mt-1"
+            />
+            <h1 className="text-2xl font-semibold tracking-tight">{market.question}</h1>
+          </div>
           <a
             href={tradeUrl}
             target="_blank"

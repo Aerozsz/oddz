@@ -9,6 +9,7 @@ import {
   topCategories,
   type MarketSort,
 } from "@/features/markets/queries";
+import { getWatchedIds, getWid } from "@/features/watchlist/queries";
 import type { VenueSlug } from "@/lib/sources";
 import { timeAgo } from "@/lib/utils";
 
@@ -52,10 +53,13 @@ export default async function MarketsPage({
   ]);
   const hasNext = rows.length > PAGE_SIZE;
   const visible = hasNext ? rows.slice(0, PAGE_SIZE) : rows;
-  const sparklines = await getSparklines(
-    visible.map((r) => r.id),
-    24,
-  );
+  const [sparklines, watchedIds] = await Promise.all([
+    getSparklines(
+      visible.map((r) => r.id),
+      24,
+    ),
+    getWid().then(getWatchedIds),
+  ]);
 
   return (
     <div className="flex flex-col gap-4">
@@ -70,7 +74,7 @@ export default async function MarketsPage({
       </div>
       <Filters />
       <CategoryChips categories={categories} active={sp.cat?.toLowerCase()} searchParams={sp} />
-      <MarketTable rows={visible} sparklines={sparklines} />
+      <MarketTable rows={visible} sparklines={sparklines} watchedIds={watchedIds} />
       <PageNav page={page} hasNext={hasNext} searchParams={sp} />
     </div>
   );

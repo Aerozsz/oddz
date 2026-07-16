@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { MarketRow } from "../queries";
+import { StarButton } from "@/features/watchlist/StarButton";
 import { formatUSD, timeAgo } from "@/lib/utils";
 import { PriceCell } from "./PriceCell";
 import { Sparkline } from "./Sparkline";
@@ -8,9 +9,11 @@ import { VenueBadge } from "./VenueBadge";
 export function MarketTable({
   rows,
   sparklines,
+  watchedIds,
 }: {
   rows: MarketRow[];
   sparklines?: Map<string, number[]>;
+  watchedIds?: Set<string>;
 }) {
   if (rows.length === 0) {
     return (
@@ -27,6 +30,7 @@ export function MarketTable({
       <table className="w-full min-w-[720px] border-collapse text-sm">
         <thead className="bg-zinc-900/60 text-xs uppercase tracking-wider text-zinc-400">
           <tr>
+            <th className="w-8 px-2 py-2"></th>
             <th className="px-3 py-2 text-left">Market</th>
             <th className="px-3 py-2 text-left">Venue</th>
             <th className="px-3 py-2 text-right">Price</th>
@@ -39,6 +43,9 @@ export function MarketTable({
         <tbody>
           {rows.map((m) => (
             <tr key={m.id} className="border-t border-zinc-800 hover:bg-zinc-900/40">
+              <td className="px-2 py-2 text-center">
+                <StarButton marketId={m.id} initialWatched={watchedIds?.has(m.id) ?? false} />
+              </td>
               <td className="px-3 py-2">
                 <Link
                   href={`/markets/${encodeURIComponent(m.id)}`}

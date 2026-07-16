@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, lt, or, sql } from "drizzle-orm";
+import { and, desc, eq, ilike, inArray, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { markets, priceSnapshots, venues } from "@/lib/db/schema";
 import type { VenueSlug } from "@/lib/sources";
@@ -26,12 +26,14 @@ export interface ListMarketsParams {
   venue?: VenueSlug;
   category?: string;
   sort?: MarketSort;
+  ids?: string[];
   limit?: number;
   offset?: number;
 }
 
 export async function listMarkets(params: ListMarketsParams = {}): Promise<MarketRow[]> {
-  const { q, venue, category, sort = "volume", limit = 50, offset = 0 } = params;
+  const { q, venue, category, sort = "volume", ids, limit = 50, offset = 0 } = params;
+  if (ids !== undefined && ids.length === 0) return [];
 
   // Subquery: most recent snapshot per market.
   const latest = db
@@ -44,6 +46,7 @@ export async function listMarkets(params: ListMarketsParams = {}): Promise<Marke
     .as("latest");
 
   const filters = [eq(markets.closed, 0)];
+  if (ids) filters.push(inArray(markets.id, ids));
   if (venue) filters.push(eq(markets.venueSlug, venue));
   if (category) filters.push(sql`lower(${markets.category}) = ${category.toLowerCase()}`);
   if (q && q.trim()) {
