@@ -112,6 +112,19 @@ const DEMO_MARKETS: Array<{
   },
 ];
 
+// Multi-outcome market exercised separately (outcomes.length > 2 paths).
+const MULTI_MARKET = {
+  venue: "polymarket" as const,
+  externalId: "0xgopnominee",
+  slug: "gop-nominee-2028",
+  question: "Who will be the 2028 Republican presidential nominee?",
+  category: "Politics",
+  outcomes: ["Vance", "DeSantis", "Haley", "Other"],
+  prices: [0.44, 0.21, 0.12, 0.23],
+  volume: 3_100_000,
+  liquidity: 640_000,
+};
+
 export async function demoSeed() {
   await db
     .insert(venues)
@@ -127,8 +140,8 @@ export async function demoSeed() {
 
   await db
     .insert(markets)
-    .values(
-      DEMO_MARKETS.map((m) => ({
+    .values([
+      ...DEMO_MARKETS.map((m) => ({
         id: `${m.venue}:${m.externalId}`,
         venueSlug: m.venue,
         externalId: m.externalId,
@@ -141,7 +154,32 @@ export async function demoSeed() {
         closed: 0,
         lastSeenAt: new Date(now),
       })),
-    )
+      {
+        id: `${MULTI_MARKET.venue}:${MULTI_MARKET.externalId}`,
+        venueSlug: MULTI_MARKET.venue,
+        externalId: MULTI_MARKET.externalId,
+        slug: MULTI_MARKET.slug,
+        question: MULTI_MARKET.question,
+        category: MULTI_MARKET.category,
+        outcomes: MULTI_MARKET.outcomes,
+        sourceUrl: `https://example.com/${MULTI_MARKET.venue}/${MULTI_MARKET.slug}`,
+        endsAt: new Date(now + 60 * 24 * 60 * 60 * 1000),
+        closed: 0,
+        lastSeenAt: new Date(now),
+      },
+    ])
+    .onConflictDoNothing();
+
+  await db
+    .insert(priceSnapshots)
+    .values({
+      marketId: `${MULTI_MARKET.venue}:${MULTI_MARKET.externalId}`,
+      takenAt: new Date(now),
+      prices: MULTI_MARKET.prices,
+      volume: MULTI_MARKET.volume,
+      liquidity: MULTI_MARKET.liquidity,
+      openInterest: null,
+    })
     .onConflictDoNothing();
 
   // 24 hourly snapshots per market with a mild random walk anchored to

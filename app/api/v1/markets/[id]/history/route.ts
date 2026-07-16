@@ -1,10 +1,19 @@
 import { NextResponse } from "next/server";
 import { getMarket, getMarketHistory } from "@/features/markets/queries";
+import { authenticateApi, rateLimitHeaders } from "@/lib/api-auth";
 
 export const runtime = "nodejs";
 export const revalidate = 30;
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const auth = await authenticateApi(req);
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.status ?? 429, headers: rateLimitHeaders(auth) },
+    );
+  }
+
   const { id } = await params;
   const url = new URL(req.url);
   const hours = Math.min(Math.max(Number(url.searchParams.get("hours") ?? "168"), 1), 24 * 90);
@@ -39,6 +48,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       headers: {
         "cache-control": "public, s-maxage=30, stale-while-revalidate=60",
         "access-control-allow-origin": "*",
+        ...rateLimitHeaders(auth),
       },
     },
   );

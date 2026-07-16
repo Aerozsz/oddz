@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { listMarkets } from "@/features/markets/queries";
+import { authenticateApi, rateLimitHeaders } from "@/lib/api-auth";
 import type { VenueSlug } from "@/lib/sources";
 
 export const runtime = "nodejs";
@@ -12,6 +13,14 @@ function isVenue(s: string | null): s is VenueSlug {
 }
 
 export async function GET(req: Request) {
+  const auth = await authenticateApi(req);
+  if (!auth.ok) {
+    return NextResponse.json(
+      { error: auth.error },
+      { status: auth.status ?? 429, headers: rateLimitHeaders(auth) },
+    );
+  }
+
   const url = new URL(req.url);
   const venueParam = url.searchParams.get("venue");
   const limit = Math.min(Number(url.searchParams.get("limit") ?? "100"), 500);
@@ -31,6 +40,7 @@ export async function GET(req: Request) {
       headers: {
         "cache-control": "public, s-maxage=30, stale-while-revalidate=60",
         "access-control-allow-origin": "*",
+        ...rateLimitHeaders(auth),
       },
     },
   );

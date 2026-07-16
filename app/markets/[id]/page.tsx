@@ -35,6 +35,8 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
     .map((p) => ({ takenAt: p.takenAt.toISOString(), yes: p.prices[0] }));
 
   const latestYes = points.at(-1)?.yes;
+  const isBinary = market.outcomes.length === 2 && /yes/i.test(market.outcomes[0] ?? "");
+  const primaryLabel = isBinary ? "YES" : (market.outcomes[0] ?? "Top outcome");
   const tradeUrl = buildReferralUrl({
     venue: market.venue as VenueSlug,
     slug: market.slug,
@@ -71,12 +73,14 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
             </Link>
           )}
           {latestYes !== undefined && (
-            <span className="ml-auto font-mono text-emerald-300">YES {formatPct(latestYes)}</span>
+            <span className="ml-auto truncate font-mono text-emerald-300" title={primaryLabel}>
+              {primaryLabel} {formatPct(latestYes)}
+            </span>
           )}
         </div>
       </div>
 
-      <PriceHistoryChart data={points} />
+      <PriceHistoryChart data={points} label={primaryLabel} />
 
       {market.description && (
         <div className="rounded border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-zinc-300">

@@ -7,7 +7,7 @@ export interface HistoryPoint {
   yes: number;
 }
 
-export function PriceHistoryChart({ data }: { data: HistoryPoint[] }) {
+export function PriceHistoryChart({ data, label = "YES" }: { data: HistoryPoint[]; label?: string }) {
   if (data.length === 0) {
     return (
       <div className="flex h-64 items-center justify-center rounded border border-zinc-800 bg-zinc-900/40 text-sm text-zinc-500">
@@ -36,7 +36,7 @@ export function PriceHistoryChart({ data }: { data: HistoryPoint[] }) {
           <Tooltip
             contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", fontSize: 12 }}
             labelFormatter={(t: string) => new Date(t).toLocaleString()}
-            formatter={(v: number) => [`${(v * 100).toFixed(1)}%`, "YES"]}
+            formatter={(v: number) => [`${(v * 100).toFixed(1)}%`, label]}
           />
           <Line type="monotone" dataKey="yes" stroke="#34d399" strokeWidth={2} dot={false} />
         </LineChart>

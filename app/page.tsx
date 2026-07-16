@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { sql } from "drizzle-orm";
+import { SubscribeForm } from "@/features/subscribe/SubscribeForm";
 import { db } from "@/lib/db/client";
 import { markets, priceSnapshots } from "@/lib/db/schema";
 
@@ -76,6 +77,67 @@ export default async function HomePage() {
           Every snapshot stored. Odds drift over time, fully queryable. Public JSON API.
         </Card>
       </section>
+
+      <section className="flex flex-col gap-3">
+        <h2 className="text-xl font-semibold tracking-tight">Daily markets-to-watch digest</h2>
+        <p className="max-w-2xl text-sm text-zinc-400">
+          The biggest odds moves and cross-venue divergences, in your inbox before the market
+          reacts. Free while in beta.
+        </p>
+        <SubscribeForm />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="text-xl font-semibold tracking-tight">Pricing</h2>
+        <div className="grid gap-6 sm:grid-cols-3">
+          <PriceCard
+            name="Free"
+            price="$0"
+            features={["Full market aggregation", "Divergence view", "7-day price history", "API: 60 req/hour"]}
+          />
+          <PriceCard
+            name="Trader"
+            price="$29/mo"
+            badge="Coming soon"
+            features={["Everything in Free", "Odds-move alerts", "90-day history", "Watchlists"]}
+          />
+          <PriceCard
+            name="API"
+            price="$99/mo"
+            badge="Coming soon"
+            features={["Everything in Trader", "API: 3,600 req/hour", "Bulk history export", "Priority support"]}
+          />
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function PriceCard({
+  name,
+  price,
+  features,
+  badge,
+}: {
+  name: string;
+  price: string;
+  features: string[];
+  badge?: string;
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded border border-zinc-800 bg-zinc-900/40 p-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-medium text-zinc-200">{name}</h3>
+        {badge && (
+          <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{badge}</span>
+        )}
+      </div>
+      <div className="font-mono text-2xl text-zinc-100">{price}</div>
+      <ul className="flex flex-col gap-1 text-sm text-zinc-400">
+        {features.map((f) => (
+          <li key={f}>· {f}</li>
+        ))}
+      </ul>
     </div>
   );
 }

@@ -16,6 +16,19 @@ export default async function StatusPage() {
   const freshnessByVenueMap = new Map(freshness.map((f) => [f.venue, f.latestSnapshot]));
   const totalMarkets = counts.reduce((acc, c) => acc + c.total, 0);
 
+  // Venues failing in >=3 consecutive recent runs get a visible alert.
+  const failing: string[] = [];
+  const venueSlugs = new Set(runs.flatMap((r) => Object.keys(r.stats)));
+  for (const venue of venueSlugs) {
+    let consecutive = 0;
+    for (const r of runs) {
+      const s = r.stats[venue];
+      if (s?.error) consecutive++;
+      else break;
+    }
+    if (consecutive >= 3) failing.push(venue);
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -24,6 +37,14 @@ export default async function StatusPage() {
           {totalMarkets.toLocaleString()} markets · {snaps.toLocaleString()} snapshots stored
         </p>
       </div>
+
+      {failing.length > 0 && (
+        <div className="rounded border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+          <strong className="font-medium">Ingestion degraded:</strong>{" "}
+          {failing.join(", ")} failing for 3+ consecutive runs. Check the error
+          chips below — most often an upstream API change or rate limit.
+        </div>
+      )}
 
       <section>
         <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">

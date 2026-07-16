@@ -94,6 +94,32 @@ export const snapshotRuns = pgTable("snapshot_runs", {
     .default(sql`'{}'::jsonb`),
 });
 
+export const apiKeys = pgTable("api_keys", {
+  // SHA-256 hex of the raw key; the raw key is shown once at creation.
+  keyHash: text().primaryKey(),
+  name: text().notNull(),
+  tier: text().notNull().default("free"),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  lastUsedAt: timestamp({ withTimezone: true }),
+});
+
+export const apiUsage = pgTable(
+  "api_usage",
+  {
+    // API key hash, or "ip:<addr>" for anonymous callers.
+    identifier: text().notNull(),
+    windowStart: timestamp({ withTimezone: true }).notNull(),
+    count: integer().notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.identifier, t.windowStart] })],
+);
+
+export const subscribers = pgTable("subscribers", {
+  email: text().primaryKey(),
+  source: text().notNull().default("landing"),
+  createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+});
+
 export type Venue = typeof venues.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type Market = typeof markets.$inferSelect;

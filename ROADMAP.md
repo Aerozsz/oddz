@@ -54,16 +54,16 @@ Neon Postgres + Drizzle, Tailwind, Recharts. Branch:
 ## Phase: data quality (needs live prod data first)
 
 - [ ] Inspect real cross-venue matches on prod; tune FUZZY_THRESHOLD and stopwords against actual Polymarket↔Kalshi titles
-- [ ] Multi-outcome market support end-to-end (Polymarket outcomes>2 render, divergence excludes correctly)
-- [ ] Snapshot retention policy: roll up snapshots older than 30d to hourly (cron)
-- [ ] Per-venue error alerting: /status highlights venue failing >3 consecutive runs
+- [x] Multi-outcome market support end-to-end (Polymarket outcomes>2 render, divergence excludes correctly)
+- [x] Snapshot retention policy: roll up snapshots older than 30d to hourly (daily 04:0x UTC prune piggybacked on cron)
+- [x] Per-venue error alerting: /status highlights venue failing >=3 consecutive runs
 
 ## Phase: monetization surfaces (after live data)
 
-- [ ] Gate /api/v1 behind API keys table + `Authorization` header (free tier: 60 req/h)
-- [ ] Landing page pricing section (free / trader $29 / API $99 placeholder)
+- [x] Gate /api/v1 behind API keys table + `Authorization` header (anon 30/h by IP, free 60/h, pro 3600/h; Postgres fixed-window)
+- [x] Landing page pricing section (free / trader $29 / API $99 placeholder)
 - [ ] Referral env vars: sign up for Kalshi affiliate program (USER ACTION), set NEXT_PUBLIC_REF_KALSHI
-- [ ] Email capture on landing (store in `subscribers` table, no provider yet)
+- [x] Email capture on landing (store in `subscribers` table, no provider yet)
 
 ## House rules for autonomous cycles
 
