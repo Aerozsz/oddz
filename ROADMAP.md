@@ -82,6 +82,46 @@ running server, fix, commit:
       next.config headers() or middleware.
 - [ ] drizzle-kit generate must report "no changes" (schema/migration drift check).
 
+## Phase: DefiLlama-grade analytics & alpha (THE BIG BUILD — no compromise)
+
+Base layer (venues → events → markets → outcomes → snapshots) is done.
+This phase is the downstream derived-data + alpha, distilled for every
+audience (casual bettor → weekend gambler → sophisticated trader →
+whale-watcher). Competitors (Oddpool, PredictMarketCap, Converge) already
+ship much of this; we build it all, better UX, then go to market.
+
+Derivable from CURRENT data (do these first):
+- [x] Cross-venue arbitrage scanner (/arbitrage)
+- [x] Overview dashboard: total volume, venue dominance, category rollup (/overview)
+- [x] "What you'd win" payout calculator w/ best-venue payout (market detail)
+- [ ] Consensus / fair-value odds: volume-weighted implied prob across venues,
+      flag markets trading away from consensus (mispricing signal)
+- [ ] Overround / vig per market (sum of outcome prices); multi-outcome
+      buy-all-outcomes arb detection
+- [ ] New markets feed: recently first-seen listings (early positioning)
+- [ ] Unusual activity: volume/liquidity surge vs trailing history
+- [ ] Resolution calendar: markets ending soon, sortable by time-to-resolve
+- [ ] Venue pages /venues/[slug]: per-venue volume, market count, top markets
+- [ ] Category pages /categories/[slug]: DefiLlama chain-page analog
+- [ ] Lead/lag analysis: which venue moves first on matched events (front-run signal)
+- [ ] Market efficiency / liquidity depth score per market
+- [ ] Trending: velocity of volume + price move combined
+- [ ] Casual-bettor mode: dead-simple mobile "should I bet & where" flow
+
+Needs NEW data sources (bigger lifts):
+- [ ] Whale tracking: Polymarket positions are onchain (Polygon) — index large
+      holders/positions per market (the highest-demand competitor feature)
+- [ ] Orderbook depth: venue CLOB endpoints (Polymarket CLOB, Kalshi orderbook)
+      for real slippage-aware arb and liquidity depth
+- [ ] News integration: headlines tied to markets (RSS/news API), sentiment
+- [ ] Real-time: WebSocket feeds from venues instead of 5-min polling
+
+Distribution / product surface:
+- [ ] Alerts: odds-move + arb + new-market via email/Telegram (Trader tier hook)
+- [ ] Daily digest email (subscribers table already captures signups)
+- [ ] Embeddable widgets (odds badge) for blogs/Twitter — distribution flywheel
+- [ ] Public API expansion: arbitrage, consensus, movers endpoints
+
 ## Phase: data quality (needs live prod data first)
 
 - [ ] Inspect real cross-venue matches on prod; tune FUZZY_THRESHOLD and stopwords against actual Polymarket↔Kalshi titles

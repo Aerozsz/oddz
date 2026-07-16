@@ -9,6 +9,7 @@ const LINKS = [
   { href: "/overview", label: "Overview" },
   { href: "/markets", label: "Markets" },
   { href: "/arbitrage", label: "Arbitrage" },
+  { href: "/consensus", label: "Consensus" },
   { href: "/divergence", label: "Divergence" },
   { href: "/movers", label: "Movers" },
   { href: "/watchlist", label: "Watchlist" },
