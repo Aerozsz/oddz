@@ -21,7 +21,13 @@ Neon Postgres + Drizzle, Tailwind, Recharts. Branch:
   prompt, NOT in git) and upload the JSON it emits at
   `/tmp/deploy-files.json`.
 - DB: Neon project (Frankfurt), migration `0000_dashing_silvermane` NOT yet applied to prod
-- [ ] **Deploy to Vercel production** (blocked only on mcp__Vercel tools being connected)
+- [ ] **Deploy to Vercel production** — Vercel MCP IS connected, but
+      deploy_to_vercel returns 403 "You don't have permission to create a
+      project" on team team_SHExwgJuZWO8si3H3Nwf7xho. No `oddz` project
+      exists; the 7 existing projects are the user's other work (do NOT
+      overwrite). UNBLOCK: user creates an empty `oddz` project in Vercel
+      OR grants the connection project-creation rights, then re-run deploy
+      (targets existing project → no create needed). See scripts/DEPLOY.md.
 - [ ] Verify build logs clean, migration applied, venues seeded
 - [ ] Hit `/api/health` on the deployment — expect `ok: true`, then trigger `/api/cron/snapshot?key=<CRON_SECRET>` once and re-check health shows all four venues fresh
 - [ ] Confirm Vercel cron (every 5 min, self-authenticating path in uploaded vercel.json) runs: `/status` shows runs accumulating
