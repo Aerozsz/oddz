@@ -63,7 +63,7 @@ Neon Postgres + Drizzle, Tailwind, Recharts. Branch:
 - [x] /movers page: biggest YES swings over 6h/24h/7d windows, all venues
 - [x] /docs API documentation page (endpoints, params, rate limits)
 - [x] scripts/create-api-key.ts — mint keys (prints raw once, stores hash)
-- [ ] Watchlists (needs auth — larger scope, design first)
+- [ ] Watchlists — design approved in docs/watchlists-design.md (anonymous wid cookie, migration 0002, star toggle + /watchlist page); BUILD NEXT
 - [x] Dynamic OG images per market (next/og ImageResponse, live YES price)
 
 ## Phase: monetization surfaces (after live data)
