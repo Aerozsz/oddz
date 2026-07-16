@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { listMarkets } from "@/features/markets/queries";
 import { authenticateApi, rateLimitHeaders } from "@/lib/api-auth";
 import type { VenueSlug } from "@/lib/sources";
+import { clampInt } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const revalidate = 30;
@@ -23,8 +24,8 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const venueParam = url.searchParams.get("venue");
-  const limit = Math.min(Number(url.searchParams.get("limit") ?? "100"), 500);
-  const offset = Math.max(Number(url.searchParams.get("offset") ?? "0"), 0);
+  const limit = clampInt(url.searchParams.get("limit"), 100, 1, 500);
+  const offset = clampInt(url.searchParams.get("offset"), 0, 0, 1_000_000);
   const q = url.searchParams.get("q") ?? undefined;
 
   const rows = await listMarkets({

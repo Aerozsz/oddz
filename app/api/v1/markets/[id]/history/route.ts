@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getMarket, getMarketHistory } from "@/features/markets/queries";
 import { authenticateApi, rateLimitHeaders } from "@/lib/api-auth";
+import { clampInt } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const revalidate = 30;
@@ -16,7 +17,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params;
   const url = new URL(req.url);
-  const hours = Math.min(Math.max(Number(url.searchParams.get("hours") ?? "168"), 1), 24 * 90);
+  const hours = clampInt(url.searchParams.get("hours"), 168, 1, 24 * 90);
 
   const decoded = decodeURIComponent(id);
   const market = await getMarket(decoded);

@@ -17,6 +17,23 @@ export function formatUSD(n: number | null | undefined): string {
   return `$${n.toFixed(0)}`;
 }
 
+/**
+ * Parse a query-param integer safely: rejects NaN/±Infinity, floors to
+ * an int, and clamps to [min, max]. Prevents negative/NaN values from
+ * reaching Drizzle's .limit()/.offset() (where NaN silently removes the
+ * clause and dumps the whole table) or Date math.
+ */
+export function clampInt(
+  raw: string | null | undefined,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const n = raw == null ? fallback : Number(raw);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(Math.max(Math.trunc(n), min), max);
+}
+
 export function timeAgo(date: Date | string): string {
   const t = typeof date === "string" ? new Date(date) : date;
   const seconds = Math.floor((Date.now() - t.getTime()) / 1000);

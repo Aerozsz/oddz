@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { markets, priceSnapshots, snapshotRuns } from "@/lib/db/schema";
+import { log } from "@/lib/logger";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -73,9 +74,9 @@ export async function GET() {
         : undefined,
     });
   } catch (err) {
-    return NextResponse.json(
-      { ok: false, db: "error", error: String(err), env: envCheck },
-      { status: 503 },
-    );
+    // Log the detail server-side; never echo raw DB errors to the public
+    // health endpoint (Postgres errors can carry host/user/query text).
+    log.error("health check db error", { error: String(err) });
+    return NextResponse.json({ ok: false, db: "error", env: envCheck }, { status: 503 });
   }
 }

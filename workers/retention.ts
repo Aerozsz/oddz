@@ -26,6 +26,17 @@ export async function pruneSnapshots(): Promise<{ deleted: number }> {
       AND dup.rn > 1
   `);
   const deleted = result.rowCount ?? 0;
-  log.info("snapshot retention pruned", { deleted, keepFullDays: KEEP_FULL_DAYS });
+
+  // Rate-limit windows are only meaningful for the current hour; anything
+  // older is dead weight. Prune to keep the table bounded.
+  const usage = await db.execute(sql`
+    DELETE FROM api_usage WHERE window_start < now() - interval '2 hours'
+  `);
+
+  log.info("retention pruned", {
+    snapshotsDeleted: deleted,
+    usageRowsDeleted: usage.rowCount ?? 0,
+    keepFullDays: KEEP_FULL_DAYS,
+  });
   return { deleted };
 }
