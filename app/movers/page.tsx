@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
 export const metadata = {
-  title: "Movers — Oddz",
+  title: "Movers",
   description: "Biggest prediction-market odds moves in the last 24 hours, across all venues.",
 };
 

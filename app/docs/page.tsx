@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import { brand } from "@/lib/brand";
 
 export const metadata: Metadata = {
-  title: "API docs — Oddz",
+  title: "API docs",
   description: "Public JSON API for aggregated prediction-market data.",
 };
+
+const HOST = brand.url.replace(/\/$/, "");
 
 const ENDPOINTS = [
   {
@@ -16,21 +19,21 @@ const ENDPOINTS = [
       ["limit", "max rows, default 100, cap 500"],
       ["offset", "pagination offset"],
     ],
-    example: `curl "https://oddz.example/api/v1/markets?venue=kalshi&limit=5"`,
+    example: `curl "${HOST}/api/v1/markets?venue=kalshi&limit=5"`,
   },
   {
     method: "GET",
     path: "/api/v1/markets/{id}/history",
     desc: "Price snapshots for one market, oldest first. `id` is `<venue>:<externalId>` (URL-encoded).",
     params: [["hours", "lookback window, default 168 (7d), cap 2160 (90d)"]],
-    example: `curl "https://oddz.example/api/v1/markets/kalshi%3APRES28-DJT/history?hours=24"`,
+    example: `curl "${HOST}/api/v1/markets/kalshi%3APRES28-DJT/history?hours=24"`,
   },
   {
     method: "GET",
     path: "/api/health",
     desc: "Operational health: DB connectivity, per-venue freshness, last ingest run.",
     params: [],
-    example: `curl "https://oddz.example/api/health"`,
+    example: `curl "${HOST}/api/health"`,
   },
 ];
 

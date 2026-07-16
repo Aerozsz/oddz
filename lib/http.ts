@@ -1,4 +1,5 @@
 import { z, type ZodType } from "zod";
+import { brand } from "./brand";
 import { log } from "./logger";
 
 export class HttpError extends Error {
@@ -40,7 +41,7 @@ export async function fetchJson<T>(url: string, opts: FetchJsonOptions<T>): Prom
     ...rest,
     headers: {
       accept: "application/json",
-      "user-agent": "oddz/0.1 (+https://github.com/aerozsz/oddz)",
+      "user-agent": `${brand.userAgent} (+https://github.com/${brand.social.github})`,
       ...(body !== undefined ? { "content-type": "application/json" } : {}),
       ...headers,
     },

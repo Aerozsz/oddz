@@ -10,9 +10,9 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const event = await getEvent(decodeURIComponent(id));
-  if (!event) return { title: "Event not found — Oddz" };
+  if (!event) return { title: "Event not found" };
   return {
-    title: `${event.title} — cross-venue odds — Oddz`,
+    title: `${event.title} — cross-venue odds`,
     description: `Compare live odds for "${event.title}" across ${event.legs.length} prediction market venues.`,
   };
 }

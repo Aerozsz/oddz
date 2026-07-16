@@ -6,7 +6,7 @@ import { getWatchedIds, getWid } from "@/features/watchlist/queries";
 export const dynamic = "force-dynamic";
 
 export const metadata = {
-  title: "Watchlist — Oddz",
+  title: "Watchlist",
 };
 
 export default async function WatchlistPage() {

@@ -1,11 +1,12 @@
 import { ImageResponse } from "next/og";
 import { getMarket, getMarketHistory } from "@/features/markets/queries";
+import { brand } from "@/lib/brand";
 import { formatPct } from "@/lib/utils";
 
 export const runtime = "nodejs";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
-export const alt = "Live prediction-market odds on Oddz";
+export const alt = `Live prediction-market odds on ${brand.name}`;
 
 const VENUE_COLORS: Record<string, string> = {
   polymarket: "#60a5fa",
@@ -44,7 +45,7 @@ export default async function OgImage({ params }: { params: Promise<{ id: string
         }}
       >
         <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-          <div style={{ fontSize: 40, fontWeight: 700, letterSpacing: -1 }}>oddz</div>
+          <div style={{ fontSize: 40, fontWeight: 700, letterSpacing: -1 }}>{brand.wordmark}</div>
           {venueName && (
             <div
               style={{

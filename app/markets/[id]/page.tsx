@@ -5,6 +5,7 @@ import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { getMarket, getMarketHistory } from "@/features/markets/queries";
 import { StarButton } from "@/features/watchlist/StarButton";
 import { getWatchedIds, getWid } from "@/features/watchlist/queries";
+import { brand } from "@/lib/brand";
 import { buildReferralUrl } from "@/lib/referrals";
 import type { VenueSlug } from "@/lib/sources";
 import { formatPct } from "@/lib/utils";
@@ -14,13 +15,13 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const market = await getMarket(decodeURIComponent(id));
-  if (!market) return { title: "Market not found — Oddz" };
+  if (!market) return { title: "Market not found" };
   return {
-    title: `${market.question} — Oddz`,
+    title: market.question,
     description: `Live odds for "${market.question}" on ${market.venueName}, with price history and cross-venue comparison.`,
     openGraph: {
       title: market.question,
-      description: `Live prediction-market odds on ${market.venueName}. Track drift and relative value on Oddz.`,
+      description: `Live prediction-market odds on ${market.venueName}. Track drift and relative value on ${brand.name}.`,
       type: "website",
     },
   };
