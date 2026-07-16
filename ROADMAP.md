@@ -58,6 +58,14 @@ Neon Postgres + Drizzle, Tailwind, Recharts. Branch:
 - [x] Snapshot retention policy: roll up snapshots older than 30d to hourly (daily 04:0x UTC prune piggybacked on cron)
 - [x] Per-venue error alerting: /status highlights venue failing >=3 consecutive runs
 
+## Phase: trader features
+
+- [x] /movers page: biggest YES swings over 6h/24h/7d windows, all venues
+- [x] /docs API documentation page (endpoints, params, rate limits)
+- [x] scripts/create-api-key.ts — mint keys (prints raw once, stores hash)
+- [ ] Watchlists (needs auth — larger scope, design first)
+- [ ] Dynamic OG images per market (satori/@vercel/og)
+
 ## Phase: monetization surfaces (after live data)
 
 - [x] Gate /api/v1 behind API keys table + `Authorization` header (anon 30/h by IP, free 60/h, pro 3600/h; Postgres fixed-window)

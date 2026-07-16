@@ -178,6 +178,74 @@ export async function getSparklines(
   return result;
 }
 
+export interface MoverRow {
+  id: string;
+  venue: string;
+  venueName: string;
+  question: string;
+  category: string | null;
+  sourceUrl: string;
+  yesNow: number;
+  yesThen: number;
+  delta: number;
+  volume: number | null;
+}
+
+/**
+ * Biggest YES moves over the lookback window: latest snapshot vs the
+ * earliest snapshot within the window, per market, ranked by |delta|.
+ */
+export async function listMovers(hours = 24, limit = 30): Promise<MoverRow[]> {
+  const rows = await db.execute<{
+    id: string;
+    venue: string;
+    venue_name: string;
+    question: string;
+    category: string | null;
+    source_url: string;
+    yes_now: number;
+    yes_then: number;
+    volume: number | null;
+  }>(sql`
+    WITH windowed AS (
+      SELECT market_id,
+             (prices->>0)::float AS yes,
+             volume,
+             row_number() OVER (PARTITION BY market_id ORDER BY taken_at DESC) AS rn_desc,
+             row_number() OVER (PARTITION BY market_id ORDER BY taken_at ASC) AS rn_asc
+      FROM price_snapshots
+      WHERE taken_at >= now() - make_interval(hours => ${hours})
+    ),
+    now_then AS (
+      SELECT n.market_id, n.yes AS yes_now, n.volume, t.yes AS yes_then
+      FROM windowed n
+      JOIN windowed t ON t.market_id = n.market_id AND t.rn_asc = 1
+      WHERE n.rn_desc = 1 AND n.yes IS NOT NULL AND t.yes IS NOT NULL
+    )
+    SELECT m.id, m.venue_slug AS venue, v.name AS venue_name, m.question,
+           m.category, m.source_url, nt.yes_now, nt.yes_then, nt.volume
+    FROM now_then nt
+    JOIN markets m ON m.id = nt.market_id AND m.closed = 0
+    JOIN venues v ON v.slug = m.venue_slug
+    WHERE abs(nt.yes_now - nt.yes_then) > 0.005
+    ORDER BY abs(nt.yes_now - nt.yes_then) DESC
+    LIMIT ${limit}
+  `);
+
+  return rows.rows.map((r) => ({
+    id: r.id,
+    venue: r.venue,
+    venueName: r.venue_name,
+    question: r.question,
+    category: r.category,
+    sourceUrl: r.source_url,
+    yesNow: r.yes_now,
+    yesThen: r.yes_then,
+    delta: r.yes_now - r.yes_then,
+    volume: r.volume,
+  }));
+}
+
 export async function getDataAge(): Promise<Date | null> {
   const [row] = await db
     .select({ latest: sql<Date>`max(${markets.lastSeenAt})` })
