@@ -6,6 +6,7 @@ import { brand } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 const LINKS = [
+  { href: "/overview", label: "Overview" },
   { href: "/markets", label: "Markets" },
   { href: "/arbitrage", label: "Arbitrage" },
   { href: "/divergence", label: "Divergence" },

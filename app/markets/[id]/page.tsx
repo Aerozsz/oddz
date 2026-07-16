@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { PriceHistoryChart, type HistoryPoint } from "@/features/charts/PriceHistoryChart";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { getMarket, getMarketHistory } from "@/features/markets/queries";
+import { getEvent } from "@/features/events/queries";
+import { PayoutCalculator, type VenueQuote } from "@/features/payout/PayoutCalculator";
 import { StarButton } from "@/features/watchlist/StarButton";
 import { getWatchedIds, getWid } from "@/features/watchlist/queries";
 import { brand } from "@/lib/brand";
@@ -41,6 +43,28 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
   const latestYes = points.at(-1)?.yes;
   const isBinary = market.outcomes.length === 2 && /yes/i.test(market.outcomes[0] ?? "");
   const primaryLabel = isBinary ? "YES" : (market.outcomes[0] ?? "Top outcome");
+
+  // Build cross-venue quotes for the payout calculator. Prefer the event's
+  // legs (all venues for the same question); fall back to this market alone.
+  let quotes: VenueQuote[] = [];
+  if (isBinary) {
+    const event = market.eventId ? await getEvent(market.eventId) : null;
+    if (event) {
+      quotes = event.legs
+        .filter((l) => l.yes !== null)
+        .map((l) => ({
+          venue: l.venue,
+          venueName: l.venueName,
+          yes: l.yes as number,
+          sourceUrl: l.sourceUrl,
+        }));
+    }
+    if (quotes.length === 0 && latestYes !== undefined) {
+      quotes = [
+        { venue: market.venue, venueName: market.venueName, yes: latestYes, sourceUrl: market.sourceUrl },
+      ];
+    }
+  }
   const tradeUrl = buildReferralUrl({
     venue: market.venue as VenueSlug,
     slug: market.slug,
@@ -90,6 +114,13 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
           )}
         </div>
       </div>
+
+      {quotes.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-medium text-zinc-200">What you&apos;d win</h2>
+          <PayoutCalculator quotes={quotes} outcomes={market.outcomes} />
+        </div>
+      )}
 
       <PriceHistoryChart data={points} label={primaryLabel} />
 
