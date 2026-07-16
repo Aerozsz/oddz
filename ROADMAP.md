@@ -51,6 +51,34 @@ Neon Postgres + Drizzle, Tailwind, Recharts. Branch:
 - [x] OpenGraph card metadata (static; dynamic og-image still open)
 - [x] Landing page: live stats strip (market count, venues, snapshot count)
 
+## Phase: pre-launch audit (IN PROGRESS — do this before any marketing)
+
+Security + API-validation pass DONE (commit f3f90e1): fixed limit/offset
+cap-bypass (NaN→no-LIMIT dumped whole table), history hours=NaN 500
+crash, /api/health raw-error leak, api_usage unbounded growth, StarButton
+alert(). Remaining audit scope, each its own cycle — verify against the
+running server, fix, commit:
+
+- [ ] Frontend/UX: load every page at 375px and 1280px (Playwright, chromium
+      at /opt/pw-browsers). Nav bar has 7 links now — check mobile overflow/wrap.
+      Verify each page's empty state (fresh DB) and loading.tsx match. Confirm
+      404 path. Check hydration risk from timeAgo() using Date.now() in server
+      components (may need a client relative-time component or absolute ts).
+- [ ] Accessibility: focus-visible rings, contrast of zinc-500/600 on #09090b,
+      aria on sparkline SVG, keyboard nav of star/filters.
+- [ ] Backend data correctness: adapter price normalization per venue
+      (kalshi cents, polymarket JSON-string parse failure handling), the
+      600-markets/venue silent cap (PAGES_PER_VENUE×PAGE_SIZE) — log when a
+      venue is truncated. listMarkets inner-join drops markets with no
+      snapshot (intended? confirm). Matcher O(n²) fuzzy blowup at real scale.
+- [ ] Verify snapshot worker fails gracefully per-venue on API errors
+      (Promise.allSettled) and still records the run — run workers/run-once.ts.
+- [ ] Rate-limiter: x-forwarded-for leftmost is client-influenced off-Vercel;
+      confirm Vercel sets it trustworthily, else use a platform header.
+- [ ] Add security headers (CSP, X-Content-Type-Options, Referrer-Policy) via
+      next.config headers() or middleware.
+- [ ] drizzle-kit generate must report "no changes" (schema/migration drift check).
+
 ## Phase: data quality (needs live prod data first)
 
 - [ ] Inspect real cross-venue matches on prod; tune FUZZY_THRESHOLD and stopwords against actual Polymarket↔Kalshi titles
