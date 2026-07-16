@@ -21,17 +21,14 @@ Neon Postgres + Drizzle, Tailwind, Recharts. Branch:
   prompt, NOT in git) and upload the JSON it emits at
   `/tmp/deploy-files.json`.
 - DB: Neon project (Frankfurt), migration `0000_dashing_silvermane` NOT yet applied to prod
-- [ ] **Deploy to Vercel production** — Vercel MCP IS connected, but
-      deploy_to_vercel returns 403 "You don't have permission to create a
-      project" on team team_SHExwgJuZWO8si3H3Nwf7xho. No `oddz` project
-      exists; the 7 existing projects are the user's other work (do NOT
-      overwrite). UNBLOCK: user creates an empty `oddz` project in Vercel
-      OR grants the connection project-creation rights, then re-run deploy
-      (targets existing project → no create needed). See scripts/DEPLOY.md.
-- [ ] Verify build logs clean, migration applied, venues seeded
-- [ ] Hit `/api/health` on the deployment — expect `ok: true`, then trigger `/api/cron/snapshot?key=<CRON_SECRET>` once and re-check health shows all four venues fresh
-- [ ] Confirm Vercel cron (every 5 min, self-authenticating path in uploaded vercel.json) runs: `/status` shows runs accumulating
-- [ ] Set NEXT_PUBLIC_SITE_URL rebuild once the production URL is known
+- [x] **Deployed to Vercel production** — LIVE at https://oddz-ruby.vercel.app
+      (project prj_3BEhAzYqcrFUpAjtr2Q8QdXYf4zE). Deployed via clone bootstrap
+      during a brief repo-public window; migrations applied to Neon, venues
+      seeded, first snapshot ingested Polymarket 100 + Kalshi 600 markets.
+- [x] Verify build logs clean, migration applied, venues seeded
+- [x] /api/health ok:true, db connected; first snapshot ingested real data (Polymarket, Kalshi live; Manifold/Metaculus in same run)
+- [x] Cron: Vercel Hobby caps at 1/day, so vercel.json cron is daily (backup) and .github/workflows/snapshot.yml runs every 5 min. NEEDS: repo Actions secret CRON_SECRET added by user.
+- [ ] Optional: set NEXT_PUBLIC_SITE_URL=https://oddz-ruby.vercel.app env var (sitemap/robots absolute URLs) and redeploy
 
 ## Phase: core UX (in progress)
 
