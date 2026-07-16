@@ -98,7 +98,7 @@ Derivable from CURRENT data (do these first):
 - [x] Overround / vig per market (sum of outcome prices); multi-outcome
       buy-all-outcomes arb detection
 - [x] New markets feed: recently first-seen listings (/new)
-- [ ] Unusual activity: volume/liquidity surge vs trailing history
+- [x] Unusual activity: 24h volume surge ranking (/activity)
 - [x] Resolution calendar: markets ending soon (/resolving)
 - [x] Venue pages /venues/[slug]: per-venue volume, market count, share, top markets
 - [x] Category pages /categories/[slug]: volume, market count, top markets

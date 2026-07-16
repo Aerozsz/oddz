@@ -15,6 +15,7 @@ const LINKS = [
   { href: "/overround", label: "Overround" },
   { href: "/divergence", label: "Divergence" },
   { href: "/movers", label: "Movers" },
+  { href: "/activity", label: "Activity" },
   { href: "/watchlist", label: "Watchlist" },
   { href: "/status", label: "Status" },
   { href: "/docs", label: "API" },

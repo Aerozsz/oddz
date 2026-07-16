@@ -306,6 +306,76 @@ async function marketRowsWith(
     .limit(limit);
 }
 
+export interface ActivityRow {
+  id: string;
+  venue: string;
+  venueName: string;
+  question: string;
+  category: string | null;
+  sourceUrl: string;
+  volumeThen: number;
+  volumeNow: number;
+  delta: number;
+  ratio: number; // now / then
+}
+
+/**
+ * Unusual activity: markets whose volume jumped most over the window
+ * (latest snapshot volume vs the earliest within the window). A surge in
+ * volume is the earliest tell that news is moving a market.
+ */
+export async function listUnusualActivity(hours = 24, limit = 40): Promise<ActivityRow[]> {
+  const rows = await db.execute<{
+    id: string;
+    venue: string;
+    venue_name: string;
+    question: string;
+    category: string | null;
+    source_url: string;
+    vol_now: number;
+    vol_then: number;
+  }>(sql`
+    WITH windowed AS (
+      SELECT market_id, volume,
+             row_number() OVER (PARTITION BY market_id ORDER BY taken_at DESC) AS rn_desc,
+             row_number() OVER (PARTITION BY market_id ORDER BY taken_at ASC) AS rn_asc
+      FROM price_snapshots
+      WHERE taken_at >= now() - make_interval(hours => ${hours}) AND volume IS NOT NULL
+    ),
+    nt AS (
+      SELECT n.market_id, n.volume AS vol_now, t.volume AS vol_then
+      FROM windowed n
+      JOIN windowed t ON t.market_id = n.market_id AND t.rn_asc = 1
+      WHERE n.rn_desc = 1
+    )
+    SELECT m.id, m.venue_slug AS venue, v.name AS venue_name, m.question,
+           m.category, m.source_url, nt.vol_now, nt.vol_then
+    FROM nt
+    JOIN markets m ON m.id = nt.market_id AND m.closed = 0
+    JOIN venues v ON v.slug = m.venue_slug
+    WHERE nt.vol_now > nt.vol_then AND nt.vol_then >= 0
+    ORDER BY (nt.vol_now - nt.vol_then) DESC
+    LIMIT ${limit}
+  `);
+
+  return rows.rows.map((r) => {
+    const volumeNow = Number(r.vol_now) || 0;
+    const volumeThen = Number(r.vol_then) || 0;
+    return {
+      id: r.id,
+      venue: r.venue,
+      venueName: r.venue_name,
+      question: r.question,
+      category: r.category,
+      sourceUrl: r.source_url,
+      volumeThen,
+      volumeNow,
+      delta: volumeNow - volumeThen,
+      ratio: volumeThen > 0 ? volumeNow / volumeThen : Infinity,
+    };
+  });
+}
+
 export async function getDataAge(): Promise<Date | null> {
   const [row] = await db
     .select({ latest: sql<Date>`max(${markets.lastSeenAt})` })
