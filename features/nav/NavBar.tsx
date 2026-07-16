@@ -8,6 +8,8 @@ import { cn } from "@/lib/utils";
 const LINKS = [
   { href: "/overview", label: "Overview" },
   { href: "/markets", label: "Markets" },
+  { href: "/new", label: "New" },
+  { href: "/resolving", label: "Resolving" },
   { href: "/arbitrage", label: "Arbitrage" },
   { href: "/consensus", label: "Consensus" },
   { href: "/divergence", label: "Divergence" },

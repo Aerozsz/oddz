@@ -94,13 +94,12 @@ Derivable from CURRENT data (do these first):
 - [x] Cross-venue arbitrage scanner (/arbitrage)
 - [x] Overview dashboard: total volume, venue dominance, category rollup (/overview)
 - [x] "What you'd win" payout calculator w/ best-venue payout (market detail)
-- [ ] Consensus / fair-value odds: volume-weighted implied prob across venues,
-      flag markets trading away from consensus (mispricing signal)
+- [x] Consensus / fair-value odds: volume-weighted, flags mispriced venue (/consensus)
 - [ ] Overround / vig per market (sum of outcome prices); multi-outcome
       buy-all-outcomes arb detection
-- [ ] New markets feed: recently first-seen listings (early positioning)
+- [x] New markets feed: recently first-seen listings (/new)
 - [ ] Unusual activity: volume/liquidity surge vs trailing history
-- [ ] Resolution calendar: markets ending soon, sortable by time-to-resolve
+- [x] Resolution calendar: markets ending soon (/resolving)
 - [ ] Venue pages /venues/[slug]: per-venue volume, market count, top markets
 - [ ] Category pages /categories/[slug]: DefiLlama chain-page analog
 - [ ] Lead/lag analysis: which venue moves first on matched events (front-run signal)

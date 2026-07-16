@@ -1,4 +1,4 @@
-import { and, desc, eq, ilike, inArray, lt, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, gt, ilike, inArray, isNotNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { markets, priceSnapshots, venues } from "@/lib/db/schema";
 import type { VenueSlug } from "@/lib/sources";
@@ -247,6 +247,63 @@ export async function listMovers(hours = 24, limit = 30): Promise<MoverRow[]> {
     delta: r.yes_now - r.yes_then,
     volume: r.volume,
   }));
+}
+
+/** Markets resolving soonest (open, future end date), with latest price. */
+export async function listResolvingSoon(limit = 60): Promise<MarketRow[]> {
+  return marketRowsWith(
+    and(eq(markets.closed, 0), isNotNull(markets.endsAt), gt(markets.endsAt, new Date())),
+    [asc(markets.endsAt)],
+    limit,
+  );
+}
+
+/** Most recently first-listed markets (early positioning). */
+export async function listNewMarkets(limit = 60): Promise<MarketRow[]> {
+  return marketRowsWith(eq(markets.closed, 0), [desc(markets.createdAt)], limit);
+}
+
+/** Shared builder: markets + latest snapshot, custom where/order. */
+async function marketRowsWith(
+  where: ReturnType<typeof and> | ReturnType<typeof eq>,
+  orderBy: Array<ReturnType<typeof asc>>,
+  limit: number,
+): Promise<MarketRow[]> {
+  const latest = db
+    .select({
+      marketId: priceSnapshots.marketId,
+      takenAt: sql<Date>`max(${priceSnapshots.takenAt})`.as("max_taken_at"),
+    })
+    .from(priceSnapshots)
+    .groupBy(priceSnapshots.marketId)
+    .as("latest");
+
+  return db
+    .select({
+      id: markets.id,
+      venue: markets.venueSlug,
+      venueName: venues.name,
+      slug: markets.slug,
+      question: markets.question,
+      category: markets.category,
+      outcomes: markets.outcomes,
+      prices: priceSnapshots.prices,
+      volume: priceSnapshots.volume,
+      liquidity: priceSnapshots.liquidity,
+      endsAt: markets.endsAt,
+      sourceUrl: markets.sourceUrl,
+      lastSeenAt: markets.lastSeenAt,
+    })
+    .from(markets)
+    .innerJoin(venues, eq(venues.slug, markets.venueSlug))
+    .innerJoin(latest, eq(latest.marketId, markets.id))
+    .innerJoin(
+      priceSnapshots,
+      and(eq(priceSnapshots.marketId, latest.marketId), eq(priceSnapshots.takenAt, latest.takenAt)),
+    )
+    .where(where)
+    .orderBy(...orderBy)
+    .limit(limit);
 }
 
 export async function getDataAge(): Promise<Date | null> {
