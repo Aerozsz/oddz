@@ -30,6 +30,36 @@ const ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/v1/arbitrage",
+    desc: "Live cross-venue lock-in arbitrage opportunities, best edge first.",
+    params: [
+      ["minEdge", "minimum gross edge, default 0.005 (0.5%)"],
+      ["limit", "max rows, default 50, cap 200"],
+    ],
+    example: `curl "${HOST}/api/v1/arbitrage?minEdge=0.01"`,
+  },
+  {
+    method: "GET",
+    path: "/api/v1/consensus",
+    desc: "Volume-weighted fair-value odds per event and each venue's gap vs consensus.",
+    params: [
+      ["minEdge", "minimum max leg gap, default 0.02 (2pp)"],
+      ["limit", "max rows, default 50, cap 200"],
+    ],
+    example: `curl "${HOST}/api/v1/consensus"`,
+  },
+  {
+    method: "GET",
+    path: "/api/v1/movers",
+    desc: "Biggest YES-price swings over a window, all venues.",
+    params: [
+      ["hours", "lookback window, default 24, cap 720"],
+      ["limit", "max rows, default 30, cap 200"],
+    ],
+    example: `curl "${HOST}/api/v1/movers?hours=6"`,
+  },
+  {
+    method: "GET",
     path: "/api/health",
     desc: "Operational health: DB connectivity, per-venue freshness, last ingest run.",
     params: [],
