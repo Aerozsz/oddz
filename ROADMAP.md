@@ -122,6 +122,17 @@ Distribution / product surface:
 - [x] Embeddable SVG odds badge /api/badge/[id] (distribution flywheel)
 - [x] Public API expansion: /api/v1/arbitrage, /consensus, /movers (auth + rate-limited, in docs)
 
+
+## Lessons / robustness follow-ups (from the URL-404 incident)
+- sourceUrl is STORED per snapshot, so any adapter-output fix needs a fresh
+  snapshot to propagate (not just a redeploy). Consider computing outbound
+  URLs at render time from stored slug/externalId so formula fixes go live
+  on deploy alone.
+- Polymarket URL fix (events[0].slug) CONFIRMED working on prod.
+- Kalshi/Manifold/Metaculus outbound URLs NOT yet user-verified on prod —
+  Manifold/Metaculus use venue-provided url (should be fine), Kalshi uses a
+  derived series/event path (unverified). Click-test each once.
+
 ## Phase: data quality (needs live prod data first)
 
 - [ ] Inspect real cross-venue matches on prod; tune FUZZY_THRESHOLD and stopwords against actual Polymarket↔Kalshi titles
