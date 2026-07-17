@@ -104,7 +104,7 @@ Derivable from CURRENT data (do these first):
 - [x] Category pages /categories/[slug]: volume, market count, top markets
 - [ ] Lead/lag analysis: which venue moves first on matched events (front-run signal)
 - [ ] Market efficiency / liquidity depth score per market
-- [ ] Trending: velocity of volume + price move combined
+- [x] Trending: price-move × log(volume) score (/trending)
 - [ ] Casual-bettor mode: dead-simple mobile "should I bet & where" flow
 
 Needs NEW data sources (bigger lifts):
