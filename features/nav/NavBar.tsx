@@ -13,6 +13,7 @@ const LINKS = [
   { href: "/resolving", label: "Resolving" },
   { href: "/arbitrage", label: "Arbitrage" },
   { href: "/consensus", label: "Consensus" },
+  { href: "/leadlag", label: "Lead/lag" },
   { href: "/overround", label: "Overround" },
   { href: "/divergence", label: "Divergence" },
   { href: "/movers", label: "Movers" },

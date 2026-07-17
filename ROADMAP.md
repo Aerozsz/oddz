@@ -103,7 +103,7 @@ Derivable from CURRENT data (do these first):
 - [x] Resolution calendar: markets ending soon (/resolving)
 - [x] Venue pages /venues/[slug]: per-venue volume, market count, share, top markets
 - [x] Category pages /categories/[slug]: volume, market count, top markets
-- [ ] Lead/lag analysis: which venue moves first on matched events (front-run signal)
+- [x] Lead/lag analysis: cross-correlation of price changes, leader→follower + lag (/leadlag)
 - [ ] Market efficiency / liquidity depth score per market
 - [x] Trending: price-move × log(volume) score (/trending)
 - [ ] Casual-bettor mode: dead-simple mobile "should I bet & where" flow
