@@ -49,7 +49,7 @@ export default async function CategoryPage({ params }: { params: Promise<{ slug:
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-zinc-800 bg-zinc-900/40 p-3">
+    <div className="rounded-lg border border-border bg-surface p-3">
       <div className="text-xs text-zinc-500">{label}</div>
       <div className="mt-1 font-mono text-xl text-zinc-100">{value}</div>
     </div>

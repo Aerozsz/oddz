@@ -17,7 +17,7 @@ export function MarketTable({
 }) {
   if (rows.length === 0) {
     return (
-      <div className="rounded border border-zinc-800 bg-zinc-900/40 p-8 text-center text-sm text-zinc-400">
+      <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-zinc-400">
         No markets yet. Run the snapshot worker (
         <code className="rounded bg-zinc-800 px-1 py-0.5 text-xs">npm run snapshot:once</code>) to
         ingest live data.
@@ -26,9 +26,9 @@ export function MarketTable({
   }
 
   return (
-    <div className="overflow-x-auto rounded border border-zinc-800">
+    <div className="overflow-x-auto rounded-lg border border-border">
       <table className="w-full min-w-[720px] border-collapse text-sm">
-        <thead className="bg-zinc-900/60 text-xs uppercase tracking-wider text-zinc-400">
+        <thead className="bg-zinc-900/60 font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-400">
           <tr>
             <th className="w-8 px-2 py-2"></th>
             <th className="px-3 py-2 text-left">Market</th>
@@ -42,7 +42,7 @@ export function MarketTable({
         </thead>
         <tbody>
           {rows.map((m) => (
-            <tr key={m.id} className="border-t border-zinc-800 hover:bg-zinc-900/40">
+            <tr key={m.id} className="border-t border-border-subtle hover:bg-[rgb(var(--c-surface-hover))]">
               <td className="px-2 py-2 text-center">
                 <StarButton marketId={m.id} initialWatched={watchedIds?.has(m.id) ?? false} />
               </td>

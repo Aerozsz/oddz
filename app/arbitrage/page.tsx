@@ -27,7 +27,7 @@ export default async function ArbitragePage() {
       </div>
 
       {arbs.length === 0 ? (
-        <div className="rounded border border-zinc-800 bg-zinc-900/40 p-8 text-center text-sm text-zinc-400">
+        <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-zinc-400">
           No live arbitrage right now — venues are priced in line. This tightens up fast when news
           hits; check back, or watch the divergence view for gaps opening.
         </div>
@@ -36,7 +36,7 @@ export default async function ArbitragePage() {
           {arbs.map((a) => (
             <div
               key={a.eventId}
-              className="flex flex-col gap-3 rounded border border-zinc-800 bg-zinc-900/40 p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0 flex-1">
                 <Link

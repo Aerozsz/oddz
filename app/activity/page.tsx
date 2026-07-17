@@ -25,13 +25,13 @@ export default async function ActivityPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded border border-zinc-800 bg-zinc-900/40 p-8 text-center text-sm text-zinc-400">
+        <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-zinc-400">
           No volume surges in the last 24 hours — needs at least two snapshots per market.
         </div>
       ) : (
-        <div className="overflow-x-auto rounded border border-zinc-800">
+        <div className="overflow-x-auto rounded-lg border border-border">
           <table className="w-full min-w-[560px] border-collapse text-sm">
-            <thead className="bg-zinc-900/60 text-xs uppercase tracking-wider text-zinc-400">
+            <thead className="bg-zinc-900/60 font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-400">
               <tr>
                 <th className="px-3 py-2 text-left">Market</th>
                 <th className="px-3 py-2 text-left">Venue</th>
@@ -42,7 +42,7 @@ export default async function ActivityPage() {
             </thead>
             <tbody>
               {rows.map((r) => (
-                <tr key={r.id} className="border-t border-zinc-800 hover:bg-zinc-900/40">
+                <tr key={r.id} className="border-t border-border-subtle hover:bg-[rgb(var(--c-surface-hover))]">
                   <td className="px-3 py-2">
                     <Link
                       href={`/markets/${encodeURIComponent(r.id)}`}

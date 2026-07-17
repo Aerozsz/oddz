@@ -89,7 +89,7 @@ export default function DocsPage() {
       </div>
 
       {ENDPOINTS.map((e) => (
-        <section key={e.path} className="flex flex-col gap-3 rounded border border-zinc-800 bg-zinc-900/40 p-4">
+        <section key={e.path} className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
           <div className="flex items-center gap-2">
             <span className="rounded bg-emerald-500/15 px-2 py-0.5 font-mono text-xs text-emerald-300">
               {e.method}
@@ -101,7 +101,7 @@ export default function DocsPage() {
             <table className="w-full max-w-lg text-sm">
               <tbody>
                 {e.params.map(([name, desc]) => (
-                  <tr key={name} className="border-t border-zinc-800/60">
+                  <tr key={name} className="border-t border-border-subtle/60">
                     <td className="py-1 pr-4 font-mono text-xs text-zinc-300">{name}</td>
                     <td className="py-1 text-xs text-zinc-500">{desc}</td>
                   </tr>

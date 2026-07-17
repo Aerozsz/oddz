@@ -103,7 +103,7 @@ export default async function HomePage() {
         </section>
       )}
 
-      <section className="flex flex-col gap-3 rounded border border-zinc-800 bg-zinc-900/40 p-4">
+      <section className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4">
         <h2 className="text-lg font-semibold tracking-tight">Markets-to-watch digest</h2>
         <p className="max-w-2xl text-sm text-zinc-400">
           The biggest moves, arbs, and new markets in your inbox before the crowd reacts. Free in
@@ -123,7 +123,7 @@ function Stat({ label, value, href }: { label: string; value: string; href: stri
   return (
     <Link
       href={href as never}
-      className="rounded border border-zinc-800 bg-zinc-900/40 p-3 transition-colors hover:border-zinc-600"
+      className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-zinc-600"
     >
       <div className="text-xs text-zinc-500">{label}</div>
       <div className="mt-1 font-mono text-xl text-zinc-100">{value}</div>
@@ -150,14 +150,14 @@ function Panel({
           {cta}
         </Link>
       </div>
-      <div className="rounded border border-zinc-800 bg-zinc-900/40 px-4 py-1">{children}</div>
+      <div className="rounded-lg border border-border bg-surface px-4 py-1">{children}</div>
     </section>
   );
 }
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded border border-zinc-800 bg-zinc-900/40 p-4">
+    <div className="rounded-lg border border-border bg-surface p-4">
       <h3 className="mb-2 text-sm font-medium text-zinc-200">{title}</h3>
       <p className="text-sm text-zinc-400">{children}</p>
     </div>

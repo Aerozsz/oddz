@@ -47,12 +47,12 @@ export default async function StatusPage() {
       )}
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+        <h2 className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">
           Per-venue freshness
         </h2>
-        <div className="overflow-hidden rounded border border-zinc-800">
+        <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full border-collapse text-sm">
-            <thead className="bg-zinc-900/60 text-xs uppercase tracking-wider text-zinc-400">
+            <thead className="bg-zinc-900/60 font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-400">
               <tr>
                 <th className="px-3 py-2 text-left">Venue</th>
                 <th className="px-3 py-2 text-right">Markets</th>
@@ -63,7 +63,7 @@ export default async function StatusPage() {
             </thead>
             <tbody>
               {counts.map((c) => (
-                <tr key={c.venue} className="border-t border-zinc-800">
+                <tr key={c.venue} className="border-t border-border-subtle">
                   <td className="px-3 py-2">
                     <VenueBadge venue={c.venue} />
                   </td>
@@ -86,12 +86,12 @@ export default async function StatusPage() {
       </section>
 
       <section>
-        <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+        <h2 className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">
           Last 10 snapshot runs
         </h2>
-        <div className="overflow-hidden rounded border border-zinc-800">
+        <div className="overflow-hidden rounded-lg border border-border">
           <table className="w-full border-collapse text-sm">
-            <thead className="bg-zinc-900/60 text-xs uppercase tracking-wider text-zinc-400">
+            <thead className="bg-zinc-900/60 font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-400">
               <tr>
                 <th className="px-3 py-2 text-left">Run</th>
                 <th className="px-3 py-2 text-left">Started</th>
@@ -112,7 +112,7 @@ export default async function StatusPage() {
                 </tr>
               ) : (
                 runs.map((r) => (
-                  <tr key={r.id} className="border-t border-zinc-800 align-top">
+                  <tr key={r.id} className="border-t border-border-subtle align-top">
                     <td className="px-3 py-2 font-mono text-xs text-zinc-400">#{r.id}</td>
                     <td className="px-3 py-2 text-xs text-zinc-500">{timeAgo(r.startedAt)}</td>
                     <td className="px-3 py-2">

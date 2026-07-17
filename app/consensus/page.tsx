@@ -27,14 +27,14 @@ export default async function ConsensusPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded border border-zinc-800 bg-zinc-900/40 p-8 text-center text-sm text-zinc-400">
+        <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-zinc-400">
           No meaningful gaps right now — venues agree with the consensus. Gaps open when news breaks
           or one venue&apos;s liquidity is thin.
         </div>
       ) : (
         <div className="flex flex-col gap-3">
           {rows.map((r) => (
-            <div key={r.eventId} className="rounded border border-zinc-800 bg-zinc-900/40 p-4">
+            <div key={r.eventId} className="rounded-lg border border-border bg-surface p-4">
               <div className="flex items-start justify-between gap-4">
                 <Link
                   href={`/events/${encodeURIComponent(r.eventId)}`}
@@ -58,7 +58,7 @@ export default async function ConsensusPage() {
                       href={l.sourceUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 rounded border border-zinc-800 px-2 py-1 hover:border-zinc-600"
+                      className="inline-flex items-center gap-2 rounded-lg border border-border px-2 py-1 hover:border-zinc-600"
                     >
                       <VenueBadge venue={l.venue} />
                       <span className="font-mono text-zinc-300">{formatPct(l.yes)}</span>

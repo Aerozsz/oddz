@@ -125,8 +125,8 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
       <PriceHistoryChart data={points} label={primaryLabel} />
 
       {market.description && (
-        <div className="rounded border border-zinc-800 bg-zinc-900/40 p-4 text-sm text-zinc-300">
-          <h2 className="mb-2 text-xs font-medium uppercase tracking-wider text-zinc-500">
+        <div className="rounded-lg border border-border bg-surface p-4 text-sm text-zinc-300">
+          <h2 className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">
             Description
           </h2>
           <p className="whitespace-pre-wrap">{market.description}</p>

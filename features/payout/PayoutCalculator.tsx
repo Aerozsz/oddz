@@ -43,7 +43,7 @@ export function PayoutCalculator({
   const best = priced[0];
 
   return (
-    <div className="flex flex-col gap-4 rounded border border-zinc-800 bg-zinc-900/40 p-4">
+    <div className="flex flex-col gap-4 rounded-lg border border-border bg-surface p-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="inline-flex overflow-hidden rounded border border-zinc-700">
           <button
@@ -81,7 +81,7 @@ export function PayoutCalculator({
             <button
               key={v}
               onClick={() => setStake(v)}
-              className="rounded border border-zinc-800 px-2 py-1 text-xs text-zinc-400 hover:border-zinc-600"
+              className="rounded-lg border border-border px-2 py-1 text-xs text-zinc-400 hover:border-zinc-600"
             >
               ${v}
             </button>
@@ -109,7 +109,7 @@ export function PayoutCalculator({
           {priced.length > 1 && (
             <div className="overflow-x-auto">
               <table className="w-full min-w-[380px] border-collapse text-sm">
-                <thead className="text-xs uppercase tracking-wider text-zinc-500">
+                <thead className="font-mono text-[10px] uppercase tracking-[0.12em] text-zinc-500">
                   <tr>
                     <th className="py-1 text-left">Venue</th>
                     <th className="py-1 text-right">Price</th>
@@ -119,7 +119,7 @@ export function PayoutCalculator({
                 </thead>
                 <tbody>
                   {priced.map((q) => (
-                    <tr key={q.venue} className="border-t border-zinc-800/70">
+                    <tr key={q.venue} className="border-t border-border-subtle/70">
                       <td className="py-1.5">
                         <a
                           href={q.sourceUrl}

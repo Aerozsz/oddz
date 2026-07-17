@@ -10,14 +10,14 @@ export interface HistoryPoint {
 export function PriceHistoryChart({ data, label = "YES" }: { data: HistoryPoint[]; label?: string }) {
   if (data.length === 0) {
     return (
-      <div className="flex h-64 items-center justify-center rounded border border-zinc-800 bg-zinc-900/40 text-sm text-zinc-500">
+      <div className="flex h-64 items-center justify-center rounded-lg border border-border bg-surface text-sm text-zinc-500">
         No history yet — needs at least two snapshots.
       </div>
     );
   }
 
   return (
-    <div className="h-64 w-full rounded border border-zinc-800 bg-zinc-900/40 p-4">
+    <div className="h-64 w-full rounded-lg border border-border bg-surface p-4">
       <ResponsiveContainer width="100%" height="100%">
         <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <XAxis

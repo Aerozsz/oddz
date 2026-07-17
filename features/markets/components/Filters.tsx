@@ -41,7 +41,7 @@ export function Filters() {
   }
 
   const selectCls =
-    "rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none";
+    "rounded-lg border border-border bg-zinc-900 px-3 py-2 text-sm text-zinc-100 focus:border-zinc-600 focus:outline-none";
 
   return (
     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -51,7 +51,7 @@ export function Filters() {
         onKeyDown={(e) => e.key === "Enter" && update({ q })}
         onBlur={() => update({ q })}
         placeholder="Search markets..."
-        className="flex-1 rounded border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-600 focus:outline-none"
+        className="flex-1 rounded-lg border border-border bg-zinc-900 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-500 focus:border-zinc-600 focus:outline-none"
       />
       <select value={venue} onChange={(e) => update({ venue: e.target.value })} className={selectCls}>
         {VENUES.map((v) => (

@@ -30,7 +30,7 @@ export default async function WatchlistPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="flex flex-col items-center gap-3 rounded border border-zinc-800 bg-zinc-900/40 p-12 text-center">
+        <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-12 text-center">
           <span className="text-3xl">☆</span>
           <p className="max-w-sm text-sm text-zinc-400">
             Star any market to track it here — current price, trend, and volume for everything you
