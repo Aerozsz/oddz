@@ -7,13 +7,18 @@ import { allSources, type MarketSource, type NormalizedMarket } from "../lib/sou
 
 export interface SnapshotResult {
   runId: number;
-  perVenue: Record<string, { fetched: number; written: number; error?: string }>;
+  perVenue: Record<string, { fetched: number; written: number; truncated?: boolean; error?: string }>;
   reconciled: { matched: number; fuzzyMatched: number; created: number };
   durationMs: number;
 }
 
-const PAGES_PER_VENUE = 3;
+// Deep enough to cover the bulk of each venue's live book. `truncated` is
+// logged when a venue still has more pages at the cap, so silent coverage
+// gaps surface instead of hiding. Overridable via env for prod tuning.
+const PAGES_PER_VENUE = Number(process.env.SNAPSHOT_PAGES_PER_VENUE) || 15;
 const PAGE_SIZE = 200;
+// Soft wall-clock budget so we never blow past the serverless maxDuration.
+const TIME_BUDGET_MS = Number(process.env.SNAPSHOT_TIME_BUDGET_MS) || 240_000;
 
 export async function runSnapshot(): Promise<SnapshotResult> {
   const start = Date.now();
@@ -22,7 +27,8 @@ export async function runSnapshot(): Promise<SnapshotResult> {
     .values({ status: "running" })
     .returning({ id: snapshotRuns.id });
 
-  const results = await Promise.allSettled(allSources.map((s) => fetchVenue(s)));
+  const deadline = start + TIME_BUDGET_MS;
+  const results = await Promise.allSettled(allSources.map((s) => fetchVenue(s, deadline)));
 
   const perVenue: SnapshotResult["perVenue"] = {};
   for (let i = 0; i < allSources.length; i++) {
@@ -47,11 +53,15 @@ export async function runSnapshot(): Promise<SnapshotResult> {
   return { runId, perVenue, reconciled, durationMs };
 }
 
-async function fetchVenue(source: MarketSource): Promise<{ fetched: number; written: number }> {
+async function fetchVenue(
+  source: MarketSource,
+  deadline: number,
+): Promise<{ fetched: number; written: number; truncated?: boolean }> {
   const venueLog = log.child({ venue: source.venue });
   let cursor: string | undefined;
   let fetched = 0;
   let written = 0;
+  let truncated = false;
 
   for (let page = 0; page < PAGES_PER_VENUE; page++) {
     const { markets: rows, nextCursor } = await source.fetchPage({ limit: PAGE_SIZE, cursor });
@@ -59,10 +69,17 @@ async function fetchVenue(source: MarketSource): Promise<{ fetched: number; writ
     if (rows.length > 0) written += await persist(rows);
     if (!nextCursor) break;
     cursor = nextCursor;
+    // More pages exist but we've hit the page cap or the time budget:
+    // record it so the coverage gap is visible, never silent.
+    if (page === PAGES_PER_VENUE - 1 || Date.now() > deadline) {
+      truncated = true;
+      venueLog.warn("venue coverage truncated", { fetched, page: page + 1, timeout: Date.now() > deadline });
+      break;
+    }
   }
 
-  venueLog.info("venue fetched", { fetched, written });
-  return { fetched, written };
+  venueLog.info("venue fetched", { fetched, written, truncated });
+  return { fetched, written, ...(truncated ? { truncated } : {}) };
 }
 
 async function persist(batch: NormalizedMarket[]): Promise<number> {

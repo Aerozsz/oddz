@@ -128,9 +128,10 @@ export default async function StatusPage() {
                                 ? "rounded border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-red-300"
                                 : "rounded border border-zinc-700 bg-zinc-900 px-2 py-0.5 text-zinc-300"
                             }
-                            title={s.error ?? ""}
+                            title={s.error ?? (s.truncated ? "coverage truncated — more markets available" : "")}
                           >
                             {venue}: {s.fetched}/{s.written}
+                            {s.truncated && <span className="text-amber-300"> ⚠</span>}
                           </span>
                         ))}
                       </div>

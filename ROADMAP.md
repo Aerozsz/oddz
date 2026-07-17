@@ -69,11 +69,11 @@ running server, fix, commit:
       components (may need a client relative-time component or absolute ts).
 - [ ] Accessibility: focus-visible rings, contrast of zinc-500/600 on #09090b,
       aria on sparkline SVG, keyboard nav of star/filters.
-- [ ] Backend data correctness: adapter price normalization per venue
-      (kalshi cents, polymarket JSON-string parse failure handling), the
-      600-markets/venue silent cap (PAGES_PER_VENUE×PAGE_SIZE) — log when a
-      venue is truncated. listMarkets inner-join drops markets with no
-      snapshot (intended? confirm). Matcher O(n²) fuzzy blowup at real scale.
+- [~] Backend data correctness: DONE — coverage cap raised to 15 pages/venue
+      (env-tunable) with time budget + `truncated` flag surfaced on /status;
+      per-venue Promise.allSettled already isolates failures. STILL OPEN:
+      adapter price-normalization edge cases (kalshi cents, polymarket JSON
+      parse), matcher O(n²) fuzzy at real scale.
 - [ ] Verify snapshot worker fails gracefully per-venue on API errors
       (Promise.allSettled) and still records the run — run workers/run-once.ts.
 - [ ] Rate-limiter: x-forwarded-for leftmost is client-influenced off-Vercel;

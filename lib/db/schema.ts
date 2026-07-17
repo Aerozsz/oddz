@@ -89,7 +89,7 @@ export const snapshotRuns = pgTable("snapshot_runs", {
   finishedAt: timestamp({ withTimezone: true }),
   status: text().notNull().default("running"),
   stats: jsonb()
-    .$type<Record<string, { fetched: number; written: number; error?: string }>>()
+    .$type<Record<string, { fetched: number; written: number; truncated?: boolean; error?: string }>>()
     .notNull()
     .default(sql`'{}'::jsonb`),
 });
