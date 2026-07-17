@@ -8,12 +8,11 @@ export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 export const alt = `Live prediction-market odds on ${brand.name}`;
 
-const VENUE_COLORS: Record<string, string> = {
-  polymarket: "#60a5fa",
-  kalshi: "#34d399",
-  manifold: "#fbbf24",
-  metaculus: "#c084fc",
-};
+// Brand palette (neutrals carry the UI; accent green reserved for the YES value).
+const FG = "#E9EDF2";
+const MUTED = "#8A94A3";
+const ACCENT = "#2FD483";
+const BG = "#0C0F13";
 
 export default async function OgImage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -21,7 +20,7 @@ export default async function OgImage({ params }: { params: Promise<{ id: string
 
   const question = market?.question ?? "Prediction market odds";
   const venueName = market?.venueName ?? "";
-  const venueColor = VENUE_COLORS[market?.venue ?? ""] ?? "#a1a1aa";
+  const venueColor = MUTED;
 
   let yes: number | null = null;
   if (market) {
@@ -39,8 +38,8 @@ export default async function OgImage({ params }: { params: Promise<{ id: string
           flexDirection: "column",
           justifyContent: "space-between",
           padding: 64,
-          backgroundColor: "#09090b",
-          color: "#f4f4f5",
+          backgroundColor: BG,
+          color: FG,
           fontFamily: "sans-serif",
         }}
       >
@@ -77,15 +76,15 @@ export default async function OgImage({ params }: { params: Promise<{ id: string
         <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between" }}>
           {yes !== null ? (
             <div style={{ display: "flex", flexDirection: "column" }}>
-              <div style={{ display: "flex", fontSize: 28, color: "#a1a1aa" }}>YES</div>
-              <div style={{ display: "flex", fontSize: 96, fontWeight: 700, color: "#34d399" }}>
+              <div style={{ display: "flex", fontSize: 28, color: MUTED }}>YES</div>
+              <div style={{ display: "flex", fontSize: 96, fontWeight: 700, color: ACCENT }}>
                 {formatPct(yes)}
               </div>
             </div>
           ) : (
             <div />
           )}
-          <div style={{ display: "flex", fontSize: 26, color: "#71717a" }}>
+          <div style={{ display: "flex", fontSize: 26, color: MUTED }}>
             Live odds across every prediction market
           </div>
         </div>

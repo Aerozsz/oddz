@@ -2,14 +2,44 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
+/* ── Oddz design tokens (RGB channel triples for Tailwind alpha support) ── */
+:root,
+:root[data-theme="dark"] {
   color-scheme: dark;
+  --c-bg: 12 15 19; /* #0C0F13 */
+  --c-surface: 19 24 32; /* #131820 */
+  --c-surface-hover: 22 28 37; /* #161C25 */
+  --c-border: 34 42 52; /* #222A34 */
+  --c-border-subtle: 26 33 43; /* #1A212B */
+  --c-track: 42 51 63; /* #2A333F */
+  --c-fg: 233 237 242; /* #E9EDF2 */
+  --c-fg-dim: 199 205 214; /* dimmer text */
+  --c-muted: 138 148 163; /* #8A94A3 */
+  --c-accent: 47 212 131; /* #2FD483 */
+  --c-accent-hover: 92 230 161; /* #5CE6A1 */
+  --c-neg: 240 100 90; /* #F0645A */
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --c-bg: 246 247 248; /* #F6F7F8 */
+  --c-surface: 255 255 255; /* #FFFFFF */
+  --c-surface-hover: 250 251 252; /* #FAFBFC */
+  --c-border: 227 231 235; /* #E3E7EB */
+  --c-border-subtle: 238 241 244; /* #EEF1F4 */
+  --c-track: 227 231 235; /* #E3E7EB */
+  --c-fg: 21 26 32; /* #151A20 */
+  --c-fg-dim: 55 63 74;
+  --c-muted: 93 102 114; /* #5D6672 */
+  --c-accent: 24 155 92; /* #189B5C */
+  --c-accent-hover: 20 130 78;
+  --c-neg: 216 73 63; /* #D8493F */
 }
 
 html,
 body {
-  background: #09090b;
-  color: #f4f4f5;
+  background: rgb(var(--c-bg));
+  color: rgb(var(--c-fg));
   min-height: 100%;
 }
 
@@ -17,9 +47,15 @@ body {
   box-sizing: border-box;
 }
 
-/* Visible keyboard focus everywhere — keyboard users can see where they are. */
+/* Numbers, addresses, percentages, section labels use the mono face. */
+.font-mono,
+[class*="font-mono"] {
+  font-feature-settings: "tnum" 1;
+}
+
+/* Visible keyboard focus everywhere. */
 :focus-visible {
-  outline: 2px solid #34d399;
+  outline: 2px solid rgb(var(--c-accent));
   outline-offset: 2px;
   border-radius: 2px;
 }
@@ -27,24 +63,22 @@ body {
   outline: none;
 }
 
-/* Skip-to-content link: hidden until focused. */
 .skip-link {
   position: absolute;
   left: -9999px;
   top: 0;
   z-index: 100;
   padding: 0.5rem 0.75rem;
-  background: #34d399;
-  color: #09090b;
+  background: rgb(var(--c-accent));
+  color: rgb(var(--c-bg));
   font-size: 0.875rem;
   font-weight: 500;
-  border-radius: 0 0 0.375rem 0;
+  border-radius: 0 0 8px 0;
 }
 .skip-link:focus {
   left: 0;
 }
 
-/* Honor reduced-motion preferences. */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
