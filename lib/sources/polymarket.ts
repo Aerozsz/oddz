@@ -18,6 +18,12 @@ const PolymarketMarket = z.object({
   outcomePrices: z.union([z.string(), z.array(z.string())]).optional(),
   volume: z.union([z.string(), z.number()]).optional(),
   liquidity: z.union([z.string(), z.number()]).optional(),
+  // Public market pages live at polymarket.com/event/{event-slug}. A market
+  // belongs to one or more events, whose slug differs from the market slug
+  // for multi-market events — so we must use the EVENT slug for the URL.
+  events: z
+    .array(z.object({ slug: z.string().optional(), ticker: z.string().optional() }))
+    .optional(),
 });
 
 const PolymarketResponse = z.array(PolymarketMarket);
@@ -79,7 +85,9 @@ export class PolymarketSource implements MarketSource {
         liquidity: toNumber(m.liquidity),
         endsAt: m.endDate ? new Date(m.endDate) : undefined,
         closed: m.closed === true,
-        sourceUrl: `https://polymarket.com/event/${m.slug}`,
+        // Prefer the parent event slug (correct public URL); the market slug
+        // only works for single-market events. Fall back to it if no event.
+        sourceUrl: `https://polymarket.com/event/${m.events?.[0]?.slug ?? m.slug}`,
         fetchedAt,
       };
     });

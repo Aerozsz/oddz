@@ -63,6 +63,12 @@ export class KalshiSource implements MarketSource {
             : undefined;
       const noMid = yesMid !== undefined ? 1 - yesMid : undefined;
       const prices = yesMid !== undefined && noMid !== undefined ? [yesMid, noMid] : [];
+      // Kalshi hierarchy is Series → Event → Market. Public pages live at
+      // kalshi.com/markets/{series}/{event}, NOT the raw market ticker.
+      // Series ticker = prefix of the event ticker before the first "-".
+      const eventTicker = m.event_ticker ?? m.ticker;
+      const series = eventTicker.split("-")[0];
+      const sourceUrl = `https://kalshi.com/markets/${series.toLowerCase()}/${eventTicker.toLowerCase()}`;
       return {
         venue: "kalshi",
         externalId: m.ticker,
@@ -77,7 +83,7 @@ export class KalshiSource implements MarketSource {
         openInterest: m.open_interest,
         endsAt: m.close_time ? new Date(m.close_time) : undefined,
         closed: m.status !== "open" && m.status !== "active",
-        sourceUrl: `https://kalshi.com/markets/${m.ticker.toLowerCase()}`,
+        sourceUrl,
         fetchedAt,
       };
     });
