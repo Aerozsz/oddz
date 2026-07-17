@@ -1,144 +1,157 @@
 import Link from "next/link";
-import { sql } from "drizzle-orm";
+import { listArbitrage } from "@/features/arbitrage/queries";
+import { listMovers } from "@/features/markets/queries";
+import { getOverview } from "@/features/overview/queries";
 import { SubscribeForm } from "@/features/subscribe/SubscribeForm";
-import { db } from "@/lib/db/client";
-import { markets, priceSnapshots } from "@/lib/db/schema";
+import { VenueBadge } from "@/features/markets/components/VenueBadge";
+import { brand } from "@/lib/brand";
+import { cn, formatPct, formatUSD } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 60;
 
-async function stats() {
-  try {
-    const [[m], [s]] = await Promise.all([
-      db
-        .select({ n: sql<number>`count(*)::int` })
-        .from(markets)
-        .where(sql`${markets.closed} = 0`),
-      db.select({ n: sql<number>`count(*)::int` }).from(priceSnapshots),
-    ]);
-    return { markets: m?.n ?? 0, snapshots: s?.n ?? 0 };
-  } catch {
-    return { markets: 0, snapshots: 0 };
-  }
-}
-
 export default async function HomePage() {
-  const { markets: marketCount, snapshots } = await stats();
+  const [overview, arbs, movers] = await Promise.all([
+    getOverview().catch(() => null),
+    listArbitrage(0.005, 5).catch(() => []),
+    listMovers(24, 6).catch(() => []),
+  ]);
+  const hasData = (overview?.totalMarkets ?? 0) > 0;
+
   return (
-    <div className="flex flex-col gap-10 py-10">
-      <section className="flex flex-col gap-4">
-        <h1 className="text-4xl font-semibold tracking-tight sm:text-5xl">
-          Every prediction market.<br />One screen.
+    <div className="flex flex-col gap-8 py-4">
+      <section className="flex flex-col gap-3">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">
+          Every prediction market. One screen.
         </h1>
-        <p className="max-w-2xl text-lg text-zinc-400">
-          Live odds across Polymarket, Kalshi, Manifold and Metaculus. Spot
-          relative value before the rest of the market does.
+        <p className="max-w-2xl text-zinc-400">
+          Live odds, cross-venue arbitrage, and where the smart money is moving — across Polymarket,
+          Kalshi, Manifold and Metaculus.
         </p>
-        <div className="flex gap-3">
-          <Link
-            href="/markets"
-            className="rounded bg-emerald-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-emerald-400"
-          >
-            Browse markets
-          </Link>
-          <Link
-            href="/divergence"
-            className="rounded border border-zinc-700 px-4 py-2 text-sm font-medium text-zinc-100 hover:border-zinc-500"
-          >
-            See divergences
-          </Link>
-        </div>
       </section>
 
-      {marketCount > 0 && (
-        <section className="flex flex-wrap gap-6 text-sm text-zinc-400">
-          <div>
-            <span className="font-mono text-2xl text-zinc-100">{marketCount.toLocaleString()}</span>{" "}
-            live markets
-          </div>
-          <div>
-            <span className="font-mono text-2xl text-zinc-100">4</span> venues
-          </div>
-          <div>
-            <span className="font-mono text-2xl text-zinc-100">{snapshots.toLocaleString()}</span>{" "}
-            price snapshots stored
-          </div>
+      {hasData && overview && (
+        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <Stat label="Total volume" value={formatUSD(overview.totalVolume)} href="/overview" />
+          <Stat
+            label="Live markets"
+            value={overview.totalMarkets.toLocaleString()}
+            href="/markets"
+          />
+          <Stat label="Live arbitrage" value={String(arbs.length)} href="/arbitrage" />
+          <Stat label="Venues" value={String(overview.venues.length)} href="/overview" />
         </section>
       )}
 
-      <section className="grid gap-6 sm:grid-cols-3">
-        <Card title="Aggregated">
-          Hundreds of live markets across four venues, one search box, sorted by volume.
-        </Card>
-        <Card title="Divergence">
-          When the same event trades on Polymarket and Kalshi at different prices, that's the trade.
-        </Card>
-        <Card title="History">
-          Every snapshot stored. Odds drift over time, fully queryable. Public JSON API.
-        </Card>
-      </section>
+      {arbs.length > 0 && (
+        <Panel title="Top arbitrage" href="/arbitrage" cta="All arbs →">
+          <div className="flex flex-col divide-y divide-zinc-800">
+            {arbs.map((a) => (
+              <Link
+                key={a.eventId}
+                href={`/events/${encodeURIComponent(a.eventId)}`}
+                className="flex items-center justify-between gap-3 py-2 hover:text-white"
+              >
+                <span className="line-clamp-1 text-sm text-zinc-200">{a.title}</span>
+                <span className="flex shrink-0 items-center gap-2 text-xs">
+                  <VenueBadge venue={a.buyYes.venue} />
+                  <span className="text-zinc-600">/</span>
+                  <VenueBadge venue={a.buyNo.venue} />
+                  <span className="ml-1 font-mono font-semibold text-emerald-300">
+                    +{formatPct(a.edge)}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </Panel>
+      )}
 
-      <section className="flex flex-col gap-3">
-        <h2 className="text-xl font-semibold tracking-tight">Daily markets-to-watch digest</h2>
+      {movers.length > 0 && (
+        <Panel title="Biggest movers (24h)" href="/movers" cta="All movers →">
+          <div className="flex flex-col divide-y divide-zinc-800">
+            {movers.map((m) => (
+              <Link
+                key={m.id}
+                href={`/markets/${encodeURIComponent(m.id)}`}
+                className="flex items-center justify-between gap-3 py-2 hover:text-white"
+              >
+                <span className="line-clamp-1 text-sm text-zinc-200">{m.question}</span>
+                <span className="flex shrink-0 items-center gap-2 text-xs">
+                  <VenueBadge venue={m.venue} />
+                  <span
+                    className={cn(
+                      "font-mono font-semibold",
+                      m.delta >= 0 ? "text-emerald-300" : "text-red-300",
+                    )}
+                  >
+                    {m.delta >= 0 ? "+" : ""}
+                    {(m.delta * 100).toFixed(1)}pp
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        </Panel>
+      )}
+
+      {!hasData && (
+        <section className="grid gap-6 sm:grid-cols-3">
+          <Card title="Aggregated">Every live market across four venues, one search box.</Card>
+          <Card title="Arbitrage">Same event, mispriced across venues — lock the spread.</Card>
+          <Card title="History">Every snapshot stored. Odds drift, fully queryable. Public API.</Card>
+        </section>
+      )}
+
+      <section className="flex flex-col gap-3 rounded border border-zinc-800 bg-zinc-900/40 p-4">
+        <h2 className="text-lg font-semibold tracking-tight">Markets-to-watch digest</h2>
         <p className="max-w-2xl text-sm text-zinc-400">
-          The biggest odds moves and cross-venue divergences, in your inbox before the market
-          reacts. Free while in beta.
+          The biggest moves, arbs, and new markets in your inbox before the crowd reacts. Free in
+          beta.
         </p>
         <SubscribeForm />
       </section>
 
-      <section className="flex flex-col gap-4">
-        <h2 className="text-xl font-semibold tracking-tight">Pricing</h2>
-        <div className="grid gap-6 sm:grid-cols-3">
-          <PriceCard
-            name="Free"
-            price="$0"
-            features={["Full market aggregation", "Divergence view", "7-day price history", "API: 60 req/hour"]}
-          />
-          <PriceCard
-            name="Trader"
-            price="$29/mo"
-            badge="Coming soon"
-            features={["Everything in Free", "Odds-move alerts", "90-day history", "Watchlists"]}
-          />
-          <PriceCard
-            name="API"
-            price="$99/mo"
-            badge="Coming soon"
-            features={["Everything in Trader", "API: 3,600 req/hour", "Bulk history export", "Priority support"]}
-          />
-        </div>
-      </section>
+      <p className="text-center text-xs text-zinc-600">
+        {brand.name} aggregates public prediction-market data. Not financial advice.
+      </p>
     </div>
   );
 }
 
-function PriceCard({
-  name,
-  price,
-  features,
-  badge,
+function Stat({ label, value, href }: { label: string; value: string; href: string }) {
+  return (
+    <Link
+      href={href as never}
+      className="rounded border border-zinc-800 bg-zinc-900/40 p-3 transition-colors hover:border-zinc-600"
+    >
+      <div className="text-xs text-zinc-500">{label}</div>
+      <div className="mt-1 font-mono text-xl text-zinc-100">{value}</div>
+    </Link>
+  );
+}
+
+function Panel({
+  title,
+  href,
+  cta,
+  children,
 }: {
-  name: string;
-  price: string;
-  features: string[];
-  badge?: string;
+  title: string;
+  href: string;
+  cta: string;
+  children: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 rounded border border-zinc-800 bg-zinc-900/40 p-4">
+    <section className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-zinc-200">{name}</h3>
-        {badge && (
-          <span className="rounded bg-zinc-800 px-2 py-0.5 text-xs text-zinc-400">{badge}</span>
-        )}
+        <h2 className="text-sm font-medium uppercase tracking-wider text-zinc-400">{title}</h2>
+        <Link href={href as never} className="text-xs text-emerald-400 hover:text-emerald-300">
+          {cta}
+        </Link>
       </div>
-      <div className="font-mono text-2xl text-zinc-100">{price}</div>
-      <ul className="flex flex-col gap-1 text-sm text-zinc-400">
-        {features.map((f) => (
-          <li key={f}>· {f}</li>
-        ))}
-      </ul>
-    </div>
+      <div className="rounded border border-zinc-800 bg-zinc-900/40 px-4 py-1">{children}</div>
+    </section>
   );
 }
 
