@@ -67,8 +67,9 @@ running server, fix, commit:
       Verify each page's empty state (fresh DB) and loading.tsx match. Confirm
       404 path. Check hydration risk from timeAgo() using Date.now() in server
       components (may need a client relative-time component or absolute ts).
-- [ ] Accessibility: focus-visible rings, contrast of zinc-500/600 on #09090b,
-      aria on sparkline SVG, keyboard nav of star/filters.
+- [~] Accessibility: DONE — global :focus-visible ring, skip-to-content link,
+      prefers-reduced-motion honored; sparkline/star already aria-labeled.
+      STILL OPEN: audit zinc-500/600 contrast ratios on #09090b.
 - [~] Backend data correctness: DONE — coverage cap raised to 15 pages/venue
       (env-tunable) with time budget + `truncated` flag surfaced on /status;
       per-venue Promise.allSettled already isolates failures. STILL OPEN:

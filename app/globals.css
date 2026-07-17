@@ -16,3 +16,42 @@ body {
 * {
   box-sizing: border-box;
 }
+
+/* Visible keyboard focus everywhere — keyboard users can see where they are. */
+:focus-visible {
+  outline: 2px solid #34d399;
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* Skip-to-content link: hidden until focused. */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.5rem 0.75rem;
+  background: #34d399;
+  color: #09090b;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 0 0 0.375rem 0;
+}
+.skip-link:focus {
+  left: 0;
+}
+
+/* Honor reduced-motion preferences. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
