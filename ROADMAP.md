@@ -118,7 +118,7 @@ Needs NEW data sources (bigger lifts):
 Distribution / product surface:
 - [ ] Alerts: odds-move + arb + new-market via email/Telegram (Trader tier hook)
 - [ ] Daily digest email (subscribers table already captures signups)
-- [ ] Embeddable widgets (odds badge) for blogs/Twitter — distribution flywheel
+- [x] Embeddable SVG odds badge /api/badge/[id] (distribution flywheel)
 - [x] Public API expansion: /api/v1/arbitrage, /consensus, /movers (auth + rate-limited, in docs)
 
 ## Phase: data quality (needs live prod data first)

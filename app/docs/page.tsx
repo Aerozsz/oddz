@@ -60,6 +60,13 @@ const ENDPOINTS = [
   },
   {
     method: "GET",
+    path: "/api/badge/{id}",
+    desc: "Embeddable live-odds SVG badge. Drop into any tweet, README, or blog as an image.",
+    params: [["id", "`<venue>:<externalId>` (URL-encoded)"]],
+    example: `<img src="${HOST}/api/badge/kalshi%3APRES28-DJT">`,
+  },
+  {
+    method: "GET",
     path: "/api/health",
     desc: "Operational health: DB connectivity, per-venue freshness, last ingest run.",
     params: [],
