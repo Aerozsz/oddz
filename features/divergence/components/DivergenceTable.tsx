@@ -30,7 +30,7 @@ export function DivergenceTable({ rows }: { rows: DivergenceRow[] }) {
     Math.sqrt(spreads.reduce((a, b) => a + (b - mean) ** 2, 0) / spreads.length) || 1;
 
   return (
-    <div className="grid gap-2 lg:grid-cols-2">
+    <div className="stagger grid gap-2 lg:grid-cols-2">
       {rows.map((r) => {
         const ys = r.legs.map((l) => l.yes);
         const lo = Math.min(...ys);

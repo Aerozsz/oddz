@@ -38,7 +38,7 @@ export default async function OverroundPage() {
       </div>
 
       {/* Stat cards */}
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="stagger grid gap-3 sm:grid-cols-3">
         <div className="rounded-lg border border-border bg-surface p-4">
           <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
             Markets analysed
@@ -112,7 +112,7 @@ export default async function OverroundPage() {
                   </span>
                   <div className="h-3 flex-1 overflow-hidden rounded-full bg-track">
                     <div
-                      className="h-full rounded-full"
+                      className="grow-x h-full rounded-full"
                       style={{
                         width: `${Math.max(3, (Math.abs(c.avg) / maxCat) * 100)}%`,
                         backgroundColor: c.avg <= 0.04 ? "rgb(var(--c-accent))" : "rgb(var(--c-neg))",

@@ -28,7 +28,9 @@ export function Sparkline({
   });
 
   const up = values[values.length - 1] >= values[0];
-  const stroke = up ? "#34d399" : "#f87171";
+  const stroke = up ? "rgb(var(--c-accent))" : "rgb(var(--c-neg))";
+  // Closed polygon under the line for a faint area fill.
+  const area = `${pad},${height - pad} ${pts.join(" ")} ${(pad + (values.length - 1) * stepX).toFixed(1)},${height - pad}`;
 
   return (
     <svg
@@ -37,9 +39,11 @@ export function Sparkline({
       viewBox={`0 0 ${width} ${height}`}
       role="img"
       aria-label={`Price trend, ${up ? "up" : "down"}`}
-      className="shrink-0"
+      className="draw shrink-0"
+      style={{ "--draw-len": 180 } as React.CSSProperties}
     >
-      <polyline points={pts.join(" ")} fill="none" stroke={stroke} strokeWidth="1.5" />
+      <polygon points={area} fill={stroke} opacity="0.08" stroke="none" />
+      <polyline points={pts.join(" ")} fill="none" stroke={stroke} strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

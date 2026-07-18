@@ -21,7 +21,7 @@ stretched single strips. All motion respects `prefers-reduced-motion`.
 - Buttery theme switch: temporary global color transition class on `<html>`
 - Nav dropdown: scale/fade origin-top entrance
 
-## Fragment B — apply everywhere + wide layouts  [status: PENDING]
+## Fragment B — apply everywhere + wide layouts  [status: DONE]
 - `.stagger` on every grid/list page (trending, movers, new, activity,
   divergence, overround, consensus, arbitrage, resolving, status)
 - Resolving → 3-column urgency board (today | this week | later)

@@ -30,7 +30,7 @@ function MoverColumn({
         {title}
         <span className="text-muted/60">({rows.length})</span>
       </div>
-      <div className="flex flex-col overflow-hidden rounded-lg border border-border">
+      <div className="stagger flex flex-col overflow-hidden rounded-lg border border-border">
         {rows.length === 0 ? (
           <div className="p-6 text-center text-sm text-muted">Nothing here in this window.</div>
         ) : (
@@ -66,7 +66,7 @@ function MoverColumn({
                 {/* magnitude bar, scaled to the column's biggest move */}
                 <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-track">
                   <div
-                    className="h-full rounded-full"
+                    className="grow-x h-full rounded-full"
                     style={{ width: `${Math.max(3, mag * 100)}%`, backgroundColor: accent }}
                   />
                 </div>

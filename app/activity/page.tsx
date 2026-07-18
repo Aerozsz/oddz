@@ -37,7 +37,7 @@ export default async function ActivityPage() {
           No volume surges in the last 24 hours — needs at least two snapshots per market.
         </div>
       ) : (
-        <div className="grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
+        <div className="stagger grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
           {rows.map((r) => {
             const whale = r.delta >= WHALE;
             return (

@@ -58,7 +58,7 @@ export default async function StatusPage() {
         <h2 className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">
           Ingestion uptime · last 30 days
         </h2>
-        <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="stagger flex flex-col divide-y divide-border-subtle overflow-hidden rounded-lg border border-border bg-surface">
           {uptime.length === 0 ? (
             <div className="p-6 text-center text-sm text-muted">
               No runs in the last 30 days yet.

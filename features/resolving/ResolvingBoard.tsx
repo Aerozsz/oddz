@@ -111,7 +111,7 @@ function Group({
         {label}
         <span className="text-muted/60">({items.length})</span>
       </h2>
-      <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-lg border border-border bg-surface">
+      <div className="stagger flex flex-col divide-y divide-border-subtle overflow-hidden rounded-lg border border-border bg-surface">
         {items.map((it) => (
           <Row key={it.id} item={it} showCountdown={showCountdown} />
         ))}
@@ -142,7 +142,7 @@ export function ResolvingBoard({ items }: { items: ResolvingItem[] }) {
   }
 
   return (
-    <div className={cn("flex flex-col gap-6")}>
+    <div className={cn("grid items-start gap-4 lg:grid-cols-3")}>
       <Group label="Resolving today" items={today} showCountdown />
       <Group label="This week" items={week} showCountdown={false} />
       <Group label="Later" items={later} showCountdown={false} />

@@ -20,7 +20,7 @@ function HeatBar({ heat }: { heat: number }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-track">
       <div
-        className="h-full rounded-full"
+        className="grow-x h-full rounded-full"
         style={{
           width: `${pct}%`,
           background: "linear-gradient(90deg, rgb(var(--c-accent)), rgb(var(--c-neg)))",
@@ -66,7 +66,7 @@ export default async function TrendingPage() {
       ) : (
         <>
           {/* Top-3 heat cards */}
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {top3.map((r, i) => (
               <Link
                 key={r.id}

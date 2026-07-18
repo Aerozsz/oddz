@@ -28,7 +28,7 @@ export default async function NewMarketsPage() {
           No new markets yet.
         </div>
       ) : (
-        <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <ol className="stagger grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {rows.map((r) => (
             <li key={r.id} className="relative flex gap-3 pl-1">
               {/* timeline marker: green dot */}

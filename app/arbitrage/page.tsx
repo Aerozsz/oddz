@@ -32,11 +32,11 @@ export default async function ArbitragePage() {
           hits; check back, or watch the divergence view for gaps opening.
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="stagger grid gap-3 lg:grid-cols-2">
           {arbs.map((a) => (
             <div
               key={a.eventId}
-              className="flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 sm:flex-row sm:items-center sm:justify-between"
+              className="lift flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 hover:border-[rgb(var(--c-accent))]/40 sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="min-w-0 flex-1">
                 <Link

@@ -40,7 +40,7 @@ export function MarketTable({
             <th className="px-3 py-2 text-right">Updated</th>
           </tr>
         </thead>
-        <tbody>
+        <tbody className="stagger">
           {rows.map((m) => (
             <tr key={m.id} className="border-t border-border-subtle hover:bg-[rgb(var(--c-surface-hover))]">
               <td className="px-2 py-2 text-center">

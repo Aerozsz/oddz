@@ -32,9 +32,9 @@ export default async function ConsensusPage() {
           or one venue&apos;s liquidity is thin.
         </div>
       ) : (
-        <div className="flex flex-col gap-3">
+        <div className="stagger grid gap-3 lg:grid-cols-2">
           {rows.map((r) => (
-            <div key={r.eventId} className="rounded-lg border border-border bg-surface p-4">
+            <div key={r.eventId} className="lift rounded-lg border border-border bg-surface p-4">
               <div className="flex items-start justify-between gap-4">
                 <Link
                   href={`/events/${encodeURIComponent(r.eventId)}`}

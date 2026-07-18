@@ -38,7 +38,7 @@ export default async function WatchlistPage() {
           </p>
           <Link
             href="/markets"
-            className="rounded bg-emerald-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-emerald-400"
+            className="rounded-full bg-accent px-5 py-2 text-sm font-medium text-bg transition-transform hover:bg-accent-hover hover:scale-[1.03]"
           >
             Browse markets
           </Link>
