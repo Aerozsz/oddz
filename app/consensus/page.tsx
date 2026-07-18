@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listConsensus } from "@/features/consensus/queries";
+import { NearMisses } from "@/features/markets/components/NearMisses";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { cn, formatPct, formatUSD } from "@/lib/utils";
 
@@ -27,9 +28,12 @@ export default async function ConsensusPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-zinc-400">
-          No meaningful gaps right now — venues agree with the consensus. Gaps open when news breaks
-          or one venue&apos;s liquidity is thin.
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg border border-border bg-surface p-6 text-sm text-muted">
+            No meaningful gaps right now — venues agree with the consensus. Gaps open when news
+            breaks or one venue&apos;s liquidity is thin.
+          </div>
+          <NearMisses lead="Where venues disagree most right now" />
         </div>
       ) : (
         <div className="stagger grid gap-3 lg:grid-cols-2">

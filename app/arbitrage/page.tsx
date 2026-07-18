@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listArbitrage } from "@/features/arbitrage/queries";
+import { NearMisses } from "@/features/markets/components/NearMisses";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { formatPct } from "@/lib/utils";
 
@@ -27,9 +28,12 @@ export default async function ArbitragePage() {
       </div>
 
       {arbs.length === 0 ? (
-        <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-zinc-400">
-          No live arbitrage right now — venues are priced in line. This tightens up fast when news
-          hits; check back, or watch the divergence view for gaps opening.
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg border border-border bg-surface p-6 text-sm text-muted">
+            No live arbitrage right now — venues are priced in line. Lock-ins appear when the same
+            event trades at different prices on two venues; it tightens fast when news hits.
+          </div>
+          <NearMisses lead="Closest gaps right now — where an arb would open first" />
         </div>
       ) : (
         <div className="stagger grid gap-3 lg:grid-cols-2">

@@ -35,7 +35,7 @@ stretched single strips. All motion respects `prefers-reduced-motion`.
 - Homepage + overview: stat card hover lift, stagger
 - Build + screenshot verification (dark/light, 1440px), commit, push
 
-## Fragment D — if time remains
+## Fragment D — if time remains  [status: DONE]
 - Remove temporary /api/debug/pm endpoint
 - Empty cross-venue pages: richer empty states w/ near-miss data
 - Number tabular alignment audit (`tabular-nums` everywhere)
