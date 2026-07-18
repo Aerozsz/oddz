@@ -10,8 +10,8 @@ export const alt = "Oddz — every prediction market, one dashboard";
 const BG = "#0C0F13";
 const FG = "#E9EDF2";
 const MUTED = "#8A94A3";
-const ACCENT = "#2FD483";
-const NEG = "#F0645A";
+const ACCENT = "#58AD8A";
+const NEG = "#D17A71";
 
 // The "Currents" mark (two offset YES/NO beams) and a faint sparkline, as data
 // URIs (satori renders SVG reliably via <img>).

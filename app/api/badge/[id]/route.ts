@@ -8,7 +8,7 @@ const SURFACE = "#131820";
 const BORDER = "#222A34";
 const FG = "#E9EDF2";
 const MUTED = "#8A94A3";
-const ACCENT = "#2FD483";
+const ACCENT = "#58AD8A";
 
 function esc(s: string): string {
   return s

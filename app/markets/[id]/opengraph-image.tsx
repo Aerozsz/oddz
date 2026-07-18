@@ -11,7 +11,7 @@ export const alt = `Live prediction-market odds on ${brand.name}`;
 // Brand palette (neutrals carry the UI; accent green reserved for the YES value).
 const FG = "#E9EDF2";
 const MUTED = "#8A94A3";
-const ACCENT = "#2FD483";
+const ACCENT = "#58AD8A";
 const BG = "#0C0F13";
 
 export default async function OgImage({ params }: { params: Promise<{ id: string }> }) {

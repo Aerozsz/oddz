@@ -11,7 +11,7 @@ const HOST = brand.url.replace(/\/$/, "");
 // Code blocks stay dark in BOTH themes (per brand spec), so hard-code colours.
 const CODE_BG = "#0A0D10";
 const C_KEY = "#8A94A3"; // muted
-const C_STR = "#2FD483"; // green
+const C_STR = "#58AD8A"; // green
 const C_NUM = "#E7B740"; // amber
 const C_PUNC = "#5D6672";
 
@@ -41,9 +41,9 @@ function CodeBlock({ command, response }: { command: string; response?: string }
   return (
     <div className="overflow-hidden rounded-lg border border-[#1A212B]" style={{ background: CODE_BG }}>
       <div className="flex items-center gap-1.5 border-b border-[#1A212B] px-3 py-2">
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#F0645A" }} />
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#D17A71" }} />
         <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#E7B740" }} />
-        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#2FD483" }} />
+        <span className="h-2.5 w-2.5 rounded-full" style={{ background: "#58AD8A" }} />
         <span className="ml-2 font-mono text-[10px] uppercase tracking-[0.12em] text-[#5D6672]">
           shell
         </span>

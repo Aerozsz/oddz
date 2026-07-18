@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { MarketTable } from "@/features/markets/components/MarketTable";
 import { getSparklines, listMarkets } from "@/features/markets/queries";
+import { WatchCard } from "@/features/watchlist/WatchCard";
 import { getWatchedIds, getWid } from "@/features/watchlist/queries";
 
 export const dynamic = "force-dynamic";
@@ -44,7 +44,11 @@ export default async function WatchlistPage() {
           </Link>
         </div>
       ) : (
-        <MarketTable rows={rows} sparklines={sparklines} watchedIds={watchedIds} />
+        <div className="stagger grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {rows.map((r) => (
+            <WatchCard key={r.id} row={r} spark={sparklines.get(r.id) ?? []} />
+          ))}
+        </div>
       )}
     </div>
   );
