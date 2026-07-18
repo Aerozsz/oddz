@@ -58,14 +58,32 @@ export default async function LeadLagPage() {
                   </td>
                   <td className="px-3 py-2">
                     <span className="inline-flex items-center gap-2">
-                      <VenueBadge venue={r.leader} name={venueName(r.leader)} />
-                      <span className="text-zinc-600">→</span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-accent" />
+                        <VenueBadge venue={r.leader} name={venueName(r.leader)} />
+                      </span>
+                      <span className="text-muted">→</span>
                       <VenueBadge venue={r.follower} name={venueName(r.follower)} />
                     </span>
                   </td>
-                  <td className="px-3 py-2 text-right font-mono text-zinc-300">~{r.lagMinutes}m</td>
-                  <td className="px-3 py-2 text-right font-mono text-emerald-300">
-                    {(r.correlation * 100).toFixed(0)}%
+                  <td className="px-3 py-2 text-right">
+                    <span className="font-mono text-sm font-semibold tabular-nums text-fg">
+                      ~{r.lagMinutes}m
+                    </span>
+                    <div className="mt-0.5 text-[10px] text-muted">to catch up</div>
+                  </td>
+                  <td className="px-3 py-2">
+                    <div className="flex items-center justify-end gap-2">
+                      <span className="inline-flex h-1.5 w-14 overflow-hidden rounded-full bg-track">
+                        <span
+                          className="grow-x rounded-full bg-accent"
+                          style={{ width: `${Math.round(r.correlation * 100)}%` }}
+                        />
+                      </span>
+                      <span className="font-mono text-xs tabular-nums text-muted">
+                        ρ {r.correlation.toFixed(2)}
+                      </span>
+                    </div>
                   </td>
                 </tr>
               ))}
