@@ -23,7 +23,7 @@ export default async function HomePage() {
       <section className="relative overflow-hidden rounded-2xl border border-border bg-surface p-6 sm:p-8">
         {/* The Currents, as ambience: oversized offset beams fading through the card */}
         <svg
-          className="pointer-events-none absolute -right-16 top-1/2 h-56 w-[420px] -translate-y-1/2 opacity-[0.16]"
+          className="pointer-events-none absolute -right-16 top-1/2 hidden h-56 w-[420px] -translate-y-1/2 opacity-[0.16] sm:block"
           viewBox="0 0 48 48"
           preserveAspectRatio="none"
           aria-hidden
