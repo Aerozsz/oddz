@@ -47,7 +47,7 @@ export default async function VenuePage({ params }: { params: Promise<{ slug: st
           href={meta.home}
           target="_blank"
           rel="noopener noreferrer"
-          className="shrink-0 rounded border border-zinc-700 px-3 py-1.5 text-xs hover:border-zinc-500"
+          className="shrink-0 rounded-full border border-border px-4 py-1.5 text-xs text-fg-dim transition-colors hover:border-[rgb(var(--c-accent))]/50 hover:text-fg"
         >
           Visit {meta.name} ↗
         </a>
