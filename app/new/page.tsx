@@ -45,27 +45,28 @@ export default async function NewMarketsPage() {
                     {r.createdAt ? timeAgo(r.createdAt) : "—"}
                   </span>
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 font-mono text-xs text-muted">
+                <div className="flex items-center gap-2 font-mono text-[11px] text-muted">
                   <VenueBadge venue={r.venue} name={r.venueName} />
-                  {r.category && <span>{r.category}</span>}
-                  {r.prices?.[0] !== undefined && (
-                    <span>
-                      <span className="text-muted/70">odds </span>
-                      <span className="text-accent">{formatPct(r.prices[0])}</span>
+                  {r.category && <span className="truncate">{r.category}</span>}
+                </div>
+                <div className="flex items-baseline justify-between gap-3">
+                  {r.prices?.[0] !== undefined ? (
+                    <span className="flex items-baseline gap-1.5">
+                      <span className="font-mono text-lg font-semibold tabular-nums text-fg">
+                        {formatPct(r.prices[0])}
+                      </span>
+                      <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
+                        yes
+                      </span>
                     </span>
+                  ) : (
+                    <span className="font-mono text-xs text-muted">no price yet</span>
                   )}
-                  {r.liquidity != null && (
-                    <span>
-                      <span className="text-muted/70">liquidity </span>
-                      <span className="text-fg">{formatUSD(r.liquidity)}</span>
-                    </span>
-                  )}
-                  {r.volume != null && (
-                    <span>
-                      <span className="text-muted/70">volume </span>
-                      <span className="text-fg">{formatUSD(r.volume)}</span>
-                    </span>
-                  )}
+                  <span className="font-mono text-[11px] tabular-nums text-muted">
+                    {r.liquidity != null && <>{formatUSD(r.liquidity)} liq</>}
+                    {r.liquidity != null && r.volume != null && " · "}
+                    {r.volume != null && <>{formatUSD(r.volume)} vol</>}
+                  </span>
                 </div>
               </Link>
             </li>

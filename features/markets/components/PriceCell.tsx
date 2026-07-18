@@ -3,9 +3,13 @@ import { formatPct } from "@/lib/utils";
 export function PriceCell({ outcomes, prices }: { outcomes: string[]; prices: number[] }) {
   if (prices.length === 0) return <span className="text-zinc-500">—</span>;
 
-  // Binary YES/NO: show one chip with the YES probability.
+  // Binary YES/NO: the price is the row's key number — set it like one.
   if (outcomes.length === 2 && /yes/i.test(outcomes[0])) {
-    return <span className="font-mono text-emerald-300">{formatPct(prices[0])}</span>;
+    return (
+      <span className="font-mono text-sm font-semibold tabular-nums text-accent">
+        {formatPct(prices[0])}
+      </span>
+    );
   }
 
   // Multi-outcome: show top 3 by price.
@@ -16,12 +20,20 @@ export function PriceCell({ outcomes, prices }: { outcomes: string[]; prices: nu
 
   return (
     <div className="flex flex-col gap-0.5 text-xs">
-      {ranked.map(({ o, p }) => (
+      {ranked.map(({ o, p }, i) => (
         <div key={o} className="flex items-center justify-between gap-2">
-          <span className="truncate text-zinc-300" title={o}>
+          <span className={i === 0 ? "truncate text-fg" : "truncate text-muted"} title={o}>
             {o}
           </span>
-          <span className="font-mono text-emerald-300">{formatPct(p)}</span>
+          <span
+            className={
+              i === 0
+                ? "font-mono font-semibold tabular-nums text-accent"
+                : "font-mono tabular-nums text-muted"
+            }
+          >
+            {formatPct(p)}
+          </span>
         </div>
       ))}
     </div>
