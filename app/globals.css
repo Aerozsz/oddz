@@ -38,6 +38,21 @@
   --c-neg: 192 84 74; /* #C0544A muted red */
 }
 
+/* ── Motion language ──────────────────────────────────────────────────────
+   One easing family, one duration scale, used by everything. The character:
+   fast out of the gate, long gentle settle — feedback lands instantly but
+   nothing ever snaps. Spring is reserved for small playful elements (pills,
+   stars, toggles) where a 4% overshoot reads as tactile, not bouncy. */
+:root {
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* easeOutQuint-ish settle */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* slight overshoot */
+  --ease-swift: cubic-bezier(0.4, 0, 0.2, 1); /* colors/opacity */
+  --dur-tap: 90ms; /* press acknowledgement */
+  --dur-fast: 150ms; /* hover states */
+  --dur-med: 240ms; /* reveals, dropdowns */
+  --dur-slow: 360ms; /* page/section entrances */
+}
+
 html {
   scroll-behavior: smooth;
 }
@@ -49,9 +64,24 @@ body {
   min-height: 100%;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Custom scrollbar so even scrolling feels considered. */
+* {
+  box-sizing: border-box;
+}
+
+/* Text selection + caret carry the brand. */
+::selection {
+  background: rgb(var(--c-accent) / 0.28);
+  color: rgb(var(--c-fg));
+}
+input,
+textarea {
+  caret-color: rgb(var(--c-accent));
+}
+
+/* Considered scrollbars — thin, rounded, brand-toned. */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgb(var(--c-track)) transparent;
@@ -69,87 +99,129 @@ body {
   background: rgb(var(--c-muted) / 0.6);
 }
 
-* {
-  box-sizing: border-box;
-}
-
 /* Numbers, addresses, percentages, section labels use the mono face. */
 .font-mono,
 [class*="font-mono"] {
   font-feature-settings: "tnum" 1;
 }
 
-/* Visible keyboard focus everywhere. */
-:focus-visible {
-  outline: 2px solid rgb(var(--c-accent));
-  outline-offset: 2px;
-  border-radius: 2px;
+/* ── Cross-page transitions (View Transitions API, progressive) ──────────
+   Chromium gets a 200ms cross-fade with a 6px rise on the incoming page;
+   other engines fall back to the .rise entrance below. */
+@view-transition {
+  navigation: auto;
 }
-:focus:not(:focus-visible) {
-  outline: none;
+::view-transition-old(root) {
+  animation: vt-out 160ms var(--ease-swift) both;
 }
-
-.skip-link {
-  position: absolute;
-  left: -9999px;
-  top: 0;
-  z-index: 100;
-  padding: 0.5rem 0.75rem;
-  background: rgb(var(--c-accent));
-  color: rgb(var(--c-bg));
-  font-size: 0.875rem;
-  font-weight: 500;
-  border-radius: 0 0 8px 0;
+::view-transition-new(root) {
+  animation: vt-in 220ms var(--ease-out) both;
 }
-.skip-link:focus {
-  left: 0;
+@keyframes vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
 }
 
-/* ─────────────────────────────────────────────────────────────────────────
-   Micro-interactions ("visual haptics"). Principles applied:
-   - short, ease-out transitions (120–180ms) so feedback feels instant;
-   - press feedback via GPU-cheap transforms (translate/scale), not layout;
-   - state layers on hover (surface tint) rather than harsh colour jumps;
-   - everything here is fully disabled under prefers-reduced-motion (below).
-   ───────────────────────────────────────────────────────────────────────── */
+/* ── Interaction physics ─────────────────────────────────────────────────
+   Every interactive element acknowledges the pointer:
+   hover  = color/border shift (--dur-fast)
+   press  = 1px sink + 0.6% scale (--dur-tap) — the "haptic"
+   release= springs back on the same curve */
 a,
 button,
 [role="button"],
 summary,
 input,
 select,
-textarea {
+textarea,
+label {
   transition:
-    color 0.15s ease,
-    background-color 0.15s ease,
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    opacity 0.15s ease,
-    transform 0.12s ease;
+    color var(--dur-fast) var(--ease-swift),
+    background-color var(--dur-fast) var(--ease-swift),
+    border-color var(--dur-fast) var(--ease-swift),
+    box-shadow var(--dur-fast) var(--ease-swift),
+    opacity var(--dur-fast) var(--ease-swift),
+    transform var(--dur-tap) var(--ease-out);
 }
 
-/* A hair of give on click — the core "haptic". */
 button:active,
 [role="button"]:active,
+summary:active,
 a:active {
-  transform: translateY(0.5px) scale(0.994);
+  transform: translateY(1px) scale(0.994);
 }
 
-/* Interactive cards lift a touch on hover and settle on press. Add `.lift`. */
+/* Inputs glow softly when focused — ring grows from the border. */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: none;
+  border-color: rgb(var(--c-accent) / 0.6);
+  box-shadow: 0 0 0 3px rgb(var(--c-accent) / 0.15);
+}
+
+/* Visible keyboard focus everywhere else. */
+:focus-visible {
+  outline: 2px solid rgb(var(--c-accent));
+  outline-offset: 2px;
+  border-radius: 2px;
+  transition: outline-offset var(--dur-tap) var(--ease-out);
+}
+:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/* ── Card physics: .lift ─────────────────────────────────────────────────
+   Interactive cards float 2px on hover with a soft shadow and a top-edge
+   sheen (a hairline of light along the top border), then settle on press.
+   The sheen is what makes it feel lit rather than merely moved. */
 .lift {
+  position: relative;
   transition:
-    transform 0.16s ease,
-    border-color 0.16s ease,
-    background-color 0.16s ease,
-    box-shadow 0.16s ease;
+    transform var(--dur-fast) var(--ease-out),
+    border-color var(--dur-fast) var(--ease-swift),
+    background-color var(--dur-fast) var(--ease-swift),
+    box-shadow var(--dur-fast) var(--ease-swift);
   will-change: transform;
+}
+.lift::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(180deg, rgb(var(--c-fg) / 0.045), transparent 38%);
+  opacity: 0;
+  transition: opacity var(--dur-fast) var(--ease-swift);
 }
 .lift:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px -14px rgb(0 0 0 / 0.55);
+  box-shadow: 0 12px 28px -16px rgb(0 0 0 / 0.5);
+}
+.lift:hover::after {
+  opacity: 1;
 }
 .lift:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.997);
+  box-shadow: 0 4px 12px -10px rgb(0 0 0 / 0.4);
+}
+
+/* ── Table rows: inset accent bar slides in on hover ─────────────────────
+   Applies to every data table in the app — the bar is the row's "cursor". */
+tbody tr {
+  transition:
+    background-color var(--dur-fast) var(--ease-swift),
+    box-shadow var(--dur-fast) var(--ease-swift);
+}
+tbody tr:hover {
+  box-shadow: inset 2px 0 0 rgb(var(--c-accent) / 0.7);
 }
 
 /* Tactile press tint for rows / list items. Add `.tap`. */
@@ -157,7 +229,7 @@ a:active {
   background-color: rgb(var(--c-surface-hover));
 }
 
-/* Wipe-in underline for inline text links. Add `.link`. */
+/* ── Links: wipe-in underline. Add `.link`. ─────────────────────────────── */
 .link {
   position: relative;
 }
@@ -171,13 +243,64 @@ a:active {
   background: currentColor;
   transform: scaleX(0);
   transform-origin: left;
-  transition: transform 0.18s ease;
+  transition: transform var(--dur-med) var(--ease-out);
 }
 .link:hover::after {
   transform: scaleX(1);
 }
 
-/* Skeleton shimmer for loading placeholders. Add `.skeleton`. */
+/* ── Entrances ───────────────────────────────────────────────────────────
+   .rise      — one element rises in (page mount)
+   .stagger   — children cascade in 35ms apart (grids, lists, tables)
+   Both are entrance-only: they finish and get out of the way. */
+@keyframes oddz-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise {
+  animation: oddz-rise var(--dur-slow) var(--ease-out) both;
+}
+.stagger > * {
+  animation: oddz-rise var(--dur-slow) var(--ease-out) both;
+}
+.stagger > :nth-child(1) { animation-delay: 0ms; }
+.stagger > :nth-child(2) { animation-delay: 35ms; }
+.stagger > :nth-child(3) { animation-delay: 70ms; }
+.stagger > :nth-child(4) { animation-delay: 105ms; }
+.stagger > :nth-child(5) { animation-delay: 140ms; }
+.stagger > :nth-child(6) { animation-delay: 175ms; }
+.stagger > :nth-child(7) { animation-delay: 210ms; }
+.stagger > :nth-child(8) { animation-delay: 245ms; }
+.stagger > :nth-child(9) { animation-delay: 280ms; }
+.stagger > :nth-child(10) { animation-delay: 315ms; }
+.stagger > :nth-child(11) { animation-delay: 350ms; }
+.stagger > :nth-child(12) { animation-delay: 385ms; }
+/* Beyond 12, arrive together with the last wave — long lists shouldn't drag. */
+.stagger > :nth-child(n + 13) { animation-delay: 420ms; }
+
+/* ── Dropdowns / popovers: grow from their origin. Add `.pop`. ──────────── */
+@keyframes oddz-pop {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.pop {
+  animation: oddz-pop var(--dur-fast) var(--ease-out) both;
+  transform-origin: top;
+}
+
+/* ── Loading: shimmer skeletons ─────────────────────────────────────────── */
 @keyframes oddz-shimmer {
   100% {
     transform: translateX(100%);
@@ -198,22 +321,7 @@ a:active {
   animation: oddz-shimmer 1.4s ease-in-out infinite;
 }
 
-/* Content mount: a barely-there rise-in. Add `.rise`. */
-@keyframes oddz-rise {
-  from {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.rise {
-  animation: oddz-rise 0.28s ease-out both;
-}
-
-/* Live pulse dot. Add `.pulse-dot`. */
+/* ── Live pulse dot ─────────────────────────────────────────────────────── */
 @keyframes oddz-pulse {
   0%,
   100% {
@@ -229,7 +337,66 @@ a:active {
   animation: oddz-pulse 1.8s ease-in-out infinite;
 }
 
+/* ── Sparkline draw-in: strokes trace themselves on mount. Add `.draw` to
+   an <svg>; set --draw-len if the path is longer than 300 units. ─────────── */
+@keyframes oddz-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.draw path,
+.draw polyline {
+  stroke-dasharray: var(--draw-len, 300);
+  stroke-dashoffset: var(--draw-len, 300);
+  animation: oddz-draw 900ms var(--ease-out) 150ms both;
+}
+
+/* ── Value bars grow into place. Add `.grow-x` to the bar fill. ─────────── */
+@keyframes oddz-grow-x {
+  from {
+    transform: scaleX(0);
+  }
+}
+.grow-x {
+  transform-origin: left;
+  animation: oddz-grow-x var(--dur-slow) var(--ease-out) 120ms both;
+}
+
+/* ── Theme switch: one smooth cross-tint instead of a hard swap.
+   ThemeToggle puts .theme-switching on <html> for the duration. ─────────── */
+html.theme-switching,
+html.theme-switching *,
+html.theme-switching *::before,
+html.theme-switching *::after {
+  transition:
+    background-color 320ms var(--ease-swift),
+    color 320ms var(--ease-swift),
+    border-color 320ms var(--ease-swift),
+    fill 320ms var(--ease-swift),
+    stroke 320ms var(--ease-swift) !important;
+}
+
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.5rem 0.75rem;
+  background: rgb(var(--c-accent));
+  color: rgb(var(--c-bg));
+  font-size: 0.875rem;
+  font-weight: 500;
+  border-radius: 0 0 8px 0;
+}
+.skip-link:focus {
+  left: 0;
+}
+
+/* ── Motion off switch: everything above collapses to instant. ──────────── */
 @media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
   *,
   *::before,
   *::after {
@@ -237,5 +404,9 @@ a:active {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  ::view-transition-old(root),
+  ::view-transition-new(root) {
+    animation: none !important;
   }
 }

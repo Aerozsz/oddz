@@ -20,7 +20,11 @@ export function ThemeToggle() {
   function toggle() {
     const next: Theme = theme === "dark" ? "light" : "dark";
     setTheme(next);
-    document.documentElement.setAttribute("data-theme", next);
+    // Cross-tint every color for one beat instead of hard-swapping the theme.
+    const root = document.documentElement;
+    root.classList.add("theme-switching");
+    root.setAttribute("data-theme", next);
+    window.setTimeout(() => root.classList.remove("theme-switching"), 360);
     try {
       localStorage.setItem("oddz-theme", next);
     } catch {

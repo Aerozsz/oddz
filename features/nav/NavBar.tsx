@@ -63,7 +63,7 @@ function Menu({ label, items, pathname }: { label: string; items: Item[]; pathna
       </button>
       {open && (
         <div className="absolute left-0 top-full z-50 w-60 pt-1">
-          <div className="flex flex-col rounded-lg border border-border bg-surface p-1 shadow-lg shadow-black/20">
+          <div className="pop flex flex-col rounded-lg border border-border bg-surface p-1 shadow-lg shadow-black/20">
             {items.map((i) => {
               const active = isActive(pathname, i.href);
               return (
