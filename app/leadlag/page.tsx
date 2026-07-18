@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { listLeadLag, venueName } from "@/features/leadlag/queries";
+import { NearMisses } from "@/features/markets/components/NearMisses";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 
 export const dynamic = "force-dynamic";
@@ -25,9 +26,12 @@ export default async function LeadLagPage() {
       </div>
 
       {rows.length === 0 ? (
-        <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-zinc-400">
-          No clear lead/lag relationships yet — this needs many snapshots of the same event on two
-          venues. It populates over the coming days of live data.
+        <div className="flex flex-col gap-4">
+          <div className="rounded-lg border border-border bg-surface p-6 text-sm text-muted">
+            No clear lead/lag relationships yet — this needs many snapshots of the same event on
+            two venues, so it sharpens as history accumulates.
+          </div>
+          <NearMisses lead="Cross-venue pairs being tracked right now" />
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">

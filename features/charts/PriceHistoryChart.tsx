@@ -23,22 +23,22 @@ export function PriceHistoryChart({ data, label = "YES" }: { data: HistoryPoint[
           <XAxis
             dataKey="takenAt"
             tickFormatter={(t: string) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-            stroke="#52525b"
+            stroke="rgb(var(--c-muted) / 0.7)"
             fontSize={11}
           />
           <YAxis
             domain={[0, 1]}
             tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
-            stroke="#52525b"
+            stroke="rgb(var(--c-muted) / 0.7)"
             fontSize={11}
             width={40}
           />
           <Tooltip
-            contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", fontSize: 12 }}
+            contentStyle={{ background: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-border))", borderRadius: 8, fontSize: 12 }}
             labelFormatter={(t: string) => new Date(t).toLocaleString()}
             formatter={(v: number) => [`${(v * 100).toFixed(1)}%`, label]}
           />
-          <Line type="monotone" dataKey="yes" stroke="#34d399" strokeWidth={2} dot={false} />
+          <Line type="monotone" dataKey="yes" stroke="rgb(var(--c-accent))" strokeWidth={2.5} dot={false} />
         </LineChart>
       </ResponsiveContainer>
     </div>

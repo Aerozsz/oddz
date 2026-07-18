@@ -75,7 +75,7 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-2">
-        <Link href="/markets" className="text-xs text-zinc-500 hover:text-zinc-300">
+        <Link href="/markets" className="link self-start text-xs text-muted hover:text-fg">
           ← Back to markets
         </Link>
         <div className="flex items-start justify-between gap-4">
@@ -91,7 +91,7 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
             href={tradeUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="rounded bg-emerald-500 px-3 py-1.5 text-xs font-medium text-zinc-950 hover:bg-emerald-400"
+            className="rounded-full bg-accent px-4 py-1.5 text-xs font-medium text-bg transition-transform hover:scale-[1.04] hover:bg-accent-hover"
           >
             Trade on {market.venueName} ↗
           </a>

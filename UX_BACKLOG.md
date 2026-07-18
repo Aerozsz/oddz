@@ -39,3 +39,14 @@ stretched single strips. All motion respects `prefers-reduced-motion`.
 - Remove temporary /api/debug/pm endpoint
 - Empty cross-venue pages: richer empty states w/ near-miss data
 - Number tabular alignment audit (`tabular-nums` everywhere)
+
+## Fragment E — chart theming + detail motion + leadlag empty state  [status: DONE]
+- PriceHistoryChart / EventOverlayChart / VolumeChart: muted brand colors,
+  themed tooltips (inline style var()), entrance fade
+- Market detail page motion pass (rise/stagger)
+- Lead/lag empty state gets NearMisses panel
+
+## Fragment F — snapshot cron timeout mitigation  [status: PENDING]
+- Prod logged 2× "Task timed out after 300 seconds" on /api/cron/snapshot
+- Parallelize venue fetches if sequential; per-venue time budget so one slow
+  venue can't kill the whole run; keep Kalshi page cap

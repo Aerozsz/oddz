@@ -4,10 +4,10 @@ import { Legend, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } f
 import type { OverlayPoint } from "@/features/events/queries";
 
 const VENUE_COLORS: Record<string, string> = {
-  polymarket: "#60a5fa",
-  kalshi: "#34d399",
-  manifold: "#fbbf24",
-  metaculus: "#c084fc",
+  polymarket: "#7FA6D9",
+  kalshi: "rgb(var(--c-accent))",
+  manifold: "#D9B45C",
+  metaculus: "#B48FD9",
 };
 
 export function EventOverlayChart({ data, venues }: { data: OverlayPoint[]; venues: string[] }) {
@@ -28,18 +28,18 @@ export function EventOverlayChart({ data, venues }: { data: OverlayPoint[]; venu
             tickFormatter={(t: string) =>
               new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
             }
-            stroke="#52525b"
+            stroke="rgb(var(--c-muted) / 0.7)"
             fontSize={11}
           />
           <YAxis
             domain={[0, 1]}
             tickFormatter={(v: number) => `${(v * 100).toFixed(0)}%`}
-            stroke="#52525b"
+            stroke="rgb(var(--c-muted) / 0.7)"
             fontSize={11}
             width={40}
           />
           <Tooltip
-            contentStyle={{ background: "#18181b", border: "1px solid #3f3f46", fontSize: 12 }}
+            contentStyle={{ background: "rgb(var(--c-surface))", border: "1px solid rgb(var(--c-border))", borderRadius: 8, fontSize: 12 }}
             labelFormatter={(t: string) => new Date(t).toLocaleString()}
             formatter={(v: number, name: string) => [`${(v * 100).toFixed(1)}%`, name]}
           />
@@ -49,8 +49,8 @@ export function EventOverlayChart({ data, venues }: { data: OverlayPoint[]; venu
               key={v}
               type="monotone"
               dataKey={v}
-              stroke={VENUE_COLORS[v] ?? "#a1a1aa"}
-              strokeWidth={2}
+              stroke={VENUE_COLORS[v] ?? "rgb(var(--c-muted))"}
+              strokeWidth={2.25}
               dot={false}
               connectNulls
             />
