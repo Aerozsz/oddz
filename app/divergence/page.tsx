@@ -10,7 +10,7 @@ export default async function DivergencePage() {
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Cross-venue divergence</h1>
-        <p className="text-sm text-zinc-500">
+        <p className="text-sm text-muted">
           Same event, different venues, different YES prices. Larger spread = larger relative-value gap.
         </p>
       </div>

@@ -17,6 +17,87 @@ export interface OverroundRow {
   overround: number;
 }
 
+export interface OverroundDistribution {
+  /** Every analysed multi-outcome market's signed vig (sum - 1). */
+  values: { category: string | null; overround: number }[];
+  count: number;
+  median: number | null;
+  /** Histogram bins over vig in percentage points, low → high. */
+  bins: { from: number; to: number; count: number; healthy: boolean }[];
+  /** Average vig per category, most expensive first. */
+  byCategory: { category: string; avg: number; count: number }[];
+}
+
+// Vig at or below this (in fraction, i.e. 4pp) counts as a "healthy" book.
+const HEALTHY_VIG = 0.04;
+
+/**
+ * Distribution of the vig across ALL open multi-outcome markets (no min
+ * deviation filter) — powers the histogram and the by-category bars.
+ */
+export async function getOverroundDistribution(): Promise<OverroundDistribution> {
+  const latest = db
+    .select({
+      marketId: priceSnapshots.marketId,
+      takenAt: sql<Date>`max(${priceSnapshots.takenAt})`.as("max_taken_at"),
+    })
+    .from(priceSnapshots)
+    .groupBy(priceSnapshots.marketId)
+    .as("latest");
+
+  const rows = await db
+    .select({
+      category: markets.category,
+      prices: priceSnapshots.prices,
+    })
+    .from(markets)
+    .innerJoin(latest, eq(latest.marketId, markets.id))
+    .innerJoin(
+      priceSnapshots,
+      and(eq(priceSnapshots.marketId, latest.marketId), eq(priceSnapshots.takenAt, latest.takenAt)),
+    )
+    .where(and(eq(markets.closed, 0), sql`jsonb_array_length(${markets.outcomes}) > 2`));
+
+  const values: { category: string | null; overround: number }[] = [];
+  for (const r of rows) {
+    const prices = r.prices.filter((p) => Number.isFinite(p) && p > 0);
+    if (prices.length < 2) continue;
+    const overround = prices.reduce((a, p) => a + p, 0) - 1;
+    // Ignore obviously broken sums (stale/partial snapshots) beyond ±50pp.
+    if (Math.abs(overround) > 0.5) continue;
+    values.push({ category: r.category, overround });
+  }
+
+  const sorted = values.map((v) => v.overround).sort((a, b) => a - b);
+  const median = sorted.length
+    ? sorted[Math.floor((sorted.length - 1) / 2)]
+    : null;
+
+  // Histogram: 2pp-wide bins from -6pp to +20pp, with catch-all tails.
+  const edges = [-0.06, -0.04, -0.02, 0, 0.02, 0.04, 0.06, 0.08, 0.1, 0.14, 0.2];
+  const bins = edges.slice(0, -1).map((from, i) => {
+    const to = edges[i + 1];
+    const count = sorted.filter((v) => v >= from && v < to).length;
+    return { from, to, count, healthy: to <= HEALTHY_VIG + 1e-9 };
+  });
+
+  const catMap = new Map<string, { sum: number; count: number }>();
+  for (const v of values) {
+    const key = v.category ?? "Uncategorised";
+    const c = catMap.get(key) ?? { sum: 0, count: 0 };
+    c.sum += v.overround;
+    c.count += 1;
+    catMap.set(key, c);
+  }
+  const byCategory = [...catMap.entries()]
+    .map(([category, c]) => ({ category, avg: c.sum / c.count, count: c.count }))
+    .filter((c) => c.count >= 2)
+    .sort((a, b) => b.avg - a.avg)
+    .slice(0, 10);
+
+  return { values, count: values.length, median, bins, byCategory };
+}
+
 /**
  * Multi-outcome markets whose outcome prices don't sum to $1.
  *   sum > 1  → built-in house edge (the vig) — expensive to bet any side.
