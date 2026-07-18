@@ -79,9 +79,12 @@ export default async function HomePage() {
                 <span className="line-clamp-1 text-sm text-zinc-200">{m.question}</span>
                 <span className="flex shrink-0 items-center gap-2 text-xs">
                   <VenueBadge venue={m.venue} />
+                  <span className="font-mono tabular-nums text-muted">
+                    {formatPct(m.yesThen)} → {formatPct(m.yesNow)}
+                  </span>
                   <span
                     className={cn(
-                      "font-mono font-semibold",
+                      "font-mono font-semibold tabular-nums",
                       m.delta >= 0 ? "text-emerald-300" : "text-red-300",
                     )}
                   >

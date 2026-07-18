@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
-import { cn, formatPct } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 
 export interface ResolvingItem {
   id: string;
@@ -18,9 +18,9 @@ export interface ResolvingItem {
 /** Venue → the mechanism that settles it. Honest, venue-derived (not per-market). */
 const RESOLUTION_SOURCE: Record<string, string> = {
   polymarket: "UMA Oracle",
-  kalshi: "Exchange settlement",
-  manifold: "Creator resolution",
-  metaculus: "Community resolution",
+  kalshi: "Exchange",
+  manifold: "Creator",
+  metaculus: "Community",
 };
 
 const HOUR = 3600_000;
@@ -30,6 +30,10 @@ function pad(n: number) {
   return String(n).padStart(2, "0");
 }
 
+/**
+ * Urgency-coded countdown: red + pulse under 1h (act now), normal text under
+ * 24h, muted beyond. A wall of identical red timers tells you nothing.
+ */
 function Countdown({ target }: { target: number }) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -40,54 +44,76 @@ function Countdown({ target }: { target: number }) {
   const h = Math.floor(ms / HOUR);
   const m = Math.floor((ms % HOUR) / 60000);
   const s = Math.floor((ms % 60000) / 1000);
+  const urgent = ms < HOUR;
   return (
-    <span className="font-mono text-sm font-semibold tabular-nums text-neg">
+    <span
+      className={cn(
+        "inline-flex items-center gap-1.5 font-mono text-xs font-semibold tabular-nums",
+        urgent ? "text-neg" : "text-fg-dim",
+      )}
+    >
+      {urgent && <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-neg" />}
       {pad(h)}:{pad(m)}:{pad(s)}
     </span>
   );
 }
 
-function OddsBar({ yes }: { yes: number }) {
+/** Compact inline odds glyph — fixed width, sits next to the number it explains. */
+function OddsGlyph({ yes }: { yes: number }) {
   const pct = Math.round(yes * 100);
   return (
-    <div className="flex h-1.5 w-full overflow-hidden rounded-full bg-track">
-      <div style={{ width: `${pct}%`, backgroundColor: "rgb(var(--c-accent))" }} />
-      <div style={{ width: `${100 - pct}%`, backgroundColor: "rgb(var(--c-neg))" }} />
-    </div>
+    <span className="inline-flex h-1.5 w-16 overflow-hidden rounded-full bg-track" aria-hidden>
+      <span style={{ width: `${pct}%` }} className="bg-accent" />
+      <span style={{ width: `${100 - pct}%` }} className="bg-neg/60" />
+    </span>
   );
 }
 
 function Row({ item, showCountdown }: { item: ResolvingItem; showCountdown: boolean }) {
   const target = new Date(item.endsAt).getTime();
   const when = new Date(item.endsAt);
+  const pct = item.yes !== null ? Math.round(item.yes * 100) : null;
+
   return (
     <Link
       href={`/markets/${encodeURIComponent(item.id)}`}
-      className="flex flex-col gap-2 px-3 py-3 hover:bg-[rgb(var(--c-surface-hover))]"
+      className="tap flex flex-col gap-2 px-3 py-2.5 hover:bg-[rgb(var(--c-surface-hover))]"
     >
-      <div className="flex items-start justify-between gap-3">
-        <span className="line-clamp-2 text-sm text-fg">{item.question}</span>
+      {/* meta line: when + category | venue */}
+      <div className="flex items-center justify-between gap-2">
         {showCountdown ? (
           <Countdown target={target} />
         ) : (
-          <span className="shrink-0 font-mono text-xs tabular-nums text-muted">
-            {when.toLocaleDateString([], { month: "short", day: "numeric" })}{" "}
+          <span className="font-mono text-[11px] tabular-nums text-muted">
+            {when.toLocaleDateString([], { weekday: "short", month: "short", day: "numeric" })}
+            {" · "}
             {when.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </span>
         )}
+        <VenueBadge venue={item.venue} />
       </div>
-      {item.yes !== null && <OddsBar yes={item.yes} />}
+
+      <span className="line-clamp-2 text-sm leading-snug text-fg">{item.question}</span>
+
+      {/* data line: the price is the hero */}
       <div className="flex items-center justify-between gap-2">
-        <div className="flex items-center gap-2">
-          <VenueBadge venue={item.venue} name={item.venueName} />
-          {item.yes !== null && (
-            <span className="font-mono text-xs tabular-nums text-muted">
-              YES {formatPct(item.yes)}
-            </span>
+        <span className="flex items-baseline gap-2">
+          {pct !== null ? (
+            <>
+              <span className="font-mono text-lg font-semibold tabular-nums text-fg">{pct}%</span>
+              <span className="font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
+                yes
+              </span>
+              <OddsGlyph yes={item.yes!} />
+            </>
+          ) : (
+            <span className="font-mono text-xs text-muted">no price</span>
           )}
-        </div>
-        <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
-          {RESOLUTION_SOURCE[item.venue] ?? "Venue settled"}
+        </span>
+        <span className="flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-[0.08em] text-muted">
+          <span className="h-1 w-1 rounded-full bg-muted/60" />
+          {item.category ? `${item.category} · ` : ""}
+          {RESOLUTION_SOURCE[item.venue] ?? "Venue"}
         </span>
       </div>
     </Link>
@@ -105,9 +131,9 @@ function Group({
 }) {
   if (items.length === 0) return null;
   return (
-    <section>
+    <section className="min-w-0">
       <h2 className="mb-2 flex items-center gap-2 font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
-        {showCountdown && <span className="h-1.5 w-1.5 rounded-full bg-neg" />}
+        {showCountdown && <span className="pulse-dot h-1.5 w-1.5 rounded-full bg-neg" />}
         {label}
         <span className="text-muted/60">({items.length})</span>
       </h2>
@@ -142,7 +168,7 @@ export function ResolvingBoard({ items }: { items: ResolvingItem[] }) {
   }
 
   return (
-    <div className={cn("grid items-start gap-4 lg:grid-cols-3")}>
+    <div className="grid items-start gap-4 md:grid-cols-2 xl:grid-cols-3">
       <Group label="Resolving today" items={today} showCountdown />
       <Group label="This week" items={week} showCountdown={false} />
       <Group label="Later" items={later} showCountdown={false} />
