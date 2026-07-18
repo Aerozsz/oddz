@@ -29,7 +29,7 @@ stretched single strips. All motion respects `prefers-reduced-motion`.
 - Table row hover: inset accent bar everywhere (MarketTable + all tables)
 - Watchlist empty state: pill button w/ spring hover
 
-## Fragment C — detail polish + verification  [status: PENDING]
+## Fragment C — detail polish + verification  [status: DONE]
 - Sparkline draw-in animation (stroke-dashoffset) in MarketTable
 - Market detail page: entrance stagger, chart fade-in, payout calc physics
 - Homepage + overview: stat card hover lift, stagger

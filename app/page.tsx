@@ -31,7 +31,7 @@ export default async function HomePage() {
       </section>
 
       {hasData && overview && (
-        <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <section className="stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
           <Stat label="Total volume" value={formatUSD(overview.totalVolume)} href="/overview" />
           <Stat
             label="Live markets"
@@ -96,7 +96,7 @@ export default async function HomePage() {
       )}
 
       {!hasData && (
-        <section className="grid gap-6 sm:grid-cols-3">
+        <section className="stagger grid gap-6 sm:grid-cols-3">
           <Card title="Aggregated">Every live market across four venues, one search box.</Card>
           <Card title="Arbitrage">Same event, mispriced across venues — lock the spread.</Card>
           <Card title="History">Every snapshot stored. Odds drift, fully queryable. Public API.</Card>
@@ -123,7 +123,7 @@ function Stat({ label, value, href }: { label: string; value: string; href: stri
   return (
     <Link
       href={href as never}
-      className="rounded-lg border border-border bg-surface p-3 transition-colors hover:border-zinc-600"
+      className="lift rounded-lg border border-border bg-surface p-3"
     >
       <div className="text-xs text-zinc-500">{label}</div>
       <div className="mt-1 font-mono text-xl text-zinc-100">{value}</div>

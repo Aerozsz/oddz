@@ -16,7 +16,7 @@ export function StatCard({
   href?: string;
 }) {
   const inner = (
-    <div className="flex flex-col gap-1 rounded-lg border border-border bg-surface p-[14px_16px] transition-colors hover:border-track">
+    <div className="lift flex flex-col gap-1 rounded-lg border border-border bg-surface p-[14px_16px]">
       <div className={LABEL}>{label}</div>
       <div className="font-mono text-xl font-semibold text-fg">{value}</div>
       {change && (

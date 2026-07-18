@@ -42,7 +42,7 @@ export default async function OverviewPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="stagger grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Total volume" value={formatUSD(overview.totalVolume)} href="/markets" />
         <StatCard label="Live markets" value={overview.totalMarkets.toLocaleString()} href="/markets" />
         <StatCard
@@ -58,7 +58,7 @@ export default async function OverviewPage() {
         <CategoryBars categories={overview.categories} />
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="stagger grid gap-4 lg:grid-cols-2">
         <TradersCard />
         <MarketDetailCard market={featured} />
       </div>
