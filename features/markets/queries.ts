@@ -384,6 +384,7 @@ export interface TrendingRow {
   category: string | null;
   yes: number;
   priceMove: number; // abs YES change over window
+  move: number; // signed YES change over window (now - then)
   volume: number;
   score: number;
 }
@@ -427,7 +428,8 @@ export async function listTrending(hours = 24, limit = 40): Promise<TrendingRow[
 
   const scored: TrendingRow[] = rows.rows.map((r) => {
     const yes = Number(r.yes_now) || 0;
-    const priceMove = Math.abs(yes - (Number(r.yes_then) || 0));
+    const move = yes - (Number(r.yes_then) || 0);
+    const priceMove = Math.abs(move);
     const volume = Number(r.volume) || 0;
     const score = priceMove * Math.log10(Math.max(volume, 10));
     return {
@@ -438,6 +440,7 @@ export async function listTrending(hours = 24, limit = 40): Promise<TrendingRow[
       category: r.category,
       yes,
       priceMove,
+      move,
       volume,
       score,
     };
