@@ -15,6 +15,7 @@ export interface MarketRow {
   volume: number | null;
   liquidity: number | null;
   endsAt: Date | null;
+  createdAt: Date | null;
   sourceUrl: string;
   lastSeenAt: Date;
 }
@@ -75,6 +76,7 @@ export async function listMarkets(params: ListMarketsParams = {}): Promise<Marke
       volume: priceSnapshots.volume,
       liquidity: priceSnapshots.liquidity,
       endsAt: markets.endsAt,
+      createdAt: markets.createdAt,
       sourceUrl: markets.sourceUrl,
       lastSeenAt: markets.lastSeenAt,
     })
@@ -291,6 +293,7 @@ async function marketRowsWith(
       volume: priceSnapshots.volume,
       liquidity: priceSnapshots.liquidity,
       endsAt: markets.endsAt,
+      createdAt: markets.createdAt,
       sourceUrl: markets.sourceUrl,
       lastSeenAt: markets.lastSeenAt,
     })
