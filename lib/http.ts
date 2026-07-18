@@ -34,6 +34,7 @@ export async function fetchJson<T>(url: string, opts: FetchJsonOptions<T>): Prom
     body,
     headers,
     source = "http",
+    signal: externalSignal,
     ...rest
   } = opts;
 
@@ -52,8 +53,13 @@ export async function fetchJson<T>(url: string, opts: FetchJsonOptions<T>): Prom
   while (true) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    // Callers (e.g. the snapshot worker's time budget) can pass their own
+    // signal; honor BOTH it and the per-request timeout.
+    const signal = externalSignal
+      ? AbortSignal.any([controller.signal, externalSignal])
+      : controller.signal;
     try {
-      const res = await fetch(url, { ...init, signal: controller.signal });
+      const res = await fetch(url, { ...init, signal });
       if (!res.ok) {
         const text = await res.text().catch(() => "");
         if (RETRIABLE_STATUS.has(res.status) && attempt < retries) {
@@ -76,6 +82,8 @@ export async function fetchJson<T>(url: string, opts: FetchJsonOptions<T>): Prom
       return parsed.data;
     } catch (err) {
       if (err instanceof HttpError) throw err;
+      // The caller's budget expired — retrying would just burn more of it.
+      if (externalSignal?.aborted) throw err;
       const isAbort = err instanceof Error && err.name === "AbortError";
       if (attempt < retries) {
         log.warn("http retry", { source, url, attempt, error: String(err), abort: isAbort });
@@ -94,7 +102,9 @@ async function backoff(attempt: number, baseMs: number, retryAfter: string | nul
   if (retryAfter) {
     const seconds = Number(retryAfter);
     if (Number.isFinite(seconds)) {
-      await sleep(seconds * 1000);
+      // Honor the header but cap it — a venue advertising a long cooldown
+      // must not eat the whole serverless time budget.
+      await sleep(Math.min(seconds * 1000, 15_000));
       return;
     }
   }

@@ -17,8 +17,13 @@ export interface SnapshotResult {
 // gaps surface instead of hiding. Overridable via env for prod tuning.
 const PAGES_PER_VENUE = Number(process.env.SNAPSHOT_PAGES_PER_VENUE) || 15;
 const PAGE_SIZE = 200;
-// Soft wall-clock budget so we never blow past the serverless maxDuration.
-const TIME_BUDGET_MS = Number(process.env.SNAPSHOT_TIME_BUDGET_MS) || 240_000;
+// Soft wall-clock budget so we never blow past the serverless maxDuration
+// (300s on Vercel). 210s of fetching leaves headroom for reconcile + the
+// final DB writes even when every venue runs slow.
+const TIME_BUDGET_MS = Number(process.env.SNAPSHOT_TIME_BUDGET_MS) || 210_000;
+// Reconcile needs meaningful time to be worth starting; below this we skip
+// it (the next run picks it up) rather than risk the hard kill.
+const RECONCILE_MIN_MS = 20_000;
 
 export async function runSnapshot(): Promise<SnapshotResult> {
   const start = Date.now();
@@ -28,29 +33,45 @@ export async function runSnapshot(): Promise<SnapshotResult> {
     .returning({ id: snapshotRuns.id });
 
   const deadline = start + TIME_BUDGET_MS;
-  const results = await Promise.allSettled(allSources.map((s) => fetchVenue(s, deadline)));
-
   const perVenue: SnapshotResult["perVenue"] = {};
-  for (let i = 0; i < allSources.length; i++) {
-    const venue = allSources[i].venue;
-    const r = results[i];
-    if (r.status === "fulfilled") perVenue[venue] = r.value;
-    else perVenue[venue] = { fetched: 0, written: 0, error: String(r.reason) };
+  try {
+    const results = await Promise.allSettled(allSources.map((s) => fetchVenue(s, deadline)));
+
+    for (let i = 0; i < allSources.length; i++) {
+      const venue = allSources[i].venue;
+      const r = results[i];
+      if (r.status === "fulfilled") perVenue[venue] = r.value;
+      else perVenue[venue] = { fetched: 0, written: 0, error: String(r.reason) };
+    }
+
+    let reconciled = { matched: 0, fuzzyMatched: 0, created: 0 };
+    const reconcileBudget = start + TIME_BUDGET_MS + 60_000 - Date.now();
+    if (reconcileBudget >= RECONCILE_MIN_MS) {
+      reconciled = await reconcileEvents().catch((err) => {
+        log.error("reconcile failed", { error: String(err) });
+        return { matched: 0, fuzzyMatched: 0, created: 0 };
+      });
+    } else {
+      log.warn("reconcile skipped, out of time budget", { remainingMs: reconcileBudget });
+    }
+
+    const durationMs = Date.now() - start;
+    await db
+      .update(snapshotRuns)
+      .set({ status: "ok", finishedAt: new Date(), stats: perVenue })
+      .where(eq(snapshotRuns.id, runId));
+
+    log.info("snapshot complete", { runId, durationMs, perVenue, reconciled });
+    return { runId, perVenue, reconciled, durationMs };
+  } catch (err) {
+    // Never leave the run stuck in "running" — the status page reads this.
+    await db
+      .update(snapshotRuns)
+      .set({ status: "error", finishedAt: new Date(), stats: perVenue })
+      .where(eq(snapshotRuns.id, runId))
+      .catch(() => {});
+    throw err;
   }
-
-  const reconciled = await reconcileEvents().catch((err) => {
-    log.error("reconcile failed", { error: String(err) });
-    return { matched: 0, fuzzyMatched: 0, created: 0 };
-  });
-
-  const durationMs = Date.now() - start;
-  await db
-    .update(snapshotRuns)
-    .set({ status: "ok", finishedAt: new Date(), stats: perVenue })
-    .where(eq(snapshotRuns.id, runId));
-
-  log.info("snapshot complete", { runId, durationMs, perVenue, reconciled });
-  return { runId, perVenue, reconciled, durationMs };
 }
 
 async function fetchVenue(
@@ -64,16 +85,43 @@ async function fetchVenue(
   let truncated = false;
 
   for (let page = 0; page < PAGES_PER_VENUE; page++) {
-    const { markets: rows, nextCursor } = await source.fetchPage({ limit: PAGE_SIZE, cursor });
+    // Budget check BEFORE issuing the request — a slow venue must stop
+    // spending, not discover it's overdrawn afterwards.
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) {
+      truncated = true;
+      venueLog.warn("venue coverage truncated", { fetched, page, timeout: true });
+      break;
+    }
+    let rows: NormalizedMarket[];
+    let nextCursor: string | undefined;
+    try {
+      // The signal caps this page (fetch + retries) at the remaining budget,
+      // so in-flight work dies at the deadline instead of overrunning it.
+      ({ markets: rows, nextCursor } = await source.fetchPage({
+        limit: PAGE_SIZE,
+        cursor,
+        signal: AbortSignal.timeout(remaining),
+      }));
+    } catch (err) {
+      // Deadline hit mid-page: keep what we already persisted as a partial
+      // (truncated) result instead of failing the whole venue.
+      if (Date.now() >= deadline) {
+        truncated = true;
+        venueLog.warn("venue coverage truncated", { fetched, page, timeout: true });
+        break;
+      }
+      throw err;
+    }
     fetched += rows.length;
     if (rows.length > 0) written += await persist(rows);
     if (!nextCursor) break;
     cursor = nextCursor;
-    // More pages exist but we've hit the page cap or the time budget:
-    // record it so the coverage gap is visible, never silent.
-    if (page === PAGES_PER_VENUE - 1 || Date.now() > deadline) {
+    // More pages exist but we've hit the page cap: record it so the
+    // coverage gap is visible, never silent.
+    if (page === PAGES_PER_VENUE - 1) {
       truncated = true;
-      venueLog.warn("venue coverage truncated", { fetched, page: page + 1, timeout: Date.now() > deadline });
+      venueLog.warn("venue coverage truncated", { fetched, page: page + 1, timeout: false });
       break;
     }
   }

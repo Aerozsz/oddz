@@ -46,7 +46,7 @@ stretched single strips. All motion respects `prefers-reduced-motion`.
 - Market detail page motion pass (rise/stagger)
 - Lead/lag empty state gets NearMisses panel
 
-## Fragment F — snapshot cron timeout mitigation  [status: PENDING]
+## Fragment F — snapshot cron timeout mitigation  [status: DONE]
 - Prod logged 2× "Task timed out after 300 seconds" on /api/cron/snapshot
 - Parallelize venue fetches if sequential; per-venue time budget so one slow
   venue can't kill the whole run; keep Kalshi page cap
