@@ -100,7 +100,7 @@ export function NavBar() {
         <Link href="/" className="mr-2 shrink-0" aria-label="oddz home">
           <Logo size={22} />
         </Link>
-        <nav className="flex flex-1 items-center gap-0.5">
+        <nav className="flex flex-1 items-center gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           {PRIMARY.map((l) => (
             <Link
               key={l.href}
