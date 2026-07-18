@@ -1,52 +1,49 @@
-# UX overhaul backlog — fragmented for usage-limit resilience
+# UX overhaul — state of play
 
-Working branch: `claude/refactor-project-structure-JIiXS`. Every fragment ends
-with typecheck + build + commit + push (auto-deploys via GitHub Actions).
-If resuming cold: `git log --oneline -5` to see which fragments landed.
+Working branch: `claude/refactor-project-structure-JIiXS`. Every commit
+auto-deploys via GitHub Actions (remote Vercel build). `git log --oneline`
+tells the story; this file is the review companion.
 
-## Quality bar (read this first)
+## Design principles now enforced app-wide
 
-Not "add some transitions". The goal: the app feels engineered — every
-interactive element acknowledges the user instantly (<150ms), motion has a
-consistent physical language (one easing family, one duration scale), nothing
-jumps or flashes, and wide screens get real multi-column layouts, never
-stretched single strips. All motion respects `prefers-reduced-motion`.
+1. **Price-first hierarchy.** The number a trader acts on (YES price, edge,
+   delta) is the largest element in its row; meta is quiet mono-caps.
+2. **Bars are glyphs, not filler.** Compact fixed-width odds glyphs beside the
+   number they explain. Full-width bars only where they're comparative data
+   (movers magnitude, heat ranks, uptime strips, histograms).
+3. **One motion language.** easeOutQuint + reserved spring, 90/150/240/360ms
+   tokens; press-sink on every control, lift+sheen on cards, staggered
+   entrances, View Transitions page fades, draw-in sparklines, cross-tint
+   theme switch. All instant under prefers-reduced-motion.
+4. **Muted semantics.** Desaturated green/red reserved for probability
+   meaning; consistent across UI, charts, OG cards, badge, favicon, docs.
+5. **Wide screens get columns.** 1280px shell; multi-column boards/grids on
+   every list page. No stretched single strips.
+6. **No dead ends.** Empty signal pages show the nearest live cross-venue
+   gaps (NearMisses) instead of an apology.
 
-## Fragment A — motion foundation (globals.css + theme + nav)  [status: DONE]
-- Easing/duration design tokens (`--ease-out`, `--ease-spring`, `--dur-*`)
-- View Transitions API cross-page fade (progressive enhancement)
-- Staggered entrance system (`.stagger`) — children cascade in 30ms apart
-- Refined press physics (spring scale), card hover sheen, table row accent bar
-- Accent-tinted text selection, caret color, mobile tap-highlight removal
-- Buttery theme switch: temporary global color transition class on `<html>`
-- Nav dropdown: scale/fade origin-top entrance
+## Shipped this session (chronological)
 
-## Fragment B — apply everywhere + wide layouts  [status: DONE]
-- `.stagger` on every grid/list page (trending, movers, new, activity,
-  divergence, overround, consensus, arbitrage, resolving, status)
-- Resolving → 3-column urgency board (today | this week | later)
-- Arbitrage, Consensus → 2-col card grids (kill the A4 strips)
-- Table row hover: inset accent bar everywhere (MarketTable + all tables)
-- Watchlist empty state: pill button w/ spring hover
+- Auto-deploy fixed (remote Vercel build; CI never touches the DB)
+- "Currents" logo everywhere: nav, favicon (both themes), OG cards, hero
+- 14 handoff page designs implemented; then density v2 passes on Resolving
+  (urgency-coded countdowns, price hero, integrated resolution source),
+  New, MarketTable/PriceCell, Consensus (0–100% venue strip + consensus
+  tick), Events (venue-position strip, Trade pill)
+- Watchlist: donut-ring starred cards, 2/3/4-col grid
+- Grouped nav (3 primary + Signals/Discover dropdowns w/ hints, aria-current)
+- Snapshot cron 300s timeouts fixed (budget-enforced fetching, signal
+  plumbing through fetchJson, capped retry-after, runs never stuck 'running')
+- System-preference theme default on first visit
+- Homepage hero: venue eyebrow, CTA pair, Currents ambience
 
-## Fragment C — detail polish + verification  [status: DONE]
-- Sparkline draw-in animation (stroke-dashoffset) in MarketTable
-- Market detail page: entrance stagger, chart fade-in, payout calc physics
-- Homepage + overview: stat card hover lift, stagger
-- Build + screenshot verification (dark/light, 1440px), commit, push
+## Recommended next (in value order)
 
-## Fragment D — if time remains  [status: DONE]
-- Remove temporary /api/debug/pm endpoint
-- Empty cross-venue pages: richer empty states w/ near-miss data
-- Number tabular alignment audit (`tabular-nums` everywhere)
-
-## Fragment E — chart theming + detail motion + leadlag empty state  [status: DONE]
-- PriceHistoryChart / EventOverlayChart / VolumeChart: muted brand colors,
-  themed tooltips (inline style var()), entrance fade
-- Market detail page motion pass (rise/stagger)
-- Lead/lag empty state gets NearMisses panel
-
-## Fragment F — snapshot cron timeout mitigation  [status: DONE]
-- Prod logged 2× "Task timed out after 300 seconds" on /api/cron/snapshot
-- Parallelize venue fetches if sequential; per-venue time budget so one slow
-  venue can't kill the whole run; keep Kalshi page cap
+1. **Live verification sweep** — click through every page on production with
+   real data; tune grid density per page (needs a human or a reachable
+   deployment; the sandbox is firewalled).
+2. Mobile pass at 360–430px: nav, hero, board columns, table min-widths.
+3. Verify Kalshi/Manifold/Metaculus outbound links on fresh snapshots.
+4. Lead/lag + Overround: same density v2 treatment as Resolving got.
+5. Watchlist alert rules (schema + UI panel from the handoff design).
+6. Onchain trader-PnL leaderboard (whale tracking) — roadmap headline.
