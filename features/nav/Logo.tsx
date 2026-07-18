@@ -1,33 +1,36 @@
 import { brand } from "@/lib/brand";
 
 /**
- * "The Eye" (option 1c): half-arc over a signal dot. Arc uses currentColor
- * so it follows the theme's text color; the dot stays accent green in both
- * modes. 48×48 construction from the brand spec, scaled by `size`.
+ * "The Currents" (option 9a): two equal, offset horizontal beams. YES enters
+ * from the left and fades out; NO enters from the right and fades out. The 4px
+ * horizontal offset between the bars is essential — never align them.
+ *
+ * Colors follow the theme via CSS variables (green `--c-accent`, red `--c-neg`),
+ * so the mark reskins automatically in dark/light mode. 48×48 construction from
+ * the brand spec, scaled by `size`.
  */
 export function Logo({ size = 22, withWordmark = true }: { size?: number; withWordmark?: boolean }) {
   return (
-    <span className="inline-flex items-center" style={{ gap: size * 0.3 }}>
+    <span className="inline-flex items-center" style={{ gap: size * 0.34 }}>
       <svg
         width={size}
         height={size}
         viewBox="0 0 48 48"
         aria-hidden="true"
-        style={{ display: "block", color: "rgb(var(--c-fg))" }}
+        style={{ display: "block" }}
       >
-        <g transform="rotate(135 24 24)">
-          <circle
-            cx="24"
-            cy="24"
-            r="18"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="7"
-            strokeDasharray="56.5 56.6"
-            strokeLinecap="round"
-          />
-          <circle cx="24" cy="24" r="7" fill="rgb(var(--c-accent))" />
-        </g>
+        <defs>
+          <linearGradient id="oddz-yes" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0" stopColor="rgb(var(--c-accent))" />
+            <stop offset="1" stopColor="rgb(var(--c-accent))" stopOpacity="0.12" />
+          </linearGradient>
+          <linearGradient id="oddz-no" x1="1" y1="0" x2="0" y2="0">
+            <stop offset="0" stopColor="rgb(var(--c-neg))" />
+            <stop offset="1" stopColor="rgb(var(--c-neg))" stopOpacity="0.12" />
+          </linearGradient>
+        </defs>
+        <rect x="3" y="13" width="38" height="9" rx="4.5" fill="url(#oddz-yes)" />
+        <rect x="7" y="26" width="38" height="9" rx="4.5" fill="url(#oddz-no)" />
       </svg>
       {withWordmark && (
         <span

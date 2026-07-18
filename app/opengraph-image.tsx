@@ -11,11 +11,12 @@ const BG = "#0C0F13";
 const FG = "#E9EDF2";
 const MUTED = "#8A94A3";
 const ACCENT = "#2FD483";
+const NEG = "#F0645A";
 
-// The Eye icon (light arc + green dot) and a faint sparkline, as data URIs
-// (satori renders SVG reliably via <img>).
+// The "Currents" mark (two offset YES/NO beams) and a faint sparkline, as data
+// URIs (satori renders SVG reliably via <img>).
 const ICON = `data:image/svg+xml;utf8,${encodeURIComponent(
-  `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><g transform="rotate(135 24 24)"><circle cx="24" cy="24" r="18" fill="none" stroke="${FG}" stroke-width="7" stroke-dasharray="56.5 56.6" stroke-linecap="round"/><circle cx="24" cy="24" r="7" fill="${ACCENT}"/></g></svg>`,
+  `<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48"><defs><linearGradient id="y" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="${ACCENT}"/><stop offset="1" stop-color="${ACCENT}" stop-opacity="0.12"/></linearGradient><linearGradient id="n" x1="1" y1="0" x2="0" y2="0"><stop offset="0" stop-color="${NEG}"/><stop offset="1" stop-color="${NEG}" stop-opacity="0.12"/></linearGradient></defs><rect x="3" y="13" width="38" height="9" rx="4.5" fill="url(#y)"/><rect x="7" y="26" width="38" height="9" rx="4.5" fill="url(#n)"/></svg>`,
 )}`;
 const SPARK = `data:image/svg+xml;utf8,${encodeURIComponent(
   `<svg xmlns="http://www.w3.org/2000/svg" width="600" height="200" viewBox="0 0 360 120" preserveAspectRatio="none"><polyline points="0,100 40,92 80,96 120,78 160,84 200,64 240,70 280,44 320,52 360,26" fill="none" stroke="${ACCENT}" stroke-width="2"/></svg>`,
