@@ -15,9 +15,11 @@
   --c-fg: 233 237 242; /* #E9EDF2 */
   --c-fg-dim: 199 205 214; /* dimmer text */
   --c-muted: 138 148 163; /* #8A94A3 */
-  --c-accent: 47 212 131; /* #2FD483 */
-  --c-accent-hover: 92 230 161; /* #5CE6A1 */
-  --c-neg: 240 100 90; /* #F0645A */
+  /* Muted, tasteful buy/sell — desaturated from the neon originals so green/red
+     read as accents, not alarms. Still clearly green (YES/up) vs red (NO/down). */
+  --c-accent: 88 173 138; /* #58AD8A muted emerald */
+  --c-accent-hover: 122 197 165; /* #7AC5A5 */
+  --c-neg: 209 122 113; /* #D17A71 muted coral */
 }
 
 :root[data-theme="light"] {
@@ -31,9 +33,13 @@
   --c-fg: 21 26 32; /* #151A20 */
   --c-fg-dim: 55 63 74;
   --c-muted: 93 102 114; /* #5D6672 */
-  --c-accent: 24 155 92; /* #189B5C */
-  --c-accent-hover: 20 130 78;
-  --c-neg: 216 73 63; /* #D8493F */
+  --c-accent: 32 138 92; /* #208A5C muted green */
+  --c-accent-hover: 26 116 76;
+  --c-neg: 192 84 74; /* #C0544A muted red */
+}
+
+html {
+  scroll-behavior: smooth;
 }
 
 html,
@@ -41,6 +47,26 @@ body {
   background: rgb(var(--c-bg));
   color: rgb(var(--c-fg));
   min-height: 100%;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Custom scrollbar so even scrolling feels considered. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--c-track)) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--c-track));
+  border-radius: 99px;
+  border: 3px solid rgb(var(--c-bg));
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--c-muted) / 0.6);
 }
 
 * {
@@ -77,6 +103,130 @@ body {
 }
 .skip-link:focus {
   left: 0;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   Micro-interactions ("visual haptics"). Principles applied:
+   - short, ease-out transitions (120–180ms) so feedback feels instant;
+   - press feedback via GPU-cheap transforms (translate/scale), not layout;
+   - state layers on hover (surface tint) rather than harsh colour jumps;
+   - everything here is fully disabled under prefers-reduced-motion (below).
+   ───────────────────────────────────────────────────────────────────────── */
+a,
+button,
+[role="button"],
+summary,
+input,
+select,
+textarea {
+  transition:
+    color 0.15s ease,
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    box-shadow 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.12s ease;
+}
+
+/* A hair of give on click — the core "haptic". */
+button:active,
+[role="button"]:active,
+a:active {
+  transform: translateY(0.5px) scale(0.994);
+}
+
+/* Interactive cards lift a touch on hover and settle on press. Add `.lift`. */
+.lift {
+  transition:
+    transform 0.16s ease,
+    border-color 0.16s ease,
+    background-color 0.16s ease,
+    box-shadow 0.16s ease;
+  will-change: transform;
+}
+.lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -14px rgb(0 0 0 / 0.55);
+}
+.lift:active {
+  transform: translateY(0);
+}
+
+/* Tactile press tint for rows / list items. Add `.tap`. */
+.tap:active {
+  background-color: rgb(var(--c-surface-hover));
+}
+
+/* Wipe-in underline for inline text links. Add `.link`. */
+.link {
+  position: relative;
+}
+.link::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -2px;
+  height: 1px;
+  background: currentColor;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform 0.18s ease;
+}
+.link:hover::after {
+  transform: scaleX(1);
+}
+
+/* Skeleton shimmer for loading placeholders. Add `.skeleton`. */
+@keyframes oddz-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgb(var(--c-surface-hover));
+  border-radius: 8px;
+}
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgb(var(--c-fg) / 0.06), transparent);
+  animation: oddz-shimmer 1.4s ease-in-out infinite;
+}
+
+/* Content mount: a barely-there rise-in. Add `.rise`. */
+@keyframes oddz-rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise {
+  animation: oddz-rise 0.28s ease-out both;
+}
+
+/* Live pulse dot. Add `.pulse-dot`. */
+@keyframes oddz-pulse {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.45;
+    transform: scale(0.82);
+  }
+}
+.pulse-dot {
+  animation: oddz-pulse 1.8s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {

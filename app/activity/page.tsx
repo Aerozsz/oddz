@@ -37,14 +37,14 @@ export default async function ActivityPage() {
           No volume surges in the last 24 hours — needs at least two snapshots per market.
         </div>
       ) : (
-        <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-lg border border-border bg-surface">
+        <div className="grid gap-2 lg:grid-cols-2 xl:grid-cols-3">
           {rows.map((r) => {
             const whale = r.delta >= WHALE;
             return (
               <Link
                 key={r.id}
                 href={`/markets/${encodeURIComponent(r.id)}`}
-                className="flex items-center gap-3 px-3 py-2.5 hover:bg-[rgb(var(--c-surface-hover))]"
+                className="flex items-center gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 transition-colors hover:border-[rgb(var(--c-accent))]/40 hover:bg-[rgb(var(--c-surface-hover))]"
               >
                 {/* side chip — surges are inflows, so a solid buy-side chip */}
                 <span className="shrink-0 rounded-[5px] bg-accent px-2 py-0.5 font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-bg">

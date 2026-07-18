@@ -30,7 +30,7 @@ export function DivergenceTable({ rows }: { rows: DivergenceRow[] }) {
     Math.sqrt(spreads.reduce((a, b) => a + (b - mean) ** 2, 0) / spreads.length) || 1;
 
   return (
-    <div className="flex flex-col gap-2">
+    <div className="grid gap-2 lg:grid-cols-2">
       {rows.map((r) => {
         const ys = r.legs.map((l) => l.yes);
         const lo = Math.min(...ys);
@@ -115,7 +115,7 @@ export function DivergenceTable({ rows }: { rows: DivergenceRow[] }) {
           </div>
         );
       })}
-      <p className="mt-1 text-xs text-muted">
+      <p className="col-span-full mt-1 text-xs text-muted">
         The band spans each event&apos;s cheapest to priciest YES. A high z-score means the gap is
         unusually wide vs other cross-venue pairs — the classic mean-reversion setup.
       </p>

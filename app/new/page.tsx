@@ -28,17 +28,16 @@ export default async function NewMarketsPage() {
           No new markets yet.
         </div>
       ) : (
-        <ol className="relative flex flex-col">
+        <ol className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           {rows.map((r) => (
-            <li key={r.id} className="relative flex gap-4 pb-5 pl-1 last:pb-0">
-              {/* timeline rail: green dot + connector */}
-              <div className="relative flex w-3 shrink-0 justify-center">
-                <span className="absolute top-1 h-2.5 w-2.5 rounded-full bg-accent ring-4 ring-[rgb(var(--c-bg))]" />
-                <span className="absolute top-3 h-full w-px bg-border-subtle" />
+            <li key={r.id} className="relative flex gap-3 pl-1">
+              {/* timeline marker: green dot */}
+              <div className="relative flex w-3 shrink-0 justify-center pt-4">
+                <span className="h-2.5 w-2.5 rounded-full bg-accent ring-4 ring-[rgb(var(--c-bg))]" />
               </div>
               <Link
                 href={`/markets/${encodeURIComponent(r.id)}`}
-                className="group flex flex-1 flex-col gap-2 rounded-lg border border-border bg-surface p-3 transition-colors hover:border-[rgb(var(--c-accent))]/40 hover:bg-[rgb(var(--c-surface-hover))]"
+                className="lift group flex flex-1 flex-col gap-2 rounded-lg border border-border bg-surface p-3 hover:border-[rgb(var(--c-accent))]/40"
               >
                 <div className="flex items-start justify-between gap-3">
                   <span className="line-clamp-2 text-sm text-fg">{r.question}</span>

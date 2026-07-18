@@ -23,7 +23,7 @@ function HeatBar({ heat }: { heat: number }) {
         className="h-full rounded-full"
         style={{
           width: `${pct}%`,
-          background: "linear-gradient(90deg, rgb(var(--c-accent)), #F0645A)",
+          background: "linear-gradient(90deg, rgb(var(--c-accent)), rgb(var(--c-neg)))",
         }}
       />
     </div>
@@ -71,7 +71,7 @@ export default async function TrendingPage() {
               <Link
                 key={r.id}
                 href={`/markets/${encodeURIComponent(r.id)}`}
-                className="group flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 transition-colors hover:border-[rgb(var(--c-accent))]/40 hover:bg-[rgb(var(--c-surface-hover))]"
+                className="lift group flex flex-col gap-3 rounded-lg border border-border bg-surface p-4 hover:border-[rgb(var(--c-accent))]/40"
               >
                 <div className="flex items-center justify-between">
                   <span className="flex h-6 w-6 items-center justify-center rounded-full bg-track font-mono text-xs font-semibold text-fg">

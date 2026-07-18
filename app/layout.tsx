@@ -40,10 +40,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           Skip to content
         </a>
         <NavBar />
-        <main id="main" className="mx-auto max-w-6xl px-6 py-6">
+        <main id="main" key="main" className="mx-auto max-w-7xl px-6 py-6 rise">
           {children}
         </main>
-        <footer className="mt-12 border-t border-border py-6 text-center text-xs text-muted">
+        <footer className="mx-auto mt-12 max-w-7xl border-t border-border px-6 py-6 text-center text-xs text-muted">
           {brand.name} — aggregated from public APIs. Not affiliated with any venue.
         </footer>
       </body>
