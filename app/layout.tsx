@@ -26,8 +26,9 @@ export const metadata: Metadata = {
   },
 };
 
-// Set the persisted theme before first paint to avoid a flash.
-const noFlash = `(function(){try{var t=localStorage.getItem('oddz-theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
+// Set the persisted theme before first paint to avoid a flash. First visit
+// (nothing stored) follows the OS preference instead of forcing dark.
+const noFlash = `(function(){try{var t=localStorage.getItem('oddz-theme');if(t!=='light'&&t!=='dark'){t=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark';}document.documentElement.setAttribute('data-theme',t);}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();`;
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (

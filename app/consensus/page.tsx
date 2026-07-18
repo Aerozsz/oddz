@@ -48,10 +48,47 @@ export default async function ConsensusPage() {
                   {r.category && <span className="text-xs text-zinc-500">{r.category}</span>}
                 </Link>
                 <div className="shrink-0 text-right">
-                  <div className="font-mono text-xl text-zinc-100">{formatPct(r.consensus)}</div>
-                  <div className="text-xs text-zinc-500">consensus · {formatUSD(r.totalVolume)}</div>
+                  <div className="font-mono text-xl font-semibold tabular-nums text-fg">
+                    {formatPct(r.consensus)}
+                  </div>
+                  <div className="text-xs text-muted">consensus · {formatUSD(r.totalVolume)}</div>
                 </div>
               </div>
+
+              {/* 0–100% strip: band spans the venue range, tick = consensus */}
+              <div className="relative mt-3 h-5">
+                <div className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-track" />
+                {(() => {
+                  const ys = r.legs.map((l) => l.yes);
+                  const lo = Math.min(...ys);
+                  const hi = Math.max(...ys);
+                  const wide = hi - lo > 0.1;
+                  return (
+                    <div
+                      className="absolute top-1/2 h-1.5 -translate-y-1/2 rounded-full"
+                      style={{
+                        left: `${lo * 100}%`,
+                        width: `${Math.max(1, (hi - lo) * 100)}%`,
+                        backgroundColor: wide ? "rgb(var(--c-neg) / 0.7)" : "rgb(var(--c-accent) / 0.7)",
+                      }}
+                    />
+                  );
+                })()}
+                {r.legs.map((l) => (
+                  <span
+                    key={l.marketId}
+                    className="absolute top-1/2 h-2.5 w-2.5 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-[rgb(var(--c-surface))] bg-muted"
+                    style={{ left: `${l.yes * 100}%` }}
+                    title={`${l.venue}: ${formatPct(l.yes)}`}
+                  />
+                ))}
+                <span
+                  className="absolute top-1/2 h-4 w-[3px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fg"
+                  style={{ left: `${r.consensus * 100}%` }}
+                  title={`consensus ${formatPct(r.consensus)}`}
+                />
+              </div>
+
               <div className="mt-3 flex flex-wrap gap-2">
                 {r.legs
                   .slice()

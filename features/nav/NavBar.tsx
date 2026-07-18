@@ -70,6 +70,7 @@ function Menu({ label, items, pathname }: { label: string; items: Item[]; pathna
                 <Link
                   key={i.href}
                   href={i.href as never}
+                  aria-current={active ? "page" : undefined}
                   onClick={() => setOpen(false)}
                   className={cn(
                     "flex flex-col gap-0.5 rounded-md px-3 py-2 transition-colors",
@@ -104,6 +105,7 @@ export function NavBar() {
             <Link
               key={l.href}
               href={l.href as never}
+              aria-current={isActive(pathname, l.href) ? "page" : undefined}
               className={cn(
                 "rounded-md px-2.5 py-1.5 text-[13px] transition-colors",
                 isActive(pathname, l.href) ? "text-fg" : "text-muted hover:text-fg",
