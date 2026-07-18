@@ -1,4 +1,11 @@
-import { freshnessByVenue, recentRuns, snapshotCount, venueCounts } from "@/features/status/queries";
+import {
+  freshnessByVenue,
+  recentRuns,
+  snapshotCount,
+  venueCounts,
+  venueUptime,
+  type VenueUptime,
+} from "@/features/status/queries";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { timeAgo } from "@/lib/utils";
 
@@ -6,11 +13,12 @@ export const dynamic = "force-dynamic";
 export const revalidate = 30;
 
 export default async function StatusPage() {
-  const [runs, counts, snaps, freshness] = await Promise.all([
+  const [runs, counts, snaps, freshness, uptime] = await Promise.all([
     recentRuns(10),
     venueCounts(),
     snapshotCount(),
     freshnessByVenue(),
+    venueUptime(30),
   ]);
 
   const freshnessByVenueMap = new Map(freshness.map((f) => [f.venue, f.latestSnapshot]));
@@ -45,6 +53,27 @@ export default async function StatusPage() {
           chips below — most often an upstream API change or rate limit.
         </div>
       )}
+
+      <section>
+        <h2 className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">
+          Ingestion uptime · last 30 days
+        </h2>
+        <div className="flex flex-col divide-y divide-border-subtle overflow-hidden rounded-lg border border-border bg-surface">
+          {uptime.length === 0 ? (
+            <div className="p-6 text-center text-sm text-muted">
+              No runs in the last 30 days yet.
+            </div>
+          ) : (
+            uptime.map((u) => (
+              <ServiceRow
+                key={u.venue}
+                uptime={u}
+                latest={freshnessByVenueMap.get(u.venue) ?? null}
+              />
+            ))
+          )}
+        </div>
+      </section>
 
       <section>
         <h2 className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">
@@ -143,6 +172,48 @@ export default async function StatusPage() {
           </table>
         </div>
       </section>
+    </div>
+  );
+}
+
+function ServiceRow({ uptime, latest }: { uptime: VenueUptime; latest: Date | null }) {
+  // Current health = state of the most recent day that actually ran.
+  const lastRan = [...uptime.cells].reverse().find((c) => c.state !== "none");
+  const down = lastRan?.state === "down";
+  const dot = down ? "rgb(var(--c-neg))" : "rgb(var(--c-accent))";
+
+  return (
+    <div className="flex flex-col gap-2 px-3 py-3 sm:flex-row sm:items-center sm:gap-4">
+      <div className="flex w-40 shrink-0 items-center gap-2">
+        <span className="h-2 w-2 rounded-full" style={{ backgroundColor: dot }} />
+        <VenueBadge venue={uptime.venue} />
+      </div>
+      <div className="flex flex-1 items-end gap-[2px]" aria-hidden>
+        {uptime.cells.map((c) => (
+          <span
+            key={c.day}
+            title={`${c.day}: ${c.state}`}
+            className="h-6 flex-1 rounded-[2px]"
+            style={{
+              backgroundColor:
+                c.state === "ok"
+                  ? "rgb(var(--c-accent))"
+                  : c.state === "down"
+                    ? "rgb(var(--c-neg))"
+                    : "rgb(var(--c-track))",
+              minWidth: 3,
+            }}
+          />
+        ))}
+      </div>
+      <div className="flex shrink-0 items-center gap-4">
+        <span className="w-16 text-right font-mono text-sm tabular-nums text-fg">
+          {uptime.uptimePct === null ? "—" : `${uptime.uptimePct.toFixed(1)}%`}
+        </span>
+        <span className="w-24 text-right font-mono text-[11px] text-muted">
+          {latest ? timeAgo(latest) : "—"}
+        </span>
+      </div>
     </div>
   );
 }
