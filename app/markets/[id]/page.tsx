@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PriceHistoryChart, type HistoryPoint } from "@/features/charts/PriceHistoryChart";
+import { MarketFacts } from "@/features/markets/components/MarketFacts";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { getMarket, getMarketHistory } from "@/features/markets/queries";
 import { getEvent } from "@/features/events/queries";
@@ -124,14 +125,7 @@ export default async function MarketDetail({ params }: { params: Promise<{ id: s
 
       <PriceHistoryChart data={points} label={primaryLabel} />
 
-      {market.description && (
-        <div className="rounded-lg border border-border bg-surface p-4 text-sm text-zinc-300">
-          <h2 className="mb-2 font-mono text-[10px] font-medium uppercase tracking-[0.12em] text-zinc-500">
-            Description
-          </h2>
-          <p className="whitespace-pre-wrap">{market.description}</p>
-        </div>
-      )}
+      <MarketFacts market={market} />
     </div>
   );
 }
