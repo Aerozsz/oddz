@@ -17,6 +17,75 @@ export interface OverroundRow {
   overround: number;
 }
 
+/**
+ * Polymarket lists multi-candidate events as SIBLING binary markets (one
+ * "Yes/No" market per candidate) sharing one event page (source_url).
+ * Summing the latest YES across siblings reconstructs the real book:
+ * that sum minus 1 is the event's true overround. This is where most of
+ * the vig signal actually lives — the jsonb multi-outcome path below only
+ * catches venues that encode outcomes in one market row.
+ */
+interface SiblingBook {
+  ids: string[];
+  questions: string[];
+  yes: number[];
+  category: string | null;
+  sourceUrl: string;
+  sum: number;
+}
+
+async function polymarketSiblingBooks(): Promise<SiblingBook[]> {
+  const rows = await db.execute<{
+    source_url: string;
+    category: string | null;
+    ids: string[];
+    qs: string[];
+    ys: number[];
+  }>(sql`
+    WITH latest AS (
+      SELECT DISTINCT ON (market_id) market_id, (prices->>0)::float AS yes
+      FROM price_snapshots
+      ORDER BY market_id, taken_at DESC
+    )
+    SELECT m.source_url, min(m.category) AS category,
+           array_agg(m.id) AS ids, array_agg(m.question) AS qs, array_agg(l.yes) AS ys
+    FROM markets m
+    JOIN latest l ON l.market_id = m.id
+    WHERE m.venue_slug = 'polymarket' AND m.closed = 0
+      AND l.yes IS NOT NULL AND l.yes > 0 AND l.yes < 1
+      AND jsonb_array_length(m.outcomes) = 2
+    GROUP BY m.source_url
+    HAVING count(*) >= 3
+  `);
+
+  const out: SiblingBook[] = [];
+  for (const r of rows.rows) {
+    const ys = r.ys.map(Number).filter((y) => Number.isFinite(y));
+    if (ys.length < 3) continue;
+    const sum = ys.reduce((a, b) => a + b, 0);
+    // Sane-book guard: mutually-exclusive candidate sets sum near 1. Far
+    // outside that, the group is probably NOT one exclusive event (e.g. a
+    // page of independent props) — skip rather than report fake vig.
+    if (sum < 0.6 || sum > 1.6) continue;
+    out.push({
+      ids: r.ids,
+      questions: r.qs,
+      yes: ys,
+      category: r.category,
+      sourceUrl: r.source_url,
+      sum,
+    });
+  }
+  return out;
+}
+
+/** "will-x-win-the-2028-election" → "Will x win the 2028 election". */
+function titleFromEventUrl(url: string): string {
+  const slug = url.split("/").filter(Boolean).pop() ?? url;
+  const words = slug.replace(/[-_]+/g, " ").trim();
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}
+
 export interface OverroundDistribution {
   /** Every analysed multi-outcome market's signed vig (sum - 1). */
   values: { category: string | null; overround: number }[];
@@ -66,6 +135,10 @@ export async function getOverroundDistribution(): Promise<OverroundDistribution>
     // Ignore obviously broken sums (stale/partial snapshots) beyond ±50pp.
     if (Math.abs(overround) > 0.5) continue;
     values.push({ category: r.category, overround });
+  }
+  // Polymarket sibling-market books (the bulk of real multi-outcome data).
+  for (const b of await polymarketSiblingBooks()) {
+    values.push({ category: b.category, overround: b.sum - 1 });
   }
 
   const sorted = values.map((v) => v.overround).sort((a, b) => a - b);
@@ -151,6 +224,23 @@ export async function listOverround(minDev = 0.01, limit = 60): Promise<Overroun
       outcomes: r.outcomes,
       prices: r.prices,
       sum,
+      overround,
+    });
+  }
+
+  for (const b of await polymarketSiblingBooks()) {
+    const overround = b.sum - 1;
+    if (Math.abs(overround) < minDev) continue;
+    out.push({
+      id: b.ids[0],
+      venue: "polymarket",
+      venueName: "Polymarket",
+      question: titleFromEventUrl(b.sourceUrl),
+      category: b.category,
+      sourceUrl: b.sourceUrl,
+      outcomes: b.questions,
+      prices: b.yes,
+      sum: b.sum,
       overround,
     });
   }
