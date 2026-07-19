@@ -36,9 +36,7 @@ const SECTIONS: Section[] = [
   {
     label: "Discover",
     items: [
-      { href: "/new", label: "New" },
-      { href: "/resolving", label: "Resolving" },
-      { href: "/activity", label: "Activity" },
+      { href: "/discover", label: "Discover" },
       { href: "/watchlist", label: "Watchlist" },
     ],
   },
