@@ -128,6 +128,30 @@ export const watchlistItems = pgTable(
   (t) => [primaryKey({ columns: [t.watcherId, t.marketId] })],
 );
 
+export const alertRules = pgTable(
+  "alert_rules",
+  {
+    id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+    // Same anonymous device id as the watchlist (`wid` cookie).
+    watcherId: text().notNull(),
+    marketId: text()
+      .notNull()
+      .references(() => markets.id, { onDelete: "cascade" }),
+    /** price_above / price_below: threshold is a YES probability (0..1).
+     *  move_24h: threshold is an absolute 24h change in probability (0..1). */
+    kind: text().$type<"price_above" | "price_below" | "move_24h">().notNull(),
+    threshold: doublePrecision().notNull(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    // One-shot: set when the condition first holds; cleared by re-arming.
+    triggeredAt: timestamp({ withTimezone: true }),
+    triggeredValue: doublePrecision(),
+  },
+  (t) => [
+    index("alert_rules_watcher_idx").on(t.watcherId),
+    index("alert_rules_market_idx").on(t.marketId),
+  ],
+);
+
 export const subscribers = pgTable("subscribers", {
   email: text().primaryKey(),
   source: text().notNull().default("landing"),
