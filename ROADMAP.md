@@ -168,3 +168,52 @@ Distribution / product surface:
    realistic data offline (venue APIs are firewalled in the sandbox).
 5. Sandbox resets wipe node_modules and .env.local — `npm install` and
    recreate before verifying.
+
+## The swiss-army-knife map (DefiLlama → oddz)
+
+Directive: every DefiLlama feature people pay for, translated to prediction
+markets. ✅ = live. Ordered by expected willingness-to-pay.
+
+| DefiLlama | oddz equivalent | Status |
+|---|---|---|
+| Chains table | `/venues` — volume/liquidity/OI/vig/settlement per venue | ✅ |
+| Yields | `/yields` — annualized return-to-resolution screener | ✅ |
+| Volumes | `/overview` volume dashboard + per-market history | ✅ |
+| Fees/Revenue | `/overround` vig analytics (cost-to-trade) | ✅ |
+| Watchlist/alerts | starred markets + threshold/move rules | ✅ |
+| API + docs | `/docs`, keys, rate tiers | ✅ |
+
+### To build (priority order)
+
+1. **Whale tracker / trader PnL leaderboard** — Polymarket is onchain
+   (Polygon): wallet positions, realized PnL, entries/exits feed,
+   copy-trade view. THE killer feature; needs Polygon indexer
+   (Goldsky subgraph or Dune-style API). Pro-gate the feed.
+2. **Portfolio tracker** — paste a wallet → live positions marked to
+   market across venues, cost basis, PnL. Pairs with #1 infra.
+3. **Screener + saved filters** — query builder over all markets
+   (category, price band, volume, spread vs consensus, days-to-resolve);
+   saved screens per wid; email a screen daily (pro).
+4. **Alert delivery** — email + browser push for existing rules; extend
+   rules to signal types (new arb ≥ x%, divergence ≥ y pp on watched).
+5. **Resolution calendar** — economic-calendar view of settlement dates
+   weighted by OI at stake; ICS feed export (pro).
+6. **Venue dominance over time** — stacked area of volume share from
+   snapshot history (DefiLlama's chain-dominance chart).
+7. **Category dashboards** — politics/sports/crypto sub-dashboards:
+   volume trend, top movers, biggest books per category.
+8. **Correlation matrix** — which markets move together (hedging/portfolio
+   construction from our price history).
+9. **Backtesting sandbox** — replay strategies over stored history
+   ("buy every 95% favorite 7d out": hit rate, PnL, drawdown).
+10. **Embeds** — iframe/script widgets for any chart or table (the badge,
+    scaled up); free with attribution, white-label pro.
+11. **CSV/bulk export + webhooks** — pro API tier; Stripe billing on the
+    existing key system.
+12. **News ↔ odds attribution** — headline feed aligned to price jumps
+    (start with RSS + jump detection from snapshots).
+13. **PWA + push** — installable, offline watchlist, native-feeling alerts.
+14. **Support/community** — Discord link now; in-app chat later.
+
+n/a from DefiLlama: DEX aggregator, stablecoins, RWA, MiCA, token
+unlocks (no direct prediction-market analog).
