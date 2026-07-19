@@ -3,7 +3,7 @@ import { LiveDot, PageHeader } from "@/features/layout/PageHeader";
 import { listArbitrage } from "@/features/arbitrage/queries";
 import { NearMisses } from "@/features/markets/components/NearMisses";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
-import { formatPct } from "@/lib/utils";
+import { formatPct, formatUSD } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 30;
@@ -36,6 +36,45 @@ export default async function ArbitragePage() {
           <NearMisses lead="Closest gaps right now — where an arb would open first" />
         </div>
       ) : (
+        <>
+        {/* Stat cards per the handoff: open opps / best edge / executable depth */}
+        <div className="stagger grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+              Open opportunities
+            </div>
+            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-fg">
+              {arbs.length}
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+              Best edge
+            </div>
+            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-accent">
+              +{formatPct(arbs[0].edge)}
+            </div>
+          </div>
+          <div className="rounded-lg border border-border bg-surface p-4">
+            <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+              Executable depth
+            </div>
+            <div className="mt-1 font-mono text-2xl font-semibold tabular-nums text-fg">
+              {(() => {
+                const depths = arbs
+                  .map((a) =>
+                    a.buyYes.liquidity !== null && a.buyNo.liquidity !== null
+                      ? Math.min(a.buyYes.liquidity, a.buyNo.liquidity)
+                      : null,
+                  )
+                  .filter((d): d is number => d !== null);
+                if (depths.length === 0) return <span className="text-muted">n/a</span>;
+                return formatUSD(depths.reduce((a, b) => a + b, 0));
+              })()}
+            </div>
+            <div className="text-[10px] text-muted">min book across both legs, summed</div>
+          </div>
+        </div>
         <div className="stagger grid gap-3 lg:grid-cols-2">
           {arbs.map((a) => (
             <div
@@ -82,11 +121,21 @@ export default async function ArbitragePage() {
                   cost <span className="font-mono text-zinc-400">${a.totalCost.toFixed(3)}</span>
                   <br />
                   per $1 payout
+                  {a.buyYes.liquidity !== null && a.buyNo.liquidity !== null && (
+                    <>
+                      <br />
+                      depth{" "}
+                      <span className="font-mono text-zinc-400">
+                        {formatUSD(Math.min(a.buyYes.liquidity, a.buyNo.liquidity))}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
           ))}
         </div>
+        </>
       )}
     </div>
   );

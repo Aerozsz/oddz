@@ -7,6 +7,8 @@ export interface ArbLeg {
   marketId: string;
   sourceUrl: string;
   yes: number;
+  /** Latest reported liquidity on this leg's book, if the venue exposes it. */
+  liquidity: number | null;
 }
 
 export interface ArbOpportunity {
@@ -54,6 +56,7 @@ export async function listArbitrage(minEdge = 0.005, limit = 50): Promise<ArbOpp
       marketId: markets.id,
       sourceUrl: markets.sourceUrl,
       prices: priceSnapshots.prices,
+      liquidity: priceSnapshots.liquidity,
     })
     .from(events)
     .innerJoin(markets, and(eq(markets.eventId, events.id), eq(markets.closed, 0)))
@@ -69,7 +72,13 @@ export async function listArbitrage(minEdge = 0.005, limit = 50): Promise<ArbOpp
     const yes = r.prices[0];
     if (yes === undefined || !Number.isFinite(yes) || yes <= 0 || yes >= 1) continue;
     const g = byEvent.get(r.eventId) ?? { title: r.title, category: r.category, legs: [] };
-    g.legs.push({ venue: r.venue, marketId: r.marketId, sourceUrl: r.sourceUrl, yes });
+    g.legs.push({
+      venue: r.venue,
+      marketId: r.marketId,
+      sourceUrl: r.sourceUrl,
+      yes,
+      liquidity: r.liquidity === null ? null : Number(r.liquidity),
+    });
     byEvent.set(r.eventId, g);
   }
 
