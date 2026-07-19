@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/features/layout/PageHeader";
 import { getVenueStats } from "@/features/venues/queries";
 import { formatPct, formatUSD, timeAgo } from "@/lib/utils";
 
@@ -44,13 +45,12 @@ export default async function VenuesPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Venues</h1>
-        <p className="max-w-2xl text-sm text-muted">
-          The venues compared head-to-head — where the money, the liquidity, and the cheapest books
-          are right now. Numbers come from each market&apos;s latest snapshot.
-        </p>
-      </div>
+      <PageHeader
+        title="Venues"
+        context={<>live snapshot totals</>}
+        blurb={<>The venues compared head-to-head — where the money, the liquidity, and the cheapest books
+          are right now. Numbers come from each market&apos;s latest snapshot.</>}
+      />
 
       {/* Volume share strip */}
       <div className="flex flex-col gap-2">

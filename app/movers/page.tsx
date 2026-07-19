@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/features/layout/PageHeader";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { listMovers, type MoverRow } from "@/features/markets/queries";
 import { cn, formatPct, formatUSD } from "@/lib/utils";
@@ -104,28 +105,28 @@ export default async function MoversPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Movers</h1>
-          <p className="text-sm text-muted">Biggest odds swings, all venues.</p>
-        </div>
-        <div className="flex gap-1 text-xs">
-          {[6, 24, 168].map((h) => (
-            <Link
-              key={h}
-              href={`/movers?h=${h}` as never}
-              className={cn(
-                "rounded-full border px-3 py-1 font-mono",
-                h === hours
-                  ? "border-transparent bg-fg text-bg"
-                  : "border-border text-muted hover:border-[rgb(var(--c-accent))]/40",
-              )}
-            >
-              {h === 168 ? "7D" : `${h}H`}
-            </Link>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        title="Movers"
+        context={
+          <span className="flex gap-1 normal-case tracking-normal">
+            {[6, 24, 168].map((h) => (
+              <Link
+                key={h}
+                href={`/movers?h=${h}` as never}
+                className={cn(
+                  "rounded-full border px-3 py-1 font-mono text-xs",
+                  h === hours
+                    ? "border-transparent bg-fg text-bg"
+                    : "border-border text-muted hover:border-[rgb(var(--c-accent))]/40",
+                )}
+              >
+                {h === 168 ? "7D" : `${h}H`}
+              </Link>
+            ))}
+          </span>
+        }
+        blurb={<>Biggest odds swings, all venues.</>}
+      />
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">

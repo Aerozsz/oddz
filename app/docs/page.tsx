@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { PageHeader } from "@/features/layout/PageHeader";
 import { brand } from "@/lib/brand";
 
 export const metadata: Metadata = {
@@ -147,13 +148,12 @@ const ENDPOINTS = [
 export default function DocsPage() {
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">API</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted">
-          Aggregated prediction-market data as JSON. Anonymous callers get 30 requests/hour per IP;
-          free keys 60/hour; pro keys 3,600/hour.
-        </p>
-      </div>
+      <PageHeader
+        title="API"
+        context={<>v1 · JSON</>}
+        blurb={<>Aggregated prediction-market data as JSON. Anonymous callers get 30 requests/hour per IP;
+          free keys 60/hour; pro keys 3,600/hour.</>}
+      />
 
       {/* Usage card */}
       <div className="grid gap-3 sm:grid-cols-2">

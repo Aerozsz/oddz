@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/features/layout/PageHeader";
 import { listConsensus } from "@/features/consensus/queries";
 import { NearMisses } from "@/features/markets/components/NearMisses";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
@@ -18,14 +19,13 @@ export default async function ConsensusPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Consensus fair value</h1>
-        <p className="max-w-2xl text-sm text-zinc-500">
-          The volume-weighted YES across venues is the crowd&apos;s fair value. A venue trading far
+      <PageHeader
+        title="Consensus"
+        context={<>{rows.length} events · volume-weighted</>}
+        blurb={<>The volume-weighted YES across venues is the crowd&apos;s fair value. A venue trading far
           from it is mispriced — buy the venue below consensus, fade the one above. Sorted by the
-          biggest gap.
-        </p>
-      </div>
+          biggest gap.</>}
+      />
 
       {rows.length === 0 ? (
         <div className="flex flex-col gap-4">

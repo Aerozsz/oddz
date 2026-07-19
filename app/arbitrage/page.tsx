@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveDot, PageHeader } from "@/features/layout/PageHeader";
 import { listArbitrage } from "@/features/arbitrage/queries";
 import { NearMisses } from "@/features/markets/components/NearMisses";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
@@ -18,14 +19,13 @@ export default async function ArbitragePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Arbitrage</h1>
-        <p className="max-w-2xl text-sm text-zinc-500">
-          Same event, two venues, mispriced. Buy YES on the cheaper venue and NO on the pricier one
+      <PageHeader
+        title="Arbitrage"
+        context={<><LiveDot /> {arbs.length} open · live scan</>}
+        blurb={<>Same event, two venues, mispriced. Buy YES on the cheaper venue and NO on the pricier one
           — you pay under $1 for a guaranteed $1 payout. Edge shown is gross, before venue fees and
-          slippage.
-        </p>
-      </div>
+          slippage.</>}
+      />
 
       {arbs.length === 0 ? (
         <div className="flex flex-col gap-4">

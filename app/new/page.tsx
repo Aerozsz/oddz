@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveDot, PageHeader } from "@/features/layout/PageHeader";
 import { listNewMarkets } from "@/features/markets/queries";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { formatPct, formatUSD, timeAgo } from "@/lib/utils";
@@ -16,12 +17,11 @@ export default async function NewMarketsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">New markets</h1>
-        <p className="text-sm text-muted">
-          Freshly listed across every venue — get positioned before the liquidity arrives.
-        </p>
-      </div>
+      <PageHeader
+        title="New"
+        context={<><LiveDot /> {rows.filter((r) => r.createdAt && Date.now() - new Date(r.createdAt).getTime() < 86_400_000).length} listed today</>}
+        blurb={<>Freshly listed across every venue — get positioned before the liquidity arrives.</>}
+      />
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">

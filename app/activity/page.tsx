@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveDot, PageHeader } from "@/features/layout/PageHeader";
 import { listUnusualActivity } from "@/features/markets/queries";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { formatUSD } from "@/lib/utils";
@@ -18,19 +19,12 @@ export default async function ActivityPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Unusual activity</h1>
-          <p className="text-sm text-muted">
-            Biggest 24h volume surges. A spike in money is usually the first sign that news is about
-            to move the odds.
-          </p>
-        </div>
-        <div className="flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1 font-mono text-[11px] text-muted">
-          <span className="h-2 w-2 animate-pulse rounded-full bg-accent" />
-          {rows.length} surges · 24h
-        </div>
-      </div>
+      <PageHeader
+        title="Activity"
+        context={<><LiveDot /> {rows.length} surges · 24h</>}
+        blurb={<>Biggest 24h volume surges. A spike in money is usually the first sign that news is
+          about to move the odds.</>}
+      />
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">

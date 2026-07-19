@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/features/layout/PageHeader";
 import { getOverroundDistribution, listOverround } from "@/features/overround/queries";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { cn, formatPct } from "@/lib/utils";
@@ -27,15 +28,14 @@ export default async function OverroundPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Overround</h1>
-        <p className="max-w-2xl text-sm text-muted">
-          On a multi-outcome market the outcome prices should sum to $1. When they sum{" "}
+      <PageHeader
+        title="Overround"
+        context={<>{dist.count.toLocaleString()} books analysed</>}
+        blurb={<>On a multi-outcome market the outcome prices should sum to $1. When they sum{" "}
           <span className="text-neg">over</span>, you&apos;re paying the house&apos;s vig. When they
           sum <span className="text-accent">under</span>, you can buy every outcome for less than $1
-          and one must pay $1 — risk-free.
-        </p>
-      </div>
+          and one must pay $1 — risk-free.</>}
+      />
 
       {/* Stat cards */}
       <div className="stagger grid gap-3 sm:grid-cols-3">

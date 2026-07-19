@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/features/layout/PageHeader";
 import { listLeadLag, venueName } from "@/features/leadlag/queries";
 import { NearMisses } from "@/features/markets/components/NearMisses";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
@@ -16,14 +17,13 @@ export default async function LeadLagPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Lead / lag</h1>
-        <p className="max-w-2xl text-sm text-zinc-500">
-          When the same event trades on two venues, one usually moves first. If the leader has
+      <PageHeader
+        title="Lead / lag"
+        context={<>72h window · ρ ≥ 0.35</>}
+        blurb={<>When the same event trades on two venues, one usually moves first. If the leader has
           already repriced, the laggard is where you get in before it catches up. Needs dense price
-          history, so this fills in as data accumulates.
-        </p>
-      </div>
+          history, so this fills in as data accumulates.</>}
+      />
 
       {rows.length === 0 ? (
         <div className="flex flex-col gap-4">

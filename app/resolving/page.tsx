@@ -1,4 +1,5 @@
 import { listResolvingSoon } from "@/features/markets/queries";
+import { PageHeader } from "@/features/layout/PageHeader";
 import { ResolvingBoard, type ResolvingItem } from "@/features/resolving/ResolvingBoard";
 
 export const dynamic = "force-dynamic";
@@ -25,12 +26,10 @@ export default async function ResolvingPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Resolving soon</h1>
-        <p className="text-sm text-muted">
-          Markets closest to settlement — where the clock creates the edge. Timers count down live.
-        </p>
-      </div>
+      <PageHeader
+        title="Resolving"
+        blurb={<>Markets closest to settlement — where the clock creates the edge. Timers count down live.</>}
+      />
       <ResolvingBoard items={items} />
     </div>
   );

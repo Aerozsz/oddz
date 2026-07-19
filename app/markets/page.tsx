@@ -1,4 +1,5 @@
 import { CategoryChips } from "@/features/markets/components/CategoryChips";
+import { LiveDot, PageHeader } from "@/features/layout/PageHeader";
 import { Filters } from "@/features/markets/components/Filters";
 import { MarketTable } from "@/features/markets/components/MarketTable";
 import { PageNav } from "@/features/markets/components/PageNav";
@@ -63,15 +64,15 @@ export default async function MarketsPage({
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Markets</h1>
-          <p className="text-sm text-zinc-500">
-            {visible.length}
-            {hasNext ? "+" : ""} live markets {lastSeen && `· refreshed ${timeAgo(lastSeen)}`}
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Markets"
+        context={
+          <>
+            <LiveDot /> {visible.length}
+            {hasNext ? "+" : ""} live {lastSeen && `· ${timeAgo(lastSeen)}`}
+          </>
+        }
+      />
       <Filters />
       <CategoryChips categories={categories} active={sp.cat?.toLowerCase()} searchParams={sp} />
       <MarketTable rows={visible} sparklines={sparklines} watchedIds={watchedIds} />

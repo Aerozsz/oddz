@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/features/layout/PageHeader";
 import { AlertPanel } from "@/features/alerts/AlertPanel";
 import { listAndEvaluateAlerts } from "@/features/alerts/queries";
 import { getSparklines, listMarkets } from "@/features/markets/queries";
@@ -25,14 +26,13 @@ export default async function WatchlistPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Watchlist</h1>
-        <p className="text-sm text-muted">
-          {rows.length === 0
+      <PageHeader
+        title="Watchlist"
+        context={<>{rows.length} watched</>}
+        blurb={<>{rows.length === 0
             ? "Your pinned markets, all venues, one screen."
-            : `${rows.length} market${rows.length === 1 ? "" : "s"} watched`}
-        </p>
-      </div>
+            : `${rows.length} market${rows.length === 1 ? "" : "s"} watched`}</>}
+      />
 
       {rows.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-lg border border-border bg-surface p-12 text-center">

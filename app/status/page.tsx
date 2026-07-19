@@ -1,3 +1,4 @@
+import { LiveDot, PageHeader } from "@/features/layout/PageHeader";
 import {
   freshnessByVenue,
   recentRuns,
@@ -39,12 +40,10 @@ export default async function StatusPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">System status</h1>
-        <p className="text-sm text-zinc-500">
-          {totalMarkets.toLocaleString()} markets · {snaps.toLocaleString()} snapshots stored
-        </p>
-      </div>
+      <PageHeader
+        title="Status"
+        context={<><LiveDot /> {totalMarkets.toLocaleString()} markets · {snaps.toLocaleString()} snapshots</>}
+      />
 
       {failing.length > 0 && (
         <div className="rounded border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-300">

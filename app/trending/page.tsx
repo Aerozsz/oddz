@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { LiveDot, PageHeader } from "@/features/layout/PageHeader";
 import { listTrending } from "@/features/markets/queries";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { cn, formatPct, formatUSD } from "@/lib/utils";
@@ -51,13 +52,12 @@ export default async function TrendingPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-2xl font-semibold tracking-tight">Trending</h1>
-        <p className="text-sm text-muted">
-          What&apos;s hot right now — real odds movement with real money behind it. Heat blends
-          24h price swing with volume.
-        </p>
-      </div>
+      <PageHeader
+        title="Trending"
+        context={<><LiveDot /> Heat = vol accel × odds Δ</>}
+        blurb={<>What&apos;s hot right now — real odds movement with real money behind it. Heat blends
+          24h price swing with volume.</>}
+      />
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">

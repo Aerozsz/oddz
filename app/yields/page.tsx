@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { PageHeader } from "@/features/layout/PageHeader";
 import { listYields } from "@/features/yields/queries";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { cn, formatPct, formatUSD } from "@/lib/utils";
@@ -42,32 +43,30 @@ export default async function YieldsPage({
 
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Yields</h1>
-          <p className="max-w-2xl text-sm text-muted">
-            The bond desk: near-certain favorites resolving soon. Buy the favorite, collect the
-            spread to $1 at resolution. APR assumes it resolves as priced —{" "}
-            <span className="text-fg-dim">the yield is real, and so is the tail risk.</span>
-          </p>
-        </div>
-        <div className="flex gap-1 text-xs">
-          {[14, 30, 60, 90].map((d) => (
-            <Link
-              key={d}
-              href={`/yields?d=${d}` as never}
-              className={cn(
-                "rounded-full border px-3 py-1 font-mono",
-                d === maxDays
-                  ? "border-transparent bg-fg text-bg"
-                  : "border-border text-muted hover:border-[rgb(var(--c-accent))]/40",
-              )}
-            >
-              ≤{d}D
-            </Link>
-          ))}
-        </div>
-      </div>
+      <PageHeader
+        title="Yields"
+        context={
+          <span className="flex gap-1 normal-case tracking-normal">
+            {[14, 30, 60, 90].map((d) => (
+              <Link
+                key={d}
+                href={`/yields?d=${d}` as never}
+                className={cn(
+                  "rounded-full border px-3 py-1 font-mono text-xs",
+                  d === maxDays
+                    ? "border-transparent bg-fg text-bg"
+                    : "border-border text-muted hover:border-[rgb(var(--c-accent))]/40",
+                )}
+              >
+                ≤{d}D
+              </Link>
+            ))}
+          </span>
+        }
+        blurb={<>The bond desk: near-certain favorites resolving soon. Buy the favorite, collect the
+          spread to $1 at resolution. APR assumes it resolves as priced —{" "}
+          <span className="text-fg-dim">the yield is real, and so is the tail risk.</span></>}
+      />
 
       {rows.length === 0 ? (
         <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">
