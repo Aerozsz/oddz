@@ -37,13 +37,21 @@ tells the story; this file is the review companion.
 - System-preference theme default on first visit
 - Homepage hero: venue eyebrow, CTA pair, Currents ambience
 
-## Recommended next (in value order)
+## Recommended next (updated for limit-reset resume)
 
-1. **Live verification sweep** — click through every page on production with
-   real data; tune grid density per page (needs a human or a reachable
-   deployment; the sandbox is firewalled).
-2. Mobile pass at 360–430px: nav, hero, board columns, table min-widths.
-3. Verify Kalshi/Manifold/Metaculus outbound links on fresh snapshots.
-4. Lead/lag + Overround: same density v2 treatment as Resolving got.
-5. Watchlist alert rules (schema + UI panel from the handoff design).
-6. Onchain trader-PnL leaderboard (whale tracking) — roadmap headline.
+Open items from review (newest first):
+1. **Data verification on live** — after 2–3 fresh snapshots, check that
+   Overround now shows sibling-book vig, and that Arbitrage/Consensus/
+   Divergence populate as the matcher links events. If cross-venue pages
+   stay empty, the matcher (lib/normalize/) needs measurement against prod
+   data — requires DB access or a debug query endpoint.
+2. **Pay-ladder feature #1**: whale tracker / PnL leaderboard — blocked on
+   a Polygon indexer decision (see ROADMAP swiss-army-knife map).
+3. Resolution calendar + ICS export (buildable now from endsAt+volume).
+4. Venue dominance-over-time stacked area on /venues (from snapshot history).
+5. Outbound link spot-check for Kalshi/Manifold/Metaculus (needs live click).
+6. Signals sidebar group (7 items) — consider a combined signals digest page
+   like /discover if the user finds it heavy too.
+
+Resume protocol: read this file + ROADMAP.md, `git log --oneline -10`,
+implement next item, typecheck + build, commit, push (auto-deploys).
