@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/features/layout/PageHeader";
 import { getCorrelationMatrix } from "@/features/correlations/queries";
+import { EdgeFallback } from "@/features/markets/components/EdgeFallback";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 
 export const dynamic = "force-dynamic";
@@ -45,9 +46,12 @@ export default async function CorrelationsPage() {
       />
 
       {markets.length < 2 || cells.length === 0 ? (
-        <div className="rounded-lg border border-border bg-surface p-8 text-center text-sm text-muted">
-          Not enough overlapping hourly history yet — this fills in as snapshots accumulate across
-          the biggest books.
+        <div className="flex flex-col gap-4">
+          <p className="text-sm text-muted">
+            Not enough overlapping hourly history yet — this fills in as snapshots accumulate
+            across the biggest books.
+          </p>
+          <EdgeFallback />
         </div>
       ) : (
         <>

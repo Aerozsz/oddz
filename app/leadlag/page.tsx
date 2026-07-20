@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/features/layout/PageHeader";
 import { listLeadLag, venueName } from "@/features/leadlag/queries";
+import { EdgeFallback } from "@/features/markets/components/EdgeFallback";
 import { NearMisses } from "@/features/markets/components/NearMisses";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 
@@ -27,11 +28,14 @@ export default async function LeadLagPage() {
 
       {rows.length === 0 ? (
         <div className="flex flex-col gap-4">
-          <div className="rounded-lg border border-border bg-surface p-6 text-sm text-muted">
+          <p className="text-sm text-muted">
             No clear lead/lag relationships yet — this needs many snapshots of the same event on
             two venues, so it sharpens as history accumulates.
+          </p>
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            <NearMisses lead="Cross-venue pairs being tracked right now" />
+            <EdgeFallback stacked />
           </div>
-          <NearMisses lead="Cross-venue pairs being tracked right now" />
         </div>
       ) : (
         <div className="overflow-x-auto rounded-lg border border-border">

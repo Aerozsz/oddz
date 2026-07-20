@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { LiveDot, PageHeader } from "@/features/layout/PageHeader";
 import { listArbitrage } from "@/features/arbitrage/queries";
+import { EdgeFallback } from "@/features/markets/components/EdgeFallback";
 import { NearMisses } from "@/features/markets/components/NearMisses";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { formatPct, formatUSD } from "@/lib/utils";
@@ -33,7 +34,10 @@ export default async function ArbitragePage() {
             No live arbitrage right now — venues are priced in line. Lock-ins appear when the same
             event trades at different prices on two venues; it tightens fast when news hits.
           </div>
-          <NearMisses lead="Closest gaps right now — where an arb would open first" />
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            <NearMisses lead="Closest gaps right now — where an arb would open first" />
+            <EdgeFallback stacked />
+          </div>
         </div>
       ) : (
         <>

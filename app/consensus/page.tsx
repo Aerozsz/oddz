@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/features/layout/PageHeader";
 import { listConsensus } from "@/features/consensus/queries";
+import { EdgeFallback } from "@/features/markets/components/EdgeFallback";
 import { NearMisses } from "@/features/markets/components/NearMisses";
 import { VenueBadge } from "@/features/markets/components/VenueBadge";
 import { cn, formatPct, formatUSD } from "@/lib/utils";
@@ -29,11 +30,14 @@ export default async function ConsensusPage() {
 
       {rows.length === 0 ? (
         <div className="flex flex-col gap-4">
-          <div className="rounded-lg border border-border bg-surface p-6 text-sm text-muted">
+          <p className="text-sm text-muted">
             No meaningful gaps right now — venues agree with the consensus. Gaps open when news
             breaks or one venue&apos;s liquidity is thin.
+          </p>
+          <div className="grid items-start gap-4 lg:grid-cols-2">
+            <NearMisses lead="Where venues disagree most right now" />
+            <EdgeFallback stacked />
           </div>
-          <NearMisses lead="Where venues disagree most right now" />
         </div>
       ) : (
         <div className="stagger grid gap-3 lg:grid-cols-2">

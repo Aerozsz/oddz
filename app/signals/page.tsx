@@ -161,8 +161,12 @@ export default async function SignalsPage() {
       </div>
 
       <p className="text-xs text-muted">
-        Consensus, lead/lag and overround live in the sidebar — they need more context than a
-        one-line row carries honestly.
+        Deeper cuts:{" "}
+        <Link href="/consensus" className="link text-fg-dim">Consensus</Link> ·{" "}
+        <Link href="/leadlag" className="link text-fg-dim">Lead / lag</Link> ·{" "}
+        <Link href="/correlations" className="link text-fg-dim">Correlations</Link> ·{" "}
+        <Link href="/divergence" className="link text-fg-dim">Divergence</Link> — these depend on
+        cross-venue matching and history depth, and graduate to the sidebar once they carry data.
       </p>
     </div>
   );

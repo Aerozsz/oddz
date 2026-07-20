@@ -22,17 +22,16 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    // Only pages that always carry data live in the nav. The matcher-
+    // dependent signals (consensus, divergence, lead/lag, correlations)
+    // surface through /signals the moment they produce rows.
     label: "Signals",
     items: [
       { href: "/signals", label: "All signals" },
       { href: "/arbitrage", label: "Arbitrage" },
       { href: "/yields", label: "Yields" },
-      { href: "/consensus", label: "Consensus" },
-      { href: "/divergence", label: "Divergence" },
-      { href: "/leadlag", label: "Lead / lag" },
       { href: "/overround", label: "Overround" },
       { href: "/movers", label: "Movers" },
-      { href: "/correlations", label: "Correlations" },
     ],
   },
   {
