@@ -14,7 +14,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger snapshot ingest
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
+          # Send the secret in the Authorization header, NOT the URL, so it
+          # never lands in access logs / Referer. Passed via env + --header
+          # from a variable so it isn't rendered into the process list.
           curl -fsS --max-time 180 \
-            "https://oddz-aeriaszs-projects.vercel.app/api/cron/snapshot?key=${{ secrets.CRON_SECRET }}" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://oddz-aeriaszs-projects.vercel.app/api/cron/snapshot" \
             -o /dev/null -w "snapshot status: %{http_code}\n"

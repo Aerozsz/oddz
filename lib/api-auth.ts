@@ -1,7 +1,56 @@
-import { createHash } from "node:crypto";
+import { createHash, timingSafeEqual } from "node:crypto";
 import { eq, sql } from "drizzle-orm";
 import { db } from "./db/client";
 import { apiKeys, apiUsage } from "./db/schema";
+
+/**
+ * Constant-time secret comparison. Both sides are SHA-256'd first so the
+ * lengths are always equal (timingSafeEqual throws otherwise) and neither
+ * the length nor the content of the secret leaks through timing.
+ */
+export function safeEqual(a: string, b: string): boolean {
+  const ha = createHash("sha256").update(a).digest();
+  const hb = createHash("sha256").update(b).digest();
+  return timingSafeEqual(ha, hb);
+}
+
+/**
+ * Trustworthy client IP on Vercel. `x-real-ip` is set by the platform edge
+ * and cannot be forged by the client; the leftmost `x-forwarded-for` value
+ * IS client-controllable (Vercel only appends), so it must not be trusted
+ * for rate-limit identity — spoofing it would mint unlimited fresh buckets.
+ */
+export function clientIp(req: Request): string {
+  const real = req.headers.get("x-real-ip")?.trim();
+  if (real) return real;
+  const xff = req.headers.get("x-forwarded-for")?.split(",").pop()?.trim();
+  return xff || "unknown";
+}
+
+/**
+ * Lightweight fixed-window IP rate limit for unauthenticated internal
+ * endpoints (e.g. typeahead search) — caps abuse / DB-cost exhaustion
+ * without the full API-key machinery. Namespaced so it can't collide with
+ * the public API's per-IP buckets.
+ */
+export async function ipRateLimit(
+  req: Request,
+  namespace: string,
+  limit: number,
+): Promise<{ ok: boolean; remaining: number }> {
+  const identifier = `${namespace}:ip:${clientIp(req)}`;
+  const windowStart = new Date(Math.floor(Date.now() / 3_600_000) * 3_600_000);
+  const [row] = await db
+    .insert(apiUsage)
+    .values({ identifier, windowStart, count: 1 })
+    .onConflictDoUpdate({
+      target: [apiUsage.identifier, apiUsage.windowStart],
+      set: { count: sql`${apiUsage.count} + 1` },
+    })
+    .returning({ count: apiUsage.count });
+  const used = row?.count ?? 1;
+  return { ok: used <= limit, remaining: Math.max(0, limit - used) };
+}
 
 const LIMITS: Record<string, number> = {
   anonymous: 30, // per hour, by IP
@@ -46,11 +95,7 @@ export async function authenticateApi(req: Request): Promise<ApiAuthResult> {
       .where(eq(apiKeys.keyHash, keyHash))
       .catch(() => {});
   } else {
-    const ip =
-      req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-      req.headers.get("x-real-ip") ??
-      "unknown";
-    identifier = `ip:${ip}`;
+    identifier = `ip:${clientIp(req)}`;
   }
 
   const limit = LIMITS[tier] ?? LIMITS.anonymous;

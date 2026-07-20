@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { safeEqual } from "@/lib/api-auth";
 import { env } from "@/lib/env";
 import { log } from "@/lib/logger";
 import { pruneSnapshots } from "@/workers/retention";
@@ -16,10 +17,14 @@ export const dynamic = "force-dynamic";
  */
 function authorized(req: Request): boolean {
   const secret = env().CRON_SECRET;
+  // Preferred: Authorization header (Vercel cron injects it; the GitHub
+  // Action sends it) — keeps the secret out of URLs and access logs.
   const auth = req.headers.get("authorization");
-  if (auth === `Bearer ${secret}`) return true;
+  if (auth && safeEqual(auth, `Bearer ${secret}`)) return true;
+  // Fallback: ?key= for manual/emergency triggering only. This DOES land in
+  // access logs, so avoid it in automation.
   const key = new URL(req.url).searchParams.get("key");
-  return key !== null && key === secret;
+  return key !== null && safeEqual(key, secret);
 }
 
 export async function GET(req: Request) {

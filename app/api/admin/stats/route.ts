@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
+import { safeEqual } from "@/lib/api-auth";
 import { env } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
@@ -8,8 +9,9 @@ export const dynamic = "force-dynamic";
 function authorized(req: Request): boolean {
   const secret = env().CRON_SECRET;
   const auth = req.headers.get("authorization");
-  if (auth === `Bearer ${secret}`) return true;
-  return new URL(req.url).searchParams.get("key") === secret;
+  if (auth && safeEqual(auth, `Bearer ${secret}`)) return true;
+  const key = new URL(req.url).searchParams.get("key");
+  return key !== null && safeEqual(key, secret);
 }
 
 /**
