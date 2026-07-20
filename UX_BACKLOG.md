@@ -39,26 +39,31 @@ tells the story; this file is the review companion.
 
 ## Recommended next (updated)
 
-1. **Live verification, now unblocked**: hit `/api/admin/stats?key=<CRON_SECRET>`
-   on production — it reports matcher effectiveness (cross-venue events,
-   unlinked count), Polymarket sibling-book count, snapshot depth per venue.
-   Those numbers decide whether the matcher needs work or the venues simply
-   don't overlap much.
-2. Whale tracker / PnL leaderboard — blocked on Polygon indexer decision.
-3. ~~Correlation matrix~~ DONE (/correlations).
-3b. **Ingest Polymarket per-market rewards** — their market API exposes
-   reward-program fields (verify exact schema live; sandbox is firewalled).
-   Surface as a "rewards" chip on /yields and market pages so total-return
-   framing is complete. Came out of user review: Polymarket pays rewards on
-   select markets.
-4. Category dashboards (volume trend + movers per category page).
-5. Outbound link spot-check Kalshi/Manifold/Metaculus (needs live click).
-6. Backtesting sandbox — wait for more resolved-market history first.
+Verified-shippable-here work is largely done. Remaining items need live access
+or a product decision:
 
-Shipped since last review: /discover one-screen, /signals one-screen,
-/calendar + personal .ics feed, /venues dominance chart, Overround sibling-
-book reconstruction, market TLDR (verbatim-only), admin stats endpoint,
-sidebar nav with slimmed groups.
+1. **Whale tracker / PnL leaderboard** — the headline pay feature. Blocked on
+   a Polygon indexer decision (Goldsky subgraph vs Dune API). Needs your call.
+2. **Polymarket per-market rewards ingestion** — adapter field additions;
+   sandbox is firewalled from the API so the exact schema must be confirmed on
+   a machine with network. Surface as a rewards chip on /yields + market pages.
+3. **Live data verification** — `/api/admin/stats?key=<CRON_SECRET>` reports
+   matcher/book/history counts; decides whether the demoted signal pages
+   (consensus/divergence/lead-lag/correlations) need matcher work or just more
+   venue overlap. They auto-graduate back to the sidebar once they carry data.
+4. Outbound link spot-check Kalshi/Manifold/Metaculus (one live click each).
+5. Backtesting sandbox — wait for more resolved-market history.
+6. Stripe billing on the existing API-key/tier system (pro funnel).
 
-Resume protocol: read this + ROADMAP.md, `git log --oneline -10`, implement
-next item, typecheck + build, commit, push (auto-deploys).
+## Shipped this session (major)
+
+Auto-deploy fix · Currents logo · 16-page handoff redesign + density v2 ·
+sidebar nav (data-bearing signals only) · one-screen /discover + /signals ·
+/venues (stats + dominance chart) · /yields · /calendar + .ics feed ·
+/correlations matrix · category dashboards · Overround sibling-book
+reconstruction · market TLDR (verbatim-only) · watchlist alert rules ·
+global ⌘K search · admin data-health endpoint · motion system + amped haptics ·
+heat-bar fix (volume fallback) · muted palette everywhere.
+
+Resume protocol: read this + ROADMAP.md, `git log --oneline -12`, implement
+next unblocked item, typecheck + build, commit, push (auto-deploys).
