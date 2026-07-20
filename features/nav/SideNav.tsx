@@ -32,6 +32,7 @@ const SECTIONS: Section[] = [
       { href: "/leadlag", label: "Lead / lag" },
       { href: "/overround", label: "Overround" },
       { href: "/movers", label: "Movers" },
+      { href: "/correlations", label: "Correlations" },
     ],
   },
   {
