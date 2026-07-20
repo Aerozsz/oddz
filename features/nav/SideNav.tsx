@@ -24,6 +24,7 @@ const SECTIONS: Section[] = [
   {
     label: "Signals",
     items: [
+      { href: "/signals", label: "All signals" },
       { href: "/arbitrage", label: "Arbitrage" },
       { href: "/yields", label: "Yields" },
       { href: "/consensus", label: "Consensus" },
