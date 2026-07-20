@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageHeader } from "@/features/layout/PageHeader";
-import { getVenueStats } from "@/features/venues/queries";
+import { getVenueDominance, getVenueStats } from "@/features/venues/queries";
+import { DominanceChart } from "@/features/venues/DominanceChart";
 import { formatPct, formatUSD, timeAgo } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -40,7 +41,7 @@ const VENUE_META: Record<
 };
 
 export default async function VenuesPage() {
-  const stats = await getVenueStats();
+  const [stats, dominance] = await Promise.all([getVenueStats(), getVenueDominance(30)]);
   const totalVolume = stats.reduce((a, s) => a + s.volume, 0) || 1;
 
   return (
@@ -81,6 +82,14 @@ export default async function VenuesPage() {
             </span>
           ))}
         </div>
+      </div>
+
+      {/* Dominance over time */}
+      <div className="flex flex-col gap-2">
+        <div className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted">
+          Volume dominance · 30 days
+        </div>
+        <DominanceChart points={dominance.points} venues={dominance.venues} />
       </div>
 
       {/* Comparison table */}

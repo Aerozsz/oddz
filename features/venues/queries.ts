@@ -1,6 +1,49 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 
+export interface DominancePoint {
+  day: string; // YYYY-MM-DD
+  [venue: string]: string | number;
+}
+
+/**
+ * Daily volume per venue (each market's last snapshot that day), for the
+ * dominance stacked-area chart. Absolute dollars; the chart normalises to
+ * share-of-day if desired.
+ */
+export async function getVenueDominance(days = 30): Promise<{
+  points: DominancePoint[];
+  venues: string[];
+}> {
+  const rows = await db.execute<{ day: string; venue: string; volume: number | null }>(sql`
+    WITH daily AS (
+      SELECT DISTINCT ON (ps.market_id, date_trunc('day', ps.taken_at))
+             ps.market_id,
+             to_char(date_trunc('day', ps.taken_at), 'YYYY-MM-DD') AS day,
+             ps.volume
+      FROM price_snapshots ps
+      WHERE ps.taken_at >= now() - make_interval(days => ${days})
+      ORDER BY ps.market_id, date_trunc('day', ps.taken_at), ps.taken_at DESC
+    )
+    SELECT d.day, m.venue_slug AS venue, sum(d.volume) AS volume
+    FROM daily d JOIN markets m ON m.id = d.market_id
+    GROUP BY d.day, m.venue_slug
+    ORDER BY d.day
+  `);
+
+  const venues = [...new Set(rows.rows.map((r) => r.venue))].sort();
+  const byDay = new Map<string, DominancePoint>();
+  for (const r of rows.rows) {
+    const p = byDay.get(r.day) ?? { day: r.day };
+    p[r.venue] = Number(r.volume) || 0;
+    byDay.set(r.day, p);
+  }
+  const points = [...byDay.values()].sort((a, b) =>
+    String(a.day).localeCompare(String(b.day)),
+  );
+  return { points, venues };
+}
+
 export interface VenueStats {
   venue: string;
   name: string;
