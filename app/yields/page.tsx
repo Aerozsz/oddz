@@ -143,9 +143,12 @@ export default async function YieldsPage({
       )}
 
       <p className="max-w-3xl text-xs text-muted">
-        APR is simple annualization of the gross return, before fees and slippage. Risk is
-        mechanical: price further from certainty, longer to resolution, or thin/unknown liquidity
-        each raise it. A 95% favorite still loses 1 time in 20 — size accordingly.
+        <span className="text-fg-dim">No venue pays interest</span> — a position earns nothing
+        while it sits. The return here is price appreciation to $1 at settlement: buy the favorite
+        below $1, collect the difference if it resolves as priced. APR is simple annualization of
+        that gross gain, before fees and slippage. Risk is mechanical: price further from
+        certainty, longer to resolution, or thin/unknown liquidity each raise it. A 95% favorite
+        still loses 1 time in 20 — size accordingly.
       </p>
     </div>
   );
