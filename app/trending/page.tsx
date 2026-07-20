@@ -17,14 +17,19 @@ export const metadata = {
  * spec). `heat` is 0..1, the market's score normalised to the hottest in view.
  */
 function HeatBar({ heat }: { heat: number }) {
-  const pct = Math.max(4, Math.round(heat * 100));
+  const pct = Math.max(3, Math.min(100, Math.round(heat * 100)));
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-track">
       <div
         className="grow-x h-full rounded-full"
         style={{
           width: `${pct}%`,
+          // Gradient spans the full TRACK (not the fill), so the colour at
+          // the bar's tip reads as the heat level — a 30% bar ends green-ish,
+          // a 95% bar reaches into red.
           background: "linear-gradient(90deg, rgb(var(--c-accent)), rgb(var(--c-neg)))",
+          backgroundSize: `${Math.round(10000 / pct)}% 100%`,
+          backgroundPosition: "left",
         }}
       />
     </div>
@@ -46,15 +51,29 @@ function MoveChip({ move }: { move: number }) {
 }
 
 export default async function TrendingPage() {
-  const rows = await listTrending(24, 40);
-  const maxScore = rows.reduce((m, r) => Math.max(m, r.score), 0) || 1;
+  const raw = await listTrending(24, 40);
+  const maxScore = raw.reduce((m, r) => Math.max(m, r.score), 0);
+  const maxVolume = raw.reduce((m, r) => Math.max(m, r.volume), 0) || 1;
+  // With only one snapshot in the window every move is 0 and every score is
+  // 0 — heat by movement is meaningless. Fall back to volume share so the
+  // ranking and the bars still say something true.
+  const flat = maxScore <= 1e-9;
+  const rows = flat ? [...raw].sort((a, b) => b.volume - a.volume) : raw;
+  const heatOf = (r: (typeof rows)[number]) =>
+    flat ? r.volume / maxVolume : r.score / maxScore;
   const top3 = rows.slice(0, 3);
 
   return (
     <div className="flex flex-col gap-6">
       <PageHeader
         title="Trending"
-        context={<><LiveDot /> Heat = vol accel × odds Δ</>}
+        context={
+          flat ? (
+            <><LiveDot /> ranked by volume until movement accumulates</>
+          ) : (
+            <><LiveDot /> Heat = vol accel × odds Δ</>
+          )
+        }
         blurb={<>What&apos;s hot right now — real odds movement with real money behind it. Heat blends
           24h price swing with volume.</>}
       />
@@ -91,7 +110,7 @@ export default async function TrendingPage() {
                     <span className="font-mono text-[11px] text-muted">{formatUSD(r.volume)}</span>
                   </div>
                 </div>
-                <HeatBar heat={r.score / maxScore} />
+                <HeatBar heat={heatOf(r)} />
               </Link>
             ))}
           </div>
@@ -139,7 +158,7 @@ export default async function TrendingPage() {
                       {formatUSD(r.volume)}
                     </td>
                     <td className="w-28 px-3 py-2">
-                      <HeatBar heat={r.score / maxScore} />
+                      <HeatBar heat={heatOf(r)} />
                     </td>
                   </tr>
                 ))}

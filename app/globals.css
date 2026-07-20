@@ -47,7 +47,7 @@
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1); /* easeOutQuint-ish settle */
   --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* slight overshoot */
   --ease-swift: cubic-bezier(0.4, 0, 0.2, 1); /* colors/opacity */
-  --dur-tap: 90ms; /* press acknowledgement */
+  --dur-tap: 70ms; /* press acknowledgement */
   --dur-fast: 150ms; /* hover states */
   --dur-med: 240ms; /* reveals, dropdowns */
   --dur-slow: 360ms; /* page/section entrances */
@@ -155,7 +155,14 @@ button:active,
 [role="button"]:active,
 summary:active,
 a:active {
-  transform: translateY(1px) scale(0.994);
+  transform: translateY(1px) scale(0.98);
+}
+
+/* Hover must be felt, not inferred: interactive controls brighten a step. */
+button:hover:not(:disabled),
+[role="button"]:hover,
+summary:hover {
+  filter: brightness(1.08);
 }
 
 /* Inputs glow softly when focused — ring grows from the border. */
@@ -202,8 +209,9 @@ textarea:focus-visible {
   transition: opacity var(--dur-fast) var(--ease-swift);
 }
 .lift:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 12px 28px -16px rgb(0 0 0 / 0.5);
+  transform: translateY(-3px);
+  border-color: rgb(var(--c-accent) / 0.5);
+  box-shadow: 0 16px 36px -16px rgb(0 0 0 / 0.6);
 }
 .lift:hover::after {
   opacity: 1;
@@ -221,12 +229,21 @@ tbody tr {
     box-shadow var(--dur-fast) var(--ease-swift);
 }
 tbody tr:hover {
-  box-shadow: inset 2px 0 0 rgb(var(--c-accent) / 0.7);
+  background-color: rgb(var(--c-surface-hover));
+  box-shadow: inset 3px 0 0 rgb(var(--c-accent) / 0.9);
 }
 
-/* Tactile press tint for rows / list items. Add `.tap`. */
+/* Tactile rows / list items. Add `.tap`. */
+.tap {
+  transition:
+    background-color var(--dur-fast) var(--ease-swift),
+    box-shadow var(--dur-fast) var(--ease-swift);
+}
+.tap:hover {
+  box-shadow: inset 3px 0 0 rgb(var(--c-accent) / 0.9);
+}
 .tap:active {
-  background-color: rgb(var(--c-surface-hover));
+  background-color: rgb(var(--c-track) / 0.5);
 }
 
 /* ── Links: wipe-in underline. Add `.link`. ─────────────────────────────── */
