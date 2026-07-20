@@ -45,8 +45,12 @@ tells the story; this file is the review companion.
    Those numbers decide whether the matcher needs work or the venues simply
    don't overlap much.
 2. Whale tracker / PnL leaderboard — blocked on Polygon indexer decision.
-3. Correlation matrix (top markets by volume, pairwise from history) — next
-   buildable pay-ladder item.
+3. ~~Correlation matrix~~ DONE (/correlations).
+3b. **Ingest Polymarket per-market rewards** — their market API exposes
+   reward-program fields (verify exact schema live; sandbox is firewalled).
+   Surface as a "rewards" chip on /yields and market pages so total-return
+   framing is complete. Came out of user review: Polymarket pays rewards on
+   select markets.
 4. Category dashboards (volume trend + movers per category page).
 5. Outbound link spot-check Kalshi/Manifold/Metaculus (needs live click).
 6. Backtesting sandbox — wait for more resolved-market history first.
