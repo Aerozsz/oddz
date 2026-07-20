@@ -35,6 +35,7 @@ export function MarketTable({
             <th className="px-3 py-2 text-left">Venue</th>
             <th className="px-3 py-2 text-right">Price</th>
             <th className="px-3 py-2 text-center">Trend</th>
+            <th className="px-3 py-2 text-right">24h Δ</th>
             <th className="px-3 py-2 text-right">24h Vol</th>
             <th className="px-3 py-2 text-right">Liquidity</th>
             <th className="px-3 py-2 text-right">Updated</th>
@@ -65,6 +66,23 @@ export function MarketTable({
               </td>
               <td className="px-3 py-2 text-center">
                 <Sparkline values={sparklines?.get(m.id) ?? []} />
+              </td>
+              <td className="px-3 py-2 text-right">
+                {(() => {
+                  const s = sparklines?.get(m.id);
+                  if (!s || s.length < 2) return <span className="text-xs text-zinc-600">—</span>;
+                  const d = s[s.length - 1] - s[0];
+                  return (
+                    <span
+                      className={`font-mono text-xs tabular-nums ${
+                        Math.abs(d) < 0.001 ? "text-muted" : d > 0 ? "text-accent" : "text-neg"
+                      }`}
+                    >
+                      {d > 0 ? "+" : ""}
+                      {(d * 100).toFixed(1)}pp
+                    </span>
+                  );
+                })()}
               </td>
               <td className="px-3 py-2 text-right font-mono text-zinc-300">
                 {formatUSD(m.volume)}

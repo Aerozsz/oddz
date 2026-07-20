@@ -37,21 +37,24 @@ tells the story; this file is the review companion.
 - System-preference theme default on first visit
 - Homepage hero: venue eyebrow, CTA pair, Currents ambience
 
-## Recommended next (updated for limit-reset resume)
+## Recommended next (updated)
 
-Open items from review (newest first):
-1. **Data verification on live** — after 2–3 fresh snapshots, check that
-   Overround now shows sibling-book vig, and that Arbitrage/Consensus/
-   Divergence populate as the matcher links events. If cross-venue pages
-   stay empty, the matcher (lib/normalize/) needs measurement against prod
-   data — requires DB access or a debug query endpoint.
-2. **Pay-ladder feature #1**: whale tracker / PnL leaderboard — blocked on
-   a Polygon indexer decision (see ROADMAP swiss-army-knife map).
-3. Resolution calendar + ICS export (buildable now from endsAt+volume).
-4. Venue dominance-over-time stacked area on /venues (from snapshot history).
-5. Outbound link spot-check for Kalshi/Manifold/Metaculus (needs live click).
-6. Signals sidebar group (7 items) — consider a combined signals digest page
-   like /discover if the user finds it heavy too.
+1. **Live verification, now unblocked**: hit `/api/admin/stats?key=<CRON_SECRET>`
+   on production — it reports matcher effectiveness (cross-venue events,
+   unlinked count), Polymarket sibling-book count, snapshot depth per venue.
+   Those numbers decide whether the matcher needs work or the venues simply
+   don't overlap much.
+2. Whale tracker / PnL leaderboard — blocked on Polygon indexer decision.
+3. Correlation matrix (top markets by volume, pairwise from history) — next
+   buildable pay-ladder item.
+4. Category dashboards (volume trend + movers per category page).
+5. Outbound link spot-check Kalshi/Manifold/Metaculus (needs live click).
+6. Backtesting sandbox — wait for more resolved-market history first.
 
-Resume protocol: read this file + ROADMAP.md, `git log --oneline -10`,
-implement next item, typecheck + build, commit, push (auto-deploys).
+Shipped since last review: /discover one-screen, /signals one-screen,
+/calendar + personal .ics feed, /venues dominance chart, Overround sibling-
+book reconstruction, market TLDR (verbatim-only), admin stats endpoint,
+sidebar nav with slimmed groups.
+
+Resume protocol: read this + ROADMAP.md, `git log --oneline -10`, implement
+next item, typecheck + build, commit, push (auto-deploys).

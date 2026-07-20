@@ -60,7 +60,7 @@ export default async function HomePage() {
               Browse markets
             </Link>
             <Link
-              href="/arbitrage"
+              href="/signals"
               className="rounded-full border border-border px-5 py-2 text-sm text-fg-dim transition-colors hover:border-[rgb(var(--c-accent))]/50 hover:text-fg"
             >
               Live signals →
@@ -82,6 +82,25 @@ export default async function HomePage() {
         </section>
       )}
 
+      <nav className="flex flex-wrap gap-2">
+        {[
+          ["/signals", "Signals digest"],
+          ["/discover", "Discover"],
+          ["/calendar", "Calendar"],
+          ["/yields", "Yields"],
+          ["/venues", "Venues"],
+        ].map(([href, label]) => (
+          <Link
+            key={href}
+            href={href as never}
+            className="rounded-full border border-border px-3 py-1 font-mono text-[11px] text-muted transition-colors hover:border-[rgb(var(--c-accent))]/50 hover:text-fg"
+          >
+            {label} →
+          </Link>
+        ))}
+      </nav>
+
+      <div className="grid items-start gap-6 lg:grid-cols-2">
       {arbs.length > 0 && (
         <Panel title="Top arbitrage" href="/arbitrage" cta="All arbs →">
           <div className="flex flex-col divide-y divide-zinc-800">
@@ -136,6 +155,7 @@ export default async function HomePage() {
           </div>
         </Panel>
       )}
+      </div>
 
       {!hasData && (
         <section className="stagger grid gap-6 sm:grid-cols-3">
