@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Logo } from "./Logo";
 import { ThemeToggle } from "./ThemeToggle";
+import { SearchCommand } from "@/features/search/SearchCommand";
 import { cn } from "@/lib/utils";
 
 type Item = { href: string; label: string; badge?: number };
@@ -137,6 +138,9 @@ export function SideNav() {
         <Link href="/" aria-label="oddz home" className="px-3">
           <Logo size={22} />
         </Link>
+        <div className="px-1">
+          <SearchCommand />
+        </div>
         <NavList pathname={pathname} alertsFired={alertsFired} />
         <div className="mt-auto px-3">
           <ThemeToggle />
@@ -171,6 +175,9 @@ export function SideNav() {
       </div>
       {drawer && (
         <div className="pop fixed inset-x-0 top-[57px] z-40 max-h-[calc(100vh-57px)] overflow-y-auto border-b border-border bg-bg p-4 lg:hidden">
+          <div className="mb-4">
+            <SearchCommand />
+          </div>
           <NavList pathname={pathname} alertsFired={alertsFired} onNavigate={() => setDrawer(false)} />
         </div>
       )}
