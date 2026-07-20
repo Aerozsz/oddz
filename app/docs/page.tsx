@@ -178,9 +178,12 @@ export default function DocsPage() {
           </span>
           <div className="flex items-center justify-between gap-2 rounded-md border border-border-subtle bg-bg px-3 py-2">
             <code className="font-mono text-sm text-fg">oddz_••••••••••••••••</code>
-            <span className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted">
+            <a
+              href="mailto:niterra93@gmail.com?subject=oddz%20API%20key%20request"
+              className="rounded-full border border-border px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted transition-colors hover:border-[rgb(var(--c-accent))]/50 hover:text-fg"
+            >
               Request access
-            </span>
+            </a>
           </div>
           <p className="text-xs text-muted">
             Pass as{" "}

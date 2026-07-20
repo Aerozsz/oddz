@@ -50,6 +50,24 @@ npm run dev
 
 `npm run typecheck` and `npm run build` must pass before pushing.
 
+## Operating the product
+
+- **Ingest**: GitHub Actions hits `/api/cron/snapshot?key=<CRON_SECRET>` every
+  5 minutes. Budget-enforced (210s); one slow venue can only truncate itself.
+  Daily retention rollup thins history older than 30 days to hourly.
+- **Health**: `/status` (public) shows uptime strips + recent runs;
+  `/api/health` for machines; `/api/admin/stats?key=<CRON_SECRET>` answers
+  "why is page X empty" with matcher/book/history numbers.
+- **Alerts**: watchlist rules evaluate lazily on page view; fired count
+  badges the sidebar via `/api/alerts/summary`.
+- **Calendar**: `/api/calendar` serves an .ics feed — personal (watchlist)
+  when the `wid` cookie exists, else the biggest dated books.
+- **Signals policy**: only pages that always carry data live in the sidebar;
+  matcher/history-dependent pages (consensus, divergence, lead/lag,
+  correlations) are reachable from /signals and graduate back once
+  `/api/admin/stats` shows cross-venue events flowing.
+- **Secrets**: `DATABASE_URL`, `CRON_SECRET` (Vercel env). Never in git.
+
 ## Deployment
 
 Every push to the working branch auto-deploys: GitHub Actions hands the source
