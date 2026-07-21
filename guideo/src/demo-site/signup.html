@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Create your account — TaskFlow</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header><div class="wrap"><nav>
+  <a class="brand" href="index.html"><span class="dot"></span> TaskFlow</a>
+  <a class="link" href="index.html">Home</a>
+  <a class="link" href="features.html">Features</a>
+  <a class="link" href="pricing.html">Pricing</a>
+  <a class="link" href="dashboard.html">Dashboard</a>
+</nav></div></header>
+
+<main class="wrap">
+  <div class="formcard">
+    <h2 style="text-align:center; margin-bottom:6px">Create your account</h2>
+    <p class="sub" style="text-align:center">Free forever for up to 3 people.</p>
+    <form id="form">
+      <div class="field"><label for="name">Full name</label><input id="name" type="text" placeholder="Alex Rivera" /></div>
+      <div class="field"><label for="email">Work email</label><input id="email" type="email" placeholder="alex@company.com" /></div>
+      <div class="field"><label for="team">Team size</label>
+        <select id="team"><option>Just me</option><option>2–5 people</option><option>6–20 people</option><option>20+ people</option></select>
+      </div>
+      <button class="btn primary" type="submit" style="width:100%">Create account</button>
+    </form>
+    <div class="note" id="note"></div>
+  </div>
+</main>
+<footer>© 2026 TaskFlow — a demo app bundled with Guideo.</footer>
+
+<script>
+  document.getElementById('form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    document.getElementById('note').textContent = 'Account created! Welcome to TaskFlow 🎉';
+  });
+</script>
+</body>
+</html>

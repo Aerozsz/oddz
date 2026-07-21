@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Dashboard — TaskFlow</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header><div class="wrap"><nav>
+  <a class="brand" href="index.html"><span class="dot"></span> TaskFlow</a>
+  <a class="link" href="index.html">Home</a>
+  <a class="link" href="features.html">Features</a>
+  <a class="link" href="pricing.html">Pricing</a>
+  <a class="link active" href="dashboard.html">Dashboard</a>
+  <a class="btn primary" href="signup.html">Get started</a>
+</nav></div></header>
+
+<main class="wrap">
+  <section style="padding-top:44px">
+    <h2>Your tasks</h2>
+    <p class="sub">Type to filter, or click a circle to mark a task done.</p>
+    <div class="toolbar">
+      <div class="search">🔎 <input id="q" type="text" placeholder="Search tasks…" aria-label="Search tasks" /></div>
+      <button class="btn primary" id="add">+ Add task</button>
+    </div>
+    <div class="list" id="list">
+      <div class="row"><div class="check"></div><div class="title">Write the launch announcement</div><div class="tag">Marketing</div></div>
+      <div class="row done"><div class="check"></div><div class="title">Set up the staging server</div><div class="tag">Eng</div></div>
+      <div class="row"><div class="check"></div><div class="title">Review Q3 budget</div><div class="tag">Finance</div></div>
+      <div class="row"><div class="check"></div><div class="title">Design the onboarding emails</div><div class="tag">Design</div></div>
+      <div class="row"><div class="check"></div><div class="title">Call the new supplier</div><div class="tag">Ops</div></div>
+    </div>
+    <div class="note" id="note"></div>
+  </section>
+</main>
+<footer>© 2026 TaskFlow — a demo app bundled with Guideo.</footer>
+
+<script>
+  const q = document.getElementById('q');
+  const list = document.getElementById('list');
+  q.addEventListener('input', () => {
+    const t = q.value.toLowerCase();
+    for (const row of list.querySelectorAll('.row')) {
+      const title = row.querySelector('.title').textContent.toLowerCase();
+      row.style.display = title.includes(t) ? '' : 'none';
+    }
+  });
+  list.addEventListener('click', (e) => {
+    const row = e.target.closest('.row');
+    if (row && e.target.classList.contains('check')) row.classList.toggle('done');
+  });
+  let n = 0;
+  document.getElementById('add').addEventListener('click', () => {
+    n++;
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.innerHTML = '<div class="check"></div><div class="title">New task ' + n + '</div><div class="tag">Inbox</div>';
+    list.prepend(row);
+    document.getElementById('note').textContent = 'Added a new task to the top of your list.';
+  });
+</script>
+</body>
+</html>
