@@ -7,6 +7,7 @@ import { explore } from './explore.js';
 import { buildPlayer } from './build-player.js';
 import { renderVideo } from './render.js';
 import { serveDir } from './server.js';
+import { ensureBrowser } from './browser.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const GUI_DIR = path.join(here, 'gui');
@@ -58,6 +59,10 @@ async function runJob(job: Job, params: any) {
       title = title || 'How to use TaskFlow';
       emit(job, { type: 'log', msg: `Serving bundled demo site at ${url}` });
     }
+
+    job.phase = 'preparing';
+    emit(job, { type: 'phase', phase: 'preparing', msg: 'Getting ready…' });
+    await ensureBrowser((m) => emit(job, { type: 'log', msg: '  ' + m }));
 
     job.phase = 'exploring';
     emit(job, { type: 'phase', phase: 'exploring', msg: `Exploring ${url} like a first-time user…` });

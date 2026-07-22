@@ -17,6 +17,9 @@ if [ ! -d node_modules ]; then
   echo "  First run: installing Guideo (this happens once, give it a minute)…"
   echo
   npm install || { echo "Install failed."; read -r -p "Press Enter to close…" _; exit 1; }
+  echo
+  echo "  Downloading the browser Guideo uses (one-time)…"
+  npx playwright install chromium || true
 fi
 
 echo

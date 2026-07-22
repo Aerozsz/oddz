@@ -135,11 +135,14 @@ cancel, unsubscribe…).
 ## Requirements
 
 - Node 18+
-- A Chromium that Playwright can drive (the code auto-detects one under
-  `PLAYWRIGHT_BROWSERS_PATH`; override with `GUIDEO_CHROMIUM=/path/to/chrome`).
+- A Chromium for Playwright to drive. **Guideo downloads this for you on the
+  first run** (`playwright install chromium`) and shows progress — nothing to do
+  manually. It also auto-detects a browser under `PLAYWRIGHT_BROWSERS_PATH`, or
+  you can point it at any Chrome/Chromium with `GUIDEO_CHROMIUM=/path/to/chrome`.
 - `ffmpeg` with libx264 for MP4 output (override with `GUIDEO_FFMPEG=/path/to/ffmpeg`).
   The HTML player and `guide.json` are produced without ffmpeg — only the MP4
-  needs it.
+  needs it. On Windows, the simplest source is a static ffmpeg build on your
+  `PATH`; without it you still get the interactive player.
 
 ## Project layout
 

@@ -15,6 +15,9 @@ echo   First run: installing Guideo (one-time, this can take a minute or two)...
 echo.
 call npm install
 if errorlevel 1 goto INSTALLFAIL
+echo.
+echo   Downloading the browser Guideo uses (one-time)...
+call npx playwright install chromium
 goto RUN
 
 :RUN

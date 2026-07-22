@@ -9,6 +9,7 @@ import { buildPlayer } from './build-player.js';
 import { renderVideo } from './render.js';
 import { serveDir } from './server.js';
 import { startGui } from './gui.js';
+import { ensureBrowser } from './browser.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DEMO_SITE = path.join(here, 'demo-site');
@@ -40,6 +41,7 @@ program
   .action(async (url, opts) => {
     const out = opts.out || path.join(GUIDES, host(url) + '-' + stamp());
     await mkdir(out, { recursive: true });
+    await ensureBrowser((m) => log('   ' + m));
     log(`\n🔎 Exploring ${url}`);
     const guide = await explore({ url, outDir: out, maxSteps: opts.max, title: opts.title });
     log(`   captured ${guide.steps.length} steps`);
@@ -62,6 +64,7 @@ program
   .action(async (opts) => {
     const out = opts.out || path.join(GUIDES, 'demo-' + stamp());
     await mkdir(out, { recursive: true });
+    await ensureBrowser((m) => log('   ' + m));
     const server = await serveDir(DEMO_SITE);
     log(`\n🌐 Serving demo site at ${server.url}`);
     try {
@@ -98,6 +101,7 @@ program
   .option('--width <px>', 'output width', (v) => parseInt(v, 10))
   .action(async (dir, opts) => {
     const guideDir = path.resolve(dir);
+    await ensureBrowser((m) => log('   ' + m));
     log(`\n🎬 Rendering ${guideDir}`);
     const mp4 = await renderVideo({ guideDir, out: opts.out, fps: opts.fps, width: opts.width, onProgress: bar });
     log(`   → ${mp4}`);
