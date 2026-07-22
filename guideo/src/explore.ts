@@ -428,48 +428,107 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
 
   let walletConnected = false;
   let panelWalked = false;
+  let cardsWalked = false;
 
-  /** Walk the app's persistent action panel: click each tab, highlight its key
-   *  controls, and explain what each does. This is where dapp users spend most
-   *  of their time (swap / deposit / redeem / stake / bridge). */
+  // Common action-panel tab names (dapps label these buttons with aria-label).
+  const KNOWN_TABS = ['Swap', 'Deposit', 'Redeem', 'Withdraw', 'Security', 'Security Module', 'Stake', 'Bridge', 'Earn', 'Lend', 'Borrow'];
+
+  /** Capture one panel tab: highlight the panel + its key controls. */
+  async function capturePanelTab(tabLoc: import('playwright').Locator | null): Promise<boolean> {
+    const vp = page.viewportSize() ?? viewport;
+    if (tabLoc) {
+      try { await tabLoc.evaluate((el) => el.setAttribute('data-guideo-tab', '0')); } catch { return false; }
+      try { await tabLoc.click({ timeout: 2500 }); } catch { /* ignore */ }
+      await page.waitForTimeout(700);
+    }
+    let info: any;
+    try { info = await page.evaluate(READ_PANEL_SRC); } catch { return false; }
+    const pi = panelInfo(info.heading || '');
+    const p = info.panel;
+    const hl = p && p.w > 0 && p.h > 0
+      ? { x: clamp01(p.x / vp.width), y: clamp01(p.y / vp.height), w: clamp01(p.w / vp.width), h: clamp01(p.h / vp.height) }
+      : null;
+    // Point the cursor at the tab itself while introducing the panel.
+    const tf = tabLoc ? await focusLocator(tabLoc) : { cursor: null, highlight: null };
+    addStep({
+      image: await shoot(),
+      title: pi.title,
+      caption: pi.caption,
+      durationMs: 5000, animation: 'fade', cursor: tf.cursor, highlight: hl,
+      action: { type: 'observe', target: info.heading },
+    });
+    for (const c of (info.controls || []).slice(0, 4)) {
+      if (steps.length >= maxSteps) break;
+      const f = await focusLocator(page.locator(`[data-guideo-ctl="${c.ref}"]`).first());
+      if (!f.cursor) continue;
+      addStep({
+        image: await shoot(),
+        title: pi.title,
+        caption: controlCaption(c.kind, info.heading || ''),
+        durationMs: 3800, animation: 'fade', cursor: f.cursor, highlight: f.highlight,
+        action: { type: 'observe' },
+      });
+    }
+    if (tabLoc) { try { await tabLoc.evaluate((el) => el.removeAttribute('data-guideo-tab')); } catch {} }
+    return true;
+  }
+
+  /** Walk the persistent action panel — one section per tab, each control
+   *  explained. Prefer real aria-labelled tabs; fall back to icon detection. */
   async function walkPanel(): Promise<boolean> {
+    // Preferred: tabs the app labels with aria-label (robust and named).
+    const named: { name: string; loc: import('playwright').Locator }[] = [];
+    for (const name of KNOWN_TABS) {
+      try {
+        const loc = page.getByRole('button', { name, exact: true }).first();
+        if ((await loc.count()) && (await loc.isVisible())) named.push({ name, loc });
+      } catch { /* ignore */ }
+    }
+    if (named.length >= 2) {
+      opts.onNote?.(`Found the action panel (${named.length} tabs) — explaining each one.`);
+      let added = false;
+      for (const t of named) {
+        if (steps.length >= maxSteps) break;
+        if (await capturePanelTab(t.loc)) added = true;
+      }
+      if (added) return true;
+    }
+    // Fallback: detect icon-only tabs by position.
     let res: any;
     try { res = await page.evaluate(TAG_PANEL_TABS_SRC); } catch { return false; }
     const count = res && res.count ? res.count : 0;
     if (!count) return false;
     opts.onNote?.(`Found the action panel (${count} tabs) — explaining each one.`);
-    const vp = page.viewportSize() ?? viewport;
     let added = false;
     for (let i = 0; i < count && steps.length < maxSteps; i++) {
-      try { await page.locator(`[data-guideo-tab="${i}"]`).first().click({ timeout: 2500 }); } catch { /* ignore */ }
-      await page.waitForTimeout(700);
-      let info: any;
-      try { info = await page.evaluate(READ_PANEL_SRC); } catch { continue; }
-      const pi = panelInfo(info.heading || '');
-      const p = info.panel;
-      const hl = p && p.w > 0 && p.h > 0
-        ? { x: clamp01(p.x / vp.width), y: clamp01(p.y / vp.height), w: clamp01(p.w / vp.width), h: clamp01(p.h / vp.height) }
-        : null;
+      if (await capturePanelTab(page.locator(`[data-guideo-tab="${i}"]`).first())) added = true;
+    }
+    return added;
+  }
+
+  /** Highlight the strategy/product cards on a listing page (e.g. Explore). */
+  async function walkCards(): Promise<boolean> {
+    let cards;
+    try {
+      cards = page.locator('a:has-text("LIVE APY"), a:has-text("GET STARTED"), [class*="card"]:has-text("APY")');
+      if (!(await cards.count())) return false;
+    } catch { return false; }
+    const n = Math.min(await cards.count(), 3);
+    let added = false;
+    for (let i = 0; i < n && steps.length < maxSteps; i++) {
+      const f = await focusLocator(cards.nth(i));
+      if (!f.highlight) continue;
       addStep({
         image: await shoot(),
-        title: pi.title,
-        caption: pi.caption,
-        durationMs: 5000, animation: 'fade', cursor: null, highlight: hl,
-        action: { type: 'observe', target: info.heading },
+        title: 'Strategies',
+        caption:
+          i === 0
+            ? 'Each card here is a strategy (a “Machine”). It shows the live APY (your yearly return) and the TVL — how much money is already in it. Click one to open it.'
+            : 'Another strategy — compare their APY and TVL to choose where to put your funds.',
+        durationMs: 4600, animation: 'fade', cursor: f.cursor, highlight: f.highlight,
+        action: { type: 'observe' },
       });
       added = true;
-      for (const c of (info.controls || []).slice(0, 4)) {
-        if (steps.length >= maxSteps) break;
-        const f = await focusLocator(page.locator(`[data-guideo-ctl="${c.ref}"]`).first());
-        if (!f.cursor) continue;
-        addStep({
-          image: await shoot(),
-          title: pi.title,
-          caption: controlCaption(c.kind, info.heading || ''),
-          durationMs: 3800, animation: 'fade', cursor: f.cursor, highlight: f.highlight,
-          action: { type: 'observe' },
-        });
-      }
     }
     return added;
   }
@@ -672,6 +731,12 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     if (walletConnected && !panelWalked) {
       panelWalked = true;
       if (await walkPanel()) continue;
+    }
+
+    // 0c) Highlight the listing cards on this page (e.g. Explore strategies).
+    if (walletConnected && !cardsWalked) {
+      cardsWalked = true;
+      if (await walkCards()) continue;
     }
 
     // 1) Demonstrate a search box on this page.

@@ -16,10 +16,15 @@ export interface OverrideRule {
   label?: string;
   /** Any text node containing this substring → replace its first number. */
   contains?: string;
+  /** A text node whose whole trimmed text equals this → replace its number.
+   *  Safe for short values (e.g. "$4") that a `find` would hit inside "$49M". */
+  exact?: string;
   /** Exact visible token to replace wherever it appears. */
   find?: string;
   /** Where the number sits relative to a `label`. */
-  scope?: 'auto' | 'self' | 'next' | 'row';
+  scope?: 'auto' | 'self' | 'next' | 'row' | 'sibling';
+  /** When a label appears more than once, which match to act on (0-based). */
+  occurrence?: number;
   /** Replacement text (include %, $, commas as you want them shown). */
   value: string;
   /** Apply to every match rather than just the first. */
@@ -65,6 +70,14 @@ export function buildOverrideScript(rules: OverrideRule[]): string {
     }
     return done;
   };
+  const applyExact = (r) => {
+    let done = 0;
+    for (const t of textNodes(document.body)) {
+      if (t.nodeValue.trim() !== r.exact) continue;
+      if (setNum(t, r.value)) { done++; if (!r.all) break; }
+    }
+    return done;
+  };
   const labelEls = (label) => {
     const low = label.toLowerCase(); const res = [];
     const all = document.body ? document.body.querySelectorAll('*') : [];
@@ -78,8 +91,9 @@ export function buildOverrideScript(rules: OverrideRule[]): string {
     const skip = new Set(textNodes(labelEl));
     const cands = [];
     if (scope === 'self' || scope === 'auto') cands.push(labelEl);
-    let sib = labelEl.nextElementSibling, hop = 0;
-    while (sib && hop < 4) { cands.push(sib); sib = sib.nextElementSibling; hop++; }
+    var sib = labelEl.nextElementSibling, hop = 0;
+    while (sib && hop < 5) { cands.push(sib); sib = sib.nextElementSibling; hop++; }
+    // 'sibling' stays with immediate siblings only; 'row'/'auto' may climb.
     if ((scope === 'row' || scope === 'auto') && labelEl.parentElement) cands.push(labelEl.parentElement);
     for (const c of cands) {
       for (const t of textNodes(c)) {
@@ -91,7 +105,9 @@ export function buildOverrideScript(rules: OverrideRule[]): string {
   };
   const applyLabel = (r) => {
     let done = 0;
-    for (const el of labelEls(r.label)) {
+    const els = labelEls(r.label);
+    const list = r.occurrence != null ? (els[r.occurrence] ? [els[r.occurrence]] : []) : els;
+    for (const el of list) {
       const t = valueNodeFor(el, r.scope || 'auto');
       if (setNum(t, r.value)) { done++; if (!r.all) break; }
     }
@@ -101,8 +117,12 @@ export function buildOverrideScript(rules: OverrideRule[]): string {
   const applyAll = () => {
     if (!document.body) return;
     for (const r of RULES) {
-      try { r.find != null ? applyFind(r) : r.contains != null ? applyContains(r) : applyLabel(r); }
-      catch (e) {}
+      try {
+        if (r.find != null) applyFind(r);
+        else if (r.exact != null) applyExact(r);
+        else if (r.contains != null) applyContains(r);
+        else applyLabel(r);
+      } catch (e) {}
     }
   };
   let scheduled = false;
@@ -122,13 +142,21 @@ export function buildOverrideScript(rules: OverrideRule[]): string {
  * real connected DOM is captured (Guideo writes dom/*.html for exactly this).
  */
 export const MAKINA_OVERRIDES: OverrideRule[] = [
-  { label: 'Portfolio', scope: 'auto', value: '52,480' },
-  { label: 'Season 0', scope: 'row', value: '1,204.52' },
-  { label: 'Season 1', scope: 'row', value: '4,865.61' },
-  { label: 'Season 2', scope: 'row', value: '6,142.33' },
-  { label: 'Season 3', scope: 'row', value: '3,908.09' },
-  { contains: 'usdshfmk avail', value: '51,204.88' },
+  // Portfolio donut + legend total ("$4" as a whole node, so it can't hit "$49M").
+  { exact: '$4', value: '52,480', all: true },
+  // Wallet balance in the Portfolio row (exact live value).
+  { find: '3.9105', value: '51,204.88', all: true },
+  // Yield APY + points-per-day in the Portfolio row.
+  { find: '4.79%', value: '12.40%', all: true },
+  { find: '218.75', value: '890.25', all: true },
+  // Season points (exact live values).
+  { find: '36.52', value: '1,204.52' },
+  { find: '134.6561', value: '4,865.61' },
+  { find: '141.5327', value: '6,142.33' },
+  { find: '62.3086', value: '3,908.09' },
+  // Panel "available" balance, whatever token it shows.
   { contains: 'usdc avail', value: '8,650.42' },
+  { contains: 'usdshfmk avail', value: '51,204.88' },
 ];
 
 const PRESETS: Record<string, OverrideRule[]> = {
