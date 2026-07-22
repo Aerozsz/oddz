@@ -47,6 +47,8 @@ export interface Step {
   cursor: Cursor | null;
   highlight: Highlight | null;
   action: StepAction;
+  /** Where to place the caption so it doesn't cover what's highlighted. */
+  captionPos?: 'top' | 'bottom';
 }
 
 export interface Theme {

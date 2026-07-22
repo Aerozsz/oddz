@@ -24,7 +24,7 @@
         '<div class="spotlight" id="g-spot" style="display:none"></div>' +
         '<div class="ripple" id="g-ripple" style="display:none"></div>' +
         '<div class="cursor" id="g-cursor" style="display:none">' +
-          '<svg viewBox="0 0 24 24" width="26" height="26"><path d="M4 2l16 8-6.5 1.7L18 20l-3 1.3-4-8.3L4 16z" fill="#fff" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/></svg>' +
+          '<svg viewBox="0 0 28 28" width="28" height="28"><path d="M5 3l14.5 6.6c.9.4.8 1.7-.1 2L13 13.4l-2.6 6.4c-.4.9-1.7.8-2-.1L5 3.9c-.2-.7.4-1.2 1-.9z" fill="#fff" stroke="#0b0c14" stroke-width="1.4" stroke-linejoin="round"/></svg>' +
         '</div>' +
         '<div class="caption" id="g-caption"></div>' +
       '</div></div>' +
@@ -157,6 +157,7 @@
     el.caption.innerHTML = lead + escapeHtml(step.caption || '');
     el.caption.style.opacity = fade;
     el.caption.style.display = step.caption || step.title ? '' : 'none';
+    el.caption.classList.toggle('top', step.captionPos === 'top');
 
     // cursor + ripple
     if (step.cursor) {
@@ -165,13 +166,12 @@
       el.cursor.style.top = (step.cursor.y * 100) + '%';
       el.cursor.style.opacity = fade;
       if (step.cursor.click) {
-        var rp = (local % 1200) / 1200;
+        var rp = (local % 1600) / 1600;
         el.ripple.style.display = '';
         el.ripple.style.left = (step.cursor.x * 100) + '%';
         el.ripple.style.top = (step.cursor.y * 100) + '%';
-        el.ripple.style.transform = 'scale(' + (0.4 + rp * 1.9) + ')';
-        el.ripple.style.opacity = (1 - rp) * fade;
-        el.ripple.style.borderColor = 'var(--g-accent)';
+        el.ripple.style.transform = 'scale(' + (0.5 + rp * 0.85) + ')';
+        el.ripple.style.opacity = (1 - rp) * 0.45 * fade;
       } else { el.ripple.style.display = 'none'; }
     } else {
       el.cursor.style.display = 'none';

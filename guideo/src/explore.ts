@@ -261,6 +261,10 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
   // Dapps have a lot to cover (the action panel + pages), so give them headroom.
   const maxSteps = Math.max(opts.maxSteps ?? 14, opts.wallet || opts.assist ? 28 : 0);
   const pace = opts.pace && opts.pace > 0 ? opts.pace : 1.35;
+  // On real dapps the generic search/checkbox/form demos produce nonsense
+  // (e.g. ticking a Terms checkbox, opening the account modal). The panel walk
+  // and page overviews carry the tour instead.
+  const isDapp = !!opts.wallet;
   const shotsDir = path.join(opts.outDir, 'screenshots');
   const videoDir = path.join(opts.outDir, 'video');
   await mkdir(shotsDir, { recursive: true });
@@ -395,7 +399,15 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     partial: Omit<Step, 'id' | 'image'> & { image: string }
   ): void {
     const durationMs = Math.round((partial.durationMs || 3800) * pace);
-    steps.push({ id: `s${steps.length}`, ...partial, durationMs });
+    // Put the caption at the top when what we're highlighting sits low, so the
+    // caption never covers it (e.g. a panel's confirm button at the bottom).
+    const focusY = partial.highlight
+      ? partial.highlight.y + partial.highlight.h / 2
+      : partial.cursor
+      ? partial.cursor.y
+      : null;
+    const captionPos: 'top' | 'bottom' = focusY != null && focusY > 0.6 ? 'top' : 'bottom';
+    steps.push({ id: `s${steps.length}`, ...partial, durationMs, captionPos });
     opts.onStep?.(steps.length, partial.title);
   }
 
@@ -663,7 +675,7 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     }
 
     // 1) Demonstrate a search box on this page.
-    const search = cands.find((c) => c.kind === 'search' && !c.inModal);
+    const search = isDapp ? undefined : cands.find((c) => c.kind === 'search' && !c.inModal);
     if (search && !demoed.has(key('search'))) {
       demoed.add(key('search'));
       const q = info.page.sampleQuery || 'budget';
@@ -689,7 +701,7 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     }
 
     // 2) Demonstrate ticking a checkbox / toggle.
-    const check = cands.find((c) => c.kind === 'checkbox' && !c.inModal);
+    const check = isDapp ? undefined : cands.find((c) => c.kind === 'checkbox' && !c.inModal);
     if (check && !demoed.has(key('checkbox'))) {
       demoed.add(key('checkbox'));
       const f = await focusRef(check.ref);
@@ -715,8 +727,8 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     }
 
     // 3) Demonstrate filling a form (text inputs + selects, then submit).
-    const fields = cands.filter((c) => (c.kind === 'text' || c.kind === 'select') && !c.inModal);
-    const submit = cands.find((c) => c.kind === 'submit' && !c.inModal);
+    const fields = isDapp ? [] : cands.filter((c) => (c.kind === 'text' || c.kind === 'select') && !c.inModal);
+    const submit = isDapp ? undefined : cands.find((c) => c.kind === 'submit' && !c.inModal);
     if (fields.length >= 1 && submit && !demoed.has(key('form')) && steps.length + fields.length + 2 <= maxSteps + 3) {
       demoed.add(key('form'));
       for (const field of fields) {
@@ -843,6 +855,8 @@ function pickNavigation(
     if (DESTRUCTIVE.test(c.text)) continue;
     if (BORING.test(c.text) || BORING.test(c.href || '')) continue;
     if (c.inModal) continue; // never navigate via modal/overlay content
+    // Skip the connected-account pill and its menu (opens the wallet modal).
+    if (/0x[a-fA-F0-9]{3,}(?:\.{2,3}|…)/.test(c.text) || /disconnect|copy address/i.test(c.text)) continue;
     let dest = '';
     if (c.href) {
       if (/^(mailto:|tel:|javascript:|#)/.test(c.href)) continue;

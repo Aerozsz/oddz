@@ -31,7 +31,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.7.0 · panel walkthrough + better captions + real-signatures';
+export const GUI_VERSION = '0.7.1 · cleaner cursor + smart captions + no post-panel glitch';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
