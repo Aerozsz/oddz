@@ -30,6 +30,8 @@ export interface ExploreOptions {
   wallet?: WalletConfig;
   /** Multiplier on every step's on-screen time (>1 = slower). Default 1.35. */
   pace?: number;
+  /** Record the app's wallet calls + API responses to disk (defaults on with wallet). */
+  capture?: boolean;
 }
 
 /**
@@ -155,10 +157,45 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     deviceScaleFactor: 1,
     recordVideo: { dir: videoDir, size: viewport },
   });
+  const capture = opts.capture ?? !!opts.wallet;
+  const walletLog: any[] = [];
+  const netLog: any[] = [];
+  if (capture) {
+    // Bridge that the injected wallet calls on every request; persists across
+    // navigations, so we record every eth_call the app makes.
+    await context.exposeBinding('__guideoLog', (_src, entry: any) => {
+      if (walletLog.length < 4000) walletLog.push(entry);
+    });
+  }
   if (opts.wallet) {
     await context.addInitScript({ content: buildProviderScript(opts.wallet) });
   }
   const page: Page = await context.newPage();
+
+  if (capture) {
+    // Record the app's own data responses (API / GraphQL / subgraph / RPC).
+    page.on('response', async (resp) => {
+      try {
+        const req = resp.request();
+        if (!['xhr', 'fetch'].includes(req.resourceType())) return;
+        const ct = resp.headers()['content-type'] || '';
+        let body = '';
+        if (/json|text|graphql|javascript/.test(ct)) {
+          const buf = await resp.body().catch(() => null);
+          if (buf) body = buf.toString('utf8').slice(0, 6000);
+        }
+        netLog.push({
+          url: req.url(),
+          method: req.method(),
+          status: resp.status(),
+          contentType: ct,
+          postData: (req.postData() || '').slice(0, 3000),
+          body,
+        });
+        if (netLog.length > 1200) netLog.shift();
+      } catch { /* ignore unreadable responses */ }
+    });
+  }
 
   const steps: Step[] = [];
   const visited = new Set<string>();
@@ -482,6 +519,15 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     } catch { /* ignore */ }
   }
 
+  if (capture) {
+    // Diagnostics for tailoring test data to a specific dapp. Send these two
+    // files to have exact numbers crafted per field.
+    const calls = { count: walletLog.length, calls: dedupeCalls(walletLog) };
+    await writeFile(path.join(opts.outDir, 'wallet-calls.json'), JSON.stringify(calls, null, 2));
+    await writeFile(path.join(opts.outDir, 'network.json'), JSON.stringify(netLog, null, 2));
+    opts.onStep?.(steps.length, `capture: ${walletLog.length} wallet calls, ${netLog.length} responses`);
+  }
+
   const guide: Guide = {
     version: 1,
     meta: {
@@ -535,6 +581,28 @@ function pickNavigation(
     }
   }
   return best;
+}
+
+/** Collapse repeated wallet calls; for eth_call, key by target + 4-byte selector
+ *  so the distinct contract reads (and their call counts) are easy to eyeball. */
+function dedupeCalls(log: any[]): any[] {
+  const map = new Map<string, any>();
+  for (const e of log) {
+    const method = e.method;
+    let key = method;
+    let extra: any = {};
+    if (method === 'eth_call' && Array.isArray(e.params) && e.params[0]) {
+      const to = e.params[0].to || '';
+      const data = e.params[0].data || e.params[0].input || '';
+      const selector = typeof data === 'string' ? data.slice(0, 10) : '';
+      key = `${method}:${to}:${selector}`;
+      extra = { to, selector, sampleData: data };
+    }
+    const cur = map.get(key);
+    if (cur) cur.count++;
+    else map.set(key, { method, ...extra, count: 1 });
+  }
+  return [...map.values()].sort((a, b) => b.count - a.count);
 }
 
 function clamp01(n: number): number {

@@ -112,6 +112,13 @@ function done(ev) {
     acts.appendChild(linkBtn('⬇ player.html', base + '/player.html?dl=1', false));
   }
   acts.appendChild(linkBtn('⬇ guide.json', base + '/guide.json?dl=1', false));
+  if (ev.capture) {
+    acts.appendChild(linkBtn('⬇ wallet-calls.json', base + '/wallet-calls.json?dl=1', false));
+    acts.appendChild(linkBtn('⬇ network.json', base + '/network.json?dl=1', false));
+  }
+  if (ev.capture) {
+    $('result-body').innerHTML += '<div class="hint" style="margin-top:8px">Web3 capture saved. To fill in exact numbers, send the <b>wallet-calls.json</b> and <b>network.json</b> files above.</div>';
+  }
   $('result-preview').innerHTML = ev.hasVideo
     ? `<video class="preview" src="${base}/guide.mp4" controls></video>`
     : '';

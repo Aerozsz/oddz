@@ -122,6 +122,7 @@ async function runJob(job: Job, params: any) {
       type: 'done',
       guideId: job.guideId,
       hasVideo: job.hasVideo,
+      capture: !!wallet,
       steps: guide.steps.length,
       title: guide.meta.title,
     });

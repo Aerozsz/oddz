@@ -83,6 +83,7 @@ export function buildProviderScript(cfg: WalletConfig): string {
     removeAllListeners() { for (const k in listeners) delete listeners[k]; return this; },
     async request(args) {
       const method = args && args.method;
+      try { if (window.__guideoLog) window.__guideoLog({ kind: 'wallet', method, params: (args && args.params) || [] }); } catch (e) {}
       switch (method) {
         case 'eth_requestAccounts':
         case 'eth_accounts':
