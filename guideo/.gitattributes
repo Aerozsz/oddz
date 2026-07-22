@@ -1,0 +1,11 @@
+# Keep Windows batch files as CRLF so they run when double-clicked, and keep
+# shell launchers as LF. Without this, a checkout could rewrite line endings
+# and break Start-Guideo.bat.
+* text=auto eol=lf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.command text eol=lf
+*.sh text eol=lf
+*.png binary
+*.webm binary
+*.mp4 binary
