@@ -18,7 +18,29 @@ filling in a form — and captures each moment. It then produces:
 Captions are written automatically in plain, beginner-friendly language.
 Everything runs locally — no API keys, no external services.
 
-## Quick start
+## Easiest: the point-and-click app
+
+No terminal needed after the first launch.
+
+- **Windows** — double-click **`Start-Guideo.bat`**
+- **macOS / Linux** — double-click **`start-guideo.command`** (or `bash start-guideo.command`)
+
+The first run installs dependencies once, then your browser opens a control
+panel: pick a URL (or the built-in demo), click **Make my guide**, watch the
+progress, then open the player or download the MP4. Past guides are listed for
+one-click reopening.
+
+Prefer a real installed app / `.exe`? See [`electron/README.md`](electron/README.md)
+to build a native desktop app with `npm run dist:win` (on Windows).
+
+Or start the GUI from a terminal:
+
+```sh
+npm install
+npm run gui           # opens http://127.0.0.1:4600
+```
+
+## Command line
 
 ```sh
 npm install
@@ -90,6 +112,7 @@ Everything previews live. To bake your edits into a new video, save the edited
 ## Commands
 
 ```sh
+npm run gui                                    # point-and-click control panel
 npm run explore -- <url> [--out dir] [--max n] [--title "..."] [--video]
 npm run demo                 [--out dir] [--max n] [--no-video] [--fps n]
 npm run build   -- <dir>                       # rebuild player.html from guide.json
@@ -121,14 +144,19 @@ cancel, unsubscribe…).
 ## Project layout
 
 ```
+Start-Guideo.bat      one-click launcher (Windows)
+start-guideo.command  one-click launcher (macOS / Linux)
+electron/             native desktop-app / .exe packaging (see its README)
 src/
-  cli.ts          command-line entry (explore / demo / build / render / serve)
+  cli.ts          command-line entry (gui / explore / demo / build / render / serve)
+  gui.ts          local GUI server: job runner + live progress (SSE) + outputs
+  gui/            the control-panel front-end (index.html, app.js, style.css)
   explore.ts      autonomous browser walkthrough → guide.json + screenshots
   captions.ts     beginner-friendly caption templates (offline, deterministic)
   build-player.ts bakes guide + assets into one self-contained player.html
   render.ts       replays the player frame-by-frame and encodes the MP4
   browser.ts      resolves the Chromium binary
   server.ts       tiny static server (demo site + viewing guides)
-  player/         the front-end: template, styles, runtime, Tweak studio
+  player/         the walkthrough front-end: template, styles, runtime, Tweak studio
   demo-site/      the bundled TaskFlow demo app
 ```

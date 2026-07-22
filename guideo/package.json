@@ -9,11 +9,16 @@
   },
   "scripts": {
     "guideo": "tsx src/cli.ts",
+    "gui": "tsx src/cli.ts gui",
     "demo": "tsx src/cli.ts demo",
     "explore": "tsx src/cli.ts explore",
     "build": "tsx src/cli.ts build",
     "render": "tsx src/cli.ts render",
-    "serve": "tsx src/cli.ts serve"
+    "serve": "tsx src/cli.ts serve",
+    "electron": "electron electron/main.cjs",
+    "dist:win": "electron-builder --win --x64",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
   },
   "dependencies": {
     "commander": "^12.1.0",
@@ -23,5 +28,17 @@
     "@types/node": "^22.7.0",
     "tsx": "^4.19.0",
     "typescript": "^5.6.0"
+  },
+  "main": "electron/main.cjs",
+  "build": {
+    "appId": "com.guideo.app",
+    "productName": "Guideo",
+    "directories": { "output": "dist-app" },
+    "files": ["src/**/*", "electron/**/*", "package.json", "!guides/**"],
+    "extraMetadata": { "main": "electron/main.cjs" },
+    "win": { "target": "nsis", "artifactName": "Guideo-Setup-${version}.${ext}" },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
+    "mac": { "target": "dmg" },
+    "linux": { "target": "AppImage" }
   }
 }

@@ -23,6 +23,8 @@ export interface ExploreOptions {
   title?: string;
   viewport?: { width: number; height: number };
   headless?: boolean;
+  /** Called as steps are captured, for progress UIs. */
+  onStep?: (count: number, title: string) => void;
 }
 
 /**
@@ -209,6 +211,7 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     partial: Omit<Step, 'id' | 'image'> & { image: string }
   ): void {
     steps.push({ id: `s${steps.length}`, ...partial });
+    opts.onStep?.(steps.length, partial.title);
   }
 
   async function overviewStep(pinfo: any, isFirst: boolean) {

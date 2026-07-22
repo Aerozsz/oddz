@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Guideo</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="shell">
+  <header class="top">
+    <span class="dot"></span>
+    <h1>Guideo</h1>
+    <span class="tag">website → editable video guide</span>
+  </header>
+  <p class="lede">Point it at a site. It browses like a beginner and builds a guide you can watch and edit.</p>
+
+  <div class="card">
+    <h2><span class="num">1</span> What should I make a guide for?</h2>
+    <div class="seg" id="mode">
+      <button data-mode="url" class="on">A website URL</button>
+      <button data-mode="demo">Try the demo site</button>
+    </div>
+
+    <div id="url-fields">
+      <div class="field">
+        <label for="url">Website address</label>
+        <input id="url" type="text" placeholder="https://example.com" autocomplete="off" />
+        <div class="hint">Must start with http:// or https://. Guideo stays on this site and avoids anything destructive.</div>
+      </div>
+      <div class="field">
+        <label for="title">Guide title <span style="opacity:.6">(optional)</span></label>
+        <input id="title" type="text" placeholder="How to use Example" />
+      </div>
+    </div>
+    <div id="demo-note" class="hint" style="display:none; margin-bottom:15px">
+      Uses the bundled “TaskFlow” demo app — no internet needed. Great for a first run.
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="max">How many steps (max)</label>
+        <input id="max" type="number" value="14" min="3" max="30" />
+      </div>
+      <div class="field">
+        <label>&nbsp;</label>
+        <label class="check" style="padding-top:12px"><input id="video" type="checkbox" checked /> Also render an MP4 video</label>
+        <div class="hint">Unchecked = faster; you still get the interactive player.</div>
+      </div>
+    </div>
+
+    <div class="run-row">
+      <button class="btn primary" id="run">▶ Make my guide</button>
+      <span class="est" id="est"></span>
+    </div>
+  </div>
+
+  <div class="card" id="progress">
+    <h2><span class="num">2</span> Working…</h2>
+    <div class="pbar" id="pbar"><div class="pfill" id="pfill"></div></div>
+    <div class="phase" id="phase">Starting…</div>
+    <div class="log" id="log"></div>
+  </div>
+
+  <div class="card" id="result">
+    <h2><span class="num">✓</span> Your guide is ready</h2>
+    <div id="result-body"></div>
+    <div class="result-actions" id="result-actions"></div>
+    <div id="result-preview"></div>
+  </div>
+
+  <div class="card">
+    <h2><span class="num">≡</span> Your guides <button class="btn small" id="refresh" style="margin-left:auto">↻ Refresh</button></h2>
+    <div class="lib" id="lib"><div class="empty">No guides yet — make one above.</div></div>
+  </div>
+
+  <footer>Guideo runs entirely on your machine. Captions are generated offline — no accounts, no API keys.</footer>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

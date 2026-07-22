@@ -3,10 +3,12 @@ import { Command } from 'commander';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { mkdir } from 'node:fs/promises';
+import { spawn } from 'node:child_process';
 import { explore } from './explore.js';
 import { buildPlayer } from './build-player.js';
 import { renderVideo } from './render.js';
 import { serveDir } from './server.js';
+import { startGui } from './gui.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DEMO_SITE = path.join(here, 'demo-site');
@@ -102,6 +104,22 @@ program
   });
 
 program
+  .command('gui')
+  .description('Open the point-and-click desktop control panel in your browser')
+  .option('-p, --port <n>', 'port', (v) => parseInt(v, 10), 4600)
+  .option('--no-open', "don't auto-open the browser")
+  .action(async (opts) => {
+    const { url } = await startGui(opts.port);
+    log(`\n🖥️  Guideo control panel running at ${url}`);
+    if (opts.open !== false) {
+      openBrowser(url);
+      log(`   (opening your browser… if it didn't, paste that address in)`);
+    }
+    log(`   Press Ctrl-C to stop.\n`);
+    await new Promise(() => {}); // keep alive
+  });
+
+program
   .command('serve')
   .description('Serve a guide directory so you can open player.html in a browser')
   .argument('[dir]', 'directory to serve', '.')
@@ -113,6 +131,14 @@ program
     log(`   (Ctrl-C to stop)`);
     await new Promise(() => {}); // keep alive
   });
+
+function openBrowser(url: string) {
+  const cmd = process.platform === 'win32' ? 'cmd' : process.platform === 'darwin' ? 'open' : 'xdg-open';
+  const args = process.platform === 'win32' ? ['/c', 'start', '""', url] : [url];
+  try {
+    spawn(cmd, args, { stdio: 'ignore', detached: true }).unref();
+  } catch { /* user can open manually */ }
+}
 
 function host(url: string): string {
   try {
