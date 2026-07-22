@@ -93,6 +93,7 @@ export function buildProviderScript(cfg: WalletConfig): string {
           if (!connected) {
             connected = true;
             this.selectedAddress = CFG.address;
+            try { window.__guideoConnected = true; } catch (e) {}
             setTimeout(() => { emit('connect', { chainId: CFG.chainId }); emit('accountsChanged', [CFG.address]); }, 0);
           }
           return [CFG.address];
@@ -108,12 +109,15 @@ export function buildProviderScript(cfg: WalletConfig): string {
         case 'eth_sign':
         case 'eth_signTypedData':
         case 'eth_signTypedData_v3':
-        case 'eth_signTypedData_v4':
+        case 'eth_signTypedData_v4': {
+          let sig = '0x' + '11'.repeat(65);
           if (window.__guideoSign) {
-            try { return await window.__guideoSign({ method: method, params: (args && args.params) || [] }); }
+            try { sig = await window.__guideoSign({ method: method, params: (args && args.params) || [] }); }
             catch (e) {}
           }
-          return '0x' + '11'.repeat(65);
+          try { window.__guideoSignCount = (window.__guideoSignCount || 0) + 1; } catch (e) {}
+          return sig;
+        }
         case 'eth_sendTransaction':
         case 'eth_sendRawTransaction':
           return '0x' + '22'.repeat(32);

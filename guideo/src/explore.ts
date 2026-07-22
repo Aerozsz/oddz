@@ -412,15 +412,6 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     }
   }
 
-  /** Wait until a blocking wallet/terms/signature modal is gone (or time out). */
-  async function waitForModalClear(timeoutMs: number) {
-    const end = Date.now() + timeoutMs;
-    while (Date.now() < end) {
-      if (await noBlockingModal()) return;
-      await page.waitForTimeout(1200);
-    }
-  }
-
   /** Assisted connect: show a banner, wait for the human to connect, then resume. */
   async function waitForUserConnect(timeoutMs = 180000): Promise<boolean> {
     opts.onNote?.('A browser window is open. Click “Connect”, choose “Guideo Demo Wallet”, then accept any Terms / signature prompt. I’ll take over once you’re in.');
@@ -438,39 +429,57 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
       });
     } catch { /* ignore */ }
 
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
-      let connected = false;
+    // 1) Wait until the user actually connects OUR wallet. Only our provider's
+    //    flag counts — never text on the page (dapps show truncated contract
+    //    addresses on load, which used to trip a false "connected").
+    const connectDeadline = Date.now() + timeoutMs;
+    let connected = false;
+    while (Date.now() < connectDeadline) {
       try {
-        connected = await page.evaluate(() => {
-          try { if ((window as any).ethereum && (window as any).ethereum.selectedAddress) return true; } catch (e) {}
-          const rx = /0x[a-fA-F0-9]{4}(?:\.{2,3}|…)[a-fA-F0-9]{4}/;
-          return rx.test(document.body ? document.body.innerText || '' : '');
-        });
+        connected = await page.evaluate(
+          () => !!(window as any).__guideoConnected ||
+            !!((window as any).ethereum && (window as any).ethereum._guideo && (window as any).ethereum.selectedAddress)
+        );
       } catch { /* page mid-navigation */ }
-      if (connected) {
-        opts.onNote?.('Detected a connection — waiting for you to accept any terms / signature prompt…');
-        await waitForModalClear(90000);
-        try { await page.evaluate(() => { const b = document.getElementById('guideo-banner'); if (b) b.remove(); }); } catch {}
-        await settle();
-        walletConnected = true;
-        await page.evaluate(DISCOVER_SRC);
-        addStep({
-          image: await shoot(),
-          title: 'Connected',
-          caption: 'You’re connected! The app now shows your dashboard — balances, positions and yields tied to your wallet.',
-          durationMs: 5400, animation: 'kenburns-in', cursor: null, highlight: null,
-          action: { type: 'observe' },
-        });
-        await dumpDom('connected');
-        opts.onNote?.('Wallet connected — continuing the tour automatically.');
-        return true;
-      }
+      if (connected) break;
+      await page.waitForTimeout(1000);
+    }
+    if (!connected) {
+      opts.onNote?.('Didn’t detect a wallet connection in time; continuing with the public pages.');
+      walletConnected = true;
+      return false;
+    }
+
+    // 2) Let the user accept Terms / sign. Proceed when a signature has been
+    //    made and no modal covers the page — or, if the app needs no signature,
+    //    once the page has stayed modal-free for a while.
+    opts.onNote?.('Connected — accept any Terms / signature prompt in the wallet; I’ll continue right after.');
+    const signDeadline = Date.now() + 150000;
+    let clearStreak = 0;
+    while (Date.now() < signDeadline) {
+      let signed = 0;
+      try { signed = await page.evaluate(() => (window as any).__guideoSignCount || 0); } catch {}
+      const clear = await noBlockingModal();
+      if (signed >= 1 && clear) break;
+      clearStreak = clear ? clearStreak + 1 : 0;
+      if (signed === 0 && clearStreak >= 12) break; // ~14s modal-free & no sign → none needed
       await page.waitForTimeout(1200);
     }
-    opts.onNote?.('Didn’t detect a connection in time; continuing with the public pages.');
+
+    try { await page.evaluate(() => { const b = document.getElementById('guideo-banner'); if (b) b.remove(); }); } catch {}
+    await settle();
     walletConnected = true;
-    return false;
+    await page.evaluate(DISCOVER_SRC);
+    addStep({
+      image: await shoot(),
+      title: 'Connected',
+      caption: 'You’re connected! The app now shows your dashboard — balances, positions and yields tied to your wallet.',
+      durationMs: 5400, animation: 'kenburns-in', cursor: null, highlight: null,
+      action: { type: 'observe' },
+    });
+    await dumpDom('connected');
+    opts.onNote?.('All set — continuing the tour automatically.');
+    return true;
   }
 
   // ---- Start ----
