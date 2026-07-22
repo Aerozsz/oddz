@@ -34,6 +34,21 @@
   .vault .rows { font-size: 14px; }
   .vault .r { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
   .vault .r b { color: var(--ink); font-weight: 600; }
+  /* Right-side action panel (mimics a real dapp's swap/deposit/stake panel) */
+  .apanel { position: fixed; top: 68px; right: 0; width: 340px; height: calc(100vh - 68px); background: var(--panel); border-left: 1px solid var(--line); padding: 22px; display: none; z-index: 5; }
+  .apanel.show { display: block; }
+  .ptabs { display: flex; gap: 8px; margin-bottom: 20px; }
+  .ptab { width: 44px; height: 44px; border-radius: 11px; border: 1px solid var(--line); background: var(--panel-2); color: var(--muted); cursor: pointer; display: grid; place-items: center; }
+  .ptab.active { color: #fff; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 25%, transparent); }
+  .apanel h3 { font-size: 20px; letter-spacing: .04em; margin-bottom: 18px; }
+  .apanel .lbl { font-size: 12px; color: var(--muted); letter-spacing: .05em; margin: 14px 0 7px; }
+  .apanel .amt { display: flex; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .apanel .amt input { flex: 1; background: transparent; border: none; outline: none; color: var(--ink); font-size: 15px; }
+  .apanel .amt .tok { color: var(--ink); font-weight: 600; }
+  .apanel .avail { text-align: right; font-size: 12px; color: var(--muted); margin-top: 7px; }
+  .pcts { display: flex; gap: 8px; margin-top: 14px; }
+  .pcts button { flex: 1; padding: 8px 0; border-radius: 999px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); font-size: 12px; cursor: pointer; }
+  .apanel .cta { position: absolute; left: 22px; right: 22px; bottom: 22px; padding: 15px; border-radius: 12px; border: none; background: var(--panel-2); color: var(--muted); font-weight: 700; }
 </style>
 </head>
 <body>
@@ -85,6 +100,16 @@
     </div>
   </section>
 </main>
+<aside class="apanel" id="apanel">
+  <div class="ptabs">
+    <button class="ptab active" data-p="swap" aria-label="Swap"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 10l-4 4 4 4"/><path d="M3 14h14"/><path d="M17 14l4-4-4-4"/><path d="M21 10H7"/></svg></button>
+    <button class="ptab" data-p="deposit" aria-label="Deposit"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="16" cy="12" r="1.5"/></svg></button>
+    <button class="ptab" data-p="stake" aria-label="Security Module"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l7 3v5c0 4-3 7-7 8-4-1-7-4-7-8V6z"/></svg></button>
+  </div>
+  <div id="pbody"></div>
+  <button class="cta" id="pcta">Enter an amount</button>
+</aside>
+
 <footer>© 2026 TaskFlow — a demo app bundled with Guideo.</footer>
 
 <div class="modal-back" id="modal">
@@ -139,10 +164,30 @@
       document.getElementById('addr').textContent = address.slice(0, 6) + '…' + address.slice(-4);
       document.getElementById('bal').textContent = eth.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' ETH';
       document.getElementById('connect').textContent = address.slice(0, 6) + '…' + address.slice(-4);
+      document.getElementById('apanel').classList.add('show');
+      renderPanel('swap');
     } catch (err) {
       alert('Connection was rejected.');
     }
   }
+
+  const PANELS = {
+    swap: { h: 'SWAP', lbl: 'SELL', tok: 'USDC', avail: '3.3586 USDC avail.', cta: 'Enter an amount' },
+    deposit: { h: 'DEPOSIT', lbl: 'DEPOSIT AMOUNT', tok: 'USDC', avail: '3.3586 USDC avail.', cta: 'Enter an amount' },
+    stake: { h: 'SECURITY MODULE', lbl: 'DEPOSIT AMOUNT', tok: 'DUSD', avail: '0 DUSD avail.', cta: 'Enter an amount' },
+  };
+  function renderPanel(name) {
+    const p = PANELS[name];
+    document.getElementById('pbody').innerHTML =
+      '<h3>' + p.h + '</h3>' +
+      '<div class="lbl">' + p.lbl + '</div>' +
+      '<div class="amt"><input placeholder="Enter Amount"><span class="tok">' + p.tok + ' ⌄</span></div>' +
+      '<div class="avail">' + p.avail + '</div>' +
+      '<div class="pcts"><button>25%</button><button>50%</button><button>75%</button><button>MAX</button></div>';
+    document.getElementById('pcta').textContent = p.cta;
+    for (const t of document.querySelectorAll('.ptab')) t.classList.toggle('active', t.dataset.p === name);
+  }
+  document.querySelectorAll('.ptab').forEach((t) => t.addEventListener('click', () => renderPanel(t.dataset.p)));
   document.getElementById('connect').addEventListener('click', openModal);
   document.getElementById('connect2').addEventListener('click', openModal);
 </script>

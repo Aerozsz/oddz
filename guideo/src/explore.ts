@@ -13,6 +13,8 @@ import {
   actionCaption,
   typedCaption,
   resultCaption,
+  panelInfo,
+  controlCaption,
   type ElementInfo,
 } from './captions.js';
 import { buildProviderScript, type WalletConfig } from './wallet.js';
@@ -62,6 +64,21 @@ const DISCOVER_SRC = String.raw`(function () {
     var field = el.closest('.field'); if (field) { var l2 = field.querySelector('label'); if (l2) return txt(l2); }
     return '';
   }
+  // Find blocking overlays/modals so their controls can be excluded.
+  var modalRoots = [];
+  var allForModal = document.querySelectorAll('body *');
+  for (var mi = 0; mi < allForModal.length; mi++) {
+    var me = allForModal[mi];
+    var ms = getComputedStyle(me);
+    if ((ms.position === 'fixed' || ms.position === 'absolute') && parseInt(ms.zIndex || '0', 10) >= 20) {
+      var mr = me.getBoundingClientRect();
+      if (mr.width > vw * 0.4 && mr.height > vh * 0.4 && ms.visibility !== 'hidden' && ms.display !== 'none' && parseFloat(ms.opacity || '1') > 0.6) {
+        modalRoots.push(me);
+      }
+    }
+  }
+  var inModalOf = function (el) { for (var k = 0; k < modalRoots.length; k++) { if (modalRoots[k].contains(el)) return true; } return false; };
+
   var nodes = Array.prototype.slice.call(
     document.querySelectorAll('a[href], button, input, select, textarea, [role=button], [role=link]')
   );
@@ -106,6 +123,7 @@ const DISCOVER_SRC = String.raw`(function () {
     candidates.push({
       ref: ref, tag: tag, type: type, role: role, text: text, ariaLabel: ariaLabel,
       placeholder: placeholder, label: label, href: href, name: name, target: target, kind: kind,
+      inModal: inModalOf(el),
       rect: { x: r.x, y: r.y, w: r.width, h: r.height }
     });
     ref++;
@@ -126,6 +144,90 @@ const DISCOVER_SRC = String.raw`(function () {
     : heading ? heading.split(/[—-]/)[0].trim().split(' ').slice(0, 3).join(' ')
     : title.split(/[—|]/)[0].trim();
   return { page: { title: title, heading: heading, intro: intro, pageName: pageName, sampleQuery: sampleQuery }, candidates: candidates, url: location.href, vw: vw, vh: vh };
+})()`;
+
+/** Tag the icon "tabs" of a persistent right-side action panel. */
+const TAG_PANEL_TABS_SRC = String.raw`(function () {
+  var vw = window.innerWidth, vh = window.innerHeight;
+  document.querySelectorAll('[data-guideo-tab]').forEach(function (e) { e.removeAttribute('data-guideo-tab'); });
+  var nodes = document.querySelectorAll('button, [role=button], a');
+  var tabs = [];
+  for (var i = 0; i < nodes.length; i++) {
+    var el = nodes[i];
+    var r = el.getBoundingClientRect();
+    if (r.width < 20 || r.height < 20 || r.width > 96 || r.height > 96) continue;
+    if (r.left < vw * 0.60) continue;   // right side only
+    if (r.top > vh * 0.5) continue;     // upper area
+    var txt = ((el.innerText || el.textContent || '') + '').trim();
+    if (txt.length > 3) continue;       // icon-only
+    if (!el.querySelector('svg, img, i')) continue;
+    tabs.push({ el: el, x: r.left, y: r.top });
+  }
+  if (!tabs.length) return { count: 0 };
+  tabs.sort(function (a, b) { return a.y - b.y || a.x - b.x; });
+  var y0 = tabs[0].y;
+  var row = tabs.filter(function (t) { return Math.abs(t.y - y0) < 26; });
+  row.sort(function (a, b) { return a.x - b.x; });
+  for (var j = 0; j < row.length; j++) row[j].el.setAttribute('data-guideo-tab', String(j));
+  return { count: row.length };
+})()`;
+
+/** Read the current panel's heading, bounding box, and key controls. Scoped to
+ *  the actual panel container (the ancestor of the tabs that also holds the
+ *  form) so background page content can't bleed into the heading. */
+const READ_PANEL_SRC = String.raw`(function () {
+  var vw = window.innerWidth, vh = window.innerHeight;
+  document.querySelectorAll('[data-guideo-ctl]').forEach(function (e) { e.removeAttribute('data-guideo-ctl'); });
+
+  var tabEls = document.querySelectorAll('[data-guideo-tab]');
+  var panel = null;
+  if (tabEls.length) {
+    panel = tabEls[0];
+    while (panel && panel.parentElement && panel.tagName !== 'BODY') {
+      var okTabs = true;
+      for (var t = 0; t < tabEls.length; t++) { if (!panel.contains(tabEls[t])) { okTabs = false; break; } }
+      var hasForm = !!panel.querySelector('input');
+      if (!hasForm) {
+        var bb = panel.querySelectorAll('button, [role=button]');
+        for (var q = 0; q < bb.length; q++) { if (bb[q].getBoundingClientRect().width > vw * 0.15) { hasForm = true; break; } }
+      }
+      if (okTabs && hasForm) break;
+      panel = panel.parentElement;
+    }
+  }
+  var scope = panel && panel.tagName !== 'BODY' ? panel : document.body;
+  var pr = scope.getBoundingClientRect();
+
+  var inScope = Array.prototype.slice.call(scope.querySelectorAll('*'));
+  var heading = '', best = 0;
+  for (var i = 0; i < inScope.length; i++) {
+    var el = inScope[i], r = el.getBoundingClientRect();
+    var own = Array.prototype.filter.call(el.childNodes, function (n) { return n.nodeType === 3; }).map(function (n) { return n.nodeValue; }).join('').trim();
+    if (!own || own.length > 28) continue;
+    var fs = parseFloat(getComputedStyle(el).fontSize) || 0;
+    if (fs > best && r.top < pr.top + pr.height * 0.5) { best = fs; heading = own; }
+  }
+
+  var ctls = [], ref = 0;
+  var tag = function (el, kind) {
+    if (!el) return;
+    el.setAttribute('data-guideo-ctl', String(ref));
+    var r = el.getBoundingClientRect();
+    ctls.push({ ref: ref, kind: kind, x: r.left, y: r.top, w: r.width, h: r.height });
+    ref++;
+  };
+  tag(inScope.filter(function (e) { return e.tagName === 'INPUT' || e.tagName === 'TEXTAREA'; })[0], 'amount');
+  var pct = inScope.filter(function (e) { return /^(max|25%|50%|75%|100%)$/i.test(((e.innerText || '') + '').trim()); });
+  if (pct.length) tag(pct[0].parentElement || pct[0], 'percent');
+  var btns = inScope.filter(function (e) { return e.tagName === 'BUTTON' || e.getAttribute('role') === 'button'; });
+  var cta = null, sc = -1;
+  for (var b = 0; b < btns.length; b++) {
+    var rb = btns[b].getBoundingClientRect();
+    if (rb.width > vw * 0.15) { var s = rb.width * rb.top; if (s > sc) { sc = s; cta = btns[b]; } }
+  }
+  tag(cta, 'cta');
+
+  return { heading: heading, controls: ctls, panel: { x: pr.left, y: pr.top, w: pr.width, h: pr.height } };
 })()`;
 
 function normUrl(u: string): string {
@@ -151,10 +253,13 @@ function sampleValue(el: ElementInfo): string {
 }
 
 const DESTRUCTIVE = /log ?out|sign ?out|delete|remove|cancel|unsubscribe|deactivate/i;
+/** Low-value destinations a beginner guide should skip. */
+const BORING = /faq|docs|documentation|blog|support|help ?center|careers?|terms|privacy|legal|cookie|about|contact|whitepaper|github|discord|twitter|telegram|medium/i;
 
 export async function explore(opts: ExploreOptions): Promise<Guide> {
   const viewport = opts.viewport ?? { width: 1280, height: 800 };
-  const maxSteps = opts.maxSteps ?? 14;
+  // Dapps have a lot to cover (the action panel + pages), so give them headroom.
+  const maxSteps = Math.max(opts.maxSteps ?? 14, opts.wallet || opts.assist ? 28 : 0);
   const pace = opts.pace && opts.pace > 0 ? opts.pace : 1.35;
   const shotsDir = path.join(opts.outDir, 'screenshots');
   const videoDir = path.join(opts.outDir, 'video');
@@ -310,6 +415,52 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
   }
 
   let walletConnected = false;
+  let panelWalked = false;
+
+  /** Walk the app's persistent action panel: click each tab, highlight its key
+   *  controls, and explain what each does. This is where dapp users spend most
+   *  of their time (swap / deposit / redeem / stake / bridge). */
+  async function walkPanel(): Promise<boolean> {
+    let res: any;
+    try { res = await page.evaluate(TAG_PANEL_TABS_SRC); } catch { return false; }
+    const count = res && res.count ? res.count : 0;
+    if (!count) return false;
+    opts.onNote?.(`Found the action panel (${count} tabs) — explaining each one.`);
+    const vp = page.viewportSize() ?? viewport;
+    let added = false;
+    for (let i = 0; i < count && steps.length < maxSteps; i++) {
+      try { await page.locator(`[data-guideo-tab="${i}"]`).first().click({ timeout: 2500 }); } catch { /* ignore */ }
+      await page.waitForTimeout(700);
+      let info: any;
+      try { info = await page.evaluate(READ_PANEL_SRC); } catch { continue; }
+      const pi = panelInfo(info.heading || '');
+      const p = info.panel;
+      const hl = p && p.w > 0 && p.h > 0
+        ? { x: clamp01(p.x / vp.width), y: clamp01(p.y / vp.height), w: clamp01(p.w / vp.width), h: clamp01(p.h / vp.height) }
+        : null;
+      addStep({
+        image: await shoot(),
+        title: pi.title,
+        caption: pi.caption,
+        durationMs: 5000, animation: 'fade', cursor: null, highlight: hl,
+        action: { type: 'observe', target: info.heading },
+      });
+      added = true;
+      for (const c of (info.controls || []).slice(0, 4)) {
+        if (steps.length >= maxSteps) break;
+        const f = await focusLocator(page.locator(`[data-guideo-ctl="${c.ref}"]`).first());
+        if (!f.cursor) continue;
+        addStep({
+          image: await shoot(),
+          title: pi.title,
+          caption: controlCaption(c.kind, info.heading || ''),
+          durationMs: 3800, animation: 'fade', cursor: f.cursor, highlight: f.highlight,
+          action: { type: 'observe' },
+        });
+      }
+    }
+    return added;
+  }
 
   function scoreConnect(c: any): number {
     const t = (c.text || '').toLowerCase().trim();
@@ -495,7 +646,7 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
   while (steps.length < maxSteps) {
     const info: any = await page.evaluate(DISCOVER_SRC);
     const curUrl = normUrl(info.url);
-    const cands: (ElementInfo & { ref: number; href: string; target: string; rect: any })[] =
+    const cands: (ElementInfo & { ref: number; href: string; target: string; rect: any; inModal: boolean })[] =
       info.candidates;
     const key = (feat: string) => `${curUrl}#${feat}`;
 
@@ -505,8 +656,14 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
       if (ok) continue;
     }
 
+    // 0b) Walk the main action panel (swap/deposit/redeem/stake/bridge) once.
+    if (walletConnected && !panelWalked) {
+      panelWalked = true;
+      if (await walkPanel()) continue;
+    }
+
     // 1) Demonstrate a search box on this page.
-    const search = cands.find((c) => c.kind === 'search');
+    const search = cands.find((c) => c.kind === 'search' && !c.inModal);
     if (search && !demoed.has(key('search'))) {
       demoed.add(key('search'));
       const q = info.page.sampleQuery || 'budget';
@@ -532,7 +689,7 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     }
 
     // 2) Demonstrate ticking a checkbox / toggle.
-    const check = cands.find((c) => c.kind === 'checkbox');
+    const check = cands.find((c) => c.kind === 'checkbox' && !c.inModal);
     if (check && !demoed.has(key('checkbox'))) {
       demoed.add(key('checkbox'));
       const f = await focusRef(check.ref);
@@ -558,8 +715,8 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     }
 
     // 3) Demonstrate filling a form (text inputs + selects, then submit).
-    const fields = cands.filter((c) => c.kind === 'text' || c.kind === 'select');
-    const submit = cands.find((c) => c.kind === 'submit');
+    const fields = cands.filter((c) => (c.kind === 'text' || c.kind === 'select') && !c.inModal);
+    const submit = cands.find((c) => c.kind === 'submit' && !c.inModal);
     if (fields.length >= 1 && submit && !demoed.has(key('form')) && steps.length + fields.length + 2 <= maxSteps + 3) {
       demoed.add(key('form'));
       for (const field of fields) {
@@ -684,6 +841,8 @@ function pickNavigation(
     if (!['nav', 'cta', 'link', 'button'].includes(c.kind)) continue;
     if (clickedRefs.has(`${curUrl}:${c.ref}`)) continue;
     if (DESTRUCTIVE.test(c.text)) continue;
+    if (BORING.test(c.text) || BORING.test(c.href || '')) continue;
+    if (c.inModal) continue; // never navigate via modal/overlay content
     let dest = '';
     if (c.href) {
       if (/^(mailto:|tel:|javascript:|#)/.test(c.href)) continue;
