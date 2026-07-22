@@ -30,6 +30,9 @@ interface Job {
 
 const jobs = new Map<string, Job>();
 
+/** Bump when the GUI gains features, so users can confirm they're up to date. */
+export const GUI_VERSION = '0.5.0 · web3 + assist + test-numbers';
+
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
   job.events.push(withTs);
@@ -190,7 +193,11 @@ async function serveFile(res: http.ServerResponse, file: string, download = fals
     return;
   }
   const body = await readFile(file);
-  const headers: Record<string, string> = { 'content-type': MIME[path.extname(file)] || 'application/octet-stream' };
+  const headers: Record<string, string> = {
+    'content-type': MIME[path.extname(file)] || 'application/octet-stream',
+    // Never cache: the GUI must always reflect the installed version.
+    'cache-control': 'no-store, must-revalidate',
+  };
   if (download) headers['content-disposition'] = `attachment; filename="${path.basename(file)}"`;
   res.writeHead(200, headers).end(body);
 }
@@ -216,6 +223,10 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
     const p = decodeURIComponent(u.pathname);
     try {
       // ---- API ----
+      if (p === '/api/version' && req.method === 'GET') {
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' }).end(JSON.stringify({ version: GUI_VERSION }));
+        return;
+      }
       if (p === '/api/guides' && req.method === 'GET') {
         res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify(await listGuides()));
         return;

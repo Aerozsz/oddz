@@ -164,3 +164,9 @@ async function loadLib() {
   }
 }
 loadLib();
+
+// Show the running version so it's obvious when the UI is up to date.
+fetch('/api/version').then((r) => r.json()).then((v) => {
+  const el = $('ver');
+  if (el) el.textContent = 'Guideo ' + v.version;
+}).catch(() => {});
