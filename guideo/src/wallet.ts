@@ -149,6 +149,8 @@ export function buildProviderScript(cfg: WalletConfig): string {
     catch (e) {}
   };
   window.addEventListener('eip6963:requestProvider', announce);
+  // Announce now and a few more times — some dapps set up discovery late.
   announce();
+  [100, 400, 1000, 2500].forEach((ms) => setTimeout(announce, ms));
 })();`;
 }

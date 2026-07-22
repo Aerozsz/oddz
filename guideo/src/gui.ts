@@ -57,7 +57,7 @@ async function runJob(job: Job, params: any) {
 
     // Simulated wallet (opt-in), for web3 / dapp sites.
     let wallet: WalletConfig | undefined;
-    if (params.wallet) {
+    if (params.wallet || params.assist) {
       wallet = makeWalletConfig({
         ...(params.address ? { address: params.address } : {}),
         ...(params.chain ? { chainId: params.chain } : {}),
@@ -79,13 +79,18 @@ async function runJob(job: Job, params: any) {
 
     job.phase = 'exploring';
     emit(job, { type: 'phase', phase: 'exploring', msg: `Exploring ${url} like a first-time user…` });
+    if (params.assist) {
+      emit(job, { type: 'log', msg: 'A browser window will open on your screen — connect the wallet there to continue.' });
+    }
     const guide = await explore({
       url,
       outDir,
       maxSteps: params.maxSteps || 14,
       title,
       wallet,
+      assist: !!params.assist,
       pace: params.pace ? Number(params.pace) : undefined,
+      onNote: (m) => emit(job, { type: 'log', msg: m }),
       onStep: (count, stepTitle) => {
         emit(job, { type: 'log', msg: `  · captured step ${count}: ${stepTitle}` });
         job.progress = Math.min(40, count * 3);

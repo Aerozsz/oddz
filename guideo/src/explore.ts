@@ -32,6 +32,12 @@ export interface ExploreOptions {
   pace?: number;
   /** Record the app's wallet calls + API responses to disk (defaults on with wallet). */
   capture?: boolean;
+  /** Assisted connect: open a visible browser and let the user connect, then resume. */
+  assist?: boolean;
+  /** Force a visible (non-headless) browser. */
+  headed?: boolean;
+  /** Free-form progress notes for a UI. */
+  onNote?: (msg: string) => void;
 }
 
 /**
@@ -151,7 +157,8 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
   await mkdir(shotsDir, { recursive: true });
   await mkdir(videoDir, { recursive: true });
 
-  const browser: Browser = await launchChromium({ headless: opts.headless ?? true });
+  const headless = opts.assist || opts.headed ? false : opts.headless ?? true;
+  const browser: Browser = await launchChromium({ headless });
   const context = await browser.newContext({
     viewport,
     deviceScaleFactor: 1,
@@ -358,6 +365,55 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     return true;
   }
 
+  /** Assisted connect: show a banner, wait for the human to connect, then resume. */
+  async function waitForUserConnect(timeoutMs = 180000): Promise<boolean> {
+    opts.onNote?.('A browser window is open. Click “Connect”, choose “Guideo Demo Wallet”, and I’ll take over automatically.');
+    try {
+      await page.evaluate(() => {
+        if (document.getElementById('guideo-banner')) return;
+        const b = document.createElement('div');
+        b.id = 'guideo-banner';
+        b.textContent = '⬤ Guideo: connect a wallet to continue — choose “Guideo Demo Wallet”. I’ll take over the moment you’re in.';
+        const s = b.style;
+        s.position = 'fixed'; s.left = '0'; s.right = '0'; s.top = '0'; s.zIndex = '2147483647';
+        s.background = 'linear-gradient(90deg,#6d5efc,#33d6a6)'; s.color = '#fff';
+        s.font = '600 15px system-ui,sans-serif'; s.padding = '12px 16px'; s.textAlign = 'center';
+        document.body.appendChild(b);
+      });
+    } catch { /* ignore */ }
+
+    const deadline = Date.now() + timeoutMs;
+    while (Date.now() < deadline) {
+      let connected = false;
+      try {
+        connected = await page.evaluate(() => {
+          try { if ((window as any).ethereum && (window as any).ethereum.selectedAddress) return true; } catch (e) {}
+          const rx = /0x[a-fA-F0-9]{4}(?:\.{2,3}|…)[a-fA-F0-9]{4}/;
+          return rx.test(document.body ? document.body.innerText || '' : '');
+        });
+      } catch { /* page mid-navigation */ }
+      if (connected) {
+        try { await page.evaluate(() => { const b = document.getElementById('guideo-banner'); if (b) b.remove(); }); } catch {}
+        await settle();
+        walletConnected = true;
+        await page.evaluate(DISCOVER_SRC);
+        addStep({
+          image: await shoot(),
+          title: 'Connected',
+          caption: 'You’re connected! The app now shows your dashboard — balances, positions and yields tied to your wallet.',
+          durationMs: 5400, animation: 'kenburns-in', cursor: null, highlight: null,
+          action: { type: 'observe' },
+        });
+        opts.onNote?.('Wallet connected — continuing the tour automatically.');
+        return true;
+      }
+      await page.waitForTimeout(1200);
+    }
+    opts.onNote?.('Didn’t detect a connection in time; continuing with the public pages.');
+    walletConnected = true;
+    return false;
+  }
+
   // ---- Start ----
   await page.goto(opts.url, { waitUntil: 'domcontentloaded' });
   await settle();
@@ -377,7 +433,8 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
 
     // 0) If this is a web3 app, connect the wallet before anything else.
     if (opts.wallet && !walletConnected) {
-      if (await connectWallet()) continue;
+      const ok = opts.assist ? await waitForUserConnect() : await connectWallet();
+      if (ok) continue;
     }
 
     // 1) Demonstrate a search box on this page.

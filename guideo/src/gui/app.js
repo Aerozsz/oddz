@@ -40,6 +40,7 @@ async function run() {
     fps: 25,
     pace: parseFloat($('pace').value) || 1.35,
     wallet: $('wallet').checked,
+    assist: $('wallet').checked && $('assist').checked,
     chain: $('chain').value,
     balanceEth: $('balanceEth').value.trim(),
     address: $('address').value.trim(),

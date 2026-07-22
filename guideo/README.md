@@ -55,6 +55,33 @@ Guideo. To point it at a real site:
 npm run explore -- https://example.com --video
 ```
 
+## Web3 / crypto apps (wallet-gated dapps)
+
+Most DeFi apps hide everything behind “Connect Wallet”. Guideo can inject a
+**simulated wallet** (EIP-1193 / EIP-6963) so the app renders its logged-in UI
+— no real wallet, keys or funds. The connected address and native balance are
+controllable; deeper protocol numbers come from the app and can be tailored.
+
+In the GUI, tick **“This is a web3 app”**. Two ways to connect:
+
+- **Assisted (recommended for real dapps)** — a visible browser opens, you click
+  *Connect → “Guideo Demo Wallet”* yourself, and Guideo detects the connection
+  and takes over automatically. Robust against any connect-modal library.
+- **Automatic** — Guideo tries to click through the connect modal itself. Works
+  on simple flows; can miss on some modal libraries.
+
+CLI:
+
+```sh
+npm run explore -- https://a-dapp.xyz --wallet --assist        # you connect, it drives
+npm run explore -- https://a-dapp.xyz --wallet --chain 0x1     # fully automatic
+npm run demo    -- --assist                                    # try it on the demo dapp
+```
+
+A wallet run also writes `wallet-calls.json` and `network.json` (the contract
+reads and API responses the app made) so specific on-screen numbers can be
+mapped to test values.
+
 ## How it works
 
 ```
