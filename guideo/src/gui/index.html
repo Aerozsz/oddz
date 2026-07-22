@@ -49,6 +49,46 @@
       </div>
     </div>
 
+    <div class="field" style="margin-top:4px">
+      <label class="check"><input id="wallet" type="checkbox" /> This is a web3 / crypto app — sign in with a demo wallet</label>
+      <div class="hint">Injects a simulated wallet so pages behind “Connect Wallet” show up, populated with test numbers. No real wallet, keys or funds.</div>
+    </div>
+    <div id="wallet-adv" style="display:none; margin:6px 0 6px; padding-left:2px">
+      <div class="row">
+        <div class="field">
+          <label for="chain">Network</label>
+          <select id="chain">
+            <option value="0x1" selected>Ethereum</option>
+            <option value="0x2105">Base</option>
+            <option value="0xa4b1">Arbitrum</option>
+            <option value="0xa">Optimism</option>
+            <option value="0x89">Polygon</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="balanceEth">Demo balance (ETH)</label>
+          <input id="balanceEth" type="text" value="12.3456" />
+        </div>
+      </div>
+      <div class="field">
+        <label for="address">Demo wallet address <span style="opacity:.6">(optional)</span></label>
+        <input id="address" type="text" placeholder="0x… leave blank for a default demo address" />
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="field">
+        <label for="pace">Step speed</label>
+        <select id="pace">
+          <option value="1.6">Relaxed</option>
+          <option value="1.35" selected>Comfortable</option>
+          <option value="1.1">Brisk</option>
+          <option value="0.9">Quick</option>
+        </select>
+      </div>
+      <div class="field"><label>&nbsp;</label><div class="hint" style="padding-top:12px">You can fine-tune every step's timing later in the player's ✦ Tweak studio.</div></div>
+    </div>
+
     <div class="run-row">
       <button class="btn primary" id="run">▶ Make my guide</button>
       <span class="est" id="est"></span>

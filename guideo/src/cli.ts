@@ -10,6 +10,16 @@ import { renderVideo } from './render.js';
 import { serveDir } from './server.js';
 import { startGui } from './gui.js';
 import { ensureBrowser } from './browser.js';
+import { makeWalletConfig, ethToWei, type WalletConfig } from './wallet.js';
+
+function walletFromOpts(opts: any): WalletConfig | undefined {
+  if (!opts.wallet) return undefined;
+  return makeWalletConfig({
+    ...(opts.address ? { address: opts.address } : {}),
+    ...(opts.chain ? { chainId: opts.chain } : {}),
+    ...(opts.balance ? { nativeBalanceWei: ethToWei(opts.balance) } : {}),
+  });
+}
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const DEMO_SITE = path.join(here, 'demo-site');
@@ -38,12 +48,17 @@ program
   .option('-m, --max <n>', 'max steps', (v) => parseInt(v, 10), 14)
   .option('-t, --title <title>', 'guide title')
   .option('--video', 'also render the MP4', false)
+  .option('--wallet', 'inject a simulated crypto wallet and connect it', false)
+  .option('--address <0x>', 'demo wallet address')
+  .option('--chain <hex>', 'chain id, e.g. 0x1 (Ethereum) or 0x2105 (Base)')
+  .option('--balance <eth>', 'demo native balance in ETH')
+  .option('--pace <n>', 'step speed multiplier (>1 = slower)', parseFloat, 1.35)
   .action(async (url, opts) => {
     const out = opts.out || path.join(GUIDES, host(url) + '-' + stamp());
     await mkdir(out, { recursive: true });
     await ensureBrowser((m) => log('   ' + m));
     log(`\n🔎 Exploring ${url}`);
-    const guide = await explore({ url, outDir: out, maxSteps: opts.max, title: opts.title });
+    const guide = await explore({ url, outDir: out, maxSteps: opts.max, title: opts.title, wallet: walletFromOpts(opts), pace: opts.pace });
     log(`   captured ${guide.steps.length} steps`);
     const player = await buildPlayer(out, guide);
     log(`🧩 Built player  → ${player}`);
@@ -61,6 +76,8 @@ program
   .option('-m, --max <n>', 'max steps', (v) => parseInt(v, 10), 16)
   .option('--no-video', 'skip MP4 rendering')
   .option('--fps <n>', 'video frame rate', (v) => parseInt(v, 10), 25)
+  .option('--wallet', 'show the wallet-gated demo dapp and connect a demo wallet', false)
+  .option('--pace <n>', 'step speed multiplier (>1 = slower)', parseFloat, 1.35)
   .action(async (opts) => {
     const out = opts.out || path.join(GUIDES, 'demo-' + stamp());
     await mkdir(out, { recursive: true });
@@ -69,7 +86,10 @@ program
     log(`\n🌐 Serving demo site at ${server.url}`);
     try {
       log(`🔎 Exploring like a first-time user…`);
-      const guide = await explore({ url: server.url, outDir: out, maxSteps: opts.max, title: 'How to use TaskFlow' });
+      const wallet = opts.wallet ? makeWalletConfig() : undefined;
+      const startUrl = opts.wallet ? server.url + '/app.html' : server.url;
+      const title = opts.wallet ? 'How to use the TaskFlow Vault' : 'How to use TaskFlow';
+      const guide = await explore({ url: startUrl, outDir: out, maxSteps: opts.max, title, wallet, pace: opts.pace });
       log(`   captured ${guide.steps.length} steps`);
       const player = await buildPlayer(out, guide);
       log(`🧩 Built self-contained player → ${player}`);

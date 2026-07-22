@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>TaskFlow Vault — connect your wallet</title>
+<link rel="stylesheet" href="style.css" />
+<style>
+  .connect-hero { text-align: center; padding: 70px 0 40px; }
+  .connect-hero h2 { font-size: 32px; margin-bottom: 10px; }
+  .modal-back { position: fixed; inset: 0; background: rgba(6,7,14,.6); display: none; place-items: center; z-index: 40; }
+  .modal-back.show { display: grid; }
+  .modal { width: 360px; background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 20px; }
+  .modal h3 { font-size: 16px; margin-bottom: 4px; }
+  .modal p { color: var(--muted); font-size: 13px; margin-bottom: 16px; }
+  .wallet-opt { display: flex; align-items: center; gap: 12px; width: 100%; padding: 13px 14px; margin-bottom: 8px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel-2); color: var(--ink); font-size: 15px; font-weight: 600; cursor: pointer; text-align: left; }
+  .wallet-opt:hover { border-color: var(--accent); }
+  .wallet-opt img { width: 26px; height: 26px; border-radius: 7px; }
+  .dash { display: none; }
+  .dash.show { display: block; }
+  .stat-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin: 4px 0 22px; }
+  .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+  .stat .k { color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  .stat .v { font-size: 26px; font-weight: 700; letter-spacing: -0.01em; }
+  .stat .d { font-size: 12px; margin-top: 4px; }
+  .up { color: var(--accent-2); } .down { color: #ff6b6b; }
+  .acct { display: inline-flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px; padding: 7px 13px; font-size: 13px; }
+  .acct .g { width: 9px; height: 9px; border-radius: 50%; background: var(--accent-2); }
+  .vaults { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; }
+  .vault { background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 20px; }
+  .vault .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; }
+  .vault .name { font-weight: 700; }
+  .vault .apy { color: var(--accent-2); font-weight: 700; }
+  .vault .rows { font-size: 14px; }
+  .vault .r { display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--line); color: var(--muted); }
+  .vault .r b { color: var(--ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<header><div class="wrap"><nav>
+  <a class="brand" href="index.html"><span class="dot"></span> TaskFlow</a>
+  <a class="link" href="index.html">Home</a>
+  <a class="link" href="features.html">Features</a>
+  <a class="link" href="pricing.html">Pricing</a>
+  <a class="link active" href="app.html">Vault</a>
+  <button class="btn primary" id="connect">Connect Wallet</button>
+</nav></div></header>
+
+<main class="wrap">
+  <section class="connect-hero" id="gate">
+    <h2>TaskFlow Vault</h2>
+    <p class="sub">Connect a wallet to view your positions, balances and yields.</p>
+    <button class="btn primary" id="connect2" style="font-size:16px;padding:14px 26px">Connect Wallet</button>
+  </section>
+
+  <section class="dash" id="dash">
+    <div style="display:flex;align-items:center;gap:12px;margin:24px 0 18px">
+      <h2 style="margin:0">Your portfolio</h2>
+      <span style="flex:1"></span>
+      <span class="acct" id="acct"><span class="g"></span><span id="addr">—</span></span>
+    </div>
+    <div class="stat-grid">
+      <div class="stat"><div class="k">Wallet balance</div><div class="v" id="bal">—</div><div class="d up" id="bald">on Ethereum</div></div>
+      <div class="stat"><div class="k">Total deposited</div><div class="v">$48,250.00</div><div class="d up">▲ 6.2% this month</div></div>
+      <div class="stat"><div class="k">Net APY</div><div class="v">11.84%</div><div class="d up">▲ 0.4% vs last week</div></div>
+    </div>
+    <h2 style="font-size:20px;margin-bottom:14px">Active vaults</h2>
+    <div class="vaults">
+      <div class="vault">
+        <div class="top"><span class="name">Stable Yield</span><span class="apy">9.1% APY</span></div>
+        <div class="rows">
+          <div class="r"><span>Deposited</span><b>$25,000.00</b></div>
+          <div class="r"><span>Earned</span><b class="up">+$412.87</b></div>
+          <div class="r" style="border:none"><span>Risk</span><b>Low</b></div>
+        </div>
+      </div>
+      <div class="vault">
+        <div class="top"><span class="name">ETH Momentum</span><span class="apy">14.6% APY</span></div>
+        <div class="rows">
+          <div class="r"><span>Deposited</span><b>$23,250.00</b></div>
+          <div class="r"><span>Earned</span><b class="up">+$1,043.20</b></div>
+          <div class="r" style="border:none"><span>Risk</span><b>Medium</b></div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<footer>© 2026 TaskFlow — a demo app bundled with Guideo.</footer>
+
+<div class="modal-back" id="modal">
+  <div class="modal">
+    <h3>Connect a wallet</h3>
+    <p>Choose how you'd like to connect.</p>
+    <div id="wallet-list"></div>
+  </div>
+</div>
+
+<script>
+  // Minimal EIP-6963 dapp: discover injected wallets, connect, show portfolio.
+  const discovered = new Map();
+  window.addEventListener('eip6963:announceProvider', (e) => {
+    const { info, provider } = e.detail;
+    discovered.set(info.uuid, { info, provider });
+  });
+  window.dispatchEvent(new Event('eip6963:requestProvider'));
+
+  const modal = document.getElementById('modal');
+  const list = document.getElementById('wallet-list');
+  function openModal() {
+    list.innerHTML = '';
+    const wallets = [...discovered.values()];
+    if (!wallets.length && window.ethereum) {
+      wallets.push({ info: { uuid: 'injected', name: window.ethereum.isMetaMask ? 'MetaMask' : 'Browser Wallet', icon: '' }, provider: window.ethereum });
+    }
+    if (!wallets.length) {
+      list.innerHTML = '<p style="color:#ff6b6b">No wallet detected. Install one to continue.</p>';
+    }
+    for (const w of wallets) {
+      const b = document.createElement('button');
+      b.className = 'wallet-opt';
+      b.innerHTML = (w.info.icon ? `<img src="${w.info.icon}" alt="">` : '<span style="width:26px"></span>') + `<span>${w.info.name}</span>`;
+      b.onclick = () => connect(w.provider);
+      list.appendChild(b);
+    }
+    modal.classList.add('show');
+  }
+  function closeModal() { modal.classList.remove('show'); }
+  modal.addEventListener('click', (e) => { if (e.target === modal) closeModal(); });
+
+  async function connect(provider) {
+    try {
+      const accounts = await provider.request({ method: 'eth_requestAccounts' });
+      const address = accounts[0];
+      const balHex = await provider.request({ method: 'eth_getBalance', params: [address, 'latest'] });
+      const eth = Number(BigInt(balHex)) / 1e18;
+      closeModal();
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('dash').classList.add('show');
+      document.getElementById('addr').textContent = address.slice(0, 6) + '…' + address.slice(-4);
+      document.getElementById('bal').textContent = eth.toLocaleString(undefined, { maximumFractionDigits: 4 }) + ' ETH';
+      document.getElementById('connect').textContent = address.slice(0, 6) + '…' + address.slice(-4);
+    } catch (err) {
+      alert('Connection was rejected.');
+    }
+  }
+  document.getElementById('connect').addEventListener('click', openModal);
+  document.getElementById('connect2').addEventListener('click', openModal);
+</script>
+</body>
+</html>

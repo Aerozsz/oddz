@@ -15,6 +15,7 @@ import {
   resultCaption,
   type ElementInfo,
 } from './captions.js';
+import { buildProviderScript, type WalletConfig } from './wallet.js';
 
 export interface ExploreOptions {
   url: string;
@@ -25,6 +26,10 @@ export interface ExploreOptions {
   headless?: boolean;
   /** Called as steps are captured, for progress UIs. */
   onStep?: (count: number, title: string) => void;
+  /** If set, inject a simulated wallet and drive the connect flow. */
+  wallet?: WalletConfig;
+  /** Multiplier on every step's on-screen time (>1 = slower). Default 1.35. */
+  pace?: number;
 }
 
 /**
@@ -138,6 +143,7 @@ const DESTRUCTIVE = /log ?out|sign ?out|delete|remove|cancel|unsubscribe|deactiv
 export async function explore(opts: ExploreOptions): Promise<Guide> {
   const viewport = opts.viewport ?? { width: 1280, height: 800 };
   const maxSteps = opts.maxSteps ?? 14;
+  const pace = opts.pace && opts.pace > 0 ? opts.pace : 1.35;
   const shotsDir = path.join(opts.outDir, 'screenshots');
   const videoDir = path.join(opts.outDir, 'video');
   await mkdir(shotsDir, { recursive: true });
@@ -149,6 +155,9 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     deviceScaleFactor: 1,
     recordVideo: { dir: videoDir, size: viewport },
   });
+  if (opts.wallet) {
+    await context.addInitScript({ content: buildProviderScript(opts.wallet) });
+  }
   const page: Page = await context.newPage();
 
   const steps: Step[] = [];
@@ -181,9 +190,8 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     return rel;
   }
 
-  /** Move the real cursor and compute normalized cursor/highlight for a ref. */
-  async function focusRef(ref: number) {
-    const loc = page.locator(`[data-guideo-ref="${ref}"]`).first();
+  /** Move the real cursor and compute normalized cursor/highlight for a locator. */
+  async function focusLocator(loc: import('playwright').Locator) {
     try {
       await loc.scrollIntoViewIfNeeded({ timeout: 2000 });
     } catch {
@@ -207,10 +215,16 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     };
   }
 
+  /** Focus a tagged candidate by its discovery ref. */
+  function focusRef(ref: number) {
+    return focusLocator(page.locator(`[data-guideo-ref="${ref}"]`).first());
+  }
+
   function addStep(
     partial: Omit<Step, 'id' | 'image'> & { image: string }
   ): void {
-    steps.push({ id: `s${steps.length}`, ...partial });
+    const durationMs = Math.round((partial.durationMs || 3800) * pace);
+    steps.push({ id: `s${steps.length}`, ...partial, durationMs });
     opts.onStep?.(steps.length, partial.title);
   }
 
@@ -226,6 +240,85 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
       highlight: null,
       action: { type: isFirst ? 'observe' : 'navigate', target: pinfo.url },
     });
+  }
+
+  let walletConnected = false;
+
+  function scoreConnect(c: any): number {
+    const t = (c.text || '').toLowerCase().trim();
+    if (/connect wallet/.test(t)) return 4;
+    if (/^connect$/.test(t)) return 3;
+    if (/launch app|open app|enter app/.test(t)) return 2;
+    if (/sign in|log in/.test(t)) return 1;
+    return 0;
+  }
+
+  async function findWalletOption(name: string) {
+    const attempts = [
+      page.getByRole('button', { name, exact: false }),
+      page.getByText(name, { exact: false }),
+      page.getByRole('button', { name: /metamask/i }),
+      page.getByText(/metamask/i),
+      page.getByText(/injected|browser wallet|detected/i),
+    ];
+    for (const loc of attempts) {
+      try {
+        const first = loc.first();
+        if (await first.isVisible({ timeout: 600 })) return first;
+      } catch { /* try next */ }
+    }
+    return null;
+  }
+
+  /** Drive a dapp's "Connect Wallet" flow using the injected demo wallet. */
+  async function connectWallet(): Promise<boolean> {
+    if (!opts.wallet || walletConnected) return false;
+    const info: any = await page.evaluate(DISCOVER_SRC);
+    const trigger = (info.candidates as any[])
+      .filter((c) => ['button', 'cta', 'nav', 'link'].includes(c.kind))
+      .filter((c) => scoreConnect(c) > 0)
+      .sort((a, b) => scoreConnect(b) - scoreConnect(a))[0];
+    if (!trigger) return false;
+
+    const f = await focusRef(trigger.ref);
+    addStep({
+      image: await shoot(),
+      title: 'Connect wallet',
+      caption: `Click “${trigger.text || 'Connect Wallet'}” to link your crypto wallet — this is how the app knows it’s you.`,
+      durationMs: 4400, animation: 'fade', cursor: f.cursor, highlight: f.highlight,
+      action: { type: 'click', target: trigger.text },
+    });
+    try {
+      await page.locator(`[data-guideo-ref="${trigger.ref}"]`).first().click({ timeout: 3000 });
+    } catch { /* ignore */ }
+    await page.waitForTimeout(900);
+    await settle();
+
+    const picker = await findWalletOption(opts.wallet.name);
+    if (picker) {
+      const f2 = await focusLocator(picker);
+      addStep({
+        image: await shoot(),
+        title: 'Choose wallet',
+        caption: 'Pick your wallet from the list. Here we use a demo wallet so you can preview the whole app safely.',
+        durationMs: 4400, animation: 'fade', cursor: f2.cursor, highlight: f2.highlight,
+        action: { type: 'click', target: opts.wallet.name },
+      });
+      try { await picker.click({ timeout: 3000 }); } catch { /* ignore */ }
+      await page.waitForTimeout(1300);
+      await settle();
+    }
+
+    walletConnected = true;
+    await page.evaluate(DISCOVER_SRC); // re-tag the now-unlocked page
+    addStep({
+      image: await shoot(),
+      title: 'Connected',
+      caption: 'You’re connected! The app now shows your dashboard — balances, positions and yields tied to your wallet.',
+      durationMs: 5400, animation: 'kenburns-in', cursor: null, highlight: null,
+      action: { type: 'observe' },
+    });
+    return true;
   }
 
   // ---- Start ----
@@ -244,6 +337,11 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     const cands: (ElementInfo & { ref: number; href: string; target: string; rect: any })[] =
       info.candidates;
     const key = (feat: string) => `${curUrl}#${feat}`;
+
+    // 0) If this is a web3 app, connect the wallet before anything else.
+    if (opts.wallet && !walletConnected) {
+      if (await connectWallet()) continue;
+    }
 
     // 1) Demonstrate a search box on this page.
     const search = cands.find((c) => c.kind === 'search');

@@ -23,6 +23,11 @@ $('video').addEventListener('change', updateEst);
 $('max').addEventListener('input', updateEst);
 updateEst();
 
+// Reveal wallet options when the web3 toggle is on.
+$('wallet').addEventListener('change', () => {
+  $('wallet-adv').style.display = $('wallet').checked ? '' : 'none';
+});
+
 // ---- Run ----
 $('run').addEventListener('click', run);
 async function run() {
@@ -33,6 +38,11 @@ async function run() {
     maxSteps: parseInt($('max').value, 10) || 14,
     video: $('video').checked,
     fps: 25,
+    pace: parseFloat($('pace').value) || 1.35,
+    wallet: $('wallet').checked,
+    chain: $('chain').value,
+    balanceEth: $('balanceEth').value.trim(),
+    address: $('address').value.trim(),
   };
   $('run').disabled = true;
   $('result').classList.remove('show');

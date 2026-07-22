@@ -8,6 +8,7 @@ import { buildPlayer } from './build-player.js';
 import { renderVideo } from './render.js';
 import { serveDir } from './server.js';
 import { ensureBrowser } from './browser.js';
+import { makeWalletConfig, ethToWei, type WalletConfig } from './wallet.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const GUI_DIR = path.join(here, 'gui');
@@ -53,16 +54,28 @@ async function runJob(job: Job, params: any) {
   try {
     let url: string = params.url;
     let title: string | undefined = params.title || undefined;
+
+    // Simulated wallet (opt-in), for web3 / dapp sites.
+    let wallet: WalletConfig | undefined;
+    if (params.wallet) {
+      wallet = makeWalletConfig({
+        ...(params.address ? { address: params.address } : {}),
+        ...(params.chain ? { chainId: params.chain } : {}),
+        ...(params.balanceEth ? { nativeBalanceWei: ethToWei(String(params.balanceEth)) } : {}),
+      });
+    }
+
     if (params.mode === 'demo') {
       demoServer = await serveDir(DEMO_SITE);
-      url = demoServer.url;
-      title = title || 'How to use TaskFlow';
-      emit(job, { type: 'log', msg: `Serving bundled demo site at ${url}` });
+      url = wallet ? demoServer.url + '/app.html' : demoServer.url;
+      title = title || (wallet ? 'How to use the TaskFlow Vault' : 'How to use TaskFlow');
+      emit(job, { type: 'log', msg: `Serving bundled demo site at ${demoServer.url}` });
     }
 
     job.phase = 'preparing';
     emit(job, { type: 'phase', phase: 'preparing', msg: 'Getting ready…' });
     await ensureBrowser((m) => emit(job, { type: 'log', msg: '  ' + m }));
+    if (wallet) emit(job, { type: 'log', msg: `Using a simulated wallet (${wallet.address.slice(0, 6)}…${wallet.address.slice(-4)}).` });
 
     job.phase = 'exploring';
     emit(job, { type: 'phase', phase: 'exploring', msg: `Exploring ${url} like a first-time user…` });
@@ -71,6 +84,8 @@ async function runJob(job: Job, params: any) {
       outDir,
       maxSteps: params.maxSteps || 14,
       title,
+      wallet,
+      pace: params.pace ? Number(params.pace) : undefined,
       onStep: (count, stepTitle) => {
         emit(job, { type: 'log', msg: `  · captured step ${count}: ${stepTitle}` });
         job.progress = Math.min(40, count * 3);
