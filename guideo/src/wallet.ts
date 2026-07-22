@@ -12,8 +12,10 @@
  */
 
 export interface WalletConfig {
-  /** 0x address shown as the connected account. */
+  /** 0x address shown as the connected account (set from the signer's key). */
   address: string;
+  /** Throwaway private key backing real signatures; filled in by the explorer. */
+  privateKey?: string;
   /** Hex chain id, e.g. '0x1' for Ethereum mainnet, '0x2105' for Base. */
   chainId: string;
   /** Native balance in wei (decimal string), e.g. '12345600000000000000' = 12.3456 ETH. */
@@ -107,6 +109,10 @@ export function buildProviderScript(cfg: WalletConfig): string {
         case 'eth_signTypedData':
         case 'eth_signTypedData_v3':
         case 'eth_signTypedData_v4':
+          if (window.__guideoSign) {
+            try { return await window.__guideoSign({ method: method, params: (args && args.params) || [] }); }
+            catch (e) {}
+          }
           return '0x' + '11'.repeat(65);
         case 'eth_sendTransaction':
         case 'eth_sendRawTransaction':

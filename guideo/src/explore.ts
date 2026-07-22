@@ -17,6 +17,7 @@ import {
 } from './captions.js';
 import { buildProviderScript, type WalletConfig } from './wallet.js';
 import { buildOverrideScript, type OverrideRule } from './overrides.js';
+import { createSigner } from './signer.js';
 
 export interface ExploreOptions {
   url: string;
@@ -178,6 +179,11 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     });
   }
   if (opts.wallet) {
+    // A real throwaway key so signatures verify (SIWE / Terms gates).
+    const signer = createSigner(opts.wallet.privateKey);
+    opts.wallet.address = signer.address;
+    opts.wallet.privateKey = signer.privateKey;
+    await context.exposeBinding('__guideoSign', (_src, req: any) => signer.sign(req));
     await context.addInitScript({ content: buildProviderScript(opts.wallet) });
   }
   if (opts.overrides && opts.overrides.length) {
@@ -383,15 +389,47 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     return true;
   }
 
+  /** True when no large, high-z-index overlay (wallet/terms/signature modal) covers the page. */
+  async function noBlockingModal(): Promise<boolean> {
+    try {
+      return await page.evaluate(() => {
+        const vw = window.innerWidth, vh = window.innerHeight;
+        const els = document.querySelectorAll('body *');
+        for (const el of els) {
+          const s = getComputedStyle(el);
+          if ((s.position === 'fixed' || s.position === 'absolute') && parseInt(s.zIndex || '0', 10) >= 20) {
+            const r = el.getBoundingClientRect();
+            if (r.width > vw * 0.45 && r.height > vh * 0.45 && s.visibility !== 'hidden' && s.display !== 'none' && parseFloat(s.opacity || '1') > 0.6) {
+              const t = ((el as HTMLElement).innerText || '').toLowerCase();
+              if (/terms|sign|accept|signature|connect wallet|invalid/.test(t)) return false;
+            }
+          }
+        }
+        return true;
+      });
+    } catch {
+      return true;
+    }
+  }
+
+  /** Wait until a blocking wallet/terms/signature modal is gone (or time out). */
+  async function waitForModalClear(timeoutMs: number) {
+    const end = Date.now() + timeoutMs;
+    while (Date.now() < end) {
+      if (await noBlockingModal()) return;
+      await page.waitForTimeout(1200);
+    }
+  }
+
   /** Assisted connect: show a banner, wait for the human to connect, then resume. */
   async function waitForUserConnect(timeoutMs = 180000): Promise<boolean> {
-    opts.onNote?.('A browser window is open. Click “Connect”, choose “Guideo Demo Wallet”, and I’ll take over automatically.');
+    opts.onNote?.('A browser window is open. Click “Connect”, choose “Guideo Demo Wallet”, then accept any Terms / signature prompt. I’ll take over once you’re in.');
     try {
       await page.evaluate(() => {
         if (document.getElementById('guideo-banner')) return;
         const b = document.createElement('div');
         b.id = 'guideo-banner';
-        b.textContent = '⬤ Guideo: connect a wallet to continue — choose “Guideo Demo Wallet”. I’ll take over the moment you’re in.';
+        b.textContent = '⬤ Guideo: connect “Guideo Demo Wallet”, then accept any Terms / signature prompt — I’ll take over once you’re in.';
         const s = b.style;
         s.position = 'fixed'; s.left = '0'; s.right = '0'; s.top = '0'; s.zIndex = '2147483647';
         s.background = 'linear-gradient(90deg,#6d5efc,#33d6a6)'; s.color = '#fff';
@@ -411,6 +449,8 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
         });
       } catch { /* page mid-navigation */ }
       if (connected) {
+        opts.onNote?.('Detected a connection — waiting for you to accept any terms / signature prompt…');
+        await waitForModalClear(90000);
         try { await page.evaluate(() => { const b = document.getElementById('guideo-banner'); if (b) b.remove(); }); } catch {}
         await settle();
         walletConnected = true;

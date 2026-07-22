@@ -22,6 +22,7 @@
   },
   "dependencies": {
     "commander": "^12.1.0",
+    "ethers": "^6.17.0",
     "playwright": "^1.48.0"
   },
   "devDependencies": {
@@ -33,12 +34,31 @@
   "build": {
     "appId": "com.guideo.app",
     "productName": "Guideo",
-    "directories": { "output": "dist-app" },
-    "files": ["src/**/*", "electron/**/*", "package.json", "!guides/**"],
-    "extraMetadata": { "main": "electron/main.cjs" },
-    "win": { "target": "nsis", "artifactName": "Guideo-Setup-${version}.${ext}" },
-    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true },
-    "mac": { "target": "dmg" },
-    "linux": { "target": "AppImage" }
+    "directories": {
+      "output": "dist-app"
+    },
+    "files": [
+      "src/**/*",
+      "electron/**/*",
+      "package.json",
+      "!guides/**"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.cjs"
+    },
+    "win": {
+      "target": "nsis",
+      "artifactName": "Guideo-Setup-${version}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+      "target": "dmg"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
   }
 }
