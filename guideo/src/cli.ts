@@ -10,7 +10,9 @@ import { renderVideo } from './render.js';
 import { serveDir } from './server.js';
 import { startGui } from './gui.js';
 import { ensureBrowser } from './browser.js';
+import { readFileSync } from 'node:fs';
 import { makeWalletConfig, ethToWei, type WalletConfig } from './wallet.js';
+import { presetForHost, type OverrideRule } from './overrides.js';
 
 function walletFromOpts(opts: any): WalletConfig | undefined {
   if (!opts.wallet) return undefined;
@@ -19,6 +21,17 @@ function walletFromOpts(opts: any): WalletConfig | undefined {
     ...(opts.chain ? { chainId: opts.chain } : {}),
     ...(opts.balance ? { nativeBalanceWei: ethToWei(opts.balance) } : {}),
   });
+}
+
+/** Choose override rules: explicit file wins, else a built-in preset for the host. */
+function overridesFromOpts(url: string, opts: any): OverrideRule[] | undefined {
+  if (opts.overrides) {
+    try { return JSON.parse(readFileSync(opts.overrides, 'utf8')); }
+    catch (e) { log('   ⚠ could not read overrides file: ' + (e as Error).message); }
+  }
+  if (opts.fill === false) return undefined;
+  if (opts.wallet || opts.assist) return presetForHost(url);
+  return undefined;
 }
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -53,6 +66,8 @@ program
   .option('--address <0x>', 'demo wallet address')
   .option('--chain <hex>', 'chain id, e.g. 0x1 (Ethereum) or 0x2105 (Base)')
   .option('--balance <eth>', 'demo native balance in ETH')
+  .option('--overrides <file>', 'JSON file of on-screen number override rules')
+  .option('--no-fill', 'do not apply built-in test-number overrides')
   .option('--pace <n>', 'step speed multiplier (>1 = slower)', parseFloat, 1.35)
   .action(async (url, opts) => {
     const out = opts.out || path.join(GUIDES, host(url) + '-' + stamp());
@@ -60,9 +75,11 @@ program
     await ensureBrowser((m) => log('   ' + m));
     log(`\n🔎 Exploring ${url}`);
     const wallet = walletFromOpts(opts) || (opts.assist ? makeWalletConfig() : undefined);
+    const overrides = overridesFromOpts(url, opts);
+    if (overrides) log(`   applying ${overrides.length} test-number overrides`);
     const guide = await explore({
       url, outDir: out, maxSteps: opts.max, title: opts.title,
-      wallet, assist: opts.assist, pace: opts.pace,
+      wallet, assist: opts.assist, pace: opts.pace, overrides,
       onNote: (m) => log('   ' + m),
     });
     log(`   captured ${guide.steps.length} steps`);

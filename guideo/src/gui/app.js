@@ -41,6 +41,7 @@ async function run() {
     pace: parseFloat($('pace').value) || 1.35,
     wallet: $('wallet').checked,
     assist: $('wallet').checked && $('assist').checked,
+    fill: $('fill').checked,
     chain: $('chain').value,
     balanceEth: $('balanceEth').value.trim(),
     address: $('address').value.trim(),
@@ -116,9 +117,8 @@ function done(ev) {
   if (ev.capture) {
     acts.appendChild(linkBtn('⬇ wallet-calls.json', base + '/wallet-calls.json?dl=1', false));
     acts.appendChild(linkBtn('⬇ network.json', base + '/network.json?dl=1', false));
-  }
-  if (ev.capture) {
-    $('result-body').innerHTML += '<div class="hint" style="margin-top:8px">Web3 capture saved. To fill in exact numbers, send the <b>wallet-calls.json</b> and <b>network.json</b> files above.</div>';
+    acts.appendChild(linkBtn('⬇ connected DOM', base + '/dom/connected.html?dl=1', false));
+    $('result-body').innerHTML += '<div class="hint" style="margin-top:8px">Web3 capture saved. To perfect the on-screen numbers, send the <b>connected DOM</b>, <b>wallet-calls.json</b> and <b>network.json</b> files above.</div>';
   }
   $('result-preview').innerHTML = ev.hasVideo
     ? `<video class="preview" src="${base}/guide.mp4" controls></video>`

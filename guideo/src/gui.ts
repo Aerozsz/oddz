@@ -9,6 +9,7 @@ import { renderVideo } from './render.js';
 import { serveDir } from './server.js';
 import { ensureBrowser } from './browser.js';
 import { makeWalletConfig, ethToWei, type WalletConfig } from './wallet.js';
+import { presetForHost, type OverrideRule } from './overrides.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const GUI_DIR = path.join(here, 'gui');
@@ -79,6 +80,13 @@ async function runJob(job: Job, params: any) {
 
     job.phase = 'exploring';
     emit(job, { type: 'phase', phase: 'exploring', msg: `Exploring ${url} like a first-time user…` });
+    // Test-number overrides (built-in preset for known hosts).
+    let overrides: OverrideRule[] | undefined;
+    if ((params.wallet || params.assist) && params.fill !== false && params.mode === 'url') {
+      overrides = presetForHost(params.url);
+      if (overrides) emit(job, { type: 'log', msg: `Applying ${overrides.length} test-number overrides for this site.` });
+    }
+
     if (params.assist) {
       emit(job, { type: 'log', msg: 'A browser window will open on your screen — connect the wallet there to continue.' });
     }
@@ -90,6 +98,7 @@ async function runJob(job: Job, params: any) {
       wallet,
       assist: !!params.assist,
       pace: params.pace ? Number(params.pace) : undefined,
+      overrides,
       onNote: (m) => emit(job, { type: 'log', msg: m }),
       onStep: (count, stepTitle) => {
         emit(job, { type: 'log', msg: `  · captured step ${count}: ${stepTitle}` });

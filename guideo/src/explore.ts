@@ -16,6 +16,7 @@ import {
   type ElementInfo,
 } from './captions.js';
 import { buildProviderScript, type WalletConfig } from './wallet.js';
+import { buildOverrideScript, type OverrideRule } from './overrides.js';
 
 export interface ExploreOptions {
   url: string;
@@ -38,6 +39,8 @@ export interface ExploreOptions {
   headed?: boolean;
   /** Free-form progress notes for a UI. */
   onNote?: (msg: string) => void;
+  /** Replace on-screen numbers with believable test values. */
+  overrides?: OverrideRule[];
 }
 
 /**
@@ -177,6 +180,9 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
   if (opts.wallet) {
     await context.addInitScript({ content: buildProviderScript(opts.wallet) });
   }
+  if (opts.overrides && opts.overrides.length) {
+    await context.addInitScript({ content: buildOverrideScript(opts.overrides) });
+  }
   const page: Page = await context.newPage();
 
   if (capture) {
@@ -234,6 +240,16 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     return rel;
   }
 
+  /** Save the connected page's HTML so override rules can be tuned to it. */
+  async function dumpDom(tag: string) {
+    if (!capture) return;
+    try {
+      const html = await page.content();
+      await mkdir(path.join(opts.outDir, 'dom'), { recursive: true });
+      await writeFile(path.join(opts.outDir, 'dom', `${tag}.html`), html);
+    } catch { /* ignore */ }
+  }
+
   /** Move the real cursor and compute normalized cursor/highlight for a locator. */
   async function focusLocator(loc: import('playwright').Locator) {
     try {
@@ -284,6 +300,7 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
       highlight: null,
       action: { type: isFirst ? 'observe' : 'navigate', target: pinfo.url },
     });
+    if (walletConnected) await dumpDom(`page-${shotIndex}`);
   }
 
   let walletConnected = false;
@@ -362,6 +379,7 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
       durationMs: 5400, animation: 'kenburns-in', cursor: null, highlight: null,
       action: { type: 'observe' },
     });
+    await dumpDom('connected');
     return true;
   }
 
@@ -404,6 +422,7 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
           durationMs: 5400, animation: 'kenburns-in', cursor: null, highlight: null,
           action: { type: 'observe' },
         });
+        await dumpDom('connected');
         opts.onNote?.('Wallet connected — continuing the tour automatically.');
         return true;
       }
