@@ -24,6 +24,12 @@
       '<div class="stage-wrap"><div class="stage" id="stage">' +
         '<div class="layer" id="g-prev"></div>' +
         '<div class="layer" id="g-cur"></div>' +
+        '<svg class="dim" id="g-dim" viewBox="0 0 100 100" preserveAspectRatio="none" style="display:none">' +
+          '<defs><mask id="g-dim-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">' +
+            '<rect x="0" y="0" width="100" height="100" fill="#fff"></rect>' +
+          '</mask></defs>' +
+          '<rect x="0" y="0" width="100" height="100" fill="#06070e" fill-opacity="0.6" mask="url(#g-dim-mask)"></rect>' +
+        '</svg>' +
         '<div class="spots" id="g-spots"></div>' +
         '<div class="labels" id="g-labels"></div>' +
         '<div class="ripple" id="g-ripple" style="display:none"></div>' +
@@ -66,6 +72,8 @@
     captionText: document.getElementById('g-caption-text'),
     capResize: document.getElementById('g-cap-resize'),
     stage: document.getElementById('stage'),
+    dim: document.getElementById('g-dim'),
+    dimMask: document.getElementById('g-dim-mask'),
     labels: document.getElementById('g-labels'),
     fill: document.getElementById('g-fill'),
     ticks: document.getElementById('g-ticks'),
@@ -303,8 +311,24 @@
       } else { el.ripple.style.display = 'none'; }
     } else { el.cursor.style.display = 'none'; el.ripple.style.display = 'none'; }
 
-    // highlights
+    // highlights — one dim layer with a hole cut out for each box
     var hs = step.highlights || [];
+    if (hs.length) {
+      el.dim.style.display = '';
+      el.dim.style.opacity = (editMode ? 0.6 : 1) * vis;
+      while (el.dimMask.childNodes.length > 1) el.dimMask.removeChild(el.dimMask.lastChild);
+      for (var m = 0; m < hs.length; m++) {
+        var mh = hs[m];
+        var rc = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        rc.setAttribute('x', (mh.x * 100).toFixed(2));
+        rc.setAttribute('y', (mh.y * 100).toFixed(2));
+        rc.setAttribute('width', (mh.w * 100).toFixed(2));
+        rc.setAttribute('height', (mh.h * 100).toFixed(2));
+        rc.setAttribute('rx', '1.2');
+        rc.setAttribute('fill', '#000');
+        el.dimMask.appendChild(rc);
+      }
+    } else { el.dim.style.display = 'none'; }
     ensureSpots(hs.length);
     for (var s = 0; s < spotPool.length; s++) {
       var d = spotPool[s];
