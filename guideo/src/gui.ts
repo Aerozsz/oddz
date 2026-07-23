@@ -31,7 +31,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.8.0 · makina-tuned: real tab labels, card highlights, exact numbers';
+export const GUI_VERSION = '0.8.1 · demo-wallet test numbers (no real wallet needed)';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };

@@ -141,22 +141,27 @@ export function buildOverrideScript(rules: OverrideRule[]): string {
  * A first pass anchored on labels visible in the UI — to be tightened once a
  * real connected DOM is captured (Guideo writes dom/*.html for exactly this).
  */
+/**
+ * Structural rules so the numbers populate regardless of which wallet is
+ * connected (the empty demo wallet shows $0 / 0; a funded wallet shows real
+ * values) — anchored on labels and whole-node values, not one wallet's figures.
+ */
 export const MAKINA_OVERRIDES: OverrideRule[] = [
-  // Portfolio donut + legend total ("$4" as a whole node, so it can't hit "$49M").
+  // Portfolio donut / legend total — matches whatever it currently shows.
+  { exact: '$0', value: '52,480', all: true },
+  { exact: '$0.00', value: '52,480', all: true },
   { exact: '$4', value: '52,480', all: true },
-  // Wallet balance in the Portfolio row (exact live value).
+  // Season points — anchored on the season label, so 0 or a real value is replaced.
+  { label: 'Season 0', scope: 'row', value: '1,204.52' },
+  { label: 'Season 1', scope: 'row', value: '4,865.61' },
+  { label: 'Season 2', scope: 'row', value: '6,142.33' },
+  { label: 'Season 3', scope: 'row', value: '3,908.09' },
+  // Panel "available" balance line (any tab / token).
+  { contains: 'avail', value: '8,650.42', all: true },
+  // Portfolio holdings row, only present when the address holds the token.
   { find: '3.9105', value: '51,204.88', all: true },
-  // Yield APY + points-per-day in the Portfolio row.
   { find: '4.79%', value: '12.40%', all: true },
   { find: '218.75', value: '890.25', all: true },
-  // Season points (exact live values).
-  { find: '36.52', value: '1,204.52' },
-  { find: '134.6561', value: '4,865.61' },
-  { find: '141.5327', value: '6,142.33' },
-  { find: '62.3086', value: '3,908.09' },
-  // Panel "available" balance, whatever token it shows.
-  { contains: 'usdc avail', value: '8,650.42' },
-  { contains: 'usdshfmk avail', value: '51,204.88' },
 ];
 
 const PRESETS: Record<string, OverrideRule[]> = {
