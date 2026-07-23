@@ -177,6 +177,30 @@
         stepFields.appendChild(field('Caption width', range(0.2, 1, 0.01, cb.w, function (v) { cb.w = v; preview(); })));
       }
 
+      // Text labels
+      if (!st.labels) st.labels = [];
+      var addLbl = btn('＋ Add text label', '', function () {
+        st.labels.push({ x: 0.4, y: 0.4, text: 'New label', size: 0.05, color: '#ffffff', bg: true });
+        renderStepFields(); preview();
+      });
+      stepFields.appendChild(field('Text labels', addLbl, 'Stamp a number/word on the frame (e.g. over a chart). Double-click it on the video to edit.'));
+      st.labels.forEach(function (lb, li) {
+        var box = document.createElement('div');
+        box.style.cssText = 'border-top:1px solid var(--g-line);padding-top:10px;margin-top:2px';
+        box.appendChild(field('Label ' + (li + 1) + ' text', input('text', lb.text, function (v) { lb.text = v; preview(); })));
+        var lxy = document.createElement('div'); lxy.className = 'f row2';
+        lxy.appendChild(range(0, 1, 0.01, lb.x, function (v) { lb.x = v; preview(); }));
+        lxy.appendChild(range(0, 1, 0.01, lb.y, function (v) { lb.y = v; preview(); }));
+        box.appendChild(field('X / Y', lxy));
+        box.appendChild(field('Size', range(0.02, 0.16, 0.005, lb.size || 0.05, function (v) { lb.size = v; preview(); })));
+        var lrow = document.createElement('div'); lrow.className = 'f row2';
+        lrow.appendChild(input('color', hex(lb.color || '#ffffff'), function (v) { lb.color = v; preview(); }));
+        lrow.appendChild(select([['on', 'Backdrop on'], ['off', 'Backdrop off']], lb.bg ? 'on' : 'off', function (v) { lb.bg = v === 'on'; preview(); }));
+        box.appendChild(field('Colour / backdrop', lrow));
+        box.appendChild(field('', btn('🗑 Remove label ' + (li + 1), 'danger', function () { st.labels.splice(li, 1); renderStepFields(); preview(); })));
+        stepFields.appendChild(box);
+      });
+
       // Replace image
       var file = document.createElement('input'); file.type = 'file'; file.accept = 'image/*';
       file.onchange = function () {

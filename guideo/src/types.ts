@@ -35,6 +35,18 @@ export interface StepAction {
   value?: string;
 }
 
+export interface TextLabel {
+  /** Normalized 0..1 top-left position. */
+  x: number;
+  y: number;
+  text: string;
+  /** Font size as a fraction of frame height (e.g. 0.045). */
+  size?: number;
+  color?: string;
+  /** Draw a rounded background behind the text. */
+  bg?: boolean;
+}
+
 export interface Step {
   id: string;
   title: string;
@@ -49,6 +61,8 @@ export interface Step {
   highlight: Highlight | null;
   /** Zero or more spotlight boxes, editable in the player. */
   highlights?: Highlight[];
+  /** Text annotations stamped on the frame (e.g. a number over a chart). */
+  labels?: TextLabel[];
   action: StepAction;
   /** Where to place the caption so it doesn't cover what's highlighted. */
   captionPos?: 'top' | 'bottom';

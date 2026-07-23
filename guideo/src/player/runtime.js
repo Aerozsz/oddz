@@ -25,6 +25,7 @@
         '<div class="layer" id="g-prev"></div>' +
         '<div class="layer" id="g-cur"></div>' +
         '<div class="spots" id="g-spots"></div>' +
+        '<div class="labels" id="g-labels"></div>' +
         '<div class="ripple" id="g-ripple" style="display:none"></div>' +
         '<div class="cursor" id="g-cursor" style="display:none">' +
           '<svg viewBox="0 0 28 28" width="28" height="28"><path d="M5 3l14.5 6.6c.9.4.8 1.7-.1 2L13 13.4l-2.6 6.4c-.4.9-1.7.8-2-.1L5 3.9c-.2-.7.4-1.2 1-.9z" fill="#fff" stroke="#0b0c14" stroke-width="1.4" stroke-linejoin="round"/></svg>' +
@@ -32,8 +33,10 @@
         '<div class="caption" id="g-caption"><span id="g-caption-text"></span><span class="cap-resize" id="g-cap-resize"></span></div>' +
         '<div class="edit-toolbar" id="g-edit-toolbar" style="display:none">' +
           '<button id="g-add-box">＋ Highlight box</button>' +
+          '<button id="g-add-label">＋ Text label</button>' +
           '<button id="g-del-box">🗑 Delete selected</button>' +
-          '<span class="ehint">Drag a box to move · drag its corner to resize · drag the caption too</span>' +
+          '<button id="g-del-step" class="danger">🗑 Delete step</button>' +
+          '<span class="ehint">Drag to move · corner to resize · double-click a label to edit its text</span>' +
         '</div>' +
       '</div></div>' +
       '<div class="controls">' +
@@ -63,6 +66,7 @@
     captionText: document.getElementById('g-caption-text'),
     capResize: document.getElementById('g-cap-resize'),
     stage: document.getElementById('stage'),
+    labels: document.getElementById('g-labels'),
     fill: document.getElementById('g-fill'),
     ticks: document.getElementById('g-ticks'),
     time: document.getElementById('g-time'),
@@ -79,6 +83,7 @@
     for (var i = 0; i < g.steps.length; i++) {
       var s = g.steps[i];
       if (!s.highlights) s.highlights = s.highlight ? [s.highlight] : [];
+      if (!s.labels) s.labels = [];
     }
     return g;
   }
@@ -107,7 +112,9 @@
   var savedGuide = loadSaved();
   var guide = normalize(savedGuide || JSON.parse(JSON.stringify(original)));
   var spotPool = [];
+  var labelPool = [];
   var selected = -1;
+  var selectedLabel = -1;
   var editMode = false;
 
   // ---- Timing state ----
@@ -195,6 +202,49 @@
     }
   }
 
+  function ensureLabels(n) {
+    while (labelPool.length < n) {
+      (function () {
+        var d = document.createElement('div');
+        d.className = 'glabel';
+        d.innerHTML = '<span class="gl-text"></span><button class="gl-del" title="Delete">✕</button>';
+        var idx = labelPool.length;
+        var span = d.querySelector('.gl-text');
+        d.querySelector('.gl-del').addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          var step = guide.steps[stepAt(timeMs)];
+          if (step.labels && step.labels[idx]) { step.labels.splice(idx, 1); selectedLabel = -1; render(timeMs); markDirty(); refreshTweak(); }
+        });
+        span.addEventListener('dblclick', function (ev) {
+          if (!editMode) return;
+          ev.stopPropagation();
+          span.setAttribute('contenteditable', 'true');
+          span.focus();
+          document.execCommand && document.execCommand('selectAll', false, null);
+        });
+        span.addEventListener('blur', function () {
+          span.removeAttribute('contenteditable');
+          var step = guide.steps[stepAt(timeMs)];
+          if (step.labels && step.labels[idx]) { step.labels[idx].text = span.textContent; markDirty(); refreshTweak(); }
+        });
+        span.addEventListener('keydown', function (ev) { if (ev.code === 'Enter') { ev.preventDefault(); span.blur(); } });
+        d.addEventListener('pointerdown', function (ev) {
+          if (!editMode || span.getAttribute('contenteditable') === 'true' || ev.target.classList.contains('gl-del')) return;
+          ev.stopPropagation();
+          selectedLabel = idx; selected = -1;
+          var step = guide.steps[stepAt(timeMs)];
+          var lb = step.labels[idx];
+          if (!lb) return;
+          var r = stageRect(), ox = (ev.clientX - r.left) / r.width - lb.x, oy = (ev.clientY - r.top) / r.height - lb.y;
+          beginDrag(ev, function (nx, ny) { lb.x = clamp01(nx - ox); lb.y = clamp01(ny - oy); render(timeMs); });
+          render(timeMs);
+        });
+        el.labels.appendChild(d);
+        labelPool.push(d);
+      })();
+    }
+  }
+
   function render(t) {
     t = Math.max(0, Math.min(total, t));
     var i = stepAt(t);
@@ -271,6 +321,28 @@
       } else { d.style.display = 'none'; }
     }
 
+    // text labels
+    var lbs = step.labels || [];
+    var stageH = el.stage.getBoundingClientRect().height || 800;
+    ensureLabels(lbs.length);
+    for (var L = 0; L < labelPool.length; L++) {
+      var ld = labelPool[L];
+      if (L < lbs.length) {
+        var lb = lbs[L];
+        ld.style.display = '';
+        ld.style.left = (lb.x * 100) + '%';
+        ld.style.top = (lb.y * 100) + '%';
+        ld.style.fontSize = ((lb.size || 0.045) * stageH) + 'px';
+        ld.style.color = lb.color || '#ffffff';
+        ld.style.opacity = vis;
+        ld.classList.toggle('bg', !!lb.bg);
+        ld.classList.toggle('editing', editMode);
+        ld.classList.toggle('sel', editMode && L === selectedLabel);
+        var sp = ld.querySelector('.gl-text');
+        if (sp.getAttribute('contenteditable') !== 'true' && sp.textContent !== (lb.text || '')) sp.textContent = lb.text || '';
+      } else { ld.style.display = 'none'; }
+    }
+
     // controls
     el.fill.style.width = (t / total * 100) + '%';
     el.time.textContent = fmt(t) + ' / ' + fmt(total);
@@ -323,7 +395,7 @@
   function pause() { playing = false; el.play.textContent = '▶'; }
   function toggle() { playing ? pause() : play(); }
   function seek(ms) { pause(); timeMs = Math.max(0, Math.min(total, ms)); render(timeMs); el.play.textContent = timeMs >= total ? '↻' : '▶'; }
-  function seekStep(i) { selected = -1; seek(starts[Math.max(0, Math.min(starts.length - 1, i))] + FADE + 50); }
+  function seekStep(i) { selected = -1; selectedLabel = -1; seek(starts[Math.max(0, Math.min(starts.length - 1, i))] + FADE + 50); }
 
   el.play.onclick = toggle;
   document.getElementById('g-prev-btn').onclick = function () { seekStep(stepAt(timeMs) - 1); };
@@ -358,10 +430,31 @@
   document.getElementById('g-del-box').onclick = deleteSelected;
   function deleteSelected() {
     var step = guide.steps[stepAt(timeMs)];
-    if (selected >= 0 && step.highlights && step.highlights[selected]) {
-      step.highlights.splice(selected, 1);
-      selected = -1; render(timeMs); markDirty(); refreshTweak();
+    if (selectedLabel >= 0 && step.labels && step.labels[selectedLabel]) {
+      step.labels.splice(selectedLabel, 1); selectedLabel = -1; render(timeMs); markDirty(); refreshTweak(); return;
     }
+    if (selected >= 0 && step.highlights && step.highlights[selected]) {
+      step.highlights.splice(selected, 1); selected = -1; render(timeMs); markDirty(); refreshTweak();
+    }
+  }
+  document.getElementById('g-add-label').onclick = function () {
+    var step = guide.steps[stepAt(timeMs)];
+    if (!step.labels) step.labels = [];
+    step.labels.push({ x: 0.4, y: 0.4, text: 'New label', size: 0.05, color: '#ffffff', bg: true });
+    selectedLabel = step.labels.length - 1; selected = -1;
+    render(timeMs); markDirty(); refreshTweak();
+    setTimeout(function () { var d = labelPool[selectedLabel]; if (d) { var sp = d.querySelector('.gl-text'); sp.setAttribute('contenteditable', 'true'); sp.focus(); } }, 30);
+    toast('Label added — type your text, click away when done');
+  };
+  document.getElementById('g-del-step').onclick = deleteCurrentStep;
+  function deleteCurrentStep() {
+    if (guide.steps.length <= 1) { toast('Keep at least one step'); return; }
+    if (!confirm('Delete this whole step from the guide?')) return;
+    var i = stepAt(timeMs);
+    guide.steps.splice(i, 1);
+    recompute(); buildChips();
+    seekStep(Math.min(i, guide.steps.length - 1));
+    markDirty(); refreshTweak(); toast('Step deleted');
   }
 
   function refreshTweak() { if (window.guideoTweak && window.guideoTweak.refresh) window.guideoTweak.refresh(); }
@@ -388,6 +481,8 @@
     rerender: function () { recompute(); applyTheme(); buildChips(); render(timeMs); markDirty(); },
     setEdit: setEdit, isEditing: function () { return editMode; },
     addHighlight: function () { document.getElementById('g-add-box').click(); },
+    addLabel: function () { document.getElementById('g-add-label').click(); },
+    deleteCurrentStep: deleteCurrentStep,
     deleteSelected: deleteSelected,
     save: function () { saveNow(false); }, revert: revert, markDirty: markDirty,
     toast: toast,

@@ -69,6 +69,21 @@ body {
   background: var(--g-panel-2); color: var(--g-ink); cursor: pointer; font-size: 13px; font-weight: 600; }
 .edit-toolbar button:hover { border-color: var(--g-accent); }
 .edit-toolbar .ehint { color: var(--g-muted); font-size: 12px; }
+.edit-toolbar button.danger:hover { border-color: #ff6b6b; color: #ff6b6b; }
+
+/* Text-label annotations */
+.labels { position: absolute; inset: 0; pointer-events: none; }
+.glabel { position: absolute; font-weight: 800; line-height: 1.1; white-space: nowrap;
+  pointer-events: none; text-shadow: 0 1px 3px rgba(0,0,0,0.55); }
+.glabel.bg { background: rgba(11,12,20,0.72); padding: 0.08em 0.32em; border-radius: 0.18em; text-shadow: none; }
+.stage.editmode .glabel { pointer-events: auto; cursor: move; }
+.glabel.sel { outline: 2px dashed var(--g-accent); outline-offset: 3px; }
+.gl-text { outline: none; }
+.gl-text[contenteditable="true"] { outline: 2px solid var(--g-accent); background: rgba(0,0,0,0.45); }
+.gl-del { position: absolute; top: -12px; right: -12px; width: 22px; height: 22px; border-radius: 50%;
+  border: 2px solid #fff; background: #ff6b6b; color: #fff; font-size: 11px; line-height: 1; padding: 0;
+  cursor: pointer; display: none; }
+.stage.editmode .glabel.sel .gl-del { display: block; }
 .cursor {
   position: absolute; width: 26px; height: 26px; margin: -4px 0 0 -3px; pointer-events: none;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
