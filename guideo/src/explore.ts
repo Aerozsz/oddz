@@ -837,7 +837,7 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
     }
 
     // 4) Navigate to an unvisited page.
-    const nav = pickNavigation(cands, curUrl, origin, visited, clickedRefs);
+    const nav = pickNavigation(cands, curUrl, origin, visited, clickedRefs, isDapp);
     if (nav) {
       clickedRefs.add(`${curUrl}:${nav.ref}`);
       const f = await focusRef(nav.ref);
@@ -909,13 +909,17 @@ function pickNavigation(
   curUrl: string,
   origin: string,
   visited: Set<string>,
-  clickedRefs: Set<string>
+  clickedRefs: Set<string>,
+  isDapp = false
 ) {
   const score: Record<string, number> = { nav: 3, cta: 2, link: 1, button: 0.4 };
   let best: any = null;
   let bestScore = -1;
   for (const c of cands) {
     if (!['nav', 'cta', 'link', 'button'].includes(c.kind)) continue;
+    // On dapps, only follow real navigation links — never content buttons like
+    // "Buy"/"Bridge" (they trigger flows / open the wallet modal).
+    if (isDapp && !c.href) continue;
     if (clickedRefs.has(`${curUrl}:${c.ref}`)) continue;
     if (DESTRUCTIVE.test(c.text)) continue;
     if (BORING.test(c.text) || BORING.test(c.href || '')) continue;

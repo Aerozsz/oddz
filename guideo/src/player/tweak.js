@@ -138,22 +138,43 @@
         stepFields.appendChild(field('Click ripple', select([['on', 'On'], ['off', 'Off']], st.cursor.click ? 'on' : 'off', function (v) { st.cursor.click = v === 'on'; preview(); })));
       }
 
-      // Highlight
-      var hlToggle = select([['off', 'Off'], ['on', 'On']], st.highlight ? 'on' : 'off', function (v) {
-        st.highlight = v === 'on' ? (st.highlight || { x: 0.3, y: 0.3, w: 0.4, h: 0.2 }) : null;
+      // Highlight boxes (multiple)
+      if (!st.highlights) st.highlights = st.highlight ? [st.highlight] : [];
+      var addBox = btn('＋ Add highlight box', '', function () {
+        st.highlights.push({ x: 0.38, y: 0.4, w: 0.24, h: 0.16 });
         renderStepFields(); preview();
       });
-      stepFields.appendChild(field('Spotlight box', hlToggle));
-      if (st.highlight) {
-        var h = st.highlight;
+      stepFields.appendChild(field('Highlight boxes', addBox, 'Or click “✎ Edit layout” at the top to drag boxes right on the video.'));
+      st.highlights.forEach(function (h, bi) {
+        var box = document.createElement('div');
+        box.style.cssText = 'border-top:1px solid var(--g-line);padding-top:10px;margin-top:2px';
         var hxy = document.createElement('div'); hxy.className = 'f row2';
         hxy.appendChild(range(0, 1, 0.01, h.x, function (v) { h.x = v; preview(); }));
         hxy.appendChild(range(0, 1, 0.01, h.y, function (v) { h.y = v; preview(); }));
-        stepFields.appendChild(field('Spotlight X / Y', hxy));
+        box.appendChild(field('Box ' + (bi + 1) + ' · X / Y', hxy));
         var hwh = document.createElement('div'); hwh.className = 'f row2';
-        hwh.appendChild(range(0.05, 1, 0.01, h.w, function (v) { h.w = v; preview(); }));
-        hwh.appendChild(range(0.05, 1, 0.01, h.h, function (v) { h.h = v; preview(); }));
-        stepFields.appendChild(field('Spotlight W / H', hwh));
+        hwh.appendChild(range(0.03, 1, 0.01, h.w, function (v) { h.w = v; preview(); }));
+        hwh.appendChild(range(0.03, 1, 0.01, h.h, function (v) { h.h = v; preview(); }));
+        box.appendChild(field('Box ' + (bi + 1) + ' · W / H', hwh));
+        box.appendChild(field('', btn('🗑 Remove box ' + (bi + 1), 'danger', function () { st.highlights.splice(bi, 1); renderStepFields(); preview(); })));
+        stepFields.appendChild(box);
+      });
+
+      // Caption placement
+      var capMode = st.captionBox ? 'custom' : (st.captionPos === 'top' ? 'top' : 'bottom');
+      var capSel = select([['bottom', 'Auto — bottom'], ['top', 'Auto — top'], ['custom', 'Custom (move & resize)']], capMode, function (v) {
+        if (v === 'custom') { if (!st.captionBox) st.captionBox = { x: 0.06, y: 0.8, w: 0.88 }; }
+        else { st.captionBox = null; st.captionPos = v; }
+        renderStepFields(); preview();
+      });
+      stepFields.appendChild(field('Caption position', capSel));
+      if (st.captionBox) {
+        var cb = st.captionBox;
+        var cxy = document.createElement('div'); cxy.className = 'f row2';
+        cxy.appendChild(range(0, 1, 0.01, cb.x, function (v) { cb.x = v; preview(); }));
+        cxy.appendChild(range(0, 1, 0.01, cb.y, function (v) { cb.y = v; preview(); }));
+        stepFields.appendChild(field('Caption X / Y', cxy));
+        stepFields.appendChild(field('Caption width', range(0.2, 1, 0.01, cb.w, function (v) { cb.w = v; preview(); })));
       }
 
       // Replace image
@@ -197,14 +218,24 @@
 
     refillPicker(); renderStepFields();
 
-    // ---- Export ----
+    // ---- Save / Export ----
     var exp = document.createElement('div'); exp.className = 'export-row';
+    exp.appendChild(btn('💾 Save', '', function () { window.guideo.save(); }));
+    exp.appendChild(btn('↺ Revert', 'danger', function () {
+      if (confirm('Discard your saved edits and reload the original guide?')) window.guideo.revert();
+    }));
     exp.appendChild(btn('⬇ guide.json', '', downloadJson));
     exp.appendChild(btn('⬇ player.html', '', downloadHtml));
     exp.appendChild(btn('⧉ Copy JSON', '', copyJson));
     panel.appendChild(exp);
 
-    window.guideoTweak = { refresh: function () { refillPicker(); renderStepFields(); } };
+    window.guideoTweak = {
+      refresh: function () {
+        // Follow the step shown on the canvas while editing the layout.
+        if (window.guideo.isEditing && window.guideo.isEditing()) selected = window.guideo.currentStepIndex();
+        refillPicker(); renderStepFields();
+      },
+    };
   }
 
   function hex(c) {

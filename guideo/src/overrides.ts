@@ -89,18 +89,24 @@ export function buildOverrideScript(rules: OverrideRule[]): string {
   };
   const valueNodeFor = (labelEl, scope) => {
     const skip = new Set(textNodes(labelEl));
-    const cands = [];
-    if (scope === 'self' || scope === 'auto') cands.push(labelEl);
-    var sib = labelEl.nextElementSibling, hop = 0;
-    while (sib && hop < 5) { cands.push(sib); sib = sib.nextElementSibling; hop++; }
-    // 'sibling' stays with immediate siblings only; 'row'/'auto' may climb.
-    if ((scope === 'row' || scope === 'auto') && labelEl.parentElement) cands.push(labelEl.parentElement);
-    for (const c of cands) {
-      for (const t of textNodes(c)) {
-        if (scope !== 'self' && skip.has(t)) continue;
-        if (numRe.test(t.nodeValue)) return t;
-      }
+    const firstNumIn = (node) => {
+      for (const t of textNodes(node)) { if (skip.has(t)) continue; if (numRe.test(t.nodeValue)) return t; }
+      return null;
+    };
+    if (scope === 'self') return firstNumIn(labelEl);
+    // Direct next siblings (same column / inline value).
+    let sib = labelEl.nextElementSibling, hop = 0;
+    while (sib && hop < 6) { const t = firstNumIn(sib); if (t) return t; sib = sib.nextElementSibling; hop++; }
+    if (scope === 'sibling' || scope === 'next') return null;
+    // Uncle columns: the label is nested in its own column, the value in the next
+    // column (parent's next siblings). This is the common two-column row layout.
+    if (labelEl.parentElement) {
+      let us = labelEl.parentElement.nextElementSibling, h2 = 0;
+      while (us && h2 < 6) { const t = firstNumIn(us); if (t) return t; us = us.nextElementSibling; h2++; }
     }
+    // Otherwise climb to a row-like ancestor that holds a value.
+    let anc = labelEl.parentElement ? labelEl.parentElement.parentElement : null, up = 0;
+    while (anc && up < 3) { const t = firstNumIn(anc); if (t) return t; anc = anc.parentElement; up++; }
     return null;
   };
   const applyLabel = (r) => {

@@ -1,12 +1,14 @@
 /* Guideo player runtime — deterministic playback so the MP4 renderer can seek
    to any millisecond and screenshot an identical frame. No wall-clock reads
-   inside render(); play() only advances a clock that feeds render(). */
+   inside render(); play() only advances a clock that feeds render().
+   Also a lightweight on-canvas editor (move/resize caption + highlight boxes)
+   with local autosave, so edits survive closing the window. */
 (function () {
   'use strict';
   var FADE = 450; // crossfade duration between steps (ms)
   var FPS = 30;
 
-  var guide = JSON.parse(document.getElementById('guide-data').textContent);
+  var original = JSON.parse(document.getElementById('guide-data').textContent);
   var app = document.getElementById('app');
 
   // ---- Build DOM ----
@@ -16,17 +18,23 @@
         '<span class="logo"><span class="dot"></span> Guideo</span>' +
         '<span class="title" id="g-title"></span>' +
         '<span class="spacer"></span>' +
+        '<button class="tbtn" id="g-edit-toggle">✎ Edit layout</button>' +
         '<button class="tbtn" id="g-tweak-toggle">✦ Tweak</button>' +
       '</div>' +
       '<div class="stage-wrap"><div class="stage" id="stage">' +
         '<div class="layer" id="g-prev"></div>' +
         '<div class="layer" id="g-cur"></div>' +
-        '<div class="spotlight" id="g-spot" style="display:none"></div>' +
+        '<div class="spots" id="g-spots"></div>' +
         '<div class="ripple" id="g-ripple" style="display:none"></div>' +
         '<div class="cursor" id="g-cursor" style="display:none">' +
           '<svg viewBox="0 0 28 28" width="28" height="28"><path d="M5 3l14.5 6.6c.9.4.8 1.7-.1 2L13 13.4l-2.6 6.4c-.4.9-1.7.8-2-.1L5 3.9c-.2-.7.4-1.2 1-.9z" fill="#fff" stroke="#0b0c14" stroke-width="1.4" stroke-linejoin="round"/></svg>' +
         '</div>' +
-        '<div class="caption" id="g-caption"></div>' +
+        '<div class="caption" id="g-caption"><span id="g-caption-text"></span><span class="cap-resize" id="g-cap-resize"></span></div>' +
+        '<div class="edit-toolbar" id="g-edit-toolbar" style="display:none">' +
+          '<button id="g-add-box">＋ Highlight box</button>' +
+          '<button id="g-del-box">🗑 Delete selected</button>' +
+          '<span class="ehint">Drag a box to move · drag its corner to resize · drag the caption too</span>' +
+        '</div>' +
       '</div></div>' +
       '<div class="controls">' +
         '<div class="scrub">' +
@@ -48,10 +56,12 @@
     title: document.getElementById('g-title'),
     prev: document.getElementById('g-prev'),
     cur: document.getElementById('g-cur'),
-    spot: document.getElementById('g-spot'),
+    spots: document.getElementById('g-spots'),
     ripple: document.getElementById('g-ripple'),
     cursor: document.getElementById('g-cursor'),
     caption: document.getElementById('g-caption'),
+    captionText: document.getElementById('g-caption-text'),
+    capResize: document.getElementById('g-cap-resize'),
     stage: document.getElementById('stage'),
     fill: document.getElementById('g-fill'),
     ticks: document.getElementById('g-ticks'),
@@ -60,9 +70,47 @@
     strip: document.getElementById('g-strip'),
     play: document.getElementById('g-play'),
     toast: document.getElementById('g-toast'),
+    editToggle: document.getElementById('g-edit-toggle'),
+    editToolbar: document.getElementById('g-edit-toolbar'),
   };
 
-  // ---- State ----
+  // ---- Normalisation + persistence ----
+  function normalize(g) {
+    for (var i = 0; i < g.steps.length; i++) {
+      var s = g.steps[i];
+      if (!s.highlights) s.highlights = s.highlight ? [s.highlight] : [];
+    }
+    return g;
+  }
+  function saveKey() {
+    var m = original.meta || {};
+    return 'guideo:save:' + (m.title || '') + '|' + (m.createdAt || '');
+  }
+  function loadSaved() {
+    if (window.__guideoNoRestore) return null;
+    try { var s = localStorage.getItem(saveKey()); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+  }
+  function saveNow(silent) {
+    try { localStorage.setItem(saveKey(), JSON.stringify(guide)); if (!silent) toast('Saved — your edits will be here next time'); }
+    catch (e) { if (!silent) toast('Could not save (storage full?)'); }
+  }
+  var saveTimer = null;
+  function markDirty() {
+    if (saveTimer) clearTimeout(saveTimer);
+    saveTimer = setTimeout(function () { saveNow(true); }, 700);
+  }
+  function revert() {
+    try { localStorage.removeItem(saveKey()); } catch (e) {}
+    location.reload();
+  }
+
+  var savedGuide = loadSaved();
+  var guide = normalize(savedGuide || JSON.parse(JSON.stringify(original)));
+  var spotPool = [];
+  var selected = -1;
+  var editMode = false;
+
+  // ---- Timing state ----
   var starts = [];
   var total = 0;
   var timeMs = 0;
@@ -78,7 +126,6 @@
     }
     total = t;
   }
-
   function applyTheme() {
     var th = guide.theme || {};
     var r = document.documentElement.style;
@@ -88,7 +135,6 @@
     el.caption.style.color = th.captionColor || '';
     el.cursor.querySelector('path').setAttribute('fill', th.cursorColor || '#fff');
   }
-
   function buildChips() {
     el.strip.innerHTML = '';
     el.ticks.innerHTML = '';
@@ -105,19 +151,11 @@
         el.ticks.appendChild(tk);
       })(i);
     }
-    for (var j = 0; j < guide.steps.length; j++) {
-      var img = new Image();
-      img.src = guide.steps[j].image;
-    }
+    for (var j = 0; j < guide.steps.length; j++) { var im = new Image(); im.src = guide.steps[j].image; }
   }
 
-  function stepAt(t) {
-    var i = 0;
-    for (var k = 0; k < starts.length; k++) if (starts[k] <= t) i = k;
-    return i;
-  }
+  function stepAt(t) { var i = 0; for (var k = 0; k < starts.length; k++) if (starts[k] <= t) i = k; return i; }
   function easeInOut(p) { return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2; }
-
   function animTransform(kind, p) {
     var e = easeInOut(Math.max(0, Math.min(1, p)));
     switch (kind) {
@@ -129,6 +167,34 @@
     }
   }
 
+  function ensureSpots(n) {
+    while (spotPool.length < n) {
+      (function () {
+        var d = document.createElement('div');
+        d.className = 'spotlight';
+        d.innerHTML = '<div class="sp-resize"></div>';
+        var idx = spotPool.length;
+        d.addEventListener('pointerdown', function (ev) {
+          if (!editMode) return;
+          ev.stopPropagation();
+          selected = idx;
+          var step = guide.steps[stepAt(timeMs)];
+          var h = step.highlights[idx];
+          if (!h) return;
+          if (ev.target.classList.contains('sp-resize')) {
+            beginDrag(ev, function (nx, ny) { h.w = clampMin(nx - h.x, 0.03); h.h = clampMin(ny - h.y, 0.03); render(timeMs); });
+          } else {
+            var r = stageRect(), ox = (ev.clientX - r.left) / r.width - h.x, oy = (ev.clientY - r.top) / r.height - h.y;
+            beginDrag(ev, function (nx, ny) { h.x = clamp01(nx - ox); h.y = clamp01(ny - oy); render(timeMs); });
+          }
+          render(timeMs);
+        });
+        el.spots.appendChild(d);
+        spotPool.push(d);
+      })();
+    }
+  }
+
   function render(t) {
     t = Math.max(0, Math.min(total, t));
     var i = stepAt(t);
@@ -137,35 +203,47 @@
     var dur = Math.max(300, step.durationMs || 3500);
     var p = local / dur;
     var fade = i === 0 ? 1 : Math.max(0, Math.min(1, local / FADE));
+    var vis = editMode ? 1 : fade;
 
     el.cur.style.backgroundImage = 'url("' + step.image + '")';
-    el.cur.style.opacity = fade;
-    el.cur.style.transform = animTransform(step.animation, p);
+    el.cur.style.opacity = vis;
+    el.cur.style.transform = editMode ? 'scale(1.001)' : animTransform(step.animation, p);
     el.cur.style.transformOrigin = 'center center';
 
-    if (i > 0 && fade < 1) {
+    if (i > 0 && fade < 1 && !editMode) {
       var prev = guide.steps[i - 1];
       el.prev.style.display = '';
       el.prev.style.backgroundImage = 'url("' + prev.image + '")';
       el.prev.style.transform = animTransform(prev.animation, 1);
-    } else {
-      el.prev.style.display = 'none';
-    }
+    } else { el.prev.style.display = 'none'; }
 
     // caption
     var lead = step.title ? '<span class="lead">' + escapeHtml(step.title) + '</span>' : '';
-    el.caption.innerHTML = lead + escapeHtml(step.caption || '');
-    el.caption.style.opacity = fade;
-    el.caption.style.display = step.caption || step.title ? '' : 'none';
+    el.captionText.innerHTML = lead + escapeHtml(step.caption || '');
+    el.caption.style.opacity = vis;
+    el.caption.style.display = step.caption || step.title || editMode ? '' : 'none';
     el.caption.classList.toggle('top', step.captionPos === 'top');
+    el.caption.classList.toggle('editing', editMode);
+    if (step.captionBox) {
+      var cb = step.captionBox;
+      el.caption.style.left = (cb.x * 100) + '%';
+      el.caption.style.top = (cb.y * 100) + '%';
+      el.caption.style.right = 'auto';
+      el.caption.style.bottom = 'auto';
+      el.caption.style.width = (cb.w * 100) + '%';
+    } else {
+      el.caption.style.left = ''; el.caption.style.right = ''; el.caption.style.width = '';
+      el.caption.style.top = step.captionPos === 'top' ? '' : 'auto';
+      el.caption.style.bottom = '';
+    }
 
     // cursor + ripple
     if (step.cursor) {
       el.cursor.style.display = '';
       el.cursor.style.left = (step.cursor.x * 100) + '%';
       el.cursor.style.top = (step.cursor.y * 100) + '%';
-      el.cursor.style.opacity = fade;
-      if (step.cursor.click) {
+      el.cursor.style.opacity = vis;
+      if (step.cursor.click && !editMode) {
         var rp = (local % 1600) / 1600;
         el.ripple.style.display = '';
         el.ripple.style.left = (step.cursor.x * 100) + '%';
@@ -173,22 +251,24 @@
         el.ripple.style.transform = 'scale(' + (0.5 + rp * 0.85) + ')';
         el.ripple.style.opacity = (1 - rp) * 0.45 * fade;
       } else { el.ripple.style.display = 'none'; }
-    } else {
-      el.cursor.style.display = 'none';
-      el.ripple.style.display = 'none';
-    }
+    } else { el.cursor.style.display = 'none'; el.ripple.style.display = 'none'; }
 
-    // highlight
-    if (step.highlight) {
-      var h = step.highlight;
-      el.spot.style.display = '';
-      el.spot.style.left = (h.x * 100) + '%';
-      el.spot.style.top = (h.y * 100) + '%';
-      el.spot.style.width = (h.w * 100) + '%';
-      el.spot.style.height = (h.h * 100) + '%';
-      el.spot.style.opacity = fade;
-    } else {
-      el.spot.style.display = 'none';
+    // highlights
+    var hs = step.highlights || [];
+    ensureSpots(hs.length);
+    for (var s = 0; s < spotPool.length; s++) {
+      var d = spotPool[s];
+      if (s < hs.length) {
+        var h = hs[s];
+        d.style.display = '';
+        d.style.left = (h.x * 100) + '%';
+        d.style.top = (h.y * 100) + '%';
+        d.style.width = (h.w * 100) + '%';
+        d.style.height = (h.h * 100) + '%';
+        d.style.opacity = vis;
+        d.classList.toggle('editing', editMode);
+        d.classList.toggle('sel', editMode && s === selected);
+      } else { d.style.display = 'none'; }
     }
 
     // controls
@@ -199,89 +279,117 @@
     for (var c = 0; c < chips.length; c++) chips[c].className = 'chip' + (c === i ? ' active' : '');
   }
 
-  function fmt(ms) {
-    var s = Math.round(ms / 1000);
-    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  function fmt(ms) { var s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
+  function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
+  function clamp01(n) { return Math.max(0, Math.min(1, n)); }
+  function clampMin(n, m) { return Math.max(m, Math.min(1, n)); }
+  function stageRect() { return el.stage.getBoundingClientRect(); }
+  function beginDrag(ev, onMove) {
+    ev.preventDefault();
+    var r = stageRect();
+    function mv(e) { onMove(clamp01((e.clientX - r.left) / r.width), clamp01((e.clientY - r.top) / r.height), e); }
+    function up() { document.removeEventListener('pointermove', mv); document.removeEventListener('pointerup', up); markDirty(); refreshTweak(); }
+    document.addEventListener('pointermove', mv);
+    document.addEventListener('pointerup', up);
   }
-  function escapeHtml(s) {
-    return String(s).replace(/[&<>"]/g, function (m) {
-      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m];
-    });
-  }
+
+  // ---- Caption dragging ----
+  el.caption.addEventListener('pointerdown', function (ev) {
+    if (!editMode) return;
+    var step = guide.steps[stepAt(timeMs)];
+    if (!step.captionBox) {
+      var cr = el.caption.getBoundingClientRect(), sr = stageRect();
+      step.captionBox = { x: (cr.left - sr.left) / sr.width, y: (cr.top - sr.top) / sr.height, w: cr.width / sr.width };
+    }
+    var cb = step.captionBox;
+    if (ev.target === el.capResize) {
+      beginDrag(ev, function (nx) { cb.w = clampMin(nx - cb.x, 0.12); render(timeMs); });
+    } else {
+      var r = stageRect(), ox = (ev.clientX - r.left) / r.width - cb.x, oy = (ev.clientY - r.top) / r.height - cb.y;
+      beginDrag(ev, function (nx, ny) { cb.x = clamp01(nx - ox); cb.y = clamp01(ny - oy); render(timeMs); });
+    }
+    render(timeMs);
+  });
 
   // ---- Playback ----
   function loop(ts) {
     if (!playing) return;
     if (!lastFrame) lastFrame = ts;
-    var dt = ts - lastFrame;
-    lastFrame = ts;
-    timeMs += dt;
+    var dt = ts - lastFrame; lastFrame = ts; timeMs += dt;
     if (timeMs >= total) { timeMs = total; pause(); render(timeMs); el.play.textContent = '↻'; return; }
-    render(timeMs);
-    requestAnimationFrame(loop);
+    render(timeMs); requestAnimationFrame(loop);
   }
-  function play() {
-    if (timeMs >= total) timeMs = 0;
-    playing = true; lastFrame = 0; el.play.textContent = '❚❚';
-    requestAnimationFrame(loop);
-  }
+  function play() { if (editMode) return; if (timeMs >= total) timeMs = 0; playing = true; lastFrame = 0; el.play.textContent = '❚❚'; requestAnimationFrame(loop); }
   function pause() { playing = false; el.play.textContent = '▶'; }
   function toggle() { playing ? pause() : play(); }
   function seek(ms) { pause(); timeMs = Math.max(0, Math.min(total, ms)); render(timeMs); el.play.textContent = timeMs >= total ? '↻' : '▶'; }
-  function seekStep(i) { seek(starts[Math.max(0, Math.min(starts.length - 1, i))] + 1); }
+  function seekStep(i) { selected = -1; seek(starts[Math.max(0, Math.min(starts.length - 1, i))] + FADE + 50); }
 
   el.play.onclick = toggle;
   document.getElementById('g-prev-btn').onclick = function () { seekStep(stepAt(timeMs) - 1); };
   document.getElementById('g-next-btn').onclick = function () { seekStep(stepAt(timeMs) + 1); };
-  el.track.onclick = function (e) {
-    var r = el.track.getBoundingClientRect();
-    seek((e.clientX - r.left) / r.width * total);
-  };
+  el.track.onclick = function (e) { var r = el.track.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * total); };
   document.addEventListener('keydown', function (e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    if (editMode && (e.code === 'Delete' || e.code === 'Backspace')) { e.preventDefault(); deleteSelected(); return; }
     if (e.code === 'Space') { e.preventDefault(); toggle(); }
     else if (e.code === 'ArrowRight') seekStep(stepAt(timeMs) + 1);
     else if (e.code === 'ArrowLeft') seekStep(stepAt(timeMs) - 1);
   });
 
-  function toast(msg) {
-    el.toast.textContent = msg; el.toast.classList.add('show');
-    setTimeout(function () { el.toast.classList.remove('show'); }, 1800);
+  // ---- Edit mode ----
+  function setEdit(on) {
+    editMode = on;
+    pause();
+    el.editToggle.classList.toggle('on', on);
+    el.editToolbar.style.display = on ? '' : 'none';
+    el.stage.classList.toggle('editmode', on);
+    if (on) { seek(starts[stepAt(timeMs)] + FADE + 60); } else { selected = -1; render(timeMs); }
   }
+  el.editToggle.onclick = function () { setEdit(!editMode); };
+  document.getElementById('g-add-box').onclick = function () {
+    var step = guide.steps[stepAt(timeMs)];
+    if (!step.highlights) step.highlights = [];
+    step.highlights.push({ x: 0.38, y: 0.4, w: 0.24, h: 0.16 });
+    selected = step.highlights.length - 1;
+    render(timeMs); markDirty(); refreshTweak();
+    toast('Box added — drag it into place');
+  };
+  document.getElementById('g-del-box').onclick = deleteSelected;
+  function deleteSelected() {
+    var step = guide.steps[stepAt(timeMs)];
+    if (selected >= 0 && step.highlights && step.highlights[selected]) {
+      step.highlights.splice(selected, 1);
+      selected = -1; render(timeMs); markDirty(); refreshTweak();
+    }
+  }
+
+  function refreshTweak() { if (window.guideoTweak && window.guideoTweak.refresh) window.guideoTweak.refresh(); }
+  function toast(msg) { el.toast.textContent = msg; el.toast.classList.add('show'); setTimeout(function () { el.toast.classList.remove('show'); }, 2000); }
 
   // ---- Init + public API ----
   recompute(); applyTheme(); buildChips(); render(0);
+  if (savedGuide) toast('Restored your saved edits');
 
   var ready = (function () {
     var ps = guide.steps.map(function (s) {
-      return new Promise(function (res) {
-        var im = new Image();
-        im.onload = im.onerror = res;
-        im.src = s.image;
-      });
+      return new Promise(function (res) { var im = new Image(); im.onload = im.onerror = res; im.src = s.image; });
     });
     return Promise.all(ps);
   })();
 
   window.guideo = {
-    ready: ready,
-    fps: FPS,
-    stageSelector: '#stage',
+    ready: ready, fps: FPS, stageSelector: '#stage',
     duration: function () { return total; },
-    seek: seek,
-    play: play,
-    pause: pause,
+    seek: seek, play: play, pause: pause, goToStep: seekStep,
     getGuide: function () { return guide; },
-    loadGuide: function (g) {
-      guide = g;
-      recompute(); applyTheme(); buildChips();
-      timeMs = Math.min(timeMs, total); render(timeMs);
-      if (window.guideoTweak) window.guideoTweak.refresh();
-    },
-    rerender: function () {
-      recompute(); applyTheme(); buildChips(); render(timeMs);
-    },
+    currentStepIndex: function () { return stepAt(timeMs); },
+    loadGuide: function (g) { guide = normalize(g); recompute(); applyTheme(); buildChips(); timeMs = Math.min(timeMs, total); render(timeMs); refreshTweak(); },
+    rerender: function () { recompute(); applyTheme(); buildChips(); render(timeMs); markDirty(); },
+    setEdit: setEdit, isEditing: function () { return editMode; },
+    addHighlight: function () { document.getElementById('g-add-box').click(); },
+    deleteSelected: deleteSelected,
+    save: function () { saveNow(false); }, revert: revert, markDirty: markDirty,
     toast: toast,
-    goToStep: seekStep,
   };
 })();

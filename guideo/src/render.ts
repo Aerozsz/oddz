@@ -49,6 +49,8 @@ export async function renderVideo(opts: RenderOptions): Promise<string> {
 
   const browser = await launchChromium({ headless: true });
   const page = await browser.newPage({ viewport: { width: width + 40, height: height + 40 }, deviceScaleFactor: 1 });
+  // Render from guide.json, never a browser's saved edits.
+  await page.addInitScript('window.__guideoNoRestore = true;');
   await page.goto(pathToFileURL(playerPath).toString(), { waitUntil: 'load' });
   await page.addStyleTag({ content: filmCss(width, height) });
   await page.evaluate(() => (window as any).guideo.ready);

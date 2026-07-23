@@ -45,10 +45,15 @@ export interface Step {
   durationMs: number;
   animation: AnimationKind;
   cursor: Cursor | null;
+  /** Single highlight (legacy). Prefer `highlights`; kept for back-compat. */
   highlight: Highlight | null;
+  /** Zero or more spotlight boxes, editable in the player. */
+  highlights?: Highlight[];
   action: StepAction;
   /** Where to place the caption so it doesn't cover what's highlighted. */
   captionPos?: 'top' | 'bottom';
+  /** Free caption placement (normalized x,y top-left + width), overrides captionPos. */
+  captionBox?: { x: number; y: number; w: number } | null;
 }
 
 export interface Theme {
