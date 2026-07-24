@@ -63,6 +63,17 @@
     var b = document.createElement('button'); b.className = 'mini ' + (cls || '');
     b.textContent = label; b.onclick = on; return b;
   }
+  // Start/end timing within a step, in seconds, with a readable hint.
+  function timingField(get0, set0, get1, set1, dur, label) {
+    var wrap = document.createElement('div');
+    var hint = document.createElement('div'); hint.className = 'hint';
+    function upd() { hint.textContent = 'Appears at ' + (get0() * dur / 1000).toFixed(1) + 's, gone by ' + (get1() * dur / 1000).toFixed(1) + 's (step is ' + (dur / 1000).toFixed(1) + 's).'; }
+    var row = document.createElement('div'); row.className = 'f row2';
+    row.appendChild(range(0, 1, 0.02, get0(), function (v) { set0(Math.min(v, get1())); upd(); preview(); }));
+    row.appendChild(range(0, 1, 0.02, get1(), function (v) { set1(Math.max(v, get0())); upd(); preview(); }));
+    wrap.appendChild(row); wrap.appendChild(hint); upd();
+    return field(label, wrap, 'Left slider = when it fades in · right = when it fades out.');
+  }
 
   function build() {
     panel.innerHTML = '';
@@ -156,6 +167,10 @@
         hwh.appendChild(range(0.03, 1, 0.01, h.w, function (v) { h.w = v; preview(); }));
         hwh.appendChild(range(0.03, 1, 0.01, h.h, function (v) { h.h = v; preview(); }));
         box.appendChild(field('Box ' + (bi + 1) + ' · W / H', hwh));
+        box.appendChild(timingField(
+          function () { return h.t0 == null ? 0 : h.t0; }, function (v) { h.t0 = v; },
+          function () { return h.t1 == null ? 1 : h.t1; }, function (v) { h.t1 = v; },
+          st.durationMs, 'Box ' + (bi + 1) + ' · timing'));
         box.appendChild(field('', btn('🗑 Remove box ' + (bi + 1), 'danger', function () { st.highlights.splice(bi, 1); renderStepFields(); preview(); })));
         stepFields.appendChild(box);
       });
@@ -176,6 +191,10 @@
         stepFields.appendChild(field('Caption X / Y', cxy));
         stepFields.appendChild(field('Caption width', range(0.2, 1, 0.01, cb.w, function (v) { cb.w = v; preview(); })));
       }
+      stepFields.appendChild(timingField(
+        function () { return st.captionT0 == null ? 0 : st.captionT0; }, function (v) { st.captionT0 = v; },
+        function () { return st.captionT1 == null ? 1 : st.captionT1; }, function (v) { st.captionT1 = v; },
+        st.durationMs, 'Caption timing'));
 
       // Text labels
       if (!st.labels) st.labels = [];
@@ -197,6 +216,10 @@
         lrow.appendChild(input('color', hex(lb.color || '#ffffff'), function (v) { lb.color = v; preview(); }));
         lrow.appendChild(select([['on', 'Backdrop on'], ['off', 'Backdrop off']], lb.bg ? 'on' : 'off', function (v) { lb.bg = v === 'on'; preview(); }));
         box.appendChild(field('Colour / backdrop', lrow));
+        box.appendChild(timingField(
+          function () { return lb.t0 == null ? 0 : lb.t0; }, function (v) { lb.t0 = v; },
+          function () { return lb.t1 == null ? 1 : lb.t1; }, function (v) { lb.t1 = v; },
+          st.durationMs, 'Label ' + (li + 1) + ' · timing'));
         box.appendChild(field('', btn('🗑 Remove label ' + (li + 1), 'danger', function () { st.labels.splice(li, 1); renderStepFields(); preview(); })));
         stepFields.appendChild(box);
       });

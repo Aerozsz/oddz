@@ -31,7 +31,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.9.2 · spotlight darken restored (multi-box)';
+export const GUI_VERSION = '0.9.3 · per-element timing for captions, boxes & labels';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };

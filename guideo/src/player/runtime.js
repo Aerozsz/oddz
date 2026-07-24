@@ -278,8 +278,9 @@
     // caption
     var lead = step.title ? '<span class="lead">' + escapeHtml(step.title) + '</span>' : '';
     el.captionText.innerHTML = lead + escapeHtml(step.caption || '');
-    el.caption.style.opacity = vis;
-    el.caption.style.display = step.caption || step.title || editMode ? '' : 'none';
+    var capA = timeAlpha(step.captionT0, step.captionT1, p, editMode);
+    el.caption.style.opacity = capA * vis;
+    el.caption.style.display = (step.caption || step.title || editMode) ? '' : 'none';
     el.caption.classList.toggle('top', step.captionPos === 'top');
     el.caption.classList.toggle('editing', editMode);
     if (step.captionBox) {
@@ -311,39 +312,39 @@
       } else { el.ripple.style.display = 'none'; }
     } else { el.cursor.style.display = 'none'; el.ripple.style.display = 'none'; }
 
-    // highlights — one dim layer with a hole cut out for each box
+    // highlights — one dim layer with a hole cut out for each active box
     var hs = step.highlights || [];
-    if (hs.length) {
-      el.dim.style.display = '';
-      el.dim.style.opacity = (editMode ? 0.6 : 1) * vis;
-      while (el.dimMask.childNodes.length > 1) el.dimMask.removeChild(el.dimMask.lastChild);
-      for (var m = 0; m < hs.length; m++) {
-        var mh = hs[m];
-        var rc = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        rc.setAttribute('x', (mh.x * 100).toFixed(2));
-        rc.setAttribute('y', (mh.y * 100).toFixed(2));
-        rc.setAttribute('width', (mh.w * 100).toFixed(2));
-        rc.setAttribute('height', (mh.h * 100).toFixed(2));
-        rc.setAttribute('rx', '1.2');
-        rc.setAttribute('fill', '#000');
-        el.dimMask.appendChild(rc);
-      }
-    } else { el.dim.style.display = 'none'; }
     ensureSpots(hs.length);
+    while (el.dimMask.childNodes.length > 1) el.dimMask.removeChild(el.dimMask.lastChild);
+    var anyBox = false, maxA = 0;
     for (var s = 0; s < spotPool.length; s++) {
       var d = spotPool[s];
       if (s < hs.length) {
         var h = hs[s];
-        d.style.display = '';
+        var ha = timeAlpha(h.t0, h.t1, p, editMode);
+        d.style.display = ha > 0 ? '' : 'none';
         d.style.left = (h.x * 100) + '%';
         d.style.top = (h.y * 100) + '%';
         d.style.width = (h.w * 100) + '%';
         d.style.height = (h.h * 100) + '%';
-        d.style.opacity = vis;
+        d.style.opacity = ha * vis;
         d.classList.toggle('editing', editMode);
         d.classList.toggle('sel', editMode && s === selected);
+        if (ha > 0.02) {
+          anyBox = true; if (ha > maxA) maxA = ha;
+          var rc = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+          rc.setAttribute('x', (h.x * 100).toFixed(2));
+          rc.setAttribute('y', (h.y * 100).toFixed(2));
+          rc.setAttribute('width', (h.w * 100).toFixed(2));
+          rc.setAttribute('height', (h.h * 100).toFixed(2));
+          rc.setAttribute('rx', '1.2');
+          rc.setAttribute('fill', '#000');
+          el.dimMask.appendChild(rc);
+        }
       } else { d.style.display = 'none'; }
     }
+    if (anyBox) { el.dim.style.display = ''; el.dim.style.opacity = (editMode ? 0.6 : 1) * vis * maxA; }
+    else { el.dim.style.display = 'none'; }
 
     // text labels
     var lbs = step.labels || [];
@@ -353,12 +354,13 @@
       var ld = labelPool[L];
       if (L < lbs.length) {
         var lb = lbs[L];
-        ld.style.display = '';
+        var la = timeAlpha(lb.t0, lb.t1, p, editMode);
+        ld.style.display = la > 0 ? '' : 'none';
         ld.style.left = (lb.x * 100) + '%';
         ld.style.top = (lb.y * 100) + '%';
         ld.style.fontSize = ((lb.size || 0.045) * stageH) + 'px';
         ld.style.color = lb.color || '#ffffff';
-        ld.style.opacity = vis;
+        ld.style.opacity = la * vis;
         ld.classList.toggle('bg', !!lb.bg);
         ld.classList.toggle('editing', editMode);
         ld.classList.toggle('sel', editMode && L === selectedLabel);
@@ -378,6 +380,15 @@
   function fmt(ms) { var s = Math.round(ms / 1000); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }
   function escapeHtml(s) { return String(s).replace(/[&<>"]/g, function (m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]; }); }
   function clamp01(n) { return Math.max(0, Math.min(1, n)); }
+  // Opacity for an element timed to appear only within [t0,t1] of the step.
+  function timeAlpha(t0, t1, p, edit) {
+    if (edit) return 1;
+    var a = t0 == null ? 0 : t0, b = t1 == null ? 1 : t1;
+    if (a <= 0 && b >= 1) return 1;
+    if (p < a || p > b) return 0;
+    var w = 0.06;
+    return Math.max(0, Math.min(1, (p - a) / w, (b - p) / w));
+  }
   function clampMin(n, m) { return Math.max(m, Math.min(1, n)); }
   function stageRect() { return el.stage.getBoundingClientRect(); }
   function beginDrag(ev, onMove) {

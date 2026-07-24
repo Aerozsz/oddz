@@ -27,6 +27,9 @@ export interface Highlight {
   y: number;
   w: number;
   h: number;
+  /** Show only between these fractions of the step (0..1). Defaults to 0 / 1. */
+  t0?: number;
+  t1?: number;
 }
 
 export interface StepAction {
@@ -45,6 +48,9 @@ export interface TextLabel {
   color?: string;
   /** Draw a rounded background behind the text. */
   bg?: boolean;
+  /** Show only between these fractions of the step (0..1). Defaults to 0 / 1. */
+  t0?: number;
+  t1?: number;
 }
 
 export interface Step {
@@ -68,6 +74,9 @@ export interface Step {
   captionPos?: 'top' | 'bottom';
   /** Free caption placement (normalized x,y top-left + width), overrides captionPos. */
   captionBox?: { x: number; y: number; w: number } | null;
+  /** Show the caption only between these fractions of the step (0..1). */
+  captionT0?: number;
+  captionT1?: number;
 }
 
 export interface Theme {
