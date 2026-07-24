@@ -30,7 +30,7 @@
           '<defs><mask id="g-dim-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">' +
             '<rect x="0" y="0" width="100" height="100" fill="#fff"></rect>' +
           '</mask></defs>' +
-          '<rect x="0" y="0" width="100" height="100" fill="#06070e" fill-opacity="0.6" mask="url(#g-dim-mask)"></rect>' +
+          '<rect x="0" y="0" width="100" height="100" fill="#06070e" fill-opacity="1" mask="url(#g-dim-mask)"></rect>' +
         '</svg>' +
         '<div class="spots" id="g-spots"></div>' +
         '<div class="labels" id="g-labels"></div>' +
@@ -219,7 +219,7 @@
       (function () {
         var d = document.createElement('div');
         d.className = 'glabel';
-        d.innerHTML = '<span class="gl-text"></span><button class="gl-del" title="Delete">✕</button>';
+        d.innerHTML = '<span class="gl-title"></span><span class="gl-text"></span><button class="gl-del" title="Delete">✕</button>';
         var idx = labelPool.length;
         var span = d.querySelector('.gl-text');
         d.querySelector('.gl-del').addEventListener('click', function (ev) {
@@ -266,6 +266,9 @@
     var p = local / dur;
     var fade = i === 0 ? 1 : Math.max(0, Math.min(1, local / FADE));
     var vis = editMode ? 1 : fade;
+    var theme = guide.theme || {};
+    // Per-step accent (affects spotlight ring, ripple, caption lead).
+    document.documentElement.style.setProperty('--g-accent', step.accent || theme.accent || '#6d5efc');
 
     var xform = editMode ? 'scale(1.001)' : animTransform(step.animation, p);
     var hasVideo = !!step.video, hasGif = !!step.gif;
@@ -315,6 +318,9 @@
     el.caption.style.display = (step.caption || step.title || editMode) ? '' : 'none';
     el.caption.classList.toggle('top', step.captionPos === 'top');
     el.caption.classList.toggle('editing', editMode);
+    el.caption.style.fontFamily = step.font || theme.font || '';
+    el.caption.style.color = step.captionColor || theme.captionColor || '';
+    el.caption.style.background = step.captionBg || theme.captionBg || '';
     if (step.captionBox) {
       var cb = step.captionBox;
       el.caption.style.left = (cb.x * 100) + '%';
@@ -375,7 +381,8 @@
         }
       } else { d.style.display = 'none'; }
     }
-    if (anyBox) { el.dim.style.display = ''; el.dim.style.opacity = (editMode ? 0.6 : 1) * vis * maxA; }
+    var dimI = step.dimIntensity != null ? step.dimIntensity : (guide.theme && guide.theme.dim != null ? guide.theme.dim : 0.6);
+    if (anyBox) { el.dim.style.display = ''; el.dim.style.opacity = (editMode ? 0.55 : 1) * vis * maxA * dimI; }
     else { el.dim.style.display = 'none'; }
 
     // text labels
@@ -392,10 +399,14 @@
         ld.style.top = (lb.y * 100) + '%';
         ld.style.fontSize = ((lb.size || 0.045) * stageH) + 'px';
         ld.style.color = lb.color || '#ffffff';
+        ld.style.fontFamily = lb.font || '';
         ld.style.opacity = la * vis;
         ld.classList.toggle('bg', !!lb.bg);
         ld.classList.toggle('editing', editMode);
         ld.classList.toggle('sel', editMode && L === selectedLabel);
+        var tit = ld.querySelector('.gl-title');
+        tit.textContent = lb.title || '';
+        tit.style.display = lb.title ? '' : 'none';
         var sp = ld.querySelector('.gl-text');
         if (sp.getAttribute('contenteditable') !== 'true' && sp.textContent !== (lb.text || '')) sp.textContent = lb.text || '';
       } else { ld.style.display = 'none'; }
@@ -478,7 +489,12 @@
       else if (v.readyState < 2) await once(v, 'loadeddata', 900);
     }
   }
-  function seekStep(i) { selected = -1; selectedLabel = -1; seek(starts[Math.max(0, Math.min(starts.length - 1, i))] + FADE + 50); }
+  function seekStep(i) {
+    selected = -1; selectedLabel = -1;
+    var idx = Math.max(0, Math.min(starts.length - 1, i));
+    seek(starts[idx] + FADE + 50);
+    if (window.guideoTweak && window.guideoTweak.setStep) window.guideoTweak.setStep(idx);
+  }
 
   el.play.onclick = toggle;
   document.getElementById('g-prev-btn').onclick = function () { seekStep(stepAt(timeMs) - 1); };

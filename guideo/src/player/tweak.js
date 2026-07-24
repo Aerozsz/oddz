@@ -156,6 +156,8 @@
         renderStepFields(); preview();
       });
       stepFields.appendChild(field('Highlight boxes', addBox, 'Or click “✎ Edit layout” at the top to drag boxes right on the video.'));
+      var dimNow = st.dimIntensity != null ? st.dimIntensity : (g().theme.dim != null ? g().theme.dim : 0.6);
+      stepFields.appendChild(field('Spotlight dim', range(0, 1, 0.05, dimNow, function (v) { st.dimIntensity = v; preview(); }), 'How dark everything outside the highlight boxes gets (0 = none, 1 = black).'));
       st.highlights.forEach(function (h, bi) {
         var box = document.createElement('div');
         box.style.cssText = 'border-top:1px solid var(--g-line);padding-top:10px;margin-top:2px';
@@ -171,7 +173,13 @@
           function () { return h.t0 == null ? 0 : h.t0; }, function (v) { h.t0 = v; },
           function () { return h.t1 == null ? 1 : h.t1; }, function (v) { h.t1 = v; },
           st.durationMs, 'Box ' + (bi + 1) + ' · timing'));
-        box.appendChild(field('', btn('🗑 Remove box ' + (bi + 1), 'danger', function () { st.highlights.splice(bi, 1); renderStepFields(); preview(); })));
+        var boxActs = document.createElement('div'); boxActs.className = 'minibtns';
+        boxActs.appendChild(btn('⧉ Duplicate', '', function () {
+          var c = JSON.parse(JSON.stringify(h)); c.x = Math.min(0.95, (c.x || 0) + 0.03); c.y = Math.min(0.95, (c.y || 0) + 0.03);
+          st.highlights.splice(bi + 1, 0, c); renderStepFields(); preview();
+        }));
+        boxActs.appendChild(btn('🗑 Remove', 'danger', function () { st.highlights.splice(bi, 1); renderStepFields(); preview(); }));
+        box.appendChild(field('', boxActs));
         stepFields.appendChild(box);
       });
 
@@ -195,6 +203,22 @@
         function () { return st.captionT0 == null ? 0 : st.captionT0; }, function (v) { st.captionT0 = v; },
         function () { return st.captionT1 == null ? 1 : st.captionT1; }, function (v) { st.captionT1 = v; },
         st.durationMs, 'Caption timing'));
+      stepFields.appendChild(field('', btn('⧉ Duplicate caption as a movable text label', '', function () {
+        st.labels = st.labels || [];
+        st.labels.push({
+          x: st.captionBox ? st.captionBox.x : 0.1, y: st.captionBox ? st.captionBox.y : 0.72,
+          title: st.title || '', text: st.caption || '', size: 0.04, bg: true,
+          color: st.captionColor || g().theme.captionColor || '#ffffff', font: st.font || g().theme.font,
+        });
+        renderStepFields(); preview(); window.guideo.toast('Caption copied to a text label you can move');
+      })));
+
+      // Per-step style overrides (fall back to the guide theme)
+      stepFields.appendChild(field('Step font', select([['', 'Guide default']].concat(FONTS), st.font || '', function (v) { st.font = v || null; window.guideo.rerender(); })));
+      var styleRow = document.createElement('div'); styleRow.className = 'f row2';
+      styleRow.appendChild(input('color', hex(st.accent || g().theme.accent), function (v) { st.accent = v; window.guideo.rerender(); }));
+      styleRow.appendChild(input('color', hex(st.captionColor || g().theme.captionColor), function (v) { st.captionColor = v; window.guideo.rerender(); }));
+      stepFields.appendChild(field('Step accent / caption colour', styleRow, 'Left = accent (rings, ripple, titles); right = caption text colour.'));
 
       // Text labels
       if (!st.labels) st.labels = [];
@@ -206,12 +230,14 @@
       st.labels.forEach(function (lb, li) {
         var box = document.createElement('div');
         box.style.cssText = 'border-top:1px solid var(--g-line);padding-top:10px;margin-top:2px';
+        box.appendChild(field('Label ' + (li + 1) + ' title (optional)', input('text', lb.title || '', function (v) { lb.title = v; preview(); })));
         box.appendChild(field('Label ' + (li + 1) + ' text', input('text', lb.text, function (v) { lb.text = v; preview(); })));
         var lxy = document.createElement('div'); lxy.className = 'f row2';
         lxy.appendChild(range(0, 1, 0.01, lb.x, function (v) { lb.x = v; preview(); }));
         lxy.appendChild(range(0, 1, 0.01, lb.y, function (v) { lb.y = v; preview(); }));
         box.appendChild(field('X / Y', lxy));
         box.appendChild(field('Size', range(0.02, 0.16, 0.005, lb.size || 0.05, function (v) { lb.size = v; preview(); })));
+        box.appendChild(field('Font', select([['', 'Guide default']].concat(FONTS), lb.font || '', function (v) { lb.font = v; preview(); })));
         var lrow = document.createElement('div'); lrow.className = 'f row2';
         lrow.appendChild(input('color', hex(lb.color || '#ffffff'), function (v) { lb.color = v; preview(); }));
         lrow.appendChild(select([['on', 'Backdrop on'], ['off', 'Backdrop off']], lb.bg ? 'on' : 'off', function (v) { lb.bg = v === 'on'; preview(); }));
@@ -306,6 +332,13 @@
       refresh: function () {
         // Follow the step shown on the canvas while editing the layout.
         if (window.guideo.isEditing && window.guideo.isEditing()) selected = window.guideo.currentStepIndex();
+        refillPicker(); renderStepFields();
+      },
+      // Called when the player jumps to a step (chip / prev-next), so the panel
+      // follows without using the dropdown.
+      setStep: function (i) {
+        if (i === selected) return;
+        selected = Math.max(0, Math.min(g().steps.length - 1, i));
         refillPicker(); renderStepFields();
       },
     };

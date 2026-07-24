@@ -43,9 +43,13 @@ export interface TextLabel {
   x: number;
   y: number;
   text: string;
+  /** Optional bold lead shown before the text (like a caption title). */
+  title?: string;
   /** Font size as a fraction of frame height (e.g. 0.045). */
   size?: number;
   color?: string;
+  /** Font family override for this label. */
+  font?: string;
   /** Draw a rounded background behind the text. */
   bg?: boolean;
   /** Show only between these fractions of the step (0..1). Defaults to 0 / 1. */
@@ -81,6 +85,13 @@ export interface Step {
   /** Show the caption only between these fractions of the step (0..1). */
   captionT0?: number;
   captionT1?: number;
+  /** Darkness of the spotlight dim for this step (0..1). Defaults to theme.dim. */
+  dimIntensity?: number;
+  /** Per-step style overrides (fall back to the guide theme). */
+  font?: string;
+  accent?: string;
+  captionColor?: string;
+  captionBg?: string;
 }
 
 export interface Theme {
@@ -89,6 +100,8 @@ export interface Theme {
   captionColor: string;
   cursorColor: string;
   font: string;
+  /** Default spotlight dim darkness (0..1). */
+  dim?: number;
 }
 
 export interface GuideMeta {
