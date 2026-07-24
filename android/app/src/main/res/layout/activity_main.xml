@@ -88,6 +88,56 @@
             android:text="@string/update_ytdlp"
             android:textAllCaps="false" />
 
+        <!-- Friendly status card: working / done / failed -->
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/statusCard"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="14dp"
+            android:visibility="gone"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:gravity="center_vertical"
+                android:padding="16dp">
+
+                <ImageView
+                    android:id="@+id/statusIcon"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:importantForAccessibility="no"
+                    android:src="@drawable/ic_download" />
+
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:layout_marginStart="14dp"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:id="@+id/statusTitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="16sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/statusSubtitle"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:alpha="0.9"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Overall progress -->
         <com.google.android.material.progressindicator.LinearProgressIndicator
             android:id="@+id/progress"
             android:layout_width="match_parent"
@@ -98,21 +148,25 @@
             app:trackCornerRadius="8dp"
             app:trackThickness="6dp" />
 
-        <TextView
+        <!-- Reveals the raw log only if the user wants it -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnToggleDetails"
+            style="@style/Widget.Material3.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:layout_marginBottom="8dp"
-            android:text="@string/output"
-            android:textAllCaps="true"
-            android:textColor="?attr/colorOnSurfaceVariant"
-            android:textSize="12sp"
-            android:letterSpacing="0.08" />
+            android:layout_marginTop="8dp"
+            android:visibility="gone"
+            android:text="@string/show_details"
+            android:textAllCaps="false"
+            android:textSize="13sp" />
 
         <com.google.android.material.card.MaterialCardView
+            android:id="@+id/detailsCard"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
+            android:layout_marginTop="4dp"
+            android:visibility="gone"
             app:cardBackgroundColor="?attr/colorSurfaceVariant"
             app:cardCornerRadius="14dp"
             app:cardElevation="0dp"
