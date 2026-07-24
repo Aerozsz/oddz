@@ -18,6 +18,7 @@
         '<span class="logo"><span class="dot"></span> Guideo</span>' +
         '<span class="title" id="g-title"></span>' +
         '<span class="spacer"></span>' +
+        '<button class="tbtn" id="g-undo" title="Undo (Ctrl+Z)">↶ Undo</button>' +
         '<button class="tbtn" id="g-edit-toggle">✎ Edit layout</button>' +
         '<button class="tbtn" id="g-tweak-toggle">✦ Tweak</button>' +
       '</div>' +
@@ -88,6 +89,7 @@
     toast: document.getElementById('g-toast'),
     editToggle: document.getElementById('g-edit-toggle'),
     editToolbar: document.getElementById('g-edit-toolbar'),
+    undo: document.getElementById('g-undo'),
   };
 
   // ---- Normalisation + persistence ----
@@ -114,11 +116,63 @@
   var saveTimer = null;
   function markDirty() {
     if (saveTimer) clearTimeout(saveTimer);
-    saveTimer = setTimeout(function () { saveNow(true); }, 700);
+    saveTimer = setTimeout(function () { saveNow(true); commit(); }, 700);
   }
   function revert() {
     try { localStorage.removeItem(saveKey()); } catch (e) {}
     location.reload();
+  }
+
+  // ---- Undo history ----
+  // Snapshots store the guide as JSON but keep big media strings (image/video/
+  // gif data URIs) by reference in a side array — the JSON holds only a short
+  // placeholder that embeds a fingerprint, so media swaps still register as a
+  // change but 50 snapshots don't duplicate megabytes of pixels.
+  var history = [];
+  var committed = null;
+  var HISTORY_MAX = 50;
+  function fp(str) { str = String(str || ''); return str.length + ':' + str.slice(-12); }
+  function snapshot() {
+    var media = [];
+    var json = JSON.stringify(guide, function (key, val) {
+      if ((key === 'image' || key === 'video' || key === 'gif') && typeof val === 'string' && val.length > 200) {
+        var idx = media.length; media.push(val);
+        return '@@m' + idx + '#' + fp(val);
+      }
+      return val;
+    });
+    return { json: json, media: media };
+  }
+  function restore(snap) {
+    var media = snap.media;
+    var g = JSON.parse(snap.json, function (key, val) {
+      if (typeof val === 'string' && val.slice(0, 3) === '@@m') {
+        var m = val.match(/^@@m(\d+)#/);
+        if (m) return media[parseInt(m[1], 10)];
+      }
+      return val;
+    });
+    window.guideo.loadGuide(g);
+  }
+  function commit() {
+    var snap = snapshot();
+    if (committed && committed.json === snap.json) return; // nothing changed
+    if (committed) { history.push(committed); if (history.length > HISTORY_MAX) history.shift(); }
+    committed = snap;
+    updateUndoBtn();
+  }
+  function undo() {
+    if (saveTimer) { clearTimeout(saveTimer); saveTimer = null; }
+    commit(); // fold any pending edit into `committed` first
+    if (!history.length) { toast('Nothing to undo'); return; }
+    committed = history.pop();
+    restore(committed);
+    saveNow(true);
+    updateUndoBtn();
+    toast('Undid last change');
+  }
+  function updateUndoBtn() {
+    if (el.undo) el.undo.disabled = history.length === 0;
   }
 
   var savedGuide = loadSaved();
@@ -128,6 +182,7 @@
   var selected = -1;
   var selectedLabel = -1;
   var editMode = false;
+  var dragFrom = -1;
 
   // ---- Timing state ----
   var starts = [];
@@ -161,8 +216,34 @@
       (function (i) {
         var c = document.createElement('div');
         c.className = 'chip';
+        c.draggable = true;
         c.textContent = (i + 1) + '. ' + (guide.steps[i].title || 'Step');
-        c.onclick = function () { seekStep(i); };
+        c.onclick = function () { if (dragFrom < 0) seekStep(i); };
+        c.addEventListener('dragstart', function (ev) {
+          dragFrom = i; c.classList.add('dragging');
+          try { ev.dataTransfer.effectAllowed = 'move'; ev.dataTransfer.setData('text/plain', String(i)); } catch (e) {}
+        });
+        c.addEventListener('dragend', function () { c.classList.remove('dragging'); clearDropMarks(); dragFrom = -1; });
+        c.addEventListener('dragover', function (ev) {
+          if (dragFrom < 0) return;
+          ev.preventDefault();
+          try { ev.dataTransfer.dropEffect = 'move'; } catch (e) {}
+          var r = c.getBoundingClientRect();
+          var after = ev.clientX > r.left + r.width / 2;
+          clearDropMarks();
+          c.classList.add(after ? 'drop-after' : 'drop-before');
+        });
+        c.addEventListener('dragleave', function () { c.classList.remove('drop-before', 'drop-after'); });
+        c.addEventListener('drop', function (ev) {
+          if (dragFrom < 0) return;
+          ev.preventDefault();
+          var r = c.getBoundingClientRect();
+          var after = ev.clientX > r.left + r.width / 2;
+          var target = i + (after ? 1 : 0);
+          if (dragFrom < target) target -= 1;
+          var from = dragFrom; dragFrom = -1; clearDropMarks();
+          reorderStep(from, target);
+        });
         el.strip.appendChild(c);
         var tk = document.createElement('div');
         tk.className = 'tick';
@@ -336,17 +417,18 @@
 
     // cursor + ripple
     if (step.cursor) {
-      el.cursor.style.display = '';
+      var curA = timeAlpha(step.cursor.t0, step.cursor.t1, p, editMode);
+      el.cursor.style.display = curA > 0 ? '' : 'none';
       el.cursor.style.left = (step.cursor.x * 100) + '%';
       el.cursor.style.top = (step.cursor.y * 100) + '%';
-      el.cursor.style.opacity = vis;
-      if (step.cursor.click && !editMode) {
+      el.cursor.style.opacity = curA * vis;
+      if (step.cursor.click && !editMode && curA > 0) {
         var rp = (local % 1600) / 1600;
         el.ripple.style.display = '';
         el.ripple.style.left = (step.cursor.x * 100) + '%';
         el.ripple.style.top = (step.cursor.y * 100) + '%';
         el.ripple.style.transform = 'scale(' + (0.5 + rp * 0.85) + ')';
-        el.ripple.style.opacity = (1 - rp) * 0.45 * fade;
+        el.ripple.style.opacity = (1 - rp) * 0.45 * fade * curA;
       } else { el.ripple.style.display = 'none'; }
     } else { el.cursor.style.display = 'none'; el.ripple.style.display = 'none'; }
 
@@ -502,6 +584,7 @@
   el.track.onclick = function (e) { var r = el.track.getBoundingClientRect(); seek((e.clientX - r.left) / r.width * total); };
   document.addEventListener('keydown', function (e) {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+    if ((e.ctrlKey || e.metaKey) && (e.code === 'KeyZ') && !e.shiftKey) { e.preventDefault(); undo(); return; }
     if (editMode && (e.code === 'Delete' || e.code === 'Backspace')) { e.preventDefault(); deleteSelected(); return; }
     if (e.code === 'Space') { e.preventDefault(); toggle(); }
     else if (e.code === 'ArrowRight') seekStep(stepAt(timeMs) + 1);
@@ -518,6 +601,7 @@
     if (on) { seek(starts[stepAt(timeMs)] + FADE + 60); } else { selected = -1; render(timeMs); }
   }
   el.editToggle.onclick = function () { setEdit(!editMode); };
+  el.undo.onclick = undo;
   document.getElementById('g-add-box').onclick = function () {
     var step = guide.steps[stepAt(timeMs)];
     if (!step.highlights) step.highlights = [];
@@ -556,11 +640,28 @@
     markDirty(); refreshTweak(); toast('Step deleted');
   }
 
+  function clearDropMarks() {
+    var chips = el.strip.children;
+    for (var k = 0; k < chips.length; k++) chips[k].classList.remove('drop-before', 'drop-after');
+  }
+  function reorderStep(from, target) {
+    if (from < 0) return;
+    target = Math.max(0, Math.min(guide.steps.length - 1, target));
+    if (from === target) return;
+    var s = guide.steps.splice(from, 1)[0];
+    guide.steps.splice(target, 0, s);
+    recompute(); buildChips();
+    seekStep(target);
+    markDirty(); refreshTweak();
+    toast('Step moved to position ' + (target + 1));
+  }
+
   function refreshTweak() { if (window.guideoTweak && window.guideoTweak.refresh) window.guideoTweak.refresh(); }
   function toast(msg) { el.toast.textContent = msg; el.toast.classList.add('show'); setTimeout(function () { el.toast.classList.remove('show'); }, 2000); }
 
   // ---- Init + public API ----
   recompute(); applyTheme(); buildChips(); render(0);
+  committed = snapshot(); updateUndoBtn();
   if (savedGuide) toast('Restored your saved edits');
 
   var ready = (function () {
@@ -584,6 +685,7 @@
     deleteCurrentStep: deleteCurrentStep,
     deleteSelected: deleteSelected,
     save: function () { saveNow(false); }, revert: revert, markDirty: markDirty,
+    undo: undo,
     toast: toast,
   };
 })();

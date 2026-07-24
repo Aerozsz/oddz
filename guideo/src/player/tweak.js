@@ -147,6 +147,10 @@
         cx.appendChild(range(0, 1, 0.01, st.cursor.y, function (v) { st.cursor.y = v; preview(); }));
         stepFields.appendChild(field('Pointer X / Y', cx, 'Drag to move the pointer over the frame'));
         stepFields.appendChild(field('Click ripple', select([['on', 'On'], ['off', 'Off']], st.cursor.click ? 'on' : 'off', function (v) { st.cursor.click = v === 'on'; preview(); })));
+        stepFields.appendChild(timingField(
+          function () { return st.cursor.t0 == null ? 0 : st.cursor.t0; }, function (v) { st.cursor.t0 = v; },
+          function () { return st.cursor.t1 == null ? 1 : st.cursor.t1; }, function (v) { st.cursor.t1 = v; },
+          st.durationMs, 'Pointer timing'));
       }
 
       // Highlight boxes (multiple)

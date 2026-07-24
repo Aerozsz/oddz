@@ -19,6 +19,9 @@ export interface Cursor {
   y: number;
   /** Whether a click ripple animates at this point. */
   click: boolean;
+  /** Show the pointer only between these fractions of the step (0..1). */
+  t0?: number;
+  t1?: number;
 }
 
 export interface Highlight {

@@ -34,6 +34,8 @@ body {
 }
 .tbtn:hover { border-color: var(--g-accent); }
 .tbtn.on { background: var(--g-accent); border-color: var(--g-accent); color: #fff; }
+.tbtn:disabled { opacity: 0.4; cursor: default; }
+.tbtn:disabled:hover { border-color: var(--g-line); }
 
 .stage-wrap { flex: 1; display: grid; place-items: center; padding: 26px; overflow: hidden; }
 .stage {
@@ -120,8 +122,12 @@ body {
 .cbtn.big { width: 48px; height: 48px; background: var(--g-accent); border-color: var(--g-accent); color: #fff; }
 .cbtn:hover { border-color: var(--g-accent); }
 .steps-strip { display: flex; gap: 6px; margin-left: 8px; flex-wrap: wrap; }
-.chip { padding: 5px 10px; border-radius: 999px; background: var(--g-panel-2); border: 1px solid var(--g-line); font-size: 12px; color: var(--g-muted); cursor: pointer; }
+.chip { padding: 5px 10px; border-radius: 999px; background: var(--g-panel-2); border: 1px solid var(--g-line); font-size: 12px; color: var(--g-muted); cursor: grab; user-select: none; }
+.chip:active { cursor: grabbing; }
 .chip.active { color: #fff; border-color: var(--g-accent); background: color-mix(in srgb, var(--g-accent) 30%, transparent); }
+.chip.dragging { opacity: 0.4; }
+.chip.drop-before { box-shadow: -3px 0 0 0 var(--g-accent); }
+.chip.drop-after { box-shadow: 3px 0 0 0 var(--g-accent); }
 
 /* ---- Tweak panel ---- */
 .tweak {
