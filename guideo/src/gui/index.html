@@ -103,6 +103,29 @@
     </div>
   </div>
 
+  <div class="card">
+    <h2><span class="num">▸</span> Already edited a guide? Turn it into an MP4</h2>
+    <p class="hint" style="margin-top:-4px">Pick a <b>player.html</b> you saved from the player's ✦ Tweak studio (⬇ player.html). Guideo renders a fresh MP4 that includes every edit — boxes, timings, captions, all of it.</p>
+    <div class="row">
+      <div class="field">
+        <label for="htmlfile">Your player.html file</label>
+        <input id="htmlfile" type="file" accept="text/html,.html,.htm" />
+      </div>
+      <div class="field">
+        <label for="htmlfps">Frame rate</label>
+        <select id="htmlfps">
+          <option value="25" selected>25 fps (smooth)</option>
+          <option value="30">30 fps</option>
+          <option value="15">15 fps (smaller file)</option>
+        </select>
+      </div>
+    </div>
+    <div class="run-row">
+      <button class="btn primary" id="run-html">🎬 Render MP4 from this file</button>
+      <span class="est" id="html-est"></span>
+    </div>
+  </div>
+
   <div class="card" id="progress">
     <h2><span class="num">2</span> Working…</h2>
     <div class="pbar" id="pbar"><div class="pfill" id="pfill"></div></div>

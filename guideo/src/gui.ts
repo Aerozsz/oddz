@@ -1,11 +1,11 @@
 import http from 'node:http';
-import { readFile, readdir, mkdir, stat } from 'node:fs/promises';
+import { readFile, writeFile, readdir, mkdir, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { explore } from './explore.js';
 import { buildPlayer } from './build-player.js';
-import { renderVideo } from './render.js';
+import { renderVideo, renderVideoFromHtml } from './render.js';
 import { serveDir } from './server.js';
 import { ensureBrowser } from './browser.js';
 import { makeWalletConfig, ethToWei, type WalletConfig } from './wallet.js';
@@ -31,7 +31,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.14.0 · reliable Save (IndexedDB, no 5MB cap) + file fallback';
+export const GUI_VERSION = '0.15.0 · render MP4 from an edited player.html (GUI + CLI)';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
@@ -152,6 +152,46 @@ async function runJob(job: Job, params: any) {
   }
 }
 
+async function runHtmlJob(job: Job, params: any) {
+  const outDir = path.join(GUIDES, job.guideId);
+  await mkdir(outDir, { recursive: true });
+  try {
+    if (!params.html || typeof params.html !== 'string' || !/id="guide-data"/.test(params.html)) {
+      throw new Error('That file is not a Guideo player.html (no embedded guide data found).');
+    }
+    job.phase = 'preparing';
+    emit(job, { type: 'phase', phase: 'preparing', msg: 'Getting ready…' });
+    await ensureBrowser((m) => emit(job, { type: 'log', msg: '  ' + m }));
+
+    job.phase = 'rendering';
+    emit(job, { type: 'phase', phase: 'rendering', msg: 'Rendering MP4 from your edited guide…' });
+    const out = path.join(outDir, 'guide.mp4');
+    await renderVideoFromHtml({
+      html: params.html,
+      out,
+      fps: params.fps || 25,
+      width: params.width || undefined,
+      onLog: (m) => emit(job, { type: 'log', msg: '  ' + m }),
+      onProgress: (done, total) => {
+        job.progress = Math.round((done / total) * 100);
+        emit(job, { type: 'progress', progress: job.progress });
+      },
+    });
+    // Keep the source player next to the MP4 so the guide stays openable.
+    await writeFile(path.join(outDir, 'player.html'), params.html);
+
+    job.hasVideo = true;
+    job.status = 'done';
+    job.phase = 'done';
+    job.progress = 100;
+    emit(job, { type: 'done', guideId: job.guideId, hasVideo: true, fromHtml: true });
+  } catch (err: any) {
+    job.status = 'error';
+    job.error = err?.message || String(err);
+    emit(job, { type: 'error', msg: job.error });
+  }
+}
+
 async function listGuides() {
   if (!existsSync(GUIDES)) return [];
   const dirs = await readdir(GUIDES);
@@ -242,6 +282,21 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
         const job: Job = { id, guideId, status: 'running', phase: 'starting', progress: 0, events: [], listeners: new Set(), hasVideo: false };
         jobs.set(id, job);
         runJob(job, params);
+        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jobId: id, guideId }));
+        return;
+      }
+      if (p === '/api/render-html' && req.method === 'POST') {
+        const params = await readBody(req);
+        if (!params.html || typeof params.html !== 'string') {
+          res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'No player.html content was received.' }));
+          return;
+        }
+        const id = 'job-' + Date.now();
+        const base = (params.name ? String(params.name).replace(/\.html?$/i, '').replace(/\W+/g, '-').slice(0, 40) : 'edited') || 'edited';
+        const guideId = 'mp4-' + base + '-' + stamp();
+        const job: Job = { id, guideId, status: 'running', phase: 'starting', progress: 0, events: [], listeners: new Set(), hasVideo: false };
+        jobs.set(id, job);
+        runHtmlJob(job, params);
         res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jobId: id, guideId }));
         return;
       }

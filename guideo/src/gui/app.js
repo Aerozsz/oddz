@@ -79,6 +79,55 @@ async function run() {
   es.onerror = () => { /* stream closed by server after terminal event */ };
 }
 
+// ---- Render MP4 from an edited player.html ----
+$('htmlfile').addEventListener('change', () => {
+  const f = $('htmlfile').files[0];
+  $('html-est').textContent = f ? f.name + ' · ' + (f.size / 1048576).toFixed(1) + ' MB' : '';
+});
+$('run-html').addEventListener('click', runHtml);
+async function runHtml() {
+  const f = $('htmlfile').files[0];
+  if (!f) { alert('Choose a player.html file first.'); return; }
+  let html;
+  try { html = await f.text(); } catch (e) { alert('Could not read that file.'); return; }
+  if (!/id="guide-data"/.test(html)) {
+    alert("That doesn't look like a Guideo player.html — it has no embedded guide. Use the ⬇ player.html button in the player's Tweak studio.");
+    return;
+  }
+  $('run-html').disabled = true;
+  $('result').classList.remove('show');
+  $('progress').classList.add('show');
+  $('log').innerHTML = '';
+  $('phase').textContent = 'Uploading your guide…';
+  setBar(-1);
+  $('progress').scrollIntoView({ behavior: 'smooth' });
+
+  let resp;
+  try {
+    resp = await fetch('/api/render-html', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ html, fps: parseInt($('htmlfps').value, 10) || 25, name: f.name }),
+    }).then((r) => r.json());
+  } catch (e) {
+    fail('Could not reach the Guideo server.');
+    $('run-html').disabled = false;
+    return;
+  }
+  if (resp.error) { fail(resp.error); $('run-html').disabled = false; return; }
+
+  const es = new EventSource('/api/events/' + resp.jobId);
+  es.onmessage = (m) => {
+    const ev = JSON.parse(m.data);
+    if (ev.type === 'log') addLog(ev.msg);
+    else if (ev.type === 'phase') { $('phase').textContent = ev.msg; addLog(ev.msg, 'ok'); }
+    else if (ev.type === 'progress') setBar(ev.progress);
+    else if (ev.type === 'error') { es.close(); fail(ev.msg); $('run-html').disabled = false; }
+    else if (ev.type === 'done') { es.close(); $('run-html').disabled = false; done(ev); }
+  };
+  es.onerror = () => {};
+}
+
 function setBar(pct) {
   const pbar = $('pbar');
   if (pct < 0) { pbar.classList.add('indet'); $('pfill').style.width = '35%'; }
@@ -103,9 +152,15 @@ function done(ev) {
   $('phase').textContent = 'Done!';
   $('run').disabled = false;
   const base = '/guides/' + ev.guideId;
-  $('result-body').innerHTML =
-    `<div style="font-weight:600;margin-bottom:4px">${escapeHtml(ev.title)}</div>` +
-    `<div class="hint">${ev.steps} steps${ev.hasVideo ? ' · MP4 rendered' : ''}. Open the player and click <b>✦ Tweak</b> to edit anything.</div>`;
+  if (ev.fromHtml) {
+    $('result-body').innerHTML =
+      `<div style="font-weight:600;margin-bottom:4px">MP4 rendered from your edited guide</div>` +
+      `<div class="hint">Every tweak you saved is baked into the video below.</div>`;
+  } else {
+    $('result-body').innerHTML =
+      `<div style="font-weight:600;margin-bottom:4px">${escapeHtml(ev.title)}</div>` +
+      `<div class="hint">${ev.steps} steps${ev.hasVideo ? ' · MP4 rendered' : ''}. Open the player and click <b>✦ Tweak</b> to edit anything.</div>`;
+  }
   const acts = $('result-actions');
   acts.innerHTML = '';
   acts.appendChild(linkBtn('▶ Open interactive player', base + '/player.html', true, true));
@@ -113,7 +168,7 @@ function done(ev) {
     acts.appendChild(linkBtn('⬇ Download MP4', base + '/guide.mp4?dl=1', false));
     acts.appendChild(linkBtn('⬇ player.html', base + '/player.html?dl=1', false));
   }
-  acts.appendChild(linkBtn('⬇ guide.json', base + '/guide.json?dl=1', false));
+  if (!ev.fromHtml) acts.appendChild(linkBtn('⬇ guide.json', base + '/guide.json?dl=1', false));
   if (ev.capture) {
     acts.appendChild(linkBtn('⬇ wallet-calls.json', base + '/wallet-calls.json?dl=1', false));
     acts.appendChild(linkBtn('⬇ network.json', base + '/network.json?dl=1', false));

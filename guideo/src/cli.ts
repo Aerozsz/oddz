@@ -6,7 +6,7 @@ import { mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { explore } from './explore.js';
 import { buildPlayer } from './build-player.js';
-import { renderVideo } from './render.js';
+import { renderVideo, renderVideoFromHtml } from './render.js';
 import { serveDir } from './server.js';
 import { startGui } from './gui.js';
 import { ensureBrowser } from './browser.js';
@@ -152,6 +152,25 @@ program
     await ensureBrowser((m) => log('   ' + m));
     log(`\n🎬 Rendering ${guideDir}`);
     const mp4 = await renderVideo({ guideDir, out: opts.out, fps: opts.fps, width: opts.width, onProgress: bar });
+    log(`   → ${mp4}`);
+  });
+
+program
+  .command('render-html')
+  .description('Render an MP4 from an edited player.html (reflects your saved tweaks)')
+  .argument('<file>', 'path to a player.html exported from the player')
+  .option('-o, --out <file>', 'output mp4 path')
+  .option('--fps <n>', 'frame rate', (v) => parseInt(v, 10), 25)
+  .option('--width <px>', 'output width', (v) => parseInt(v, 10))
+  .action(async (file, opts) => {
+    const htmlPath = path.resolve(file);
+    const out = opts.out ? path.resolve(opts.out) : htmlPath.replace(/\.html?$/i, '') + '.mp4';
+    await ensureBrowser((m) => log('   ' + m));
+    log(`\n🎬 Rendering ${htmlPath}`);
+    const mp4 = await renderVideoFromHtml({
+      html: readFileSync(htmlPath, 'utf8'), out, fps: opts.fps, width: opts.width,
+      onProgress: bar, onLog: (m) => log('   ' + m),
+    });
     log(`   → ${mp4}`);
   });
 

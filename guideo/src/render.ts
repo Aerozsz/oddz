@@ -82,11 +82,6 @@ function filmCss(w: number, h: number): string {
 
 export async function renderVideo(opts: RenderOptions): Promise<string> {
   const guide: Guide = JSON.parse(await readFile(path.join(opts.guideDir, 'guide.json'), 'utf8'));
-  const vw = guide.meta.viewport.width;
-  const vh = guide.meta.viewport.height;
-  const width = even(opts.width ?? vw);
-  const height = even(Math.round((width * vh) / vw));
-  const fps = opts.fps ?? 25;
   const out = opts.out ?? path.join(opts.guideDir, 'guide.mp4');
 
   // Rebuild the interactive player from guide.json (keeps original mp4/GIF media).
@@ -98,61 +93,130 @@ export async function renderVideo(opts: RenderOptions): Promise<string> {
   await prepareMedia(renderGuide);
   const playerPath = await buildPlayer(opts.guideDir, renderGuide, path.join(opts.guideDir, 'render-player.html'));
 
+  await pipePlayerToMp4({ playerPath, guide, out, fps: opts.fps, width: opts.width, onProgress: opts.onProgress });
+  return out;
+}
+
+/** Extract the embedded guide from a self-contained player.html. */
+export function guideFromHtml(html: string): Guide {
+  const m = /<script id="guide-data"[^>]*>([\s\S]*?)<\/script>/i.exec(html);
+  if (!m) throw new Error('This file does not look like a Guideo player.html (no embedded guide data).');
+  try {
+    return JSON.parse(m[1]);
+  } catch (e) {
+    throw new Error('Could not read the guide embedded in this player.html: ' + (e as Error).message);
+  }
+}
+
+/** Put a (media-converted) guide back into a player.html string. */
+function replaceGuideData(html: string, guide: Guide): string {
+  const json = JSON.stringify(guide).split('</').join('<\\/');
+  return html.replace(/(<script id="guide-data"[^>]*>)[\s\S]*?(<\/script>)/i, (_all, open, close) => open + json + close);
+}
+
+export interface RenderHtmlOptions {
+  /** The player.html content (as downloaded from the Tweak panel). */
+  html: string;
+  out: string;
+  fps?: number;
+  width?: number;
+  onProgress?: (done: number, total: number) => void;
+  onLog?: (m: string) => void;
+}
+
+/** Render an MP4 straight from an edited, self-contained player.html — this is
+ *  how a guide edited in the player (and exported to a file) becomes a video. */
+export async function renderVideoFromHtml(opts: RenderHtmlOptions): Promise<string> {
+  const guide = guideFromHtml(opts.html);
+  // Convert any mp4/GIF media to WebM so the render browser can decode it.
+  const renderGuide: Guide = JSON.parse(JSON.stringify(guide));
+  await prepareMedia(renderGuide, opts.onLog);
+  const renderHtml = replaceGuideData(opts.html, renderGuide);
+
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'guideo-html-'));
+  const playerPath = path.join(dir, 'render-player.html');
+  try {
+    await writeFile(playerPath, renderHtml);
+    await pipePlayerToMp4({ playerPath, guide, out: opts.out, fps: opts.fps, width: opts.width, onProgress: opts.onProgress });
+    return opts.out;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+interface PipeOptions {
+  playerPath: string;
+  guide: Guide;
+  out: string;
+  fps?: number;
+  width?: number;
+  onProgress?: (done: number, total: number) => void;
+}
+
+/** Shared engine: load a render-player, seek frame by frame, pipe PNGs to ffmpeg. */
+async function pipePlayerToMp4(opts: PipeOptions): Promise<void> {
+  const vw = opts.guide.meta.viewport.width;
+  const vh = opts.guide.meta.viewport.height;
+  const width = even(opts.width ?? vw);
+  const height = even(Math.round((width * vh) / vw));
+  const fps = opts.fps ?? 25;
+
   const browser = await launchChromium({ headless: true });
   const page = await browser.newPage({ viewport: { width: width + 40, height: height + 40 }, deviceScaleFactor: 1 });
-  // Render from guide.json, never a browser's saved edits.
-  await page.addInitScript('window.__guideoNoRestore = true;');
-  await page.goto(pathToFileURL(playerPath).toString(), { waitUntil: 'load' });
-  await page.addStyleTag({ content: filmCss(width, height) });
-  await page.evaluate(() => (window as any).guideo.ready);
-  await page.waitForTimeout(150);
+  try {
+    // Render from the embedded guide, never a browser's saved edits.
+    await page.addInitScript('window.__guideoNoRestore = true;');
+    await page.goto(pathToFileURL(opts.playerPath).toString(), { waitUntil: 'load' });
+    await page.addStyleTag({ content: filmCss(width, height) });
+    await page.evaluate(() => (window as any).guideo.ready);
+    await page.waitForTimeout(150);
 
-  const duration: number = await page.evaluate(() => (window as any).guideo.duration());
-  const totalFrames = Math.max(1, Math.ceil((duration / 1000) * fps));
-  const stage = page.locator('#stage');
+    const duration: number = await page.evaluate(() => (window as any).guideo.duration());
+    const totalFrames = Math.max(1, Math.ceil((duration / 1000) * fps));
+    const stage = page.locator('#stage');
 
-  const ffmpegPath = resolveFfmpeg();
-  const ff = spawn(
-    ffmpegPath,
-    [
-      '-y',
-      '-f', 'image2pipe',
-      '-framerate', String(fps),
-      '-i', '-',
-      '-vf', 'format=yuv420p',
-      '-c:v', 'libx264',
-      '-preset', 'veryfast',
-      '-crf', '20',
-      '-movflags', '+faststart',
-      out,
-    ],
-    { stdio: ['pipe', 'ignore', 'pipe'] }
-  );
-  let ffErr = '';
-  ff.stderr.on('data', (d) => (ffErr += d.toString()));
-  const ffDone = new Promise<void>((resolve, reject) => {
-    ff.on('close', (code) => (code === 0 ? resolve() : reject(new Error('ffmpeg exited ' + code + '\n' + ffErr.slice(-1200)))));
-    ff.on('error', reject);
-  });
-
-  for (let f = 0; f < totalFrames; f++) {
-    const t = (f / fps) * 1000;
-    await page.evaluate(
-      (ms) =>
-        Promise.resolve((window as any).guideo.seek(ms)).then(
-          () => new Promise<void>((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())))
-        ),
-      t
+    const ff = spawn(
+      resolveFfmpeg(),
+      [
+        '-y',
+        '-f', 'image2pipe',
+        '-framerate', String(fps),
+        '-i', '-',
+        '-vf', 'format=yuv420p',
+        '-c:v', 'libx264',
+        '-preset', 'veryfast',
+        '-crf', '20',
+        '-movflags', '+faststart',
+        opts.out,
+      ],
+      { stdio: ['pipe', 'ignore', 'pipe'] }
     );
-    const png = await stage.screenshot({ type: 'png' });
-    if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once('drain', r));
-    if (opts.onProgress && (f % 10 === 0 || f === totalFrames - 1)) opts.onProgress(f + 1, totalFrames);
-  }
+    let ffErr = '';
+    ff.stderr.on('data', (d) => (ffErr += d.toString()));
+    const ffDone = new Promise<void>((resolve, reject) => {
+      ff.on('close', (code) => (code === 0 ? resolve() : reject(new Error('ffmpeg exited ' + code + '\n' + ffErr.slice(-1200)))));
+      ff.on('error', reject);
+    });
 
-  ff.stdin.end();
-  await ffDone;
-  await browser.close();
-  return out;
+    for (let f = 0; f < totalFrames; f++) {
+      const t = (f / fps) * 1000;
+      await page.evaluate(
+        (ms) =>
+          Promise.resolve((window as any).guideo.seek(ms)).then(
+            () => new Promise<void>((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())))
+          ),
+        t
+      );
+      const png = await stage.screenshot({ type: 'png' });
+      if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once('drain', r));
+      if (opts.onProgress && (f % 10 === 0 || f === totalFrames - 1)) opts.onProgress(f + 1, totalFrames);
+    }
+
+    ff.stdin.end();
+    await ffDone;
+  } finally {
+    await browser.close();
+  }
 }
 
 function even(n: number): number {
