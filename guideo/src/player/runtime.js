@@ -105,13 +105,76 @@
     var m = original.meta || {};
     return 'guideo:save:' + (m.title || '') + '|' + (m.createdAt || '');
   }
+  // ---- Persistence via IndexedDB (localStorage's ~5MB cap can't hold a guide
+  // whose screenshots are embedded as data URIs; IndexedDB quota is far larger).
+  var IDB_DB = 'guideo', IDB_STORE = 'saves';
+  function idbOpen() {
+    return new Promise(function (res, rej) {
+      try {
+        if (!window.indexedDB) return rej(new Error('no indexedDB'));
+        var r = indexedDB.open(IDB_DB, 1);
+        r.onupgradeneeded = function () { try { r.result.createObjectStore(IDB_STORE); } catch (e) {} };
+        r.onsuccess = function () { res(r.result); };
+        r.onerror = function () { rej(r.error || new Error('idb open failed')); };
+      } catch (e) { rej(e); }
+    });
+  }
+  function idbSet(key, val) {
+    return idbOpen().then(function (db) { return new Promise(function (res, rej) {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).put(val, key);
+      tx.oncomplete = function () { res(); };
+      tx.onerror = function () { rej(tx.error); };
+      tx.onabort = function () { rej(tx.error || new Error('idb aborted')); };
+    }); });
+  }
+  function idbGet(key) {
+    return idbOpen().then(function (db) { return new Promise(function (res, rej) {
+      var tx = db.transaction(IDB_STORE, 'readonly');
+      var rq = tx.objectStore(IDB_STORE).get(key);
+      rq.onsuccess = function () { res(rq.result || null); };
+      rq.onerror = function () { rej(rq.error); };
+    }); });
+  }
+  function idbDel(key) {
+    return idbOpen().then(function (db) { return new Promise(function (res) {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.objectStore(IDB_STORE).delete(key);
+      tx.oncomplete = function () { res(); };
+      tx.onerror = function () { res(); };
+    }); });
+  }
+  // Resolve the saved guide (IndexedDB first, then a legacy localStorage copy).
   function loadSaved() {
-    if (window.__guideoNoRestore) return null;
-    try { var s = localStorage.getItem(saveKey()); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+    if (window.__guideoNoRestore) return Promise.resolve(null);
+    return idbGet(saveKey()).then(function (v) {
+      if (v) return v;
+      try { var s = localStorage.getItem(saveKey()); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+    }).catch(function () {
+      try { var s = localStorage.getItem(saveKey()); return s ? JSON.parse(s) : null; } catch (e) { return null; }
+    });
+  }
+  // Last-resort: hand the user a self-contained file so no edit is ever lost.
+  function exportHtml(name) {
+    try {
+      var clone = document.documentElement.cloneNode(true);
+      clone.querySelector('#guide-data').textContent = JSON.stringify(guide);
+      var appClone = clone.querySelector('#app'); if (appClone) appClone.innerHTML = '';
+      var tw = clone.querySelector('#g-tweak'); if (tw) { tw.className = 'tweak'; tw.innerHTML = ''; }
+      var blob = new Blob(['<!DOCTYPE html>\n' + clone.outerHTML], { type: 'text/html' });
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name || 'guide-player.html';
+      a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      return true;
+    } catch (e) { return false; }
   }
   function saveNow(silent) {
-    try { localStorage.setItem(saveKey(), JSON.stringify(guide)); if (!silent) toast('Saved — your edits will be here next time'); }
-    catch (e) { if (!silent) toast('Could not save (storage full?)'); }
+    idbSet(saveKey(), guide).then(function () {
+      if (!silent) toast('Saved — your edits will be here next time');
+    }).catch(function () {
+      // Storage blocked/unavailable — never fail silently on an explicit Save:
+      // download a complete file the user can reopen to restore everything.
+      if (!silent) { if (exportHtml('guide-player.html')) toast('Browser storage is blocked — saved a backup file to your Downloads instead'); else toast('Could not save. Use “⬇ player.html” to keep your edits'); }
+    });
   }
   var saveTimer = null;
   function markDirty() {
@@ -119,6 +182,7 @@
     saveTimer = setTimeout(function () { saveNow(true); commit(); }, 700);
   }
   function revert() {
+    idbDel(saveKey()).catch(function () {});
     try { localStorage.removeItem(saveKey()); } catch (e) {}
     location.reload();
   }
@@ -175,8 +239,9 @@
     if (el.undo) el.undo.disabled = history.length === 0;
   }
 
-  var savedGuide = loadSaved();
-  var guide = normalize(savedGuide || JSON.parse(JSON.stringify(original)));
+  // Start from the original; a saved copy (if any) is restored asynchronously
+  // once IndexedDB responds — see the restore call near init.
+  var guide = normalize(JSON.parse(JSON.stringify(original)));
   var spotPool = [];
   var labelPool = [];
   var selected = -1;
@@ -662,7 +727,13 @@
   // ---- Init + public API ----
   recompute(); applyTheme(); buildChips(); render(0);
   committed = snapshot(); updateUndoBtn();
-  if (savedGuide) toast('Restored your saved edits');
+  // Restore saved edits (IndexedDB is async) without blocking first paint.
+  loadSaved().then(function (saved) {
+    if (!saved) return;
+    window.guideo.loadGuide(normalize(saved));
+    committed = snapshot(); history = []; updateUndoBtn();
+    toast('Restored your saved edits');
+  }).catch(function () {});
 
   var ready = (function () {
     var ps = guide.steps.map(function (s) {
@@ -685,6 +756,7 @@
     deleteCurrentStep: deleteCurrentStep,
     deleteSelected: deleteSelected,
     save: function () { saveNow(false); }, revert: revert, markDirty: markDirty,
+    exportHtml: exportHtml,
     undo: undo,
     toast: toast,
   };

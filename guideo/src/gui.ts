@@ -31,7 +31,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.13.0 · undo (Ctrl+Z), pointer timing, drag step chips to reorder';
+export const GUI_VERSION = '0.14.0 · reliable Save (IndexedDB, no 5MB cap) + file fallback';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
