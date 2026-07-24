@@ -233,6 +233,32 @@
       };
       stepFields.appendChild(field('Replace screenshot', file, 'Swap in your own image (PNG/JPG)'));
 
+      // Replace with a video / GIF
+      var vfile = document.createElement('input'); vfile.type = 'file'; vfile.accept = 'video/mp4,video/webm,image/gif';
+      vfile.onchange = function () {
+        var f = vfile.files[0]; if (!f) return;
+        var fr = new FileReader();
+        fr.onload = function () {
+          if (f.type === 'image/gif') {
+            st.gif = fr.result; st.video = null;
+            renderStepFields(); window.guideo.rerender(); window.guideo.toast('GIF added');
+          } else {
+            st.video = fr.result; st.gif = null;
+            var v = document.createElement('video'); v.preload = 'metadata'; v.src = fr.result;
+            v.onloadedmetadata = function () {
+              if (isFinite(v.duration) && v.duration > 0) st.durationMs = Math.round(v.duration * 1000);
+              renderStepFields(); window.guideo.rerender(); window.guideo.toast('Video added (' + (v.duration || 0).toFixed(1) + 's)');
+            };
+            v.onerror = function () { renderStepFields(); window.guideo.rerender(); };
+          }
+        };
+        fr.readAsDataURL(f);
+      };
+      stepFields.appendChild(field('Replace with video / GIF', vfile, 'MP4/WebM plays synced to this step (step length becomes the clip length). GIFs animate — best-effort in the MP4.'));
+      if (st.video || st.gif) {
+        stepFields.appendChild(field('', btn('Remove video/GIF (use screenshot)', 'danger', function () { st.video = null; st.gif = null; renderStepFields(); window.guideo.rerender(); })));
+      }
+
       // Reorder / delete
       var actions = document.createElement('div'); actions.className = 'minibtns';
       actions.appendChild(btn('↑ Move up', '', function () { move(-1); }));

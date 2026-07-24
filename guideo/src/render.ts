@@ -1,7 +1,8 @@
 import { launchChromium } from './browser.js';
 import { spawn } from 'node:child_process';
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdtemp, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import type { Guide } from './types.js';
@@ -14,6 +15,50 @@ function resolveFfmpeg(): string {
     if (existsSync(p)) return p;
   }
   return 'ffmpeg';
+}
+
+/** Transcode a video/GIF data URI to VP9 WebM — the render Chromium ships
+ *  without H.264, so mp4/GIF steps must be converted to render correctly. */
+async function toWebmDataUri(dataUri: string, kind: 'video' | 'gif'): Promise<string> {
+  const m = /^data:([^;]+);base64,(.*)$/s.exec(dataUri);
+  if (!m) return dataUri;
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'guideo-media-'));
+  try {
+    const inExt = kind === 'gif' ? 'gif' : m[1].includes('webm') ? 'webm' : 'mp4';
+    const inFile = path.join(dir, 'in.' + inExt);
+    const outFile = path.join(dir, 'out.webm');
+    await writeFile(inFile, Buffer.from(m[2], 'base64'));
+    await new Promise<void>((resolve, reject) => {
+      const args = ['-y', '-i', inFile, '-an', '-c:v', 'libvpx-vp9', '-b:v', '1M',
+        '-deadline', 'realtime', '-cpu-used', '5', '-pix_fmt', 'yuv420p', outFile];
+      const ff = spawn(resolveFfmpeg(), args);
+      let e = '';
+      ff.stderr.on('data', (d) => (e += d.toString()));
+      ff.on('close', (c) => (c === 0 ? resolve() : reject(new Error('media transcode failed: ' + e.slice(-400)))));
+      ff.on('error', reject);
+    });
+    return 'data:video/webm;base64,' + (await readFile(outFile)).toString('base64');
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
+/** Convert any mp4/GIF step media to WebM so the render browser can decode it. */
+async function prepareMedia(guide: Guide, log?: (m: string) => void): Promise<void> {
+  for (const s of guide.steps) {
+    try {
+      if ((s as any).gif) {
+        (s as any).video = await toWebmDataUri((s as any).gif, 'gif');
+        (s as any).gif = null;
+        log?.('converted a GIF step for rendering');
+      } else if ((s as any).video && !/^data:video\/webm/i.test((s as any).video)) {
+        (s as any).video = await toWebmDataUri((s as any).video, 'video');
+        log?.('converted a video step for rendering');
+      }
+    } catch (err) {
+      log?.('media convert failed: ' + (err as Error).message);
+    }
+  }
 }
 
 export interface RenderOptions {
@@ -44,8 +89,14 @@ export async function renderVideo(opts: RenderOptions): Promise<string> {
   const fps = opts.fps ?? 25;
   const out = opts.out ?? path.join(opts.guideDir, 'guide.mp4');
 
-  // Always rebuild the player from guide.json so tweaks/edits are reflected.
-  const playerPath = await buildPlayer(opts.guideDir, guide, path.join(opts.guideDir, 'player.html'));
+  // Rebuild the interactive player from guide.json (keeps original mp4/GIF media).
+  await buildPlayer(opts.guideDir, guide, path.join(opts.guideDir, 'player.html'));
+
+  // For the render, convert any mp4/GIF media to WebM (the render browser has no
+  // H.264) — on a separate copy so the interactive player keeps the originals.
+  const renderGuide: Guide = JSON.parse(JSON.stringify(guide));
+  await prepareMedia(renderGuide);
+  const playerPath = await buildPlayer(opts.guideDir, renderGuide, path.join(opts.guideDir, 'render-player.html'));
 
   const browser = await launchChromium({ headless: true });
   const page = await browser.newPage({ viewport: { width: width + 40, height: height + 40 }, deviceScaleFactor: 1 });
@@ -88,10 +139,9 @@ export async function renderVideo(opts: RenderOptions): Promise<string> {
     const t = (f / fps) * 1000;
     await page.evaluate(
       (ms) =>
-        new Promise<void>((res) => {
-          (window as any).guideo.seek(ms);
-          requestAnimationFrame(() => requestAnimationFrame(() => res()));
-        }),
+        Promise.resolve((window as any).guideo.seek(ms)).then(
+          () => new Promise<void>((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())))
+        ),
       t
     );
     const png = await stage.screenshot({ type: 'png' });

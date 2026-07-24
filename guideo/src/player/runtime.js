@@ -24,6 +24,8 @@
       '<div class="stage-wrap"><div class="stage" id="stage">' +
         '<div class="layer" id="g-prev"></div>' +
         '<div class="layer" id="g-cur"></div>' +
+        '<video class="layer media" id="g-video" muted playsinline preload="auto" style="display:none"></video>' +
+        '<img class="layer media" id="g-gif" style="display:none" />' +
         '<svg class="dim" id="g-dim" viewBox="0 0 100 100" preserveAspectRatio="none" style="display:none">' +
           '<defs><mask id="g-dim-mask" maskUnits="userSpaceOnUse" x="0" y="0" width="100" height="100">' +
             '<rect x="0" y="0" width="100" height="100" fill="#fff"></rect>' +
@@ -65,6 +67,8 @@
     title: document.getElementById('g-title'),
     prev: document.getElementById('g-prev'),
     cur: document.getElementById('g-cur'),
+    video: document.getElementById('g-video'),
+    gif: document.getElementById('g-gif'),
     spots: document.getElementById('g-spots'),
     ripple: document.getElementById('g-ripple'),
     cursor: document.getElementById('g-cursor'),
@@ -263,16 +267,44 @@
     var fade = i === 0 ? 1 : Math.max(0, Math.min(1, local / FADE));
     var vis = editMode ? 1 : fade;
 
-    el.cur.style.backgroundImage = 'url("' + step.image + '")';
-    el.cur.style.opacity = vis;
-    el.cur.style.transform = editMode ? 'scale(1.001)' : animTransform(step.animation, p);
-    el.cur.style.transformOrigin = 'center center';
+    var xform = editMode ? 'scale(1.001)' : animTransform(step.animation, p);
+    var hasVideo = !!step.video, hasGif = !!step.gif;
+
+    // Background image layer (only when there's no video/gif).
+    el.cur.style.display = hasVideo || hasGif ? 'none' : '';
+    if (!hasVideo && !hasGif) {
+      el.cur.style.backgroundImage = 'url("' + step.image + '")';
+      el.cur.style.opacity = vis;
+      el.cur.style.transform = xform;
+      el.cur.style.transformOrigin = 'center center';
+    }
+
+    // Video layer — currentTime driven from the step's local time (deterministic).
+    if (hasVideo) {
+      if (el.video.getAttribute('data-src') !== step.video) { el.video.src = step.video; el.video.setAttribute('data-src', step.video); el.video.muted = true; el.video.load(); }
+      el.video.setAttribute('data-frac', dur > 0 ? (local / dur) : 0);
+      el.video.style.display = ''; el.video.style.opacity = vis; el.video.style.transform = xform; el.video.style.transformOrigin = 'center center';
+      var vd = el.video.duration;
+      if (playing && isFinite(vd) && vd > 0) {
+        var vt = Math.min(vd - 0.03, Math.max(0, (local / dur) * vd));
+        try { if (Math.abs(el.video.currentTime - vt) > 0.06) el.video.currentTime = vt; } catch (e) {}
+      }
+    } else { el.video.style.display = 'none'; }
+
+    // GIF layer — animates on its own (best-effort in the MP4).
+    if (hasGif) {
+      if (el.gif.getAttribute('data-src') !== step.gif) { el.gif.src = step.gif; el.gif.setAttribute('data-src', step.gif); }
+      el.gif.style.display = ''; el.gif.style.opacity = vis; el.gif.style.transform = xform; el.gif.style.transformOrigin = 'center center';
+    } else { el.gif.style.display = 'none'; }
 
     if (i > 0 && fade < 1 && !editMode) {
       var prev = guide.steps[i - 1];
-      el.prev.style.display = '';
-      el.prev.style.backgroundImage = 'url("' + prev.image + '")';
-      el.prev.style.transform = animTransform(prev.animation, 1);
+      if (prev.video || prev.gif) { el.prev.style.display = 'none'; }
+      else {
+        el.prev.style.display = '';
+        el.prev.style.backgroundImage = 'url("' + prev.image + '")';
+        el.prev.style.transform = animTransform(prev.animation, 1);
+      }
     } else { el.prev.style.display = 'none'; }
 
     // caption
@@ -429,7 +461,23 @@
   function play() { if (editMode) return; if (timeMs >= total) timeMs = 0; playing = true; lastFrame = 0; el.play.textContent = '❚❚'; requestAnimationFrame(loop); }
   function pause() { playing = false; el.play.textContent = '▶'; }
   function toggle() { playing ? pause() : play(); }
-  function seek(ms) { pause(); timeMs = Math.max(0, Math.min(total, ms)); render(timeMs); el.play.textContent = timeMs >= total ? '↻' : '▶'; }
+  function seek(ms) { pause(); timeMs = Math.max(0, Math.min(total, ms)); render(timeMs); el.play.textContent = timeMs >= total ? '↻' : '▶'; return mediaReady(); }
+  // Resolve once the (visible) video has the requested frame decoded — used by
+  // the MP4 renderer so each screenshot captures the correct video frame.
+  function once(target, ev, ms) {
+    return new Promise(function (res) { var d = function () { target.removeEventListener(ev, d); res(); }; target.addEventListener(ev, d); setTimeout(res, ms); });
+  }
+  async function mediaReady() {
+    var v = el.video;
+    if (v.style.display === 'none') return;
+    if (v.readyState < 1) await once(v, 'loadedmetadata', 1500);
+    if (isFinite(v.duration) && v.duration > 0) {
+      var frac = parseFloat(v.getAttribute('data-frac') || '0');
+      var vt = Math.min(v.duration - 0.03, Math.max(0, frac * v.duration));
+      if (Math.abs(v.currentTime - vt) > 0.02) { v.currentTime = vt; await once(v, 'seeked', 900); }
+      else if (v.readyState < 2) await once(v, 'loadeddata', 900);
+    }
+  }
   function seekStep(i) { selected = -1; selectedLabel = -1; seek(starts[Math.max(0, Math.min(starts.length - 1, i))] + FADE + 50); }
 
   el.play.onclick = toggle;

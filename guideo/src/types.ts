@@ -60,6 +60,10 @@ export interface Step {
   caption: string;
   /** Screenshot: a relative path (on disk) or a data: URI (baked player). */
   image: string;
+  /** Optional video (data URI) shown instead of the image, synced to the step. */
+  video?: string;
+  /** Optional animated GIF (data URI) shown instead of the image. */
+  gif?: string;
   durationMs: number;
   animation: AnimationKind;
   cursor: Cursor | null;
