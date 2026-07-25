@@ -91,21 +91,24 @@ function updateHtmlFormat() {
   $('htmlfps-row').style.display = fmt === 'mp4' ? '' : 'none';
   $('run-html').textContent = fmt === 'mp4' ? '🎬 Render MP4 from this file'
     : fmt === 'gitbook' ? '📘 Export GitBook (.zip)'
-    : '📣 Export social thread (.zip)';
+    : fmt === 'social' ? '📣 Export social thread (.zip)'
+    : fmt === 'vocs' ? '📗 Export Vocs project (.zip)'
+    : fmt === 'deploy-static' ? '🚀 Deploy docs site to Vercel'
+    : '🚀 Deploy Vocs site to Vercel';
 }
 updateHtmlFormat();
 $('run-html').addEventListener('click', runHtml);
-async function exportHtml(html, format) {
+async function downloadZipFrom(endpoint, body, fallbackName) {
   $('run-html').disabled = true;
   try {
-    const resp = await fetch('/api/export-html', {
+    const resp = await fetch(endpoint, {
       method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ html, format }),
+      body: JSON.stringify(body),
     });
     if (!resp.ok) { const j = await resp.json().catch(() => ({})); alert('Export failed: ' + (j.error || resp.status)); return; }
     const blob = await resp.blob();
     const cd = resp.headers.get('content-disposition') || '';
-    const nm = (cd.match(/filename="([^"]+)"/) || [])[1] || (format + '.zip');
+    const nm = (cd.match(/filename="([^"]+)"/) || [])[1] || fallbackName;
     const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nm; a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   } catch (e) {
@@ -113,6 +116,41 @@ async function exportHtml(html, format) {
   } finally {
     $('run-html').disabled = false;
   }
+}
+function exportHtml(html, format) { return downloadZipFrom('/api/export-html', { html, format }, format + '.zip'); }
+function exportHtmlVocs(html) { return downloadZipFrom('/api/vocs-html', { html }, 'vocs-project.zip'); }
+
+async function deployHtml(html, engine, token) {
+  const prod = confirm('Deploy to PRODUCTION?\n\nOK = production URL · Cancel = a shareable preview URL');
+  $('result').classList.remove('show');
+  $('progress').classList.add('show');
+  $('log').innerHTML = '';
+  $('phase').textContent = engine === 'vocs' ? 'Building & deploying your Vocs site…' : 'Deploying your docs site…';
+  setBar(-1);
+  $('progress').scrollIntoView({ behavior: 'smooth' });
+  let resp;
+  try {
+    resp = await fetch('/api/deploy-html', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ html, engine, prod, token: token || '' }),
+    }).then((r) => r.json());
+  } catch (e) { fail('Could not reach the Guideo server.'); return; }
+  if (resp.error) { fail(resp.error); return; }
+  const es = new EventSource('/api/events/' + resp.jobId);
+  es.onmessage = (m) => {
+    const ev = JSON.parse(m.data);
+    if (ev.type === 'log') addLog(ev.msg);
+    else if (ev.type === 'phase') { $('phase').textContent = ev.msg; addLog(ev.msg, 'ok'); }
+    else if (ev.type === 'error') {
+      es.close();
+      if (/authentication|token|log ?in/i.test(ev.msg) && !token) {
+        const t = prompt('Vercel needs a token to deploy from here.\n\nPaste a Vercel token (vercel.com → Account Settings → Tokens):');
+        if (t) { deployHtml(html, engine, t.trim()); return; }
+      }
+      fail(ev.msg);
+    } else if (ev.type === 'done') { es.close(); done(ev); }
+  };
+  es.onerror = () => {};
 }
 async function runHtml() {
   const f = $('htmlfile').files[0];
@@ -124,7 +162,10 @@ async function runHtml() {
     return;
   }
   const fmt = $('htmlformat').value;
-  if (fmt !== 'mp4') { await exportHtml(html, fmt); return; }
+  if (fmt === 'gitbook' || fmt === 'social') { await exportHtml(html, fmt); return; }
+  if (fmt === 'vocs') { await exportHtmlVocs(html); return; }
+  if (fmt === 'deploy-static') { await deployHtml(html, 'static'); return; }
+  if (fmt === 'deploy-vocs') { await deployHtml(html, 'vocs'); return; }
   $('run-html').disabled = true;
   $('result').classList.remove('show');
   $('progress').classList.add('show');

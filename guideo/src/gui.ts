@@ -36,7 +36,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.20.0 · multi-page docs site + real Vocs project export';
+export const GUI_VERSION = '0.21.0 · upload player.html → Vocs project + deploy to Vercel in one step';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
@@ -158,43 +158,84 @@ async function runJob(job: Job, params: any) {
   }
 }
 
+/** Run `vercel deploy <siteDir>`, stream logs, resolve the live URL. */
+async function deployDirectory(job: Job, siteDir: string, params: any): Promise<void> {
+  const token = (params.token && String(params.token).trim()) || process.env.VERCEL_TOKEN || '';
+  job.phase = 'deploying';
+  emit(job, { type: 'phase', phase: 'deploying', msg: 'Deploying to Vercel…' });
+  const args = ['vercel', 'deploy', siteDir, '--yes'];
+  if (params.prod) args.push('--prod');
+  if (token) args.push('--token', token);
+  emit(job, { type: 'log', msg: 'Running: npx vercel deploy …' + (token ? ' (with token)' : ' (using your Vercel login)') });
+
+  const { spawn } = await import('node:child_process');
+  const child = spawn('npx', args, { env: { ...process.env } });
+  let out = '', err = '';
+  child.stdout.on('data', (d) => { const s = d.toString(); out += s; s.split('\n').forEach((l: string) => l.trim() && emit(job, { type: 'log', msg: l.trim() })); });
+  child.stderr.on('data', (d) => { const s = d.toString(); err += s; s.split('\n').forEach((l: string) => l.trim() && emit(job, { type: 'log', msg: l.trim() })); });
+  const code: number = await new Promise((resolve) => { child.on('close', (c) => resolve(c ?? 1)); child.on('error', () => resolve(1)); });
+
+  const url = (out + '\n' + err).match(/https:\/\/[^\s]+\.vercel\.app[^\s]*/);
+  if (code === 0 && url) {
+    job.status = 'done'; job.phase = 'done'; job.progress = 100;
+    emit(job, { type: 'done', guideId: job.guideId, deployUrl: url[0], deploy: true });
+  } else {
+    throw new Error(
+      (err || out).includes('credentials') || (err || out).includes('token') || /not authenticated|log ?in/i.test(err + out)
+        ? 'Vercel needs authentication. Paste a Vercel token (Account → Settings → Tokens), or run `npx vercel login` once in a terminal, then try again.'
+        : 'Vercel deploy failed. ' + (err || out).slice(-400)
+    );
+  }
+}
+
 async function runDeployJob(job: Job, params: any) {
   const dir = path.join(GUIDES, job.guideId);
   try {
     if (!existsSync(dir)) throw new Error('Guide not found.');
-    job.phase = 'building';
-    emit(job, { type: 'phase', phase: 'building', msg: 'Building the docs site…' });
     const src = await loadGuideForExport(dir);
-    const siteDir = path.join(dir, 'site');
-    await writeDocsite(buildDocsite(src), siteDir);
+    const vocs = params.engine === 'vocs';
+    job.phase = 'building';
+    emit(job, { type: 'phase', phase: 'building', msg: vocs ? 'Building the Vocs docs project…' : 'Building the docs site…' });
+    const siteDir = path.join(dir, vocs ? 'vocs' : 'site');
+    await writeDocsite(vocs ? buildVocsProject(src) : buildDocsite(src), siteDir);
+    if (vocs) emit(job, { type: 'log', msg: 'Vercel will install deps and run the Vocs build (this can take a couple of minutes).' });
+    await deployDirectory(job, siteDir, params);
+  } catch (e: any) {
+    job.status = 'error'; job.error = e?.message || String(e);
+    emit(job, { type: 'error', msg: job.error });
+  }
+}
 
-    const token = (params.token && String(params.token).trim()) || process.env.VERCEL_TOKEN || '';
-    job.phase = 'deploying';
-    emit(job, { type: 'phase', phase: 'deploying', msg: 'Deploying to Vercel…' });
-    const args = ['vercel', 'deploy', siteDir, '--yes'];
-    if (params.prod) args.push('--prod');
-    if (token) args.push('--token', token);
-    emit(job, { type: 'log', msg: 'Running: npx vercel deploy …' + (token ? ' (with token)' : ' (using your Vercel login)') });
+// Persist an uploaded player.html as a library guide so all per-guide actions
+// (export, docsite, vocs, deploy) work on it.
+async function materializeHtml(html: string, name?: string): Promise<string> {
+  const guide = guideFromHtml(html);
+  const base = (name ? String(name).replace(/\.html?$/i, '').replace(/\W+/g, '-').slice(0, 40) : '') ||
+    (guide.meta?.title ? guide.meta.title.replace(/\W+/g, '-').slice(0, 40) : 'guide');
+  const guideId = 'html-' + (base || 'guide') + '-' + stamp();
+  const dir = path.join(GUIDES, guideId);
+  await mkdir(dir, { recursive: true });
+  await writeFile(path.join(dir, 'player.html'), html);
+  await writeFile(path.join(dir, 'guide.json'), JSON.stringify(guide, null, 2));
+  return guideId;
+}
 
-    const { spawn } = await import('node:child_process');
-    const child = spawn('npx', args, { env: { ...process.env } });
-    let out = '';
-    let err = '';
-    child.stdout.on('data', (d) => { const s = d.toString(); out += s; s.split('\n').forEach((l: string) => l.trim() && emit(job, { type: 'log', msg: l.trim() })); });
-    child.stderr.on('data', (d) => { const s = d.toString(); err += s; s.split('\n').forEach((l: string) => l.trim() && emit(job, { type: 'log', msg: l.trim() })); });
-    const code: number = await new Promise((resolve) => { child.on('close', (c) => resolve(c ?? 1)); child.on('error', () => resolve(1)); });
-
-    const url = (out + '\n' + err).match(/https:\/\/[^\s]+\.vercel\.app[^\s]*/);
-    if (code === 0 && url) {
-      job.status = 'done'; job.phase = 'done'; job.progress = 100;
-      emit(job, { type: 'done', guideId: job.guideId, deployUrl: url[0], deploy: true });
-    } else {
-      throw new Error(
-        (err || out).includes('credentials') || (err || out).includes('token') || /not authenticated|log ?in/i.test(err + out)
-          ? 'Vercel needs authentication. Paste a Vercel token (Account → Settings → Tokens), or run `npx vercel login` once in a terminal, then try again.'
-          : 'Vercel deploy failed. ' + (err || out).slice(-400)
-      );
+async function runDeployHtmlJob(job: Job, params: any) {
+  try {
+    if (!params.html || typeof params.html !== 'string' || !/id=["']?guide-data/i.test(params.html)) {
+      throw new Error('That file is not a Guideo player.html (no embedded guide data).');
     }
+    job.phase = 'building';
+    emit(job, { type: 'phase', phase: 'building', msg: 'Reading your player.html…' });
+    job.guideId = await materializeHtml(params.html, params.name);
+    const dir = path.join(GUIDES, job.guideId);
+    const src = await loadGuideForExport(dir);
+    const vocs = params.engine === 'vocs';
+    emit(job, { type: 'phase', phase: 'building', msg: vocs ? 'Building the Vocs docs project…' : 'Building the docs site…' });
+    const siteDir = path.join(dir, vocs ? 'vocs' : 'site');
+    await writeDocsite(vocs ? buildVocsProject(src) : buildDocsite(src), siteDir);
+    if (vocs) emit(job, { type: 'log', msg: 'Vercel will install deps and run the Vocs build (this can take a couple of minutes).' });
+    await deployDirectory(job, siteDir, params);
   } catch (e: any) {
     job.status = 'error'; job.error = e?.message || String(e);
     emit(job, { type: 'error', msg: job.error });
@@ -394,6 +435,37 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
         } catch (err: any) {
           res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: err?.message || String(err) }));
         }
+        return;
+      }
+      // Build a real Vocs project straight from an uploaded player.html (zip).
+      if (p === '/api/vocs-html' && req.method === 'POST') {
+        const params = await readBody(req);
+        if (!params.html || typeof params.html !== 'string') {
+          res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'No player.html content was received.' }));
+          return;
+        }
+        try {
+          const guide = guideFromHtml(params.html);
+          const files = buildVocsProject({ guide });
+          const zip = makeZip(files.map((f) => ({ name: f.file, data: Buffer.from(f.data, f.encoding === 'base64' ? 'base64' : 'utf8') })));
+          sendZip(res, zip, (guide.meta?.title ? guide.meta.title.replace(/\W+/g, '-').slice(0, 40) : 'guide') + '-vocs-project.zip');
+        } catch (err: any) {
+          res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: err?.message || String(err) }));
+        }
+        return;
+      }
+      // Deploy straight from an uploaded player.html (static or Vocs), streamed.
+      if (p === '/api/deploy-html' && req.method === 'POST') {
+        const params = await readBody(req);
+        if (!params.html || typeof params.html !== 'string') {
+          res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'No player.html content was received.' }));
+          return;
+        }
+        const id = 'job-' + Date.now();
+        const job: Job = { id, guideId: '', status: 'running', phase: 'starting', progress: -1, events: [], listeners: new Set(), hasVideo: false };
+        jobs.set(id, job);
+        runDeployHtmlJob(job, params);
+        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jobId: id }));
         return;
       }
       // Build the styled docs site for a guide and return its preview URL
