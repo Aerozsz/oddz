@@ -274,7 +274,9 @@ export async function explore(opts: ExploreOptions): Promise<Guide> {
   const browser: Browser = await launchChromium({ headless });
   const context = await browser.newContext({
     viewport,
-    deviceScaleFactor: 1,
+    // Capture at 2× so screenshots carry retina detail — the MP4 renders at
+    // 1440p+ and needs source pixels sharp enough to downsample cleanly.
+    deviceScaleFactor: 2,
     recordVideo: { dir: videoDir, size: viewport },
   });
   const capture = opts.capture ?? !!opts.wallet;

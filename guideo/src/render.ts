@@ -66,8 +66,14 @@ export interface RenderOptions {
   out?: string;
   fps?: number;
   width?: number;
+  /** Output height in pixels (drives width from the guide's aspect ratio). */
+  height?: number;
   onProgress?: (done: number, total: number) => void;
 }
+
+/** Default output height when the caller doesn't specify — crisp on modern
+ *  screens and never below the captured source. */
+const DEFAULT_HEIGHT = 1440;
 
 /** Force the player into a clean "film" layout: just the stage, fixed pixels. */
 function filmCss(w: number, h: number): string {
@@ -93,7 +99,7 @@ export async function renderVideo(opts: RenderOptions): Promise<string> {
   await prepareMedia(renderGuide);
   const playerPath = await buildPlayer(opts.guideDir, renderGuide, path.join(opts.guideDir, 'render-player.html'));
 
-  await pipePlayerToMp4({ playerPath, guide, out, fps: opts.fps, width: opts.width, onProgress: opts.onProgress });
+  await pipePlayerToMp4({ playerPath, guide, out, fps: opts.fps, width: opts.width, height: opts.height, onProgress: opts.onProgress });
   return out;
 }
 
@@ -132,6 +138,7 @@ export interface RenderHtmlOptions {
   out: string;
   fps?: number;
   width?: number;
+  height?: number;
   onProgress?: (done: number, total: number) => void;
   onLog?: (m: string) => void;
 }
@@ -149,7 +156,7 @@ export async function renderVideoFromHtml(opts: RenderHtmlOptions): Promise<stri
   const playerPath = path.join(dir, 'render-player.html');
   try {
     await writeFile(playerPath, renderHtml);
-    await pipePlayerToMp4({ playerPath, guide, out: opts.out, fps: opts.fps, width: opts.width, onProgress: opts.onProgress });
+    await pipePlayerToMp4({ playerPath, guide, out: opts.out, fps: opts.fps, width: opts.width, height: opts.height, onProgress: opts.onProgress });
     return opts.out;
   } finally {
     await rm(dir, { recursive: true, force: true });
@@ -162,6 +169,7 @@ interface PipeOptions {
   out: string;
   fps?: number;
   width?: number;
+  height?: number;
   onProgress?: (done: number, total: number) => void;
 }
 
@@ -169,8 +177,19 @@ interface PipeOptions {
 async function pipePlayerToMp4(opts: PipeOptions): Promise<void> {
   const vw = opts.guide.meta.viewport.width;
   const vh = opts.guide.meta.viewport.height;
-  const width = even(opts.width ?? vw);
-  const height = even(Math.round((width * vh) / vw));
+  // Output size, driven by the requested height (or an explicit width), else a
+  // crisp 1440p default. No cap: whatever height is asked for is what's rendered.
+  let width: number, height: number;
+  if (opts.height) {
+    height = even(opts.height);
+    width = even(Math.round((height * vw) / vh));
+  } else if (opts.width) {
+    width = even(opts.width);
+    height = even(Math.round((width * vh) / vw));
+  } else {
+    height = even(Math.max(DEFAULT_HEIGHT, vh));
+    width = even(Math.round((height * vw) / vh));
+  }
   const fps = opts.fps ?? 25;
 
   const browser = await launchChromium({ headless: true });
@@ -196,8 +215,8 @@ async function pipePlayerToMp4(opts: PipeOptions): Promise<void> {
         '-i', '-',
         '-vf', 'format=yuv420p',
         '-c:v', 'libx264',
-        '-preset', 'veryfast',
-        '-crf', '20',
+        '-preset', 'medium',
+        '-crf', '18',
         '-movflags', '+faststart',
         opts.out,
       ],

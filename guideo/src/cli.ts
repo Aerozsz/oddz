@@ -150,11 +150,12 @@ program
   .option('-o, --out <file>', 'output mp4 path')
   .option('--fps <n>', 'frame rate', (v) => parseInt(v, 10), 25)
   .option('--width <px>', 'output width', (v) => parseInt(v, 10))
+  .option('--height <px>', 'output height (default 1440); drives width from aspect', (v) => parseInt(v, 10))
   .action(async (dir, opts) => {
     const guideDir = path.resolve(dir);
     await ensureBrowser((m) => log('   ' + m));
     log(`\n🎬 Rendering ${guideDir}`);
-    const mp4 = await renderVideo({ guideDir, out: opts.out, fps: opts.fps, width: opts.width, onProgress: bar });
+    const mp4 = await renderVideo({ guideDir, out: opts.out, fps: opts.fps, width: opts.width, height: opts.height, onProgress: bar });
     log(`   → ${mp4}`);
   });
 
@@ -165,13 +166,14 @@ program
   .option('-o, --out <file>', 'output mp4 path')
   .option('--fps <n>', 'frame rate', (v) => parseInt(v, 10), 25)
   .option('--width <px>', 'output width', (v) => parseInt(v, 10))
+  .option('--height <px>', 'output height (default 1440); drives width from aspect', (v) => parseInt(v, 10))
   .action(async (file, opts) => {
     const htmlPath = path.resolve(file);
     const out = opts.out ? path.resolve(opts.out) : htmlPath.replace(/\.html?$/i, '') + '.mp4';
     await ensureBrowser((m) => log('   ' + m));
     log(`\n🎬 Rendering ${htmlPath}`);
     const mp4 = await renderVideoFromHtml({
-      html: readFileSync(htmlPath, 'utf8'), out, fps: opts.fps, width: opts.width,
+      html: readFileSync(htmlPath, 'utf8'), out, fps: opts.fps, width: opts.width, height: opts.height,
       onProgress: bar, onLog: (m) => log('   ' + m),
     });
     log(`   → ${mp4}`);

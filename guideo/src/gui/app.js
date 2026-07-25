@@ -38,6 +38,7 @@ async function run() {
     maxSteps: parseInt($('max').value, 10) || 14,
     video: $('video').checked,
     fps: 25,
+    height: parseInt($('quality').value, 10) || 1440,
     pace: parseFloat($('pace').value) || 1.35,
     wallet: $('wallet').checked,
     assist: $('wallet').checked && $('assist').checked,
@@ -137,7 +138,7 @@ async function runHtml() {
     resp = await fetch('/api/render-html', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ html, fps: parseInt($('htmlfps').value, 10) || 25, name: f.name }),
+      body: JSON.stringify({ html, fps: parseInt($('htmlfps').value, 10) || 25, height: parseInt($('htmlquality').value, 10) || 1440, name: f.name }),
     }).then((r) => r.json());
   } catch (e) {
     fail('Could not reach the Guideo server.');

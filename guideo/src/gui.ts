@@ -33,7 +33,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.17.0 · export to GitBook (Markdown) and social threads (X/Reddit)';
+export const GUI_VERSION = '0.18.0 · high-res render (1080/1440/4K), 2× retina capture';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
@@ -125,6 +125,7 @@ async function runJob(job: Job, params: any) {
       await renderVideo({
         guideDir: outDir,
         fps: params.fps || 25,
+        height: params.height || undefined,
         onProgress: (done, total) => {
           job.progress = 45 + Math.round((done / total) * 55);
           emit(job, { type: 'progress', progress: job.progress });
@@ -173,6 +174,7 @@ async function runHtmlJob(job: Job, params: any) {
       out,
       fps: params.fps || 25,
       width: params.width || undefined,
+      height: params.height || undefined,
       onLog: (m) => emit(job, { type: 'log', msg: '  ' + m }),
       onProgress: (done, total) => {
         job.progress = Math.round((done / total) * 100);
