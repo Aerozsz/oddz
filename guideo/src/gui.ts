@@ -36,7 +36,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.22.0 · exports/docs use composited frames (captions, highlights, dimming baked in)';
+export const GUI_VERSION = '0.23.0 · static docs-site is the recommended deploy (Vocs is SSR source)';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };

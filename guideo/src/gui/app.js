@@ -92,9 +92,8 @@ function updateHtmlFormat() {
   $('run-html').textContent = fmt === 'mp4' ? '🎬 Render MP4 from this file'
     : fmt === 'gitbook' ? '📘 Export GitBook (.zip)'
     : fmt === 'social' ? '📣 Export social thread (.zip)'
-    : fmt === 'vocs' ? '📗 Export Vocs project (.zip)'
-    : fmt === 'deploy-static' ? '🚀 Deploy docs site to Vercel'
-    : '🚀 Deploy Vocs site to Vercel';
+    : fmt === 'vocs' ? '📗 Export Vocs source (.zip)'
+    : '🚀 Deploy docs site to Vercel';
 }
 updateHtmlFormat();
 $('run-html').addEventListener('click', runHtml);
@@ -165,7 +164,6 @@ async function runHtml() {
   if (fmt === 'gitbook' || fmt === 'social') { await exportHtml(html, fmt); return; }
   if (fmt === 'vocs') { await exportHtmlVocs(html); return; }
   if (fmt === 'deploy-static') { await deployHtml(html, 'static'); return; }
-  if (fmt === 'deploy-vocs') { await deployHtml(html, 'vocs'); return; }
   $('run-html').disabled = true;
   $('result').classList.remove('show');
   $('progress').classList.add('show');

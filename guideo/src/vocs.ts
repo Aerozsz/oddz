@@ -206,11 +206,20 @@ npm run build   # outputs static files to ./dist
 \`\`\`
 
 ## Deploy to Vercel
-Push this folder to a Git repo and import it at vercel.com/new (Vercel
-auto-detects Vocs and builds it), or run:
+This is a **Vocs 2 app** (server-rendered — it does not emit plain static
+HTML). When importing at vercel.com/new, make sure Vercel runs the build:
+set **Framework Preset = Vocs** (or Vite) and **Build Command = \`npm run build\`**.
+Do **not** deploy the raw files without a build — you'll get a blank page.
+
 \`\`\`bash
-npx vercel deploy --prod
+npx vercel deploy --prod   # from this folder, after 'npm install'
 \`\`\`
+
+### Want a zero-config static site instead?
+If you just want a hosted docs site that deploys anywhere with no build step,
+use Guideo's **"Deploy docs site to Vercel"** / **"Deployable site (.zip)"**
+export instead — it's plain HTML with the same Makina look and needs no
+framework detection.
 
 _Content lives in \`src/pages/\`. Edit the MDX, add pages, and update \`vocs.config.ts\`'s sidebar as needed._
 `, encoding: 'utf-8' });
