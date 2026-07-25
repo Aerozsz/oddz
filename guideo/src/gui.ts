@@ -7,6 +7,8 @@ import { explore } from './explore.js';
 import { buildPlayer } from './build-player.js';
 import { renderVideo, renderVideoFromHtml, guideFromHtml } from './render.js';
 import { buildExport, type ExportFormat } from './export.js';
+import { buildDocsite, writeDocsite } from './docsite.js';
+import { makeZip } from './zip.js';
 import type { Guide } from './types.js';
 import { serveDir } from './server.js';
 import { ensureBrowser } from './browser.js';
@@ -33,7 +35,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.18.0 · high-res render (1080/1440/4K), 2× retina capture';
+export const GUI_VERSION = '0.19.0 · GitBook-style docs site (Makina theme) preview + Vercel deploy';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
@@ -155,6 +157,49 @@ async function runJob(job: Job, params: any) {
   }
 }
 
+async function runDeployJob(job: Job, params: any) {
+  const dir = path.join(GUIDES, job.guideId);
+  try {
+    if (!existsSync(dir)) throw new Error('Guide not found.');
+    job.phase = 'building';
+    emit(job, { type: 'phase', phase: 'building', msg: 'Building the docs site…' });
+    const src = await loadGuideForExport(dir);
+    const siteDir = path.join(dir, 'site');
+    await writeDocsite(buildDocsite(src), siteDir);
+
+    const token = (params.token && String(params.token).trim()) || process.env.VERCEL_TOKEN || '';
+    job.phase = 'deploying';
+    emit(job, { type: 'phase', phase: 'deploying', msg: 'Deploying to Vercel…' });
+    const args = ['vercel', 'deploy', siteDir, '--yes'];
+    if (params.prod) args.push('--prod');
+    if (token) args.push('--token', token);
+    emit(job, { type: 'log', msg: 'Running: npx vercel deploy …' + (token ? ' (with token)' : ' (using your Vercel login)') });
+
+    const { spawn } = await import('node:child_process');
+    const child = spawn('npx', args, { env: { ...process.env } });
+    let out = '';
+    let err = '';
+    child.stdout.on('data', (d) => { const s = d.toString(); out += s; s.split('\n').forEach((l: string) => l.trim() && emit(job, { type: 'log', msg: l.trim() })); });
+    child.stderr.on('data', (d) => { const s = d.toString(); err += s; s.split('\n').forEach((l: string) => l.trim() && emit(job, { type: 'log', msg: l.trim() })); });
+    const code: number = await new Promise((resolve) => { child.on('close', (c) => resolve(c ?? 1)); child.on('error', () => resolve(1)); });
+
+    const url = (out + '\n' + err).match(/https:\/\/[^\s]+\.vercel\.app[^\s]*/);
+    if (code === 0 && url) {
+      job.status = 'done'; job.phase = 'done'; job.progress = 100;
+      emit(job, { type: 'done', guideId: job.guideId, deployUrl: url[0], deploy: true });
+    } else {
+      throw new Error(
+        (err || out).includes('credentials') || (err || out).includes('token') || /not authenticated|log ?in/i.test(err + out)
+          ? 'Vercel needs authentication. Paste a Vercel token (Account → Settings → Tokens), or run `npx vercel login` once in a terminal, then try again.'
+          : 'Vercel deploy failed. ' + (err || out).slice(-400)
+      );
+    }
+  } catch (e: any) {
+    job.status = 'error'; job.error = e?.message || String(e);
+    emit(job, { type: 'error', msg: job.error });
+  }
+}
+
 async function runHtmlJob(job: Job, params: any) {
   const outDir = path.join(GUIDES, job.guideId);
   await mkdir(outDir, { recursive: true });
@@ -248,6 +293,10 @@ const MIME: Record<string, string> = {
   '.css': 'text/css; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.svg': 'image/svg+xml',
+  '.ico': 'image/x-icon',
   '.mp4': 'video/mp4',
   '.webm': 'video/webm',
 };
@@ -344,6 +393,41 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
         } catch (err: any) {
           res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: err?.message || String(err) }));
         }
+        return;
+      }
+      // Build the styled docs site for a guide and return its preview URL
+      // (or ?zip=1 to download it as a deploy-ready archive).
+      const dsMatch = p.match(/^\/api\/docsite\/([^/]+)$/);
+      if (dsMatch && req.method === 'GET') {
+        const dir = path.join(GUIDES, dsMatch[1]);
+        if (!dir.startsWith(GUIDES) || !existsSync(dir)) { res.writeHead(404).end('no such guide'); return; }
+        try {
+          const src = await loadGuideForExport(dir);
+          const files = buildDocsite(src);
+          if (u.searchParams.get('zip') === '1') {
+            const zip = makeZip(files.map((f) => ({ name: f.file, data: Buffer.from(f.data, f.encoding === 'base64' ? 'base64' : 'utf8') })));
+            sendZip(res, zip, (src.guide.meta?.title ? src.guide.meta.title.replace(/\W+/g, '-').slice(0, 40) : 'guide') + '-docs-site.zip');
+            return;
+          }
+          await writeDocsite(files, path.join(dir, 'site'));
+          res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store' })
+            .end(JSON.stringify({ url: '/guides/' + dsMatch[1] + '/site/index.html' }));
+        } catch (err: any) {
+          res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: err?.message || String(err) }));
+        }
+        return;
+      }
+      // Deploy a guide's docs site to Vercel (streamed as a job).
+      const depMatch = p.match(/^\/api\/deploy\/([^/]+)$/);
+      if (depMatch && req.method === 'POST') {
+        const dir = path.join(GUIDES, depMatch[1]);
+        if (!dir.startsWith(GUIDES) || !existsSync(dir)) { res.writeHead(404, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'no such guide' })); return; }
+        const params = await readBody(req);
+        const id = 'job-' + Date.now();
+        const job: Job = { id, guideId: depMatch[1], status: 'running', phase: 'starting', progress: -1, events: [], listeners: new Set(), hasVideo: false };
+        jobs.set(id, job);
+        runDeployJob(job, params);
+        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jobId: id }));
         return;
       }
       // Export an existing guide (from the library) to a shareable .zip.

@@ -8,8 +8,27 @@ import { explore } from './explore.js';
 import { buildPlayer } from './build-player.js';
 import { renderVideo, renderVideoFromHtml, guideFromHtml } from './render.js';
 import { buildExport, type ExportFormat } from './export.js';
+import { buildDocsite, writeDocsite } from './docsite.js';
 import { existsSync, statSync, writeFileSync } from 'node:fs';
 import type { Guide } from './types.js';
+
+/** Load a guide (+ mp4) from a player.html file or a guide directory. */
+function loadGuideSource(p: string): { guide: Guide; guideDir?: string; mp4: Buffer | null } {
+  const src = path.resolve(p);
+  if (/\.html?$/i.test(src)) {
+    const guide = guideFromHtml(readFileSync(src, 'utf8'));
+    const sib = path.join(path.dirname(src), 'guide.mp4');
+    return { guide, mp4: existsSync(sib) ? readFileSync(sib) : null };
+  }
+  const gj = path.join(src, 'guide.json');
+  const ph = path.join(src, 'player.html');
+  let guide: Guide;
+  if (existsSync(gj)) guide = JSON.parse(readFileSync(gj, 'utf8'));
+  else if (existsSync(ph)) guide = guideFromHtml(readFileSync(ph, 'utf8'));
+  else throw new Error('No guide.json or player.html found in ' + src);
+  const mp4p = path.join(src, 'guide.mp4');
+  return { guide, guideDir: src, mp4: existsSync(mp4p) ? readFileSync(mp4p) : null };
+}
 import { serveDir } from './server.js';
 import { startGui } from './gui.js';
 import { ensureBrowser } from './browser.js';
@@ -207,6 +226,49 @@ program
     const out = opts.out ? path.resolve(opts.out) : path.join(process.cwd(), res.filename);
     writeFileSync(out, res.zip);
     log(`📦 Exported ${fmt} → ${out} (${(statSync(out).size / 1024).toFixed(0)} KB)`);
+  });
+
+program
+  .command('docsite')
+  .description('Build a GitBook-style static docs site (Makina theme) from a guide')
+  .argument('<path>', 'a player.html file, or a guide directory')
+  .option('-o, --out <dir>', 'output directory', 'docs-site')
+  .action(async (p, opts) => {
+    const src = loadGuideSource(p);
+    const files = buildDocsite(src);
+    const out = path.resolve(opts.out);
+    const index = await writeDocsite(files, out);
+    log(`📖 Built docs site → ${index}`);
+    log(`   Preview locally: guideo serve ${out}   (or open the file directly)`);
+    log(`   Deploy:          guideo deploy ${out}`);
+  });
+
+program
+  .command('deploy')
+  .description('Deploy a guide (or a built docs site) to Vercel')
+  .argument('<path>', 'a player.html, a guide directory, or a docs-site directory')
+  .option('--prod', 'deploy to production (default is a preview URL)', false)
+  .option('--name <name>', 'Vercel project name')
+  .action(async (p, opts) => {
+    const src = path.resolve(p);
+    // If it already looks like a built site, deploy it as-is; else build one.
+    let siteDir: string;
+    if (existsSync(path.join(src, 'index.html'))) {
+      siteDir = src;
+    } else {
+      const source = loadGuideSource(p);
+      siteDir = path.join(process.cwd(), '.guideo-site');
+      await writeDocsite(buildDocsite(source), siteDir);
+      log(`📖 Built docs site → ${siteDir}`);
+    }
+    log(`\n🚀 Deploying ${siteDir} to Vercel…`);
+    const args = ['vercel', 'deploy', siteDir, '--yes'];
+    if (opts.prod) args.push('--prod');
+    if (opts.name) args.push('--name', opts.name);
+    log(`   Running: npx ${args.join(' ')}`);
+    log(`   (needs a Vercel login/token — follow any prompt, or set VERCEL_TOKEN)`);
+    const child = spawn('npx', args, { stdio: 'inherit' });
+    child.on('close', (code) => process.exit(code || 0));
   });
 
 program

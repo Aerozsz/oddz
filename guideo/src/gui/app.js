@@ -182,6 +182,18 @@ function done(ev) {
   setBar(100);
   $('phase').textContent = 'Done!';
   $('run').disabled = false;
+  if (ev.deploy && ev.deployUrl) {
+    $('result-body').innerHTML =
+      `<div style="font-weight:600;margin-bottom:6px">🚀 Your docs site is live</div>` +
+      `<div class="hint" style="margin-bottom:8px">Hosted on Vercel.</div>` +
+      `<div><a class="btn small primary" href="${ev.deployUrl}" target="_blank">Open ${escapeHtml(ev.deployUrl)}</a></div>`;
+    $('result-actions').innerHTML = '';
+    $('result-preview').innerHTML = '';
+    $('result').classList.add('show');
+    $('result').scrollIntoView({ behavior: 'smooth' });
+    loadLib();
+    return;
+  }
   const base = '/guides/' + ev.guideId;
   if (ev.fromHtml) {
     $('result-body').innerHTML =
@@ -202,6 +214,9 @@ function done(ev) {
   if (!ev.fromHtml) acts.appendChild(linkBtn('⬇ guide.json', base + '/guide.json?dl=1', false));
   acts.appendChild(linkBtn('📘 GitBook (.zip)', '/api/export/' + ev.guideId + '?format=gitbook', false));
   acts.appendChild(linkBtn('📣 Social (.zip)', '/api/export/' + ev.guideId + '?format=social', false));
+  acts.appendChild(actionBtn('📖 Preview docs site', (b) => previewSite(ev.guideId, b)));
+  acts.appendChild(actionBtn('🚀 Deploy to Vercel', () => deploySite(ev.guideId)));
+  acts.appendChild(linkBtn('⬇ Deployable site (.zip)', '/api/docsite/' + ev.guideId + '?zip=1', false));
   if (ev.capture) {
     acts.appendChild(linkBtn('⬇ wallet-calls.json', base + '/wallet-calls.json?dl=1', false));
     acts.appendChild(linkBtn('⬇ network.json', base + '/network.json?dl=1', false));
@@ -216,6 +231,58 @@ function done(ev) {
   loadLib();
 }
 
+async function deploySite(id, token) {
+  const prod = confirm('Deploy to PRODUCTION?\n\nOK = production URL · Cancel = a shareable preview URL');
+  $('result').classList.remove('show');
+  $('progress').classList.add('show');
+  $('log').innerHTML = '';
+  $('phase').textContent = 'Deploying to Vercel…';
+  setBar(-1);
+  $('progress').scrollIntoView({ behavior: 'smooth' });
+  let resp;
+  try {
+    resp = await fetch('/api/deploy/' + id, {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ prod, token: token || '' }),
+    }).then((r) => r.json());
+  } catch (e) { fail('Could not reach the Guideo server.'); return; }
+  if (resp.error) { fail(resp.error); return; }
+  const es = new EventSource('/api/events/' + resp.jobId);
+  es.onmessage = (m) => {
+    const ev = JSON.parse(m.data);
+    if (ev.type === 'log') addLog(ev.msg);
+    else if (ev.type === 'phase') { $('phase').textContent = ev.msg; addLog(ev.msg, 'ok'); }
+    else if (ev.type === 'error') {
+      es.close();
+      if (/authentication|token|log ?in/i.test(ev.msg) && !token) {
+        const t = prompt('Vercel needs a token to deploy from here.\n\nPaste a Vercel token (vercel.com → Account Settings → Tokens):');
+        if (t) { deploySite(id, t.trim()); return; }
+      }
+      fail(ev.msg);
+    } else if (ev.type === 'done') { es.close(); done(ev); }
+  };
+  es.onerror = () => {};
+}
+async function previewSite(id, btn) {
+  const label = btn ? btn.textContent : '';
+  if (btn) { btn.textContent = 'Building…'; btn.style.pointerEvents = 'none'; }
+  try {
+    const r = await fetch('/api/docsite/' + id).then((x) => x.json());
+    if (r.url) window.open(r.url, '_blank');
+    else alert('Could not build the site: ' + (r.error || 'unknown error'));
+  } catch (e) {
+    alert('Could not reach the Guideo server.');
+  } finally {
+    if (btn) { btn.textContent = label; btn.style.pointerEvents = ''; }
+  }
+}
+function actionBtn(label, onClick) {
+  const b = document.createElement('button');
+  b.className = 'btn small';
+  b.textContent = label;
+  b.onclick = () => onClick(b);
+  return b;
+}
 function linkBtn(label, href, primary, blank) {
   const a = document.createElement('a');
   a.className = 'btn small' + (primary ? ' primary' : '');
@@ -250,6 +317,8 @@ async function loadLib() {
     if (it.hasVideo) acts.appendChild(linkBtn('MP4', base + '/guide.mp4?dl=1', false));
     acts.appendChild(linkBtn('📘 GitBook', '/api/export/' + it.id + '?format=gitbook', false));
     acts.appendChild(linkBtn('📣 Social', '/api/export/' + it.id + '?format=social', false));
+    acts.appendChild(actionBtn('📖 Docs site', (b) => previewSite(it.id, b)));
+    acts.appendChild(actionBtn('🚀 Deploy', () => deploySite(it.id)));
     lib.appendChild(el);
   }
 }
