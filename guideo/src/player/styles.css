@@ -42,6 +42,10 @@ body {
   position: relative; width: 100%; max-width: 1024px; aspect-ratio: 16 / 10;
   border-radius: 14px; overflow: hidden; background: #000;
   box-shadow: 0 24px 60px rgba(0,0,0,0.5), 0 0 0 1px var(--g-line);
+  /* Make the stage a query container so captions, cursor and spotlight rings
+     scale with the frame — keeps them proportional at any output resolution
+     (the player caps at 1024px; the MP4 renderer blows it up to 1440p/4K). */
+  container-type: size;
 }
 .layer {
   position: absolute; inset: 0; width: 100%; height: 100%;
@@ -51,8 +55,8 @@ body {
 .dim { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .spots { position: absolute; inset: 0; pointer-events: none; }
 .spotlight {
-  position: absolute; border-radius: 10px; pointer-events: none;
-  box-shadow: 0 0 0 3px var(--g-accent), 0 0 16px 2px color-mix(in srgb, var(--g-accent) 55%, transparent);
+  position: absolute; border-radius: 1cqw; pointer-events: none;
+  box-shadow: 0 0 0 0.3cqw var(--g-accent), 0 0 1.6cqw 0.2cqw color-mix(in srgb, var(--g-accent) 55%, transparent);
   transition: none;
 }
 .stage.editmode .spotlight { pointer-events: auto; cursor: move; }
@@ -90,9 +94,10 @@ body {
   cursor: pointer; display: none; }
 .stage.editmode .glabel.sel .gl-del { display: block; }
 .cursor {
-  position: absolute; width: 26px; height: 26px; margin: -4px 0 0 -3px; pointer-events: none;
-  filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
+  position: absolute; width: 2.6cqw; height: 2.6cqw; margin: -0.4cqw 0 0 -0.3cqw; pointer-events: none;
+  filter: drop-shadow(0 0.2cqw 0.3cqw rgba(0,0,0,0.5));
 }
+.cursor svg { width: 100%; height: 100%; display: block; }
 .stage.editmode .cursor { pointer-events: auto; cursor: move; }
 /* A dashed grab-ring in edit mode that also enlarges the clickable area. */
 .stage.editmode .cursor::after {
@@ -102,16 +107,16 @@ body {
   pointer-events: auto;
 }
 .ripple {
-  position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%;
-  border: 2px solid var(--g-accent); pointer-events: none;
+  position: absolute; width: 2cqw; height: 2cqw; margin: -1cqw 0 0 -1cqw; border-radius: 50%;
+  border: 0.2cqw solid var(--g-accent); pointer-events: none;
 }
 .caption {
-  position: absolute; left: 22px; right: 22px; bottom: 22px;
-  padding: 15px 20px; border-radius: 13px; font-size: 19px; line-height: 1.4;
+  position: absolute; left: 2.15cqw; right: 2.15cqw; bottom: 2.15cqw;
+  padding: 1.46cqw 1.95cqw; border-radius: 1.27cqw; font-size: 1.86cqw; line-height: 1.4;
   backdrop-filter: blur(6px);
 }
-.caption.top { top: 22px; bottom: auto; }
-.caption .lead { font-weight: 700; margin-right: 8px; color: var(--g-accent); }
+.caption.top { top: 2.15cqw; bottom: auto; }
+.caption .lead { font-weight: 700; margin-right: 0.4em; color: var(--g-accent); }
 
 /* ---- Controls ---- */
 .controls { padding: 12px 22px 20px; }
