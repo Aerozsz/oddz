@@ -93,6 +93,14 @@ body {
   position: absolute; width: 26px; height: 26px; margin: -4px 0 0 -3px; pointer-events: none;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5));
 }
+.stage.editmode .cursor { pointer-events: auto; cursor: move; }
+/* A dashed grab-ring in edit mode that also enlarges the clickable area. */
+.stage.editmode .cursor::after {
+  content: ''; position: absolute; left: 3px; top: 4px; width: 44px; height: 44px;
+  transform: translate(-50%, -50%); border-radius: 50%;
+  border: 2px dashed var(--g-accent); background: color-mix(in srgb, var(--g-accent) 14%, transparent);
+  pointer-events: auto;
+}
 .ripple {
   position: absolute; width: 20px; height: 20px; margin: -10px 0 0 -10px; border-radius: 50%;
   border: 2px solid var(--g-accent); pointer-events: none;

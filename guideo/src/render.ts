@@ -97,21 +97,33 @@ export async function renderVideo(opts: RenderOptions): Promise<string> {
   return out;
 }
 
+// Matches the embedded guide-data script regardless of attribute order/quoting.
+const GUIDE_DATA_RE = /(<script\b[^>]*\bid=["']?guide-data["']?[^>]*>)([\s\S]*?)(<\/script>)/i;
+
 /** Extract the embedded guide from a self-contained player.html. */
 export function guideFromHtml(html: string): Guide {
-  const m = /<script id="guide-data"[^>]*>([\s\S]*?)<\/script>/i.exec(html);
+  const m = GUIDE_DATA_RE.exec(html);
   if (!m) throw new Error('This file does not look like a Guideo player.html (no embedded guide data).');
+  let guide: Guide;
   try {
-    return JSON.parse(m[1]);
+    guide = JSON.parse(m[2]);
   } catch (e) {
     throw new Error('Could not read the guide embedded in this player.html: ' + (e as Error).message);
   }
+  if (!guide || !Array.isArray(guide.steps) || !guide.steps.length) {
+    throw new Error('This player.html has no steps to render.');
+  }
+  if (!guide.meta || !guide.meta.viewport) {
+    // Be forgiving about older/hand-made files: fall back to a 16:10 frame.
+    guide.meta = { ...(guide.meta || {}), viewport: { width: 1280, height: 800 } } as any;
+  }
+  return guide;
 }
 
 /** Put a (media-converted) guide back into a player.html string. */
 function replaceGuideData(html: string, guide: Guide): string {
   const json = JSON.stringify(guide).split('</').join('<\\/');
-  return html.replace(/(<script id="guide-data"[^>]*>)[\s\S]*?(<\/script>)/i, (_all, open, close) => open + json + close);
+  return html.replace(GUIDE_DATA_RE, (_all, open, _old, close) => open + json + close);
 }
 
 export interface RenderHtmlOptions {

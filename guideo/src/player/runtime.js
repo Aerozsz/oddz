@@ -43,9 +43,10 @@
         '<div class="edit-toolbar" id="g-edit-toolbar" style="display:none">' +
           '<button id="g-add-box">＋ Highlight box</button>' +
           '<button id="g-add-label">＋ Text label</button>' +
+          '<button id="g-add-pointer">＋ Pointer</button>' +
           '<button id="g-del-box">🗑 Delete selected</button>' +
           '<button id="g-del-step" class="danger">🗑 Delete step</button>' +
-          '<span class="ehint">Drag to move · corner to resize · double-click a label to edit its text</span>' +
+          '<span class="ehint">Drag anything to move · corner to resize · drag the pointer ring to place the cursor · double-click a label to edit</span>' +
         '</div>' +
       '</div></div>' +
       '<div class="controls">' +
@@ -608,6 +609,19 @@
     render(timeMs);
   });
 
+  // ---- Pointer dragging (edit mode) ----
+  el.cursor.addEventListener('pointerdown', function (ev) {
+    if (!editMode) return;
+    var step = guide.steps[stepAt(timeMs)];
+    if (!step.cursor) return;
+    ev.stopPropagation();
+    selected = -1; selectedLabel = -1;
+    var r = stageRect();
+    var ox = (ev.clientX - r.left) / r.width - step.cursor.x;
+    var oy = (ev.clientY - r.top) / r.height - step.cursor.y;
+    beginDrag(ev, function (nx, ny) { step.cursor.x = clamp01(nx - ox); step.cursor.y = clamp01(ny - oy); render(timeMs); });
+  });
+
   // ---- Playback ----
   function loop(ts) {
     if (!playing) return;
@@ -674,6 +688,13 @@
     selected = step.highlights.length - 1;
     render(timeMs); markDirty(); refreshTweak();
     toast('Box added — drag it into place');
+  };
+  document.getElementById('g-add-pointer').onclick = function () {
+    var step = guide.steps[stepAt(timeMs)];
+    if (step.cursor) { toast('Pointer already on — drag its ring to move it'); return; }
+    step.cursor = { x: 0.5, y: 0.5, click: true };
+    render(timeMs); markDirty(); refreshTweak();
+    toast('Pointer added — drag it into place');
   };
   document.getElementById('g-del-box').onclick = deleteSelected;
   function deleteSelected() {

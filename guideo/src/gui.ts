@@ -31,7 +31,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.15.0 · render MP4 from an edited player.html (GUI + CLI)';
+export const GUI_VERSION = '0.16.0 · upload any player.html to render; mouse-draggable pointer';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
@@ -156,7 +156,7 @@ async function runHtmlJob(job: Job, params: any) {
   const outDir = path.join(GUIDES, job.guideId);
   await mkdir(outDir, { recursive: true });
   try {
-    if (!params.html || typeof params.html !== 'string' || !/id="guide-data"/.test(params.html)) {
+    if (!params.html || typeof params.html !== 'string' || !/id=["']?guide-data/i.test(params.html)) {
       throw new Error('That file is not a Guideo player.html (no embedded guide data found).');
     }
     job.phase = 'preparing';

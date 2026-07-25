@@ -90,7 +90,7 @@ async function runHtml() {
   if (!f) { alert('Choose a player.html file first.'); return; }
   let html;
   try { html = await f.text(); } catch (e) { alert('Could not read that file.'); return; }
-  if (!/id="guide-data"/.test(html)) {
+  if (!/id=["']?guide-data/i.test(html)) {
     alert("That doesn't look like a Guideo player.html — it has no embedded guide. Use the ⬇ player.html button in the player's Tweak studio.");
     return;
   }
