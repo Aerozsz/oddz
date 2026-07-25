@@ -79,12 +79,40 @@ async function run() {
   es.onerror = () => { /* stream closed by server after terminal event */ };
 }
 
-// ---- Render MP4 from an edited player.html ----
+// ---- Convert / export an edited player.html ----
 $('htmlfile').addEventListener('change', () => {
   const f = $('htmlfile').files[0];
   $('html-est').textContent = f ? f.name + ' · ' + (f.size / 1048576).toFixed(1) + ' MB' : '';
 });
+$('htmlformat').addEventListener('change', updateHtmlFormat);
+function updateHtmlFormat() {
+  const fmt = $('htmlformat').value;
+  $('htmlfps-row').style.display = fmt === 'mp4' ? '' : 'none';
+  $('run-html').textContent = fmt === 'mp4' ? '🎬 Render MP4 from this file'
+    : fmt === 'gitbook' ? '📘 Export GitBook (.zip)'
+    : '📣 Export social thread (.zip)';
+}
+updateHtmlFormat();
 $('run-html').addEventListener('click', runHtml);
+async function exportHtml(html, format) {
+  $('run-html').disabled = true;
+  try {
+    const resp = await fetch('/api/export-html', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ html, format }),
+    });
+    if (!resp.ok) { const j = await resp.json().catch(() => ({})); alert('Export failed: ' + (j.error || resp.status)); return; }
+    const blob = await resp.blob();
+    const cd = resp.headers.get('content-disposition') || '';
+    const nm = (cd.match(/filename="([^"]+)"/) || [])[1] || (format + '.zip');
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = nm; a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  } catch (e) {
+    alert('Could not reach the Guideo server.');
+  } finally {
+    $('run-html').disabled = false;
+  }
+}
 async function runHtml() {
   const f = $('htmlfile').files[0];
   if (!f) { alert('Choose a player.html file first.'); return; }
@@ -94,6 +122,8 @@ async function runHtml() {
     alert("That doesn't look like a Guideo player.html — it has no embedded guide. Use the ⬇ player.html button in the player's Tweak studio.");
     return;
   }
+  const fmt = $('htmlformat').value;
+  if (fmt !== 'mp4') { await exportHtml(html, fmt); return; }
   $('run-html').disabled = true;
   $('result').classList.remove('show');
   $('progress').classList.add('show');
@@ -169,6 +199,8 @@ function done(ev) {
     acts.appendChild(linkBtn('⬇ player.html', base + '/player.html?dl=1', false));
   }
   if (!ev.fromHtml) acts.appendChild(linkBtn('⬇ guide.json', base + '/guide.json?dl=1', false));
+  acts.appendChild(linkBtn('📘 GitBook (.zip)', '/api/export/' + ev.guideId + '?format=gitbook', false));
+  acts.appendChild(linkBtn('📣 Social (.zip)', '/api/export/' + ev.guideId + '?format=social', false));
   if (ev.capture) {
     acts.appendChild(linkBtn('⬇ wallet-calls.json', base + '/wallet-calls.json?dl=1', false));
     acts.appendChild(linkBtn('⬇ network.json', base + '/network.json?dl=1', false));
@@ -215,6 +247,8 @@ async function loadLib() {
     const acts = el.querySelector('.acts');
     if (it.hasPlayer) acts.appendChild(linkBtn('Open', base + '/player.html', true, true));
     if (it.hasVideo) acts.appendChild(linkBtn('MP4', base + '/guide.mp4?dl=1', false));
+    acts.appendChild(linkBtn('📘 GitBook', '/api/export/' + it.id + '?format=gitbook', false));
+    acts.appendChild(linkBtn('📣 Social', '/api/export/' + it.id + '?format=social', false));
     lib.appendChild(el);
   }
 }

@@ -5,7 +5,9 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { explore } from './explore.js';
 import { buildPlayer } from './build-player.js';
-import { renderVideo, renderVideoFromHtml } from './render.js';
+import { renderVideo, renderVideoFromHtml, guideFromHtml } from './render.js';
+import { buildExport, type ExportFormat } from './export.js';
+import type { Guide } from './types.js';
 import { serveDir } from './server.js';
 import { ensureBrowser } from './browser.js';
 import { makeWalletConfig, ethToWei, type WalletConfig } from './wallet.js';
@@ -31,7 +33,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.16.0 · upload any player.html to render; mouse-draggable pointer';
+export const GUI_VERSION = '0.17.0 · export to GitBook (Markdown) and social threads (X/Reddit)';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
@@ -192,6 +194,27 @@ async function runHtmlJob(job: Job, params: any) {
   }
 }
 
+/** Load a guide (+ its MP4, if rendered) from a guide directory for export. */
+async function loadGuideForExport(dir: string): Promise<{ guide: Guide; guideDir: string; mp4: Buffer | null }> {
+  const gj = path.join(dir, 'guide.json');
+  const ph = path.join(dir, 'player.html');
+  let guide: Guide;
+  if (existsSync(gj)) guide = JSON.parse(await readFile(gj, 'utf8'));
+  else if (existsSync(ph)) guide = guideFromHtml(await readFile(ph, 'utf8'));
+  else throw new Error('This guide has no guide.json or player.html to export.');
+  const mp4Path = path.join(dir, 'guide.mp4');
+  const mp4 = existsSync(mp4Path) ? await readFile(mp4Path) : null;
+  return { guide, guideDir: dir, mp4 };
+}
+
+function sendZip(res: http.ServerResponse, zip: Buffer, filename: string) {
+  res.writeHead(200, {
+    'content-type': 'application/zip',
+    'content-disposition': `attachment; filename="${filename}"`,
+    'cache-control': 'no-store',
+  }).end(zip);
+}
+
 async function listGuides() {
   if (!existsSync(GUIDES)) return [];
   const dirs = await readdir(GUIDES);
@@ -298,6 +321,43 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
         jobs.set(id, job);
         runHtmlJob(job, params);
         res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jobId: id, guideId }));
+        return;
+      }
+      // Export an edited player.html directly to a shareable .zip (no render).
+      if (p === '/api/export-html' && req.method === 'POST') {
+        const params = await readBody(req);
+        const format = String(params.format || '').toLowerCase() as ExportFormat;
+        if (format !== 'gitbook' && format !== 'social') {
+          res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'format must be gitbook or social' }));
+          return;
+        }
+        if (!params.html || typeof params.html !== 'string') {
+          res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: 'No player.html content was received.' }));
+          return;
+        }
+        try {
+          const guide = guideFromHtml(params.html);
+          const { zip, filename } = buildExport(format, { guide });
+          sendZip(res, zip, filename);
+        } catch (err: any) {
+          res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: err?.message || String(err) }));
+        }
+        return;
+      }
+      // Export an existing guide (from the library) to a shareable .zip.
+      const exMatch = p.match(/^\/api\/export\/([^/]+)$/);
+      if (exMatch && req.method === 'GET') {
+        const format = String(u.searchParams.get('format') || '').toLowerCase() as ExportFormat;
+        if (format !== 'gitbook' && format !== 'social') { res.writeHead(400).end('bad format'); return; }
+        const dir = path.join(GUIDES, exMatch[1]);
+        if (!dir.startsWith(GUIDES) || !existsSync(dir)) { res.writeHead(404).end('no such guide'); return; }
+        try {
+          const src = await loadGuideForExport(dir);
+          const { zip, filename } = buildExport(format, src);
+          sendZip(res, zip, filename);
+        } catch (err: any) {
+          res.writeHead(400).end('Export failed: ' + (err?.message || err));
+        }
         return;
       }
       const evMatch = p.match(/^\/api\/events\/(.+)$/);

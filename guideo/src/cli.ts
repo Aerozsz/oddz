@@ -6,7 +6,10 @@ import { mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { explore } from './explore.js';
 import { buildPlayer } from './build-player.js';
-import { renderVideo, renderVideoFromHtml } from './render.js';
+import { renderVideo, renderVideoFromHtml, guideFromHtml } from './render.js';
+import { buildExport, type ExportFormat } from './export.js';
+import { existsSync, statSync, writeFileSync } from 'node:fs';
+import type { Guide } from './types.js';
 import { serveDir } from './server.js';
 import { startGui } from './gui.js';
 import { ensureBrowser } from './browser.js';
@@ -172,6 +175,36 @@ program
       onProgress: bar, onLog: (m) => log('   ' + m),
     });
     log(`   → ${mp4}`);
+  });
+
+program
+  .command('export')
+  .description('Export a guide to GitBook (Markdown) or a social thread (X/Reddit) as a .zip')
+  .argument('<path>', 'a player.html file, or a guide directory')
+  .requiredOption('-f, --format <fmt>', 'gitbook | social')
+  .option('-o, --out <file>', 'output .zip path')
+  .action((p, opts) => {
+    const fmt = String(opts.format).toLowerCase() as ExportFormat;
+    if (fmt !== 'gitbook' && fmt !== 'social') { log('   ⚠ --format must be "gitbook" or "social"'); process.exit(1); }
+    const src = path.resolve(p);
+    let guide: Guide, guideDir: string | undefined, mp4: Buffer | null = null;
+    if (/\.html?$/i.test(src)) {
+      guide = guideFromHtml(readFileSync(src, 'utf8'));
+      const sibling = path.join(path.dirname(src), 'guide.mp4');
+      if (existsSync(sibling)) mp4 = readFileSync(sibling);
+    } else {
+      guideDir = src;
+      const gj = path.join(src, 'guide.json');
+      const ph = path.join(src, 'player.html');
+      if (existsSync(gj)) guide = JSON.parse(readFileSync(gj, 'utf8'));
+      else if (existsSync(ph)) guide = guideFromHtml(readFileSync(ph, 'utf8'));
+      else { log('   ⚠ no guide.json or player.html found in ' + src); process.exit(1); return; }
+      if (existsSync(path.join(src, 'guide.mp4'))) mp4 = readFileSync(path.join(src, 'guide.mp4'));
+    }
+    const res = buildExport(fmt, { guide, guideDir, mp4 });
+    const out = opts.out ? path.resolve(opts.out) : path.join(process.cwd(), res.filename);
+    writeFileSync(out, res.zip);
+    log(`📦 Exported ${fmt} → ${out} (${(statSync(out).size / 1024).toFixed(0)} KB)`);
   });
 
 program
