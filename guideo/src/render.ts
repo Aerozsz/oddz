@@ -163,6 +163,74 @@ export async function renderVideoFromHtml(opts: RenderHtmlOptions): Promise<stri
   }
 }
 
+export interface StillsOptions {
+  /** Source: an edited player.html, or a guide (+ dir for on-disk images). */
+  html?: string;
+  guide?: Guide;
+  guideDir?: string;
+  /** Output height in px (drives width from aspect). Default 1080. */
+  height?: number;
+  onProgress?: (done: number, total: number) => void;
+  onLog?: (m: string) => void;
+}
+
+/** Render one composited still per step — the finished frame with captions,
+ *  highlight boxes, dimming, labels and cursor baked in (what the MP4 shows).
+ *  Used by the image exports so they don't ship bare screenshots. */
+export async function renderStills(opts: StillsOptions): Promise<Buffer[]> {
+  const guide: Guide = opts.guide ?? (opts.html ? guideFromHtml(opts.html) : (() => { throw new Error('renderStills needs html or a guide'); })());
+  const renderGuide: Guide = JSON.parse(JSON.stringify(guide));
+  await prepareMedia(renderGuide, opts.onLog);
+
+  const dir = await mkdtemp(path.join(os.tmpdir(), 'guideo-stills-'));
+  try {
+    let playerPath: string;
+    if (opts.html) {
+      playerPath = path.join(dir, 'p.html');
+      await writeFile(playerPath, replaceGuideData(opts.html, renderGuide));
+    } else {
+      playerPath = await buildPlayer(opts.guideDir ?? dir, renderGuide, path.join(dir, 'p.html'));
+    }
+
+    const vw = guide.meta.viewport.width, vh = guide.meta.viewport.height;
+    const height = even(opts.height ?? 1080);
+    const width = even(Math.round((height * vw) / vh));
+
+    const browser = await launchChromium({ headless: true });
+    const page = await browser.newPage({ viewport: { width: width + 40, height: height + 40 }, deviceScaleFactor: 1 });
+    const shots: Buffer[] = [];
+    try {
+      await page.addInitScript('window.__guideoNoRestore = true;');
+      await page.goto(pathToFileURL(playerPath).toString(), { waitUntil: 'load' });
+      await page.addStyleTag({ content: filmCss(width, height) });
+      await page.evaluate(() => (window as any).guideo.ready);
+      await page.waitForTimeout(120);
+
+      const durs = renderGuide.steps.map((s) => Math.max(300, s.durationMs || 3500));
+      const starts: number[] = []; let t = 0; for (const d of durs) { starts.push(t); t += d; }
+      const stage = page.locator('#stage');
+      for (let i = 0; i < renderGuide.steps.length; i++) {
+        // A representative moment: past the fade-in, mid-step, where captions and
+        // highlights are on screen.
+        const local = Math.min(durs[i] - 1, Math.max(520, Math.round(durs[i] * 0.6)));
+        const at = starts[i] + local;
+        await page.evaluate(
+          (ms) => Promise.resolve((window as any).guideo.seek(ms)).then(
+            () => new Promise<void>((res) => requestAnimationFrame(() => requestAnimationFrame(() => res())))
+          ), at
+        );
+        shots.push(await stage.screenshot({ type: 'png' }));
+        opts.onProgress?.(i + 1, renderGuide.steps.length);
+      }
+    } finally {
+      await browser.close();
+    }
+    return shots;
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
+}
+
 interface PipeOptions {
   playerPath: string;
   guide: Guide;

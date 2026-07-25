@@ -5,7 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { explore } from './explore.js';
 import { buildPlayer } from './build-player.js';
-import { renderVideo, renderVideoFromHtml, guideFromHtml } from './render.js';
+import { renderVideo, renderVideoFromHtml, guideFromHtml, renderStills } from './render.js';
 import { buildExport, type ExportFormat } from './export.js';
 import { buildDocsite, writeDocsite } from './docsite.js';
 import { buildVocsProject } from './vocs.js';
@@ -36,7 +36,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.21.0 · upload player.html → Vocs project + deploy to Vercel in one step';
+export const GUI_VERSION = '0.22.0 · exports/docs use composited frames (captions, highlights, dimming baked in)';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
@@ -195,9 +195,11 @@ async function runDeployJob(job: Job, params: any) {
     const src = await loadGuideForExport(dir);
     const vocs = params.engine === 'vocs';
     job.phase = 'building';
+    emit(job, { type: 'phase', phase: 'building', msg: 'Rendering composited frames…' });
+    const stills = await stillsFor(src, (m) => emit(job, { type: 'log', msg: m }));
     emit(job, { type: 'phase', phase: 'building', msg: vocs ? 'Building the Vocs docs project…' : 'Building the docs site…' });
     const siteDir = path.join(dir, vocs ? 'vocs' : 'site');
-    await writeDocsite(vocs ? buildVocsProject(src) : buildDocsite(src), siteDir);
+    await writeDocsite(vocs ? buildVocsProject({ ...src, stills }) : buildDocsite({ ...src, stills }), siteDir);
     if (vocs) emit(job, { type: 'log', msg: 'Vercel will install deps and run the Vocs build (this can take a couple of minutes).' });
     await deployDirectory(job, siteDir, params);
   } catch (e: any) {
@@ -231,9 +233,11 @@ async function runDeployHtmlJob(job: Job, params: any) {
     const dir = path.join(GUIDES, job.guideId);
     const src = await loadGuideForExport(dir);
     const vocs = params.engine === 'vocs';
+    emit(job, { type: 'phase', phase: 'building', msg: 'Rendering composited frames…' });
+    const stills = await stillsFor({ html: params.html }, (m) => emit(job, { type: 'log', msg: m }));
     emit(job, { type: 'phase', phase: 'building', msg: vocs ? 'Building the Vocs docs project…' : 'Building the docs site…' });
     const siteDir = path.join(dir, vocs ? 'vocs' : 'site');
-    await writeDocsite(vocs ? buildVocsProject(src) : buildDocsite(src), siteDir);
+    await writeDocsite(vocs ? buildVocsProject({ ...src, stills }) : buildDocsite({ ...src, stills }), siteDir);
     if (vocs) emit(job, { type: 'log', msg: 'Vercel will install deps and run the Vocs build (this can take a couple of minutes).' });
     await deployDirectory(job, siteDir, params);
   } catch (e: any) {
@@ -280,6 +284,18 @@ async function runHtmlJob(job: Job, params: any) {
     job.status = 'error';
     job.error = err?.message || String(err);
     emit(job, { type: 'error', msg: job.error });
+  }
+}
+
+/** Render composited stills (caption/highlights baked in) for image exports.
+ *  Falls back to undefined (raw screenshots) if the browser render fails. */
+async function stillsFor(input: { guide?: Guide; guideDir?: string; html?: string }, onLog?: (m: string) => void): Promise<Buffer[] | undefined> {
+  try {
+    await ensureBrowser(() => {});
+    return await renderStills(input.html ? { html: input.html } : { guide: input.guide, guideDir: input.guideDir });
+  } catch (e: any) {
+    onLog?.('Could not render composited frames (' + (e?.message || e) + '); using raw screenshots.');
+    return undefined;
   }
 }
 
@@ -430,7 +446,8 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
         }
         try {
           const guide = guideFromHtml(params.html);
-          const { zip, filename } = buildExport(format, { guide });
+          const stills = await stillsFor({ html: params.html });
+          const { zip, filename } = buildExport(format, { guide, stills });
           sendZip(res, zip, filename);
         } catch (err: any) {
           res.writeHead(400, { 'content-type': 'application/json' }).end(JSON.stringify({ error: err?.message || String(err) }));
@@ -446,7 +463,8 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
         }
         try {
           const guide = guideFromHtml(params.html);
-          const files = buildVocsProject({ guide });
+          const stills = await stillsFor({ html: params.html });
+          const files = buildVocsProject({ guide, stills });
           const zip = makeZip(files.map((f) => ({ name: f.file, data: Buffer.from(f.data, f.encoding === 'base64' ? 'base64' : 'utf8') })));
           sendZip(res, zip, (guide.meta?.title ? guide.meta.title.replace(/\W+/g, '-').slice(0, 40) : 'guide') + '-vocs-project.zip');
         } catch (err: any) {
@@ -476,7 +494,8 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
         if (!dir.startsWith(GUIDES) || !existsSync(dir)) { res.writeHead(404).end('no such guide'); return; }
         try {
           const src = await loadGuideForExport(dir);
-          const files = buildDocsite(src);
+          const stills = await stillsFor(src);
+          const files = buildDocsite({ ...src, stills });
           if (u.searchParams.get('zip') === '1') {
             const zip = makeZip(files.map((f) => ({ name: f.file, data: Buffer.from(f.data, f.encoding === 'base64' ? 'base64' : 'utf8') })));
             sendZip(res, zip, (src.guide.meta?.title ? src.guide.meta.title.replace(/\W+/g, '-').slice(0, 40) : 'guide') + '-docs-site.zip');
@@ -510,7 +529,8 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
         if (!dir.startsWith(GUIDES) || !existsSync(dir)) { res.writeHead(404).end('no such guide'); return; }
         try {
           const src = await loadGuideForExport(dir);
-          const files = buildVocsProject(src);
+          const stills = await stillsFor(src);
+          const files = buildVocsProject({ ...src, stills });
           const zip = makeZip(files.map((f) => ({ name: f.file, data: Buffer.from(f.data, f.encoding === 'base64' ? 'base64' : 'utf8') })));
           sendZip(res, zip, (src.guide.meta?.title ? src.guide.meta.title.replace(/\W+/g, '-').slice(0, 40) : 'guide') + '-vocs-project.zip');
         } catch (err: any) {
@@ -527,7 +547,8 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
         if (!dir.startsWith(GUIDES) || !existsSync(dir)) { res.writeHead(404).end('no such guide'); return; }
         try {
           const src = await loadGuideForExport(dir);
-          const { zip, filename } = buildExport(format, src);
+          const stills = await stillsFor(src);
+          const { zip, filename } = buildExport(format, { ...src, stills });
           sendZip(res, zip, filename);
         } catch (err: any) {
           res.writeHead(400).end('Export failed: ' + (err?.message || err));

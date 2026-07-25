@@ -6,7 +6,7 @@ import { mkdir } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { explore } from './explore.js';
 import { buildPlayer } from './build-player.js';
-import { renderVideo, renderVideoFromHtml, guideFromHtml } from './render.js';
+import { renderVideo, renderVideoFromHtml, guideFromHtml, renderStills } from './render.js';
 import { buildExport, type ExportFormat } from './export.js';
 import { buildDocsite, writeDocsite } from './docsite.js';
 import { buildVocsProject } from './vocs.js';
@@ -205,7 +205,7 @@ program
   .argument('<path>', 'a player.html file, or a guide directory')
   .requiredOption('-f, --format <fmt>', 'gitbook | social')
   .option('-o, --out <file>', 'output .zip path')
-  .action((p, opts) => {
+  .action(async (p, opts) => {
     const fmt = String(opts.format).toLowerCase() as ExportFormat;
     if (fmt !== 'gitbook' && fmt !== 'social') { log('   ⚠ --format must be "gitbook" or "social"'); process.exit(1); }
     const src = path.resolve(p);
@@ -223,7 +223,10 @@ program
       else { log('   ⚠ no guide.json or player.html found in ' + src); process.exit(1); return; }
       if (existsSync(path.join(src, 'guide.mp4'))) mp4 = readFileSync(path.join(src, 'guide.mp4'));
     }
-    const res = buildExport(fmt, { guide, guideDir, mp4 });
+    await ensureBrowser((m) => log('   ' + m));
+    log('   rendering composited frames…');
+    const stills = await renderStills({ guide, guideDir }).catch(() => undefined);
+    const res = buildExport(fmt, { guide, guideDir, mp4, stills });
     const out = opts.out ? path.resolve(opts.out) : path.join(process.cwd(), res.filename);
     writeFileSync(out, res.zip);
     log(`📦 Exported ${fmt} → ${out} (${(statSync(out).size / 1024).toFixed(0)} KB)`);
@@ -236,7 +239,10 @@ program
   .option('-o, --out <dir>', 'output directory', 'docs-site')
   .action(async (p, opts) => {
     const src = loadGuideSource(p);
-    const files = buildDocsite(src);
+    await ensureBrowser((m) => log('   ' + m));
+    log('   rendering composited frames…');
+    const stills = await renderStills({ guide: src.guide, guideDir: src.guideDir }).catch(() => undefined);
+    const files = buildDocsite({ ...src, stills });
     const out = path.resolve(opts.out);
     const index = await writeDocsite(files, out);
     log(`📖 Built docs site → ${index}`);
@@ -251,7 +257,10 @@ program
   .option('-o, --out <dir>', 'output directory', 'vocs-docs')
   .action(async (p, opts) => {
     const src = loadGuideSource(p);
-    const files = buildVocsProject(src);
+    await ensureBrowser((m) => log('   ' + m));
+    log('   rendering composited frames…');
+    const stills = await renderStills({ guide: src.guide, guideDir: src.guideDir }).catch(() => undefined);
+    const files = buildVocsProject({ ...src, stills });
     const out = path.resolve(opts.out);
     await writeDocsite(files, out); // same writer (path/data tree)
     log(`📗 Built Vocs project → ${out}`);

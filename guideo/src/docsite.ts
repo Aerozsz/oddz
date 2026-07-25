@@ -191,6 +191,8 @@ export interface DocsiteInput {
   guide: Guide;
   guideDir?: string;
   mp4?: Buffer | null;
+  /** Composited still per step (caption/highlights baked in); overrides raw screenshots. */
+  stills?: (Buffer | null)[];
 }
 
 function logoTag(cls = ''): string {
@@ -215,6 +217,13 @@ export function buildDocsite(input: DocsiteInput): SiteFile[] {
   const hasLogo = !!logoLight;
   const imgNames: (string | null)[] = [];
   guide.steps.forEach((s, i) => {
+    const still = input.stills && input.stills[i];
+    if (still) {
+      const name = 'assets/step-' + pad(i + 1) + '.png';
+      files.push({ file: name, data: still.toString('base64'), encoding: 'base64' });
+      imgNames.push(name);
+      return;
+    }
     const img = decodeImage(s.image, input.guideDir);
     if (img) {
       const name = 'assets/step-' + pad(i + 1) + '.' + img.ext;

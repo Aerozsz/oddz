@@ -49,6 +49,8 @@ export interface VocsInput {
   guide: Guide;
   guideDir?: string;
   mp4?: Buffer | null;
+  /** Composited still per step (caption/highlights baked in); overrides raw screenshots. */
+  stills?: (Buffer | null)[];
 }
 
 export function buildVocsProject(input: VocsInput): SiteFile[] {
@@ -71,6 +73,13 @@ export function buildVocsProject(input: VocsInput): SiteFile[] {
 
   const imgNames: (string | null)[] = [];
   guide.steps.forEach((s, i) => {
+    const still = input.stills && input.stills[i];
+    if (still) {
+      const name = 'guide-assets/step-' + pad(i + 1) + '.png';
+      files.push({ file: 'public/' + name, data: still.toString('base64'), encoding: 'base64' });
+      imgNames.push('/' + name);
+      return;
+    }
     const img = decodeImage(s.image, input.guideDir);
     if (img) {
       const name = 'guide-assets/step-' + pad(i + 1) + '.' + img.ext;

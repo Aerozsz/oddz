@@ -37,11 +37,19 @@ function slug(s: string, fallback = 'guide'): string {
 function pad(n: number): string { return String(n).padStart(2, '0'); }
 function clean(s: string | undefined): string { return String(s || '').replace(/\s+/g, ' ').trim(); }
 
-/** Collect each step's still image (skips pure video/GIF steps that have none). */
-function stepImages(guide: Guide, guideDir?: string): { entries: ZipEntry[]; names: (string | null)[] } {
+/** Collect each step's image. Prefers a composited still (caption/highlights/
+ *  dimming baked in) when provided; falls back to the raw screenshot. */
+function stepImages(guide: Guide, guideDir?: string, stills?: (Buffer | null)[]): { entries: ZipEntry[]; names: (string | null)[] } {
   const entries: ZipEntry[] = [];
   const names: (string | null)[] = [];
   guide.steps.forEach((s: Step, i) => {
+    const still = stills && stills[i];
+    if (still) {
+      const name = 'assets/step-' + pad(i + 1) + '.png';
+      entries.push({ name, data: still });
+      names.push(name);
+      return;
+    }
     const img = decodeImage(s.image, guideDir);
     if (img) {
       const name = 'assets/step-' + pad(i + 1) + '.' + img.ext;
@@ -149,6 +157,8 @@ export interface ExportInput {
   guideDir?: string;
   /** The rendered MP4, to include in the bundle (optional). */
   mp4?: Buffer | null;
+  /** Composited still per step (caption/highlights baked in); overrides raw screenshots. */
+  stills?: (Buffer | null)[];
 }
 
 export interface ExportResult {
@@ -158,7 +168,7 @@ export interface ExportResult {
 
 export function buildExport(format: ExportFormat, input: ExportInput): ExportResult {
   const { guide } = input;
-  const { entries: imgEntries, names } = stepImages(guide, input.guideDir);
+  const { entries: imgEntries, names } = stepImages(guide, input.guideDir, input.stills);
   const hasVideo = !!input.mp4;
   const base = slug(guide.meta && guide.meta.title);
   const files: ZipEntry[] = [...imgEntries];
