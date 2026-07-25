@@ -217,6 +217,7 @@ function done(ev) {
   acts.appendChild(actionBtn('📖 Preview docs site', (b) => previewSite(ev.guideId, b)));
   acts.appendChild(actionBtn('🚀 Deploy to Vercel', () => deploySite(ev.guideId)));
   acts.appendChild(linkBtn('⬇ Deployable site (.zip)', '/api/docsite/' + ev.guideId + '?zip=1', false));
+  acts.appendChild(linkBtn('⬇ Vocs project (.zip)', '/api/vocs/' + ev.guideId, false));
   if (ev.capture) {
     acts.appendChild(linkBtn('⬇ wallet-calls.json', base + '/wallet-calls.json?dl=1', false));
     acts.appendChild(linkBtn('⬇ network.json', base + '/network.json?dl=1', false));
@@ -318,6 +319,7 @@ async function loadLib() {
     acts.appendChild(linkBtn('📘 GitBook', '/api/export/' + it.id + '?format=gitbook', false));
     acts.appendChild(linkBtn('📣 Social', '/api/export/' + it.id + '?format=social', false));
     acts.appendChild(actionBtn('📖 Docs site', (b) => previewSite(it.id, b)));
+    acts.appendChild(linkBtn('📗 Vocs .zip', '/api/vocs/' + it.id, false));
     acts.appendChild(actionBtn('🚀 Deploy', () => deploySite(it.id)));
     lib.appendChild(el);
   }

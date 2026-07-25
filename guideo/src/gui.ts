@@ -8,6 +8,7 @@ import { buildPlayer } from './build-player.js';
 import { renderVideo, renderVideoFromHtml, guideFromHtml } from './render.js';
 import { buildExport, type ExportFormat } from './export.js';
 import { buildDocsite, writeDocsite } from './docsite.js';
+import { buildVocsProject } from './vocs.js';
 import { makeZip } from './zip.js';
 import type { Guide } from './types.js';
 import { serveDir } from './server.js';
@@ -35,7 +36,7 @@ interface Job {
 const jobs = new Map<string, Job>();
 
 /** Bump when the GUI gains features, so users can confirm they're up to date. */
-export const GUI_VERSION = '0.19.0 · GitBook-style docs site (Makina theme) preview + Vercel deploy';
+export const GUI_VERSION = '0.20.0 · multi-page docs site + real Vocs project export';
 
 function emit(job: Job, ev: any) {
   const withTs = { ...ev, t: Date.now() };
@@ -428,6 +429,21 @@ export async function startGui(port = 4600): Promise<{ url: string }> {
         jobs.set(id, job);
         runDeployJob(job, params);
         res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ jobId: id }));
+        return;
+      }
+      // Download a real Vocs project (Makina-themed) as a .zip.
+      const vocsMatch = p.match(/^\/api\/vocs\/([^/]+)$/);
+      if (vocsMatch && req.method === 'GET') {
+        const dir = path.join(GUIDES, vocsMatch[1]);
+        if (!dir.startsWith(GUIDES) || !existsSync(dir)) { res.writeHead(404).end('no such guide'); return; }
+        try {
+          const src = await loadGuideForExport(dir);
+          const files = buildVocsProject(src);
+          const zip = makeZip(files.map((f) => ({ name: f.file, data: Buffer.from(f.data, f.encoding === 'base64' ? 'base64' : 'utf8') })));
+          sendZip(res, zip, (src.guide.meta?.title ? src.guide.meta.title.replace(/\W+/g, '-').slice(0, 40) : 'guide') + '-vocs-project.zip');
+        } catch (err: any) {
+          res.writeHead(400).end('Vocs export failed: ' + (err?.message || err));
+        }
         return;
       }
       // Export an existing guide (from the library) to a shareable .zip.

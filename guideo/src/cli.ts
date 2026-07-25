@@ -9,6 +9,7 @@ import { buildPlayer } from './build-player.js';
 import { renderVideo, renderVideoFromHtml, guideFromHtml } from './render.js';
 import { buildExport, type ExportFormat } from './export.js';
 import { buildDocsite, writeDocsite } from './docsite.js';
+import { buildVocsProject } from './vocs.js';
 import { existsSync, statSync, writeFileSync } from 'node:fs';
 import type { Guide } from './types.js';
 
@@ -244,6 +245,21 @@ program
   });
 
 program
+  .command('vocs')
+  .description('Emit a real Vocs docs project (Makina theme, one page per section)')
+  .argument('<path>', 'a player.html file, or a guide directory')
+  .option('-o, --out <dir>', 'output directory', 'vocs-docs')
+  .action(async (p, opts) => {
+    const src = loadGuideSource(p);
+    const files = buildVocsProject(src);
+    const out = path.resolve(opts.out);
+    await writeDocsite(files, out); // same writer (path/data tree)
+    log(`📗 Built Vocs project → ${out}`);
+    log(`   cd ${opts.out} && npm install && npm run dev    (edit MDX in src/pages/)`);
+    log(`   Deploy: guideo deploy ${opts.out} --prod        (Vercel runs the Vocs build)`);
+  });
+
+program
   .command('deploy')
   .description('Deploy a guide (or a built docs site) to Vercel')
   .argument('<path>', 'a player.html, a guide directory, or a docs-site directory')
@@ -253,7 +269,8 @@ program
     const src = path.resolve(p);
     // If it already looks like a built site, deploy it as-is; else build one.
     let siteDir: string;
-    if (existsSync(path.join(src, 'index.html'))) {
+    if (existsSync(path.join(src, 'index.html')) || existsSync(path.join(src, 'package.json'))) {
+      // Already a built static site, or a Vocs project Vercel can build.
       siteDir = src;
     } else {
       const source = loadGuideSource(p);

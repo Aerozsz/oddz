@@ -1,0 +1,144 @@
+/**
+ * Makina Docs — Vocs theme overrides.
+ *
+ * Re-maps the Makina design system (previously expressed as Infima variables in
+ * the Docusaurus `custom.css`) onto Vocs' semantic CSS variables. Vocs prefixes
+ * all of its theme tokens with `--vocs-` (Tailwind prefix), and toggles
+ * `color-scheme` per theme, so `light-dark(<light>, <dark>)` resolves correctly.
+ *
+ * Source palette (Makina Design System / Figma):
+ *   Light  bg #E3E3E3 · card #F1F1F1 · text #1E293B · muted #6B6B7B · accent #0891B2
+ *   Dark   bg #0F172A · card #1E293B · text #ECFEFF · muted #7E8B95 · accent #3DC9DE
+ * The accent ramp is configured via `accentColor` in vocs.config.ts.
+ */
+
+/* KaTeX styles for math rendered via remark-math + rehype-katex (vocs.config.ts). */
+@import "katex/dist/katex.min.css";
+
+:root {
+  /* Typography — match the Docusaurus/Infima system font stack (Vocs defaults to Geist). */
+  --vocs-font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu,
+    Cantarell, "Open Sans", "Helvetica Neue", sans-serif;
+
+  /* Backgrounds — Light/background · Light/card  /  Dark/background · Dark/card */
+  --vocs-background-color-primary: light-dark(#e3e3e3, #0f172a);
+  --vocs-background-color-surface: light-dark(#f1f1f1, #1e293b);
+  --vocs-background-color-surfaceMuted: light-dark(#e9e9e9, #172033);
+  --vocs-background-color-surfaceTint: light-dark(#f1f1f1, #243044);
+  --vocs-background-color-blockquote: light-dark(#ececec, #172033);
+  --vocs-color-background2: light-dark(#ececec, #172033);
+
+  /* Text — Light/primary · Light/secondary  /  Dark/primary · Dark/secondary */
+  --vocs-text-color-primary: light-dark(#1e293b, #ecfeff);
+  --vocs-text-color-secondary: light-dark(#6b6b7b, #7e8b95);
+  --vocs-text-color-muted: light-dark(#6b6b7b, #7e8b95);
+  --vocs-text-color-heading: light-dark(#1e293b, #ecfeff);
+
+  /* Links — teal accent (content links are already underlined by Vocs). */
+  --vocs-text-color-link: light-dark(#0891b2, #3dc9de);
+  --vocs-text-color-link-hover: light-dark(#0779a0, #23bdd5);
+
+  /* Borders — Light/soft · Dark/muted */
+  --vocs-border-color-primary: light-dark(#dddddd, #273243);
+  --vocs-border-color-secondary: light-dark(#dddddd, #273243);
+
+  /* Code — Light/card · Dark/card */
+  --vocs-background-color-code-block: light-dark(#f1f1f1, #1e293b);
+  --vocs-background-color-inline-code: light-dark(#f1f1f1, #1e293b);
+
+  /* Status palette → drives callouts (info/note/tip/warning/danger/success). */
+  --vocs-color-blue: #3dc9de;
+  --vocs-color-green: #91ce59;
+  --vocs-color-yellow: #ecbb3e;
+  --vocs-color-red: #f64646;
+}
+
+/*
+ * Home page (the only `minimal`-layout page) forces the sidebar footer on so the
+ * theme toggle and socials stay in the bottom-left corner. Vocs only paints its
+ * surface panel for `full`-layout content, so under `minimal` it leaks out as a
+ * lighter strip beside the primary-background content. Hide it so the landing
+ * page keeps a single, consistent background. Content pages are `full`, untouched.
+ */
+[data-layout="minimal"] [data-v-surface-bg] {
+  display: none;
+}
+
+/* Home page hero: a larger logo and a bigger, two-line title, with a wider
+   subtitle. The `home-*` classes are passed to the Vocs HomePage components and
+   override their default Tailwind sizing.
+
+   Narrow viewports stack the logo above a centered title (the long word
+   "Documentation" plus the logo can't fit beside each other on a phone, and the
+   flex row neither wraps nor shrinks, so a fixed row overflows off-screen). At
+   md+ the logo moves beside the title, left-aligned so the "M" of Makina lines
+   up above the "D" of Documentation. Sizes are fluid (clamp) so the title scales
+   with the viewport and never overflows. */
+.home-logo {
+  height: clamp(4rem, 12vw, 7rem);
+}
+
+.home-hero-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+
+.home-title {
+  max-width: none;
+  text-align: center;
+  font-size: clamp(2.25rem, 9vw, 4.5rem);
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+
+.home-subtitle {
+  max-width: 42rem;
+}
+
+@media (min-width: 768px) {
+  .home-hero-head {
+    flex-direction: row;
+    gap: 1.5rem;
+  }
+
+  .home-title {
+    text-align: left;
+  }
+}
+
+/* "Docs" wordmark beside the nav logo glyph. Vocs only renders the logo image,
+   so we append the text on the logo's flex container (the `[data-v-logo]` that
+   directly holds the image). The hero logo uses different markup, so it is
+   unaffected. */
+[data-v-logo]:has(> [data-v-logo-image])::after {
+  content: "Docs";
+  margin-left: 0.5rem;
+  font-size: 1.25rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--vocs-text-color-heading);
+}
+
+/* The leading page link ("Introduction") is wrapped in an untitled, empty-header
+   section that Vocs marks expanded (data-collapsed="false"), so it picks up the
+   inter-section `mb-4` gap that the collapsed sibling sections don't have, leaving
+   it visually segregated. Drop that gap and give the link the same row height as a
+   section header so the top-level entries share one even rhythm. */
+[data-v-sidebar] > section:has(> [data-empty]) {
+  margin-bottom: 0;
+}
+
+[data-v-sidebar]
+  > section:has(> [data-empty])
+  > [data-v-sidebar-section-content]
+  > [data-v-sidebar-item] {
+  height: 2.5em;
+  margin-top: 0;
+  margin-bottom: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}
