@@ -210,6 +210,59 @@ export const intcMonitorRuns = pgTable("intc_monitor_runs", {
 export type IntcNews = typeof intcNews.$inferSelect;
 export type NewIntcNews = typeof intcNews.$inferInsert;
 
+/**
+ * Geopolitics / peace↔war feed. One row per deduped Trump geopolitics headline,
+ * classified onto the escalation↔de-escalation axis with a theater and a
+ * market lean. Powers the two-sided dashboard's current-tilt gauge.
+ */
+export const geoSignals = pgTable(
+  "geo_signals",
+  {
+    id: text().primaryKey(),
+    sourceSlug: text().notNull(),
+    sourceLabel: text().notNull(),
+    title: text().notNull(),
+    url: text().notNull(),
+    summary: text(),
+    /** escalation | deescalation | neutral */
+    side: text().$type<"escalation" | "deescalation" | "neutral">().notNull(),
+    /** russia-ukraine | middle-east | china-taiwan | north-korea | trade | other */
+    theater: text().notNull(),
+    /** low | medium | high | critical */
+    intensity: text().$type<"low" | "medium" | "high" | "critical">().notNull(),
+    /** risk_on | risk_off | mixed */
+    marketLean: text().$type<"risk_on" | "risk_off" | "mixed">().notNull(),
+    score: integer().notNull().default(0),
+    tags: jsonb().$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    publishedAt: timestamp({ withTimezone: true }),
+    firstSeenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    notifiedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    index("geo_signals_first_seen_idx").on(t.firstSeenAt),
+    index("geo_signals_side_idx").on(t.side),
+    index("geo_signals_theater_idx").on(t.theater),
+  ],
+);
+
+export const geoMonitorRuns = pgTable("geo_monitor_runs", {
+  id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp({ withTimezone: true }),
+  status: text().notNull().default("running"),
+  fetched: integer().notNull().default(0),
+  relevant: integer().notNull().default(0),
+  inserted: integer().notNull().default(0),
+  notified: integer().notNull().default(0),
+  stats: jsonb()
+    .$type<Record<string, { fetched: number; error?: string }>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+});
+
+export type GeoSignal = typeof geoSignals.$inferSelect;
+export type NewGeoSignal = typeof geoSignals.$inferInsert;
+
 export type Venue = typeof venues.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type Market = typeof markets.$inferSelect;

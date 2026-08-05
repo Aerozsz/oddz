@@ -1,5 +1,5 @@
-import { parseFeed } from "../rss";
-import { fetchText } from "../net";
+import { parseFeed } from "../../feeds/rss";
+import { fetchText } from "../../feeds/net";
 import type { FetchNewsOptions, NewsSource, RawNewsItem } from "../types";
 
 /**

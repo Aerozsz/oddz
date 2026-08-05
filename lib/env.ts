@@ -21,6 +21,12 @@ const schema = z.object({
   INTC_WEBHOOK_URL: z.string().url().optional(),
   /** Push only items at or above this severity. Default: high. */
   INTC_MIN_SEVERITY: z.enum(["low", "medium", "high", "critical"]).default("high"),
+
+  // --- Geopolitics / peace↔war monitor ----------------------------------
+  /** RSS feed of Trump's Truth Social posts (self-hosted bridge or hosted). */
+  TRUTH_SOCIAL_RSS_URL: z.string().url().optional(),
+  /** Push only geo signals at or above this intensity. Default: high. */
+  GEO_MIN_INTENSITY: z.enum(["low", "medium", "high", "critical"]).default("high"),
 });
 
 export type Env = z.infer<typeof schema>;
@@ -47,6 +53,8 @@ export function env(): Env {
     NTFY_SERVER: process.env.NTFY_SERVER,
     INTC_WEBHOOK_URL: process.env.INTC_WEBHOOK_URL,
     INTC_MIN_SEVERITY: process.env.INTC_MIN_SEVERITY,
+    TRUTH_SOCIAL_RSS_URL: process.env.TRUTH_SOCIAL_RSS_URL,
+    GEO_MIN_INTENSITY: process.env.GEO_MIN_INTENSITY,
   };
   const parsed = schema.safeParse(raw);
   if (!parsed.success) {

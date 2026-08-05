@@ -45,7 +45,10 @@ const SECTIONS: Section[] = [
   },
   {
     label: "Watch",
-    items: [{ href: "/intc", label: "INTC foundry" }],
+    items: [
+      { href: "/intc", label: "INTC foundry" },
+      { href: "/geopolitics", label: "Peace ↔ War" },
+    ],
   },
   {
     label: "System",

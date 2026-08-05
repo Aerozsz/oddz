@@ -84,6 +84,25 @@ deterministic id, so a re-poll never double-pushes.
 - **Local run**: `npm run intc:once`. **Channels**: see `.env.example`.
 - **Design + thesis**: `docs/intc-foundry-monitor.md`.
 
+## Peace ↔ War monitor
+
+An omnisourced, at-a-glance tracker for Trump's market-moving announcements on
+one bipolar axis — escalation (risk-off) ↔ de-escalation (risk-on). A live
+**tilt gauge** (recency/intensity-weighted net of the last 48h) sits above a
+**theater strip** (Russia–Ukraine, Middle East, China–Taiwan, N. Korea,
+Trade) and **two side-by-side columns** so both sides are always in view;
+click a theater to scope everything to it. Classifier scores each side
+independently (`lib/geo/classify.ts`); genuinely mixed headlines land in a
+Mixed lane rather than being force-picked. Sources: Google News RSS + Trump's
+Truth Social feed (`TRUTH_SOCIAL_RSS_URL`).
+
+- **Dashboard**: `/geopolitics`. **Tick**: `/api/cron/geo`, driven by
+  `.github/workflows/geo-monitor.yml`. **Local run**: `npm run geo:once`.
+- **Design + rationale**: `docs/geopolitics-monitor.md`.
+
+Both monitors share one foundation: feed parsing/fetch (`lib/feeds/`) and push
+channels (`lib/notify/channels.ts`).
+
 ## Deployment
 
 Every push to the working branch auto-deploys: GitHub Actions hands the source

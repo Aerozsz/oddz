@@ -1,0 +1,31 @@
+name: geo-monitor
+
+# Geopolitics / peace↔war monitor. Hits the cron endpoint on a tight cadence so
+# a Trump escalation/de-escalation headline is detected and (if it clears
+# GEO_MIN_INTENSITY) pushed within a minute or two of landing.
+#
+# Same honest latency floor as intc-monitor: GitHub's scheduler coalesces
+# under load, so `* * * * *` realistically fires every ~1–5 min. For a harder
+# floor, point Vercel Cron or QStash at /api/cron/geo. Requires the repo
+# Actions secret CRON_SECRET (= the Vercel env var).
+on:
+  schedule:
+    - cron: "* * * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: geo-monitor
+  cancel-in-progress: true
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger geo monitor tick
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          curl -fsS --max-time 60 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://oddz-aeriaszs-projects.vercel.app/api/cron/geo" \
+            -o /dev/null -w "geo-monitor status: %{http_code}\n"
