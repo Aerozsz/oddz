@@ -158,6 +158,58 @@ export const subscribers = pgTable("subscribers", {
   createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
 });
 
+/**
+ * INTC foundry-catalyst feed. One row per deduped news item / SEC filing the
+ * monitor has seen; `notifiedAt` marks the ones that cleared the severity
+ * threshold and were pushed. `id` is a deterministic hash of source+url so
+ * the same story from a re-poll conflicts instead of duplicating.
+ */
+export const intcNews = pgTable(
+  "intc_news",
+  {
+    id: text().primaryKey(),
+    sourceSlug: text().notNull(),
+    sourceLabel: text().notNull(),
+    title: text().notNull(),
+    url: text().notNull(),
+    summary: text(),
+    /** low | medium | high | critical */
+    severity: text().$type<"low" | "medium" | "high" | "critical">().notNull(),
+    /** bullish | bearish | neutral — the lean for the equity. */
+    direction: text().$type<"bullish" | "bearish" | "neutral">().notNull(),
+    score: integer().notNull().default(0),
+    /** Matched signal-group labels, for display and audit. */
+    tags: jsonb().$type<string[]>().notNull().default(sql`'[]'::jsonb`),
+    publishedAt: timestamp({ withTimezone: true }),
+    firstSeenAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+    notifiedAt: timestamp({ withTimezone: true }),
+  },
+  (t) => [
+    index("intc_news_first_seen_idx").on(t.firstSeenAt),
+    index("intc_news_severity_idx").on(t.severity),
+    index("intc_news_notified_idx").on(t.notifiedAt),
+  ],
+);
+
+/** Heartbeat + audit for each monitor run, so /intc can show it's alive. */
+export const intcMonitorRuns = pgTable("intc_monitor_runs", {
+  id: bigint({ mode: "number" }).primaryKey().generatedAlwaysAsIdentity(),
+  startedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  finishedAt: timestamp({ withTimezone: true }),
+  status: text().notNull().default("running"),
+  fetched: integer().notNull().default(0),
+  relevant: integer().notNull().default(0),
+  inserted: integer().notNull().default(0),
+  notified: integer().notNull().default(0),
+  stats: jsonb()
+    .$type<Record<string, { fetched: number; error?: string }>>()
+    .notNull()
+    .default(sql`'{}'::jsonb`),
+});
+
+export type IntcNews = typeof intcNews.$inferSelect;
+export type NewIntcNews = typeof intcNews.$inferInsert;
+
 export type Venue = typeof venues.$inferSelect;
 export type Event = typeof events.$inferSelect;
 export type Market = typeof markets.$inferSelect;

@@ -68,6 +68,22 @@ npm run dev
   `/api/admin/stats` shows cross-venue events flowing.
 - **Secrets**: `DATABASE_URL`, `CRON_SECRET` (Vercel env). Never in git.
 
+## INTC foundry monitor
+
+A focused, real-time watch for the news that actually reprices Intel stock —
+foundry catalysts (a named 18A/14A external customer, capex, foundry P&L,
+separation), not quarterly beats. Sources: Google News RSS (narrow foundry
+queries), Intel's newsroom, and SEC EDGAR 8-K/10-Q/10-K filings. A weighted
+classifier (`lib/intc/classify.ts`) gates for foundry relevance and scores
+severity + direction; new items above `INTC_MIN_SEVERITY` are pushed instantly
+to Telegram / ntfy / a webhook (all optional). Deduped exactly-once via a
+deterministic id, so a re-poll never double-pushes.
+
+- **Feed + heartbeat**: `/intc`. **Tick**: `/api/cron/intc` (Bearer
+  `CRON_SECRET`), driven every minute by `.github/workflows/intc-monitor.yml`.
+- **Local run**: `npm run intc:once`. **Channels**: see `.env.example`.
+- **Design + thesis**: `docs/intc-foundry-monitor.md`.
+
 ## Deployment
 
 Every push to the working branch auto-deploys: GitHub Actions hands the source

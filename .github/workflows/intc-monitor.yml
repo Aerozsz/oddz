@@ -1,0 +1,39 @@
+name: intc-monitor
+
+# INTC foundry-catalyst monitor. Hits the cron endpoint on a tight cadence so
+# a foundry headline (18A/14A customer, capex, foundry P&L, separation) is
+# detected and pushed within a minute or two of landing.
+#
+# Honest latency floor: GitHub's scheduler is best-effort and coalesces under
+# load, so `* * * * *` realistically fires every ~1–5 min. That is the
+# detection floor; the *notification* itself (Telegram/ntfy/webhook) is
+# instant once a run finds something. For a harder floor, point Vercel Cron or
+# a QStash schedule at the same endpoint — nothing else changes.
+#
+# One-time setup: repo Actions secret CRON_SECRET matching the Vercel env var
+# (Settings -> Secrets and variables -> Actions). Configure a notification
+# channel in Vercel env (see .env.example) or catalysts are only recorded.
+on:
+  schedule:
+    - cron: "* * * * *"
+  workflow_dispatch:
+
+# Never let a slow run pile up onto the next tick.
+concurrency:
+  group: intc-monitor
+  cancel-in-progress: true
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger foundry monitor tick
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          # Secret in the Authorization header, not the URL, so it never lands
+          # in access logs / Referer.
+          curl -fsS --max-time 60 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://oddz-aeriaszs-projects.vercel.app/api/cron/intc" \
+            -o /dev/null -w "intc-monitor status: %{http_code}\n"

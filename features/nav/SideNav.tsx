@@ -44,6 +44,10 @@ const SECTIONS: Section[] = [
     ],
   },
   {
+    label: "Watch",
+    items: [{ href: "/intc", label: "INTC foundry" }],
+  },
+  {
     label: "System",
     items: [
       { href: "/status", label: "Status" },
