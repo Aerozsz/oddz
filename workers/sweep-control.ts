@@ -35,7 +35,14 @@ import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { CONFIG, SYMBOL } from "../lib/sweep/config";
 
 const PORT = Number(process.env.SWEEP_CONTROL_PORT ?? 7777);
-const HOST = "127.0.0.1";
+/*
+ * Loopback by default. This process holds an exchange secret and can move a
+ * position, so it is not something to put on a network casually — binding wider
+ * is an explicit choice, and the safe way to reach it from elsewhere is a
+ * tunnel (Cloudflare Tunnel, Tailscale) that authenticates before traffic ever
+ * arrives here, rather than opening a port and relying on the token alone.
+ */
+const HOST = process.env.SWEEP_CONTROL_HOST ?? "127.0.0.1";
 const TOKEN = process.env.SWEEP_CONTROL_TOKEN ?? randomBytes(16).toString("hex");
 const LIMITS_PATH = resolve(process.env.SWEEP_LIMITS ?? "data/sweep-limits.json");
 
@@ -455,6 +462,11 @@ server.listen(PORT, HOST, () => {
   console.log(`  ${url}`);
   console.log("");
   console.log(`  mode:        ${hasCredentials() ? (process.env.BINANCE_LIVE === "1" ? "LIVE" : "testnet") : "no credentials (monitor only)"}`);
+  if (HOST !== "127.0.0.1") {
+    console.log("");
+    console.log(`  !! bound to ${HOST}, not loopback — this port can move money.`);
+    console.log("     Only do this behind a tunnel that authenticates before traffic reaches here.");
+  }
   console.log(`  limits file: ${LIMITS_PATH}`);
   console.log("  ctrl-c to stop");
   console.log("");

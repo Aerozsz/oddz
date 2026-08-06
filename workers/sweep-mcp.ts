@@ -22,6 +22,8 @@
 
 import { createInterface } from "node:readline";
 import { createSweepFeed, type SweepFeed } from "../lib/sweep/agent";
+import { directionalBias } from "../lib/sweep/agent/bias";
+import { proposePosition } from "../lib/sweep/agent/sizing";
 import type { Signal } from "../lib/sweep/agent";
 
 const SERVER_NAME = "oddz-sweep";
@@ -143,6 +145,80 @@ const TOOLS: Tool[] = [
           "Cluster notionals are estimates, not observed orders. Cascade `terminal` assumes the whole " +
           "chain fires and that nobody re-quotes the book, which makes it an upper bound rather than " +
           "an expected price.",
+      };
+    },
+  },
+  {
+    name: "sweep_behaviour",
+    description:
+      "What the book's behaviour suggests about who is trading it. Nothing here identifies anyone — it " +
+      "measures fingerprints: how fast consumed depth is replaced, levels emptied and refilled repeatedly " +
+      "(hidden size), quote churn without trades, and near-identical sizes at a steady rate (a worked " +
+      "order). Also reports whether flow looks mechanical (computed sizes, tick pricing, even cadence) or " +
+      "human (round prices, round quantities — unit bias), or both. Every reading has an innocent " +
+      "explanation, so treat `confidence` as load-bearing.",
+    inputSchema: noArgs,
+    run: () => {
+      const s = getFeed().getState();
+      return { health: s.health, volatilityPct: s.volatilityPct, participants: s.participants };
+    },
+  },
+  {
+    name: "sweep_bias",
+    description:
+      "Which direction the book is more vulnerable in, with the factors behind it. IMPORTANT: this is " +
+      "where price would travel IF it gets pushed — it is not a prediction that it will be. Nothing " +
+      "measures intent. Conviction is capped at 0.75 and collapses when the feed is unhealthy or the " +
+      "depth baseline has not warmed. A null direction means neither side is meaningfully more exposed.",
+    inputSchema: noArgs,
+    run: () => {
+      const s = getFeed().getState();
+      return { health: s.health, bias: directionalBias(s) };
+    },
+  },
+  {
+    name: "sweep_suggest_setup",
+    description:
+      "Proposes position size, leverage, stop and target for a direction, sized from the live book. " +
+      "Returns numbers only — it applies nothing, changes no configuration and cannot place an order. " +
+      "Refusal is a valid and common result: it declines when the feed is untrustworthy, the depth " +
+      "baseline is cold, the reward does not justify the stop, or the caps are unset. Pass equity and " +
+      "maxPositionUsd to model a hypothetical account.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        direction: { type: "string", enum: ["up", "down", "auto"], description: "'auto' uses sweep_bias." },
+        equity: { type: "number", description: "Free collateral in USDT to size against." },
+        maxPositionUsd: { type: "number", description: "Cap on notional." },
+        maxLeverage: { type: "number" },
+        stopLossPct: { type: "number" },
+      },
+      additionalProperties: false,
+    },
+    run: (args) => {
+      const feed = getFeed();
+      const state = feed.getState();
+      const bias = directionalBias(state);
+      const asked = typeof args.direction === "string" ? args.direction : "auto";
+      const chosen = asked === "auto" ? bias.direction : (asked as "up" | "down");
+      if (!chosen) return { ok: false, bias, reasons: [bias.summary] };
+      return {
+        bias,
+        result: proposePosition({
+          direction: chosen,
+          state,
+          equity: Number(args.equity) || 0,
+          realisedLossToday: 0,
+          limits: {
+            maxPositionUsd: Number(args.maxPositionUsd) || 0,
+            maxLeverage: Number(args.maxLeverage) || 1,
+            maxDailyLossUsd: 0,
+            stopLossPct: Number(args.stopLossPct) || 2,
+          },
+          costCurve: feed.getCostCurve(),
+          clusters: feed.getClusters(),
+        }),
+        appliedNothing: true,
       };
     },
   },
