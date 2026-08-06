@@ -102,9 +102,21 @@ export async function GET(
   }
 
   try {
+    // Cached on the *upstream* call, not just at the edge, and this is the part
+    // that actually protects the shared IP. Vercel's CDN keys on the full
+    // request URL, so ?_=1 and ?_=2 are separate edge entries and both reach
+    // this function however carefully the query string is canonicalised below.
+    // Caching here instead means every one of those invocations collapses onto
+    // one cached upstream response per canonical URL per TTL, so Binance sees a
+    // fixed request rate no matter how many distinct URLs are thrown at us.
+    // Capped: this window applies to whatever came back, including a failure,
+    // so a five-minute metadata TTL must not be able to pin a bad response for
+    // five minutes. A minute still collapses abusive traffic by orders of
+    // magnitude, and the edge keeps serving the longer TTL to honest callers.
+    const upstreamTtl = Math.min(ttl, 60);
     const res = await fetch(target, {
       headers: { accept: "application/json" },
-      cache: "no-store",
+      next: { revalidate: upstreamTtl },
       signal: AbortSignal.timeout(10_000),
     });
     const body = await res.text();

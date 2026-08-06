@@ -1,5 +1,4 @@
-import { CONFIG } from "../config";
-import type { Cluster, Snapshot, Wall } from "../types";
+import type { Snapshot, Wall } from "../types";
 import type { FeedHealth, Signal, SignalKind, SignalSeverity } from "./types";
 
 /** Tunables for what counts as worth emitting. */
@@ -298,5 +297,3 @@ function fmtUsd(v: number): string {
   if (abs >= 1e3) return `$${(v / 1e3).toFixed(0)}k`;
   return `$${v.toFixed(0)}`;
 }
-
-export { CONFIG as SWEEP_CONFIG, type Cluster };
