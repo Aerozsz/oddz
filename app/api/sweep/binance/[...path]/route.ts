@@ -9,21 +9,14 @@ import { NextResponse } from "next/server";
  * used to seed the diff feed, klines, open interest) for visitors whose network
  * or region blocks fapi.binance.com.
  *
- * Pinned away from us-east so the function is not itself in a region Binance
- * refuses, and limited to a fixed set of public read-only paths so it cannot be
- * used as an open proxy.
+ * Limited to a fixed set of public read-only paths so it cannot be used as an
+ * open proxy. The region matters as much as the allowlist: Binance answers US
+ * IPs with 451, so vercel.json pins this route to fra1 — without that it runs
+ * in the project default (iad1) and fails in exactly the case it exists for.
  */
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-/**
- * Pinned off us-east. Binance answers 451 to US IPs, so a function running in
- * iad1 — the project default — makes this fallback useless exactly when it is
- * needed. Scoped to this route so the rest of the app keeps its own region and
- * its latency to the database.
- */
-export const preferredRegion = ["fra1"];
 
 const ALLOWED = new Set([
   "fapi/v1/exchangeInfo",
