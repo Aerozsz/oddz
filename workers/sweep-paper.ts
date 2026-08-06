@@ -65,6 +65,8 @@ interface Record {
   health: string;
   /** Context worth having when reading the row back months later. */
   lwi: number | null;
+  /** Session-corrected depth index — see LiquidityState.lwiAdj. */
+  lwiAdj: number | null;
   warm: boolean | null;
   imbalance: number | null;
   spreadBps: number | null;
@@ -73,6 +75,26 @@ interface Record {
   nearestAbove: number | null;
   nearestBelow: number | null;
   session: string;
+  /**
+   * The finer phase, and its multipliers. Logged because the per-phase weights
+   * in metrics/session.ts are priors rather than measurements — these columns
+   * are what will eventually replace them with fitted numbers.
+   */
+  intraday: string;
+  sessionTransitioning: boolean;
+  /** Mark-out at the moment of the sample. The one input with a track record. */
+  markoutInformed: number | null;
+  markoutToxicity: number | null;
+  markoutWarm: boolean;
+  markout5sBps: number | null;
+  /** Funding: the rate, and whether it was stretched enough to mean anything. */
+  fundingRate: number | null;
+  fundingStretched: boolean;
+  fundingCrowded: string | null;
+  msToFunding: number | null;
+  /** Whether a scheduled release was in the way. */
+  eventBlackout: boolean;
+  eventSizeScale: number;
   /** Signal kinds that fired within a few seconds of this sample, if any. */
   signals: string[];
   /** Behavioural read at the time: mechanical, human, mixed or unclear. */
@@ -107,6 +129,7 @@ function snapshotOf(state: AgentState, firedSignals: Signal[], id: string): Reco
     midAtSignal: state.mid,
     health: state.health.level,
     lwi: state.liquidity?.lwi ?? null,
+    lwiAdj: state.liquidity?.lwiAdj ?? null,
     warm: state.liquidity?.warm ?? null,
     imbalance: state.liquidity?.imbalance ?? null,
     spreadBps: state.liquidity?.spreadBps ?? null,
@@ -115,6 +138,18 @@ function snapshotOf(state: AgentState, firedSignals: Signal[], id: string): Reco
     nearestAbove: state.nearestAbove?.price ?? null,
     nearestBelow: state.nearestBelow?.price ?? null,
     session: state.session.phase,
+    intraday: state.session.intraday,
+    sessionTransitioning: state.session.transitioning,
+    markoutInformed: state.markout.warm ? Number(state.markout.informed.toFixed(4)) : null,
+    markoutToxicity: state.markout.warm ? Number(state.markout.toxicity.toFixed(4)) : null,
+    markoutWarm: state.markout.warm,
+    markout5sBps: state.markout.horizons[1]?.costToMakerBps ?? null,
+    fundingRate: state.funding.rate,
+    fundingStretched: state.funding.stretched,
+    fundingCrowded: state.funding.crowded,
+    msToFunding: state.funding.msToFunding || null,
+    eventBlackout: state.events.blackout,
+    eventSizeScale: state.events.sizeScale,
     outcomes: {},
   };
 }

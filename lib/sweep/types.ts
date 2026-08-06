@@ -1,6 +1,9 @@
 // Type-only, so the cycle with participants.ts (which imports Trade from here)
 // is erased at compile time and never exists at runtime.
 import type { ParticipantRead } from "./metrics/participants";
+import type { EventRisk } from "./metrics/events";
+import type { FundingRead } from "./metrics/funding";
+import type { MarkoutRead } from "./metrics/markout";
 
 export type Side = "bid" | "ask";
 export type Direction = "up" | "down";
@@ -111,6 +114,20 @@ export interface LiquidityState {
   lwiBid: number;
   lwiAsk: number;
   /**
+   * The same, corrected for the session.
+   *
+   * The raw index compares depth now against a ten-minute baseline. Across a
+   * session boundary that baseline belongs to a different regime: at 16:00 ET
+   * depth halves because the cash market shut, and the raw index reports a mass
+   * withdrawal that nobody performed. These divide out the expected change, so
+   * a reading below 1 means depth left *beyond* what the clock accounts for.
+   */
+  lwiAdj: number;
+  lwiBidAdj: number;
+  lwiAskAdj: number;
+  /** Expected-depth multiplier the baseline accumulated at, over the current one. */
+  sessionAdj: number;
+  /**
    * Whether the slow baseline has seen enough data to mean anything. Until it
    * has, the indices above are pinned to 1 — indistinguishable from a genuinely
    * normal book, which is a difference anything trading off them has to know.
@@ -189,6 +206,37 @@ export interface ThinningEvent {
   remainingFrac: number;
 }
 
+/**
+ * Finer than `phase`: the equity market's intraday shape, which the perp
+ * inherits through the people who hedge in it.
+ */
+export type IntradayPhase =
+  | "pre-market"
+  | "open-auction"
+  | "morning"
+  | "midday"
+  | "afternoon"
+  | "close-ramp"
+  | "after-hours"
+  | "overnight"
+  | "weekend";
+
+/**
+ * Per-phase multipliers. Each has exactly one consumer — see metrics/session.ts.
+ * Nothing here is applied twice, which is the trap with session adjustments: the
+ * cascade cost is computed from the real book and already reflects a thin
+ * overnight one, so scaling the risk score for the same reason would count it
+ * again.
+ */
+export interface SessionWeights {
+  /** Expected depth vs the regular session. Normalises the withdrawal index. */
+  depthScale: number;
+  /** Expected volatility vs the regular session. Widens stops across a boundary. */
+  volScale: number;
+  /** Multiplier on position size. */
+  sizeScale: number;
+}
+
 export interface SessionState {
   /** Regular Nasdaq cash hours. */
   cashOpen: boolean;
@@ -196,6 +244,11 @@ export interface SessionState {
   /** ms until the next phase boundary. */
   msToNext: number;
   nextLabel: string;
+  intraday: IntradayPhase;
+  weights: SessionWeights;
+  msSincePhaseStart: number;
+  /** True just after a boundary, while the EWMA baselines still lag it. */
+  transitioning: boolean;
 }
 
 export type StreamName = "depth" | "aggTrade" | "forceOrder" | "markPrice" | "kline";
@@ -250,9 +303,18 @@ export interface Snapshot {
   volatilityPct: number;
   /** What the book's behaviour suggests about who is quoting it. */
   participants: ParticipantRead | null;
+  /** Whether the aggressive side has been proven right lately. */
+  markout: MarkoutRead;
+  /** Carry, and what the rate implies about crowded positioning. */
+  funding: FundingRead;
+  /** Scheduled releases the model cannot see through. */
+  events: EventRisk;
 }
 
 export type { ParticipantRead } from "./metrics/participants";
+export type { EventRisk } from "./metrics/events";
+export type { FundingRead } from "./metrics/funding";
+export type { MarkoutRead } from "./metrics/markout";
 
 export interface DepthSample {
   t: number;

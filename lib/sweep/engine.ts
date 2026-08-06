@@ -5,6 +5,7 @@ import {
   RateLimited,
   currentRoute,
   fetchDepthSnapshot,
+  fetchFundingHistory,
   fetchKlines,
   fetchLongShortRatio,
   fetchMeta,
@@ -16,6 +17,9 @@ import { CONFIG, SYMBOL } from "./config";
 import { simulate } from "./metrics/cascade";
 import { buildClusters } from "./metrics/clusters";
 import { bandDepths, costCurve, findWalls } from "./metrics/depth";
+import { NO_EVENT_RISK, eventRisk, parseEnvEvents } from "./metrics/events";
+import { EMPTY_FUNDING, type FundingSettlement, readFunding } from "./metrics/funding";
+import { EMPTY_MARKOUT, MarkoutTracker } from "./metrics/markout";
 import { PLACEHOLDER_SESSION, sessionState } from "./metrics/session";
 import { ParticipantTracker } from "./metrics/participants";
 import { WithdrawalTracker } from "./metrics/withdrawal";
@@ -47,6 +51,27 @@ export class Engine {
   private stream: StreamClient | null = null;
   private tracker = new WithdrawalTracker();
   private participants = new ParticipantTracker();
+  private markout = new MarkoutTracker();
+  private fundingHistory: FundingSettlement[] = [];
+
+  /**
+   * Calendar entries supplied out of band. Read once: the engine runs in the
+   * browser as well as headless, and only the headless side has an environment
+   * to read, so a browser session sees the projected dates and the standing
+   * prompt to confirm them.
+   */
+  private extraEvents = parseEnvEvents(
+    typeof process !== "undefined" ? process.env?.SWEEP_EVENTS : undefined,
+  ).events;
+
+  /** Fill-quality tracking for our own executions. */
+  recordOwnFill(fill: Parameters<MarkoutTracker["recordFill"]>[0]) {
+    this.markout.recordFill(fill);
+  }
+
+  fillQuality() {
+    return this.markout.fillQuality();
+  }
 
   private meta: SymbolMeta | null = null;
   private mark: MarkPrice | null = null;
@@ -131,6 +156,7 @@ export class Engine {
     // here that is polled, and it is labelled as such in the UI.
     this.timers.push(setInterval(() => void this.refreshOpenInterest(), 20_000));
     this.timers.push(setInterval(() => void this.refreshRatio(), 300_000));
+    this.timers.push(setInterval(() => void this.refreshFundingHistory(), 1_800_000));
     this.timers.push(
       setInterval(() => {
         const now = Date.now();
@@ -187,6 +213,7 @@ export class Engine {
       this.loadKlines(),
       this.refreshOpenInterest(),
       this.refreshRatio(),
+      this.refreshFundingHistory(),
     ]);
     this.recomputeClusters();
   }
@@ -233,6 +260,18 @@ export class Engine {
     } catch {
       /* transient; the previous value stays on screen */
     }
+  }
+
+  /**
+   * Settled rates change once every few hours at most, so this is fetched once
+   * at start and refreshed on a slow timer purely to pick up the settlement
+   * that just happened. There is nothing to gain from polling it faster and a
+   * shared rate-limit budget to lose.
+   */
+  private async refreshFundingHistory() {
+    if (!this.pollable) return;
+    const rows = await fetchFundingHistory(200);
+    if (rows.length) this.fundingHistory = rows;
   }
 
   private async refreshRatio() {
@@ -312,6 +351,15 @@ export class Engine {
         else if (this.book.synced) this.resyncAttempt = 0;
         this.connection.bookSynced = this.book.synced;
         this.connection.resyncs = this.book.resyncs;
+        // Mark-outs resolve here rather than in the 2Hz sampler: the shortest
+        // horizon is one second, and resolving it half a second late would put
+        // most of the error in the most informative measurement.
+        const after = this.book.mid();
+        if (after) {
+          const bb = this.book.bestBid();
+          const ba = this.book.bestAsk();
+          this.markout.onMid(Date.now(), after, bb && ba ? ((ba - bb) / after) * 10_000 : 0);
+        }
         break;
       }
       case "aggTrade": {
@@ -328,6 +376,7 @@ export class Engine {
         this.last = price;
         this.tracker.addTrade(notional, trade.buyerIsMaker);
         this.participants.onTrade(trade, Date.now());
+        this.markout.onTrade(trade, Date.now());
         if (notional >= CONFIG.largeTradeNotional) {
           this.largeTrades.unshift(trade);
           if (this.largeTrades.length > 200) this.largeTrades.length = 200;
@@ -400,7 +449,10 @@ export class Engine {
     const bands = bandDepths(this.book.bidLevels(), this.book.askLevels(), mid);
     const primary = bands.find((b) => b.bps === CONFIG.primaryBandBps);
     if (!primary) return;
-    this.tracker.sample(Date.now(), primary.bidNotional, primary.askNotional, mid);
+    // The expected-depth multiplier goes in with the sample so the baseline and
+    // the expectation decay over identical windows.
+    const scale = sessionState().weights.depthScale;
+    this.tracker.sample(Date.now(), primary.bidNotional, primary.askNotional, mid, scale);
   }
 
   private recomputeClusters() {
@@ -466,6 +518,7 @@ export class Engine {
         addedAsk: 0,
       };
       const total = primary.bidNotional + primary.askNotional;
+      const adj = idx.sessionAdj;
       liquidity = {
         bands,
         primary,
@@ -474,6 +527,10 @@ export class Engine {
         lwi: this.tracker.warm ? idx.total : 1,
         lwiBid: this.tracker.warm ? idx.bid : 1,
         lwiAsk: this.tracker.warm ? idx.ask : 1,
+        lwiAdj: this.tracker.warm ? idx.total * adj : 1,
+        lwiBidAdj: this.tracker.warm ? idx.bid * adj : 1,
+        lwiAskAdj: this.tracker.warm ? idx.ask * adj : 1,
+        sessionAdj: adj,
         warm: this.tracker.warm,
         baselineNotional: idx.baseline,
         fastNotional: idx.fast,
@@ -483,18 +540,23 @@ export class Engine {
       };
     }
 
+    // The *adjusted* index, not the raw one. The cascade cost already comes off
+    // the real book, so a thin overnight book has made the seed cheap on its
+    // own; feeding the raw index in as well would score that thinness a second
+    // time as if somebody had pulled it.
     const cascadeInput = {
       bids,
       asks,
       mid: mid ?? 0,
       clusters: this.clusters,
-      lwiBid: liquidity?.lwiBid ?? 1,
-      lwiAsk: liquidity?.lwiAsk ?? 1,
+      lwiBid: liquidity?.lwiBidAdj ?? 1,
+      lwiAsk: liquidity?.lwiAskAdj ?? 1,
       openInterestNotional: this.openInterest?.notional ?? 0,
     };
 
+    const now = Date.now();
     this.snapshot = {
-      ts: Date.now(),
+      ts: now,
       meta: this.meta,
       connection: { ...this.connection },
       session: sessionState(),
@@ -519,6 +581,9 @@ export class Engine {
       flowMinute: this.tracker.flowSince(60_000),
       volatilityPct: this.realisedVolPct(),
       participants: this.participants.read(),
+      markout: this.markout.read(now),
+      funding: readFunding(this.mark, this.fundingHistory, now),
+      events: eventRisk(now, this.extraEvents),
     };
 
     for (const cb of this.listeners) cb();
@@ -560,6 +625,9 @@ export function emptySnapshot(): Snapshot {
     flowMinute: { buy: 0, sell: 0 },
     volatilityPct: 0,
     participants: null,
+    markout: EMPTY_MARKOUT,
+    funding: EMPTY_FUNDING,
+    events: NO_EVENT_RISK,
   };
 }
 

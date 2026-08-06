@@ -1,3 +1,4 @@
+import { type CarryEstimate, estimateCarry } from "../metrics/funding";
 import type { Cluster, CostPoint, Direction } from "../types";
 import type { AgentState } from "./types";
 
@@ -58,8 +59,27 @@ export interface SizingConfig {
   /** Minimum acceptable reward-to-risk before a trade is worth taking. */
   minRewardRisk: number;
   takerFeeRate: number;
-  /** Size is scaled by this when the cash market is shut. */
-  closedSessionScale: number;
+  /**
+   * How long a position is assumed to be held, for funding purposes.
+   *
+   * An assumption, and named as one. It exists because funding is charged in a
+   * lump at settlement rather than accruing, so the only way to know whether a
+   * trade pays it is to know whether the trade is still open at the settlement
+   * instant. Nothing here predicts an exit, so a working figure is used and the
+   * carry it implies is reported alongside the proposal rather than hidden.
+   */
+  expectedHoldMin: number;
+  /**
+   * Refuse when funding would eat more than this share of the expected reward.
+   * A microstructure trade aiming at 30bp does not survive a 15bp settlement.
+   */
+  maxFundingShareOfReward: number;
+  /**
+   * Refuse when mark-out says the passive side is being run over this badly.
+   * Entering as a taker into toxic flow means crossing a spread that is about
+   * to widen, against people who have been right.
+   */
+  maxToxicity: number;
 }
 
 export const DEFAULT_SIZING: SizingConfig = {
@@ -70,7 +90,9 @@ export const DEFAULT_SIZING: SizingConfig = {
   minRewardOverFees: 3,
   minRewardRisk: 1.5,
   takerFeeRate: 0.0005,
-  closedSessionScale: 0.5,
+  expectedHoldMin: 30,
+  maxFundingShareOfReward: 0.35,
+  maxToxicity: 0.95,
 };
 
 export interface SizingInput {
@@ -108,6 +130,8 @@ export interface Proposal {
   leverage: number;
   marginUsd: number;
   roundTripFeeUsd: number;
+  /** Funding over the assumed hold. Positive is paid, negative is received. */
+  carry: CarryEstimate;
   /** 0..1 — how much of the raw size survived the scaling factors. */
   sizeRetained: number;
   reasoning: string[];
@@ -210,6 +234,19 @@ export function proposePosition(input: SizingInput): SizingResult {
   if (limits.requireCashOpen && !state.session.cashOpen) {
     reasons.push(`Nasdaq is ${state.session.phase} — trading only while the cash market is open`);
   }
+  // A scheduled release gaps price past every level in the model. Nothing here
+  // applies across one, so this is a refusal rather than a size adjustment.
+  if (state.events.blackout) {
+    reasons.push(state.events.reason ?? "inside a scheduled-event blackout");
+  }
+  // Crossing the spread into flow that has been marking out against the passive
+  // side means paying a spread that is about to widen, to people who have been
+  // right. Whichever way the trade points, this is the wrong moment to be a taker.
+  if (state.markout.warm && state.markout.toxicity >= cfg.maxToxicity) {
+    reasons.push(
+      `flow is toxic (${state.markout.toxicity.toFixed(2)}) — ${state.markout.notes[0] ?? "mark-out exceeds the spread"}`,
+    );
+  }
   if (reasons.length) return { ok: false, reasons };
 
   const entry = state.mid as number;
@@ -218,7 +255,21 @@ export function proposePosition(input: SizingInput): SizingResult {
   /* ------------------------------------------------------------ stop placing */
 
   // Volatility floor: a stop inside recent noise is a donation.
-  const volPct = state.volatilityPct ?? 0;
+  let volPct = state.volatilityPct ?? 0;
+  // Realised volatility is a trailing window, so for the first minutes after a
+  // session boundary it is still describing the phase that ended. Crossing into
+  // the opening auction with a stop sized on overnight quiet is the specific
+  // failure this covers; the phase multiplier stands in until the measurement
+  // catches up, and then stops being applied.
+  if (state.session.transitioning && state.session.weights.volScale > 1) {
+    const lifted = volPct * state.session.weights.volScale;
+    reasoning.push(
+      `${state.session.intraday} started ${Math.round(state.session.msSincePhaseStart / 60_000)} min ago — ` +
+        `measured volatility still describes the previous phase, so it is scaled ` +
+        `${state.session.weights.volScale.toFixed(1)}x to ${lifted.toFixed(2)}% for the stop`,
+    );
+    volPct = lifted;
+  }
   const volFloor = volPct * cfg.volatilityMultiple;
 
   // Cluster-aware: the level a sweep would actually reach is just past where
@@ -255,14 +306,27 @@ export function proposePosition(input: SizingInput): SizingResult {
   }
 
   const presence = makerPresence(state);
-  const sessionScale = state.session.cashOpen ? 1 : cfg.closedSessionScale;
-  if (!state.session.cashOpen) {
-    reasoning.push(`Nasdaq ${state.session.phase} — halving size, the book is structurally thinner with no cash market to lean on`);
+
+  // Per-phase rather than a flat halving when the cash market is shut. The two
+  // sides of a lunchtime session and an overnight one are not the same book,
+  // and neither is the opening auction — where depth is thin *and* every price
+  // is being repriced on real information.
+  const sessionScale = state.session.weights.sizeScale;
+  if (sessionScale !== 1) {
+    reasoning.push(
+      `${state.session.intraday} — size at ${(sessionScale * 100).toFixed(0)}% ` +
+        `(depth here typically runs ${state.session.weights.depthScale.toFixed(2)}x the regular session)`,
+    );
   }
+
+  // A projected earnings date derates; a confirmed one already refused above.
+  const eventScale = state.events.sizeScale;
+  if (eventScale < 1 && state.events.reason) reasoning.push(state.events.reason);
+
   reasoning.push(presence.note);
 
   const rawRisk = riskUsd;
-  riskUsd = riskUsd * presence.factor * sessionScale;
+  riskUsd = riskUsd * presence.factor * sessionScale * eventScale;
 
   /* -------------------------------------------------------------------- size */
 
@@ -309,16 +373,43 @@ export function proposePosition(input: SizingInput): SizingResult {
   const rewardUsd = targetPrice ? Math.abs((targetPrice - entry) / entry) * notional : null;
   const rewardRisk = rewardUsd !== null && actualRisk > 0 ? rewardUsd / actualRisk : null;
 
+  const carry = estimateCarry(
+    state.funding,
+    long ? "long" : "short",
+    notional,
+    cfg.expectedHoldMin * 60_000,
+  );
+  reasoning.push(
+    carry.free
+      ? `funding: ${carry.note}`
+      : `funding over an assumed ${cfg.expectedHoldMin} min hold: ${carry.note}`,
+  );
+
   /* -------------------------------------------------------- viability checks */
 
   if (notional <= 0) return { ok: false, reasons: ["size worked out to zero after the caps"] };
 
-  if (rewardUsd !== null && rewardUsd < roundTripFee * cfg.minRewardOverFees) {
+  // Fees and funding are both costs of holding the position and are checked
+  // against the same reward. Funding is the one that gets forgotten, because it
+  // is invisible until the settlement instant and then arrives in full.
+  const totalCost = roundTripFee + Math.max(0, carry.costUsd);
+  if (rewardUsd !== null && rewardUsd < totalCost * cfg.minRewardOverFees) {
     return {
       ok: false,
       reasons: [
-        `the move to ${targetPrice} is worth ${rewardUsd.toFixed(2)} against ${roundTripFee.toFixed(2)} of fees — ` +
+        `the move to ${targetPrice} is worth ${rewardUsd.toFixed(2)} against ${totalCost.toFixed(2)} of costs ` +
+          `(${roundTripFee.toFixed(2)} fees${carry.costUsd > 0 ? ` + ${carry.costUsd.toFixed(2)} funding` : ""}) — ` +
           `not enough to be worth the round trip`,
+      ],
+    };
+  }
+  if (rewardUsd !== null && carry.costUsd > 0 && carry.costUsd > rewardUsd * cfg.maxFundingShareOfReward) {
+    return {
+      ok: false,
+      reasons: [
+        `funding would take ${carry.costUsd.toFixed(2)} of a ${rewardUsd.toFixed(2)} target ` +
+          `(${((carry.costUsd / rewardUsd) * 100).toFixed(0)}% of it) — ${carry.note}. ` +
+          `Either the target is too near or this is the wrong side of the carry.`,
       ],
     };
   }
@@ -352,6 +443,7 @@ export function proposePosition(input: SizingInput): SizingResult {
     leverage,
     marginUsd: margin,
     roundTripFeeUsd: roundTripFee,
+    carry,
     sizeRetained: rawRisk > 0 ? riskUsd / rawRisk : 0,
     reasoning,
   };
