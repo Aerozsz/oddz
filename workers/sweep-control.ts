@@ -550,6 +550,10 @@ const server = createServer(async (req, res) => {
           bias,
           participants: state.participants,
           volatilityPct: state.volatilityPct,
+          markout: state.markout,
+          funding: state.funding,
+          events: state.events,
+          session: state.session,
           appliedNothing: true,
         });
         return;
@@ -942,18 +946,46 @@ $("btnSuggest").onclick=async()=>{
   const beh=r.participants?('<p class="note">Book behaviour: <b>'+r.participants.regime+"</b> ("+
     Math.round(r.participants.confidence*100)+"% confidence) — "+(r.participants.notes[0]||"")+
     " · recent movement "+n(r.volatilityPct,2)+"%/min</p>"):"";
-  if(!res.ok){
-    $("sgOut").innerHTML=biasHtml+'<div class="banner warn"><b>No setup worth taking.</b><span>'+
-      res.reasons.join("; ")+"</span></div>"+beh;
+  // Context that applies whether or not a setup came back, because the reasons
+  // a setup was refused are usually sitting in one of these three.
+  const ctx=[];
+  if(r.markout&&r.markout.warm){
+    ctx.push("Flow quality: <b>"+r.markout.regime+"</b> (toxicity "+n(r.markout.toxicity,2)+
+      ", informed "+n(r.markout.informed,2)+") — "+(r.markout.notes[0]||""));
+  }
+  if(r.funding){
+    ctx.push("Funding: "+(r.funding.notes[0]||"")+
+      (r.funding.msToFunding?" · settles in "+Math.max(1,Math.round(r.funding.msToFunding/60000))+" min":""));
+  }
+  if(r.session){
+    ctx.push("Session: <b>"+r.session.intraday+"</b> — size weight "+n(r.session.weights.sizeScale,2)+
+      "x, depth normally "+n(r.session.weights.depthScale,2)+"x the regular session"+
+      (r.session.transitioning?" · <b>just changed phase</b>, baselines still catching up":""));
+  }
+  if(r.events&&(r.events.blackout||r.events.sizeScale<1||r.events.needsConfirmation)){
+    ctx.push("Calendar: "+((r.events.reason||r.events.notes[0]||"").replace(/</g,"&lt;")));
+  }
+  const ctxHtml=ctx.length?('<p class="note">'+ctx.join("<br>")+"</p>"):"";
+  if(r.events&&r.events.blackout){
+    $("sgOut").innerHTML='<div class="banner bad"><b>Blackout.</b><span>'+
+      (r.events.reason||"").replace(/</g,"&lt;")+"</span></div>"+ctxHtml;
     return;
   }
-  $("sgOut").innerHTML=biasHtml+beh+
+  if(!res.ok){
+    $("sgOut").innerHTML=biasHtml+'<div class="banner warn"><b>No setup worth taking.</b><span>'+
+      res.reasons.join("; ")+"</span></div>"+beh+ctxHtml;
+    return;
+  }
+  $("sgOut").innerHTML=biasHtml+beh+ctxHtml+
     '<div class="tiles" style="margin-top:8px">'+
     '<div class="tile"><span class="k">Suggested size</span><span class="v">'+usd(res.notionalUsd)+'</span><span class="d">'+n(res.quantity,3)+" contracts</span></div>"+
     '<div class="tile"><span class="k">Leverage</span><span class="v">'+res.leverage+'x</span><span class="d">'+usd(res.marginUsd)+" margin</span></div>"+
     '<div class="tile"><span class="k">Stop</span><span class="v">'+n(res.stopPrice)+'</span><span class="d">'+n(res.stopDistancePct,2)+"% · risks "+usd(res.riskUsd)+"</span></div>"+
     '<div class="tile"><span class="k">Target</span><span class="v">'+(res.targetPrice?n(res.targetPrice):"—")+'</span><span class="d">'+
       (res.rewardRisk?n(res.rewardRisk,2)+":1 reward:risk":"no level ahead")+"</span></div>"+
+    '<div class="tile"><span class="k">Funding over the hold</span><span class="v">'+
+      (res.carry.free?"none":(res.carry.costUsd>=0?"-":"+")+usd(Math.abs(res.carry.costUsd)))+'</span><span class="d">'+
+      res.carry.note.replace(/</g,"&lt;")+"</span></div>"+
     "</div>"+
     '<p class="note"><b>Why:</b> '+res.reasoning.map(x=>x.replace(/</g,"&lt;")).join(" · ")+"</p>"+
     '<div class="row" style="margin-top:8px"><button id="btnCopy">Copy into preview</button>'+

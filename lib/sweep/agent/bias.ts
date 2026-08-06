@@ -1,3 +1,4 @@
+import { fundingSkew } from "../metrics/funding";
 import type { Direction } from "../types";
 import type { AgentState } from "./types";
 
@@ -73,16 +74,46 @@ export function directionalBias(state: AgentState): DirectionalBias {
   }
 
   /* Which side of the book has actually thinned. Measured against each side's
-   * own ten-minute baseline, so it is not confused by a normally lopsided book. */
+   * own ten-minute baseline, corrected for what the clock alone would do to it
+   * — otherwise the cash close reads as a two-sided withdrawal every day. */
   if (liq && liq.warm) {
-    const score = norm(liq.lwiBid, liq.lwiAsk);
+    const score = norm(liq.lwiBidAdj, liq.lwiAskAdj);
     factors.push({
       name: "which side thinned",
       score,
       weight: 0.25,
       detail:
-        `bids at ${liq.lwiBid.toFixed(2)}x normal, asks at ${liq.lwiAsk.toFixed(2)}x — ` +
+        `bids at ${liq.lwiBidAdj.toFixed(2)}x expected, asks at ${liq.lwiAskAdj.toFixed(2)}x — ` +
         `${score < 0 ? "the floor has thinned more" : score > 0 ? "the ceiling has thinned more" : "both alike"}`,
+    });
+  }
+
+  /* Who has been right. The one factor scored against realised outcomes rather
+   * than against the state of the book, which is why it carries weight
+   * comparable to the seed cost despite being a shorter-lived reading. */
+  const mk = state.markout;
+  if (mk.warm && Math.abs(mk.informed) > 0.05) {
+    factors.push({
+      name: "who has been right",
+      score: mk.informed,
+      weight: 0.25,
+      detail:
+        mk.notes[0] ??
+        `aggressive ${mk.informed > 0 ? "buying" : "selling"} has been marking out in its own favour`,
+    });
+  }
+
+  /* Crowding, from what people are paying to stay on. Contrarian by
+   * construction — see fundingSkew — and silent unless the rate is stretched. */
+  const skew = fundingSkew(state.funding);
+  if (skew !== 0) {
+    factors.push({
+      name: "who is paying to hold",
+      score: skew,
+      weight: 0.1,
+      detail:
+        `${state.funding.crowded} are paying ${Math.abs(state.funding.rate * 100).toFixed(4)}% ` +
+        `every ${state.funding.intervalHours}h to stay on — crowded, and the fuel sits under them`,
     });
   }
 
@@ -142,6 +173,10 @@ export function directionalBias(state: AgentState): DirectionalBias {
   if (!state.health.tradeable) quality *= 0.2;
   if (liq && !liq.warm) quality *= 0.4;
   if (factors.length < 3) quality *= 0.6;
+  // Just after a session boundary the depth and volatility baselines still
+  // describe the phase that ended, and two of the factors above are built on
+  // them. The reading is not wrong so much as premature.
+  if (state.session.transitioning) quality *= 0.6;
   const behaviouralConfidence = state.participants?.confidence ?? 0.5;
   quality *= 0.5 + 0.5 * behaviouralConfidence;
 

@@ -224,6 +224,32 @@ export async function fetchOpenInterest(): Promise<{ qty: number; t: number }> {
 }
 
 /**
+ * Settled funding rates, oldest first.
+ *
+ * Only history: the rate for the *next* settlement arrives continuously on the
+ * mark-price stream. This exists so the live rate can be placed against its own
+ * distribution — an absolute rate says nothing without knowing what is normal
+ * for the contract — and so the settlement interval can be inferred from
+ * consecutive timestamps rather than assumed to be eight hours.
+ */
+export async function fetchFundingHistory(limit = 200): Promise<{ time: number; rate: number }[]> {
+  try {
+    const rows = await api<{ fundingTime: number; fundingRate: string }[]>("/fapi/v1/fundingRate", {
+      symbol: SYMBOL,
+      limit,
+    });
+    return rows
+      .map((r) => ({ time: Number(r.fundingTime), rate: Number(r.fundingRate) }))
+      .filter((r) => Number.isFinite(r.time) && Number.isFinite(r.rate))
+      .sort((a, b) => a.time - b.time);
+  } catch {
+    // Absent, funding still reports the live rate — it just cannot say whether
+    // that rate is unusual, and `stretched` stays false rather than guessing.
+    return [];
+  }
+}
+
+/**
  * Account-level long/short skew. Used only to split the modelled liquidation
  * ladder between the two sides; absent, the ladder assumes an even book.
  */

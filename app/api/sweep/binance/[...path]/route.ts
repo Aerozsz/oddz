@@ -41,6 +41,9 @@ const ALLOWED = new Map<string, Allowed>([
   ["fapi/v1/klines", { ttl: 15, params: ["symbol", "interval", "limit"] }],
   ["fapi/v1/openInterest", { ttl: 10, params: ["symbol"] }],
   ["fapi/v1/ticker/24hr", { ttl: 10, params: ["symbol"] }],
+  // Settled rates only — the *next* rate arrives on the mark-price stream, so
+  // this is history and can be cached hard.
+  ["fapi/v1/fundingRate", { ttl: 600, params: ["symbol", "limit"] }],
   ["futures/data/globalLongShortAccountRatio", { ttl: 120, params: ["symbol", "period", "limit"] }],
   ["futures/data/topLongShortPositionRatio", { ttl: 120, params: ["symbol", "period", "limit"] }],
   ["futures/data/openInterestHist", { ttl: 120, params: ["symbol", "period", "limit"] }],

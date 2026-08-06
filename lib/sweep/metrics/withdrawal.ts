@@ -34,6 +34,20 @@ export class WithdrawalTracker {
   private fast: { bid: number; ask: number } | null = null;
   private slow: { bid: number; ask: number } | null = null;
 
+  /**
+   * The expected-depth multiplier, decayed on the same slow half-life as the
+   * depth baseline itself.
+   *
+   * This is what lets a session change be told apart from a withdrawal. The
+   * baseline is a ten-minute EWMA, so at 16:05 ET it still describes the cash
+   * session; depth has genuinely halved, and the raw index reports 0.5 as if
+   * somebody pulled half the book. Carrying a matched EWMA of what depth was
+   * *supposed* to be over the same window means the two divide out, and what is
+   * left is the part the clock does not explain.
+   */
+  private slowScale: number | null = null;
+  private currentScale = 1;
+
   private lastEventAt = 0;
   events: ThinningEvent[] = [];
 
@@ -71,8 +85,9 @@ export class WithdrawalTracker {
     return { buy: this.cumBuy - ref.cumBuy, sell: this.cumSell - ref.cumSell };
   }
 
-  sample(t: number, bid: number, ask: number, mid: number) {
+  sample(t: number, bid: number, ask: number, mid: number, depthScale = 1) {
     const prev = this.samples.at(-1);
+    this.currentScale = depthScale > 0 ? depthScale : 1;
     this.samples.push({ t, bid, ask, mid, cumBuy: this.cumBuy, cumSell: this.cumSell });
     const cutoff = t - CONFIG.sampleHistorySec * 1000;
     while (this.samples.length && this.samples[0].t < cutoff) this.samples.shift();
@@ -86,6 +101,11 @@ export class WithdrawalTracker {
     const dtSec = prev ? Math.max(0.001, (t - prev.t) / 1000) : CONFIG.sampleIntervalMs / 1000;
     this.fast = ewma(this.fast, { bid, ask }, dtSec, CONFIG.fastHalfLifeSec);
     this.slow = ewma(this.slow, { bid, ask }, dtSec, CONFIG.slowHalfLifeSec);
+    // Same half-life as `slow`, so the two describe the same window and the
+    // ratio between them is meaningful.
+    const alphaSlow = 1 - Math.pow(0.5, dtSec / CONFIG.slowHalfLifeSec);
+    this.slowScale =
+      this.slowScale === null ? this.currentScale : this.slowScale + alphaSlow * (this.currentScale - this.slowScale);
 
     this.detect(t, bid, ask);
   }
@@ -95,10 +115,14 @@ export class WithdrawalTracker {
     if (t - this.lastEventAt < 5_000) return;
     const d = this.decompose();
     if (!d) return;
+    // Compare against what depth is expected to be *now*, not against what it
+    // averaged over a window that may have straddled the cash close. Without
+    // this, every session boundary fires a thinning event on both sides.
+    const expectedFrac = this.slowScale && this.slowScale > 0 ? this.currentScale / this.slowScale : 1;
     for (const side of ["bid", "ask"] as const) {
       const withdrawn = side === "bid" ? d.withdrawnBid : d.withdrawnAsk;
       const consumed = side === "bid" ? d.consumedBid : d.consumedAsk;
-      const baseline = side === "bid" ? this.slow.bid : this.slow.ask;
+      const baseline = (side === "bid" ? this.slow.bid : this.slow.ask) * expectedFrac;
       const now = side === "bid" ? bid : ask;
       if (baseline <= 0) continue;
       if (withdrawn > baseline * CONFIG.thinningWithdrawFrac && withdrawn > consumed) {
@@ -145,20 +169,38 @@ export class WithdrawalTracker {
     };
   }
 
-  /** Current depth over its slow baseline. Below 1 means thinner than usual. */
-  index(): { total: number; bid: number; ask: number; baseline: number; fast: number } {
+  /**
+   * Current depth over its slow baseline. Below 1 means thinner than usual.
+   *
+   * `sessionAdj` is what the raw figures must be multiplied by to remove the
+   * part of the change that the clock already accounts for — see `slowScale`.
+   * It is reported rather than folded in so both readings stay available: the
+   * raw one is what the book actually looks like to an order, the adjusted one
+   * is whether anybody did anything unusual.
+   */
+  index(): {
+    total: number;
+    bid: number;
+    ask: number;
+    baseline: number;
+    fast: number;
+    sessionAdj: number;
+  } {
     const last = this.samples.at(-1);
     if (!last || !this.slow || !this.fast) {
-      return { total: 1, bid: 1, ask: 1, baseline: 0, fast: 0 };
+      return { total: 1, bid: 1, ask: 1, baseline: 0, fast: 0, sessionAdj: 1 };
     }
     const baseline = this.slow.bid + this.slow.ask;
     const now = last.bid + last.ask;
+    const sessionAdj =
+      this.slowScale && this.slowScale > 0 && this.currentScale > 0 ? this.slowScale / this.currentScale : 1;
     return {
       total: baseline > 0 ? now / baseline : 1,
       bid: this.slow.bid > 0 ? last.bid / this.slow.bid : 1,
       ask: this.slow.ask > 0 ? last.ask / this.slow.ask : 1,
       baseline,
       fast: this.fast.bid + this.fast.ask,
+      sessionAdj,
     };
   }
 

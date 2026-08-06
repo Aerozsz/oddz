@@ -6,6 +6,7 @@ import { CONFIG } from "@/lib/sweep/config";
 import "./sweep.css";
 import CascadePanel from "./CascadePanel";
 import ClusterMap from "./ClusterMap";
+import ContextPanel from "./ContextPanel";
 import LiquidityPanel from "./LiquidityPanel";
 import Tapes from "./Tapes";
 import TopBar from "./TopBar";
@@ -57,6 +58,7 @@ export default function Dashboard() {
           <CascadePanel snap={slow} />
 
           <div className="stack">
+            <ContextPanel snap={slow} />
             <LiquidityPanel snap={slow} />
           </div>
 

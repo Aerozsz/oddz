@@ -1,4 +1,13 @@
-import type { Cluster, Direction, ParticipantRead, SessionState, Side } from "../types";
+import type {
+  Cluster,
+  Direction,
+  EventRisk,
+  FundingRead,
+  MarkoutRead,
+  ParticipantRead,
+  SessionState,
+  Side,
+} from "../types";
 
 /**
  * The agent-facing surface of the monitor.
@@ -69,6 +78,15 @@ export type SignalKind =
   | "cluster-approach"
   /** Liquidations printed above a notional threshold inside a short window. */
   | "liquidation-burst"
+  /**
+   * Aggressive flow started marking out past the spread. Leading indicator of
+   * withdrawal: quoting into it loses money, so depth is about to leave.
+   */
+  | "flow-toxic"
+  /** A funding settlement is close enough to matter to an open position. */
+  | "funding-window"
+  /** A scheduled release entered or left its blackout window. */
+  | "event-window"
   /** The tradeability gate changed state. Always emitted, never suppressed. */
   | "health";
 
@@ -97,6 +115,10 @@ export interface AgentLiquidity {
   lwi: number;
   lwiBid: number;
   lwiAsk: number;
+  /** Session-corrected; see LiquidityState.lwiAdj. Prefer these for decisions. */
+  lwiAdj: number;
+  lwiBidAdj: number;
+  lwiAskAdj: number;
   /** False until the slow baseline means something; see LiquidityState.warm. */
   warm: boolean;
   imbalance: number;
@@ -146,6 +168,15 @@ export interface AgentState {
   volatilityPct: number;
   /** Inferred from book behaviour, not from any identity. */
   participants: ParticipantRead | null;
+  /**
+   * Whether the aggressive side has been proven right. The only input here
+   * scored against what happened next rather than against a model.
+   */
+  markout: MarkoutRead;
+  /** Carry cost, and what the rate implies about which side is crowded. */
+  funding: FundingRead;
+  /** Scheduled releases. `blackout` is a hard stop for execution. */
+  events: EventRisk;
   openInterestNotional: number | null;
   longShortRatio: number | null;
   /** Rolling one-second aggressive flow, in USD. */

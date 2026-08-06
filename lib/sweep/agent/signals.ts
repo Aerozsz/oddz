@@ -14,6 +14,12 @@ export interface SignalOptions {
   liquidationWindowMs: number;
   /** Minimum gap between two signals sharing the same dedupe key. */
   cooldownMs: number;
+  /** `flow-toxic` once mark-out reaches this fraction of the half-spread. */
+  toxicityThreshold: number;
+  /** `funding-window` this long before a settlement, when the rate is material. */
+  fundingWarnMs: number;
+  /** ...and only when the rate is at least this big, as a fraction. */
+  fundingMinRate: number;
 }
 
 export const DEFAULT_SIGNAL_OPTIONS: SignalOptions = {
@@ -23,6 +29,11 @@ export const DEFAULT_SIGNAL_OPTIONS: SignalOptions = {
   liquidationBurstNotional: 150_000,
   liquidationWindowMs: 10_000,
   cooldownMs: 15_000,
+  toxicityThreshold: 0.85,
+  fundingWarnMs: 15 * 60_000,
+  // 0.01% per settlement. Below this the payment is smaller than a tick on a
+  // sensible position and there is nothing to warn about.
+  fundingMinRate: 0.0001,
 };
 
 /**
@@ -47,6 +58,8 @@ export class SignalEngine {
   private prevHealthLevel: string | null = null;
   private prevWalls: Wall[] = [];
   private seenThinningAt = 0;
+  private prevToxic = false;
+  private prevBlackout: boolean | null = null;
   private seq = 0;
 
   constructor(options: Partial<SignalOptions> = {}) {
@@ -90,6 +103,9 @@ export class SignalEngine {
     out.push(...this.cascadeRisk(snap, now));
     out.push(...this.clusterApproach(snap, now));
     out.push(...this.liquidationBurst(snap, now));
+    out.push(...this.flowToxic(snap, now));
+    out.push(...this.fundingWindow(snap, now));
+    out.push(...this.eventWindow(snap, now));
 
     return out;
   }
@@ -260,6 +276,104 @@ export class SignalEngine {
         `(${fmtUsd(longs)} longs, ${fmtUsd(shorts)} shorts)`,
       data: { total, longs, shorts, count: recent.length, direction },
       key: `liq:${direction}`,
+    });
+    return sig ? [sig] : [];
+  }
+
+  /**
+   * Mark-out has run past the half-spread.
+   *
+   * Emitted as a *warning about depth*, not as a directional call. A market
+   * maker who is losing more to adverse selection than they earn from the
+   * spread stops quoting, and the withdrawal detector only sees that once the
+   * depth has already gone. This sees the cause, which is a few seconds earlier
+   * and is the whole reason the mark-out module exists.
+   *
+   * Edge-triggered on entering the toxic band, so a persistently ugly tape does
+   * not fire continuously.
+   */
+  private flowToxic(snap: Snapshot, now: number): Signal[] {
+    const mk = snap.markout;
+    if (!mk.warm) {
+      this.prevToxic = false;
+      return [];
+    }
+    const toxic = mk.toxicity >= this.opts.toxicityThreshold;
+    const entering = toxic && !this.prevToxic;
+    this.prevToxic = toxic;
+    if (!entering) return [];
+
+    const sig = this.make("flow-toxic", now, "warning", {
+      // Where it points is where the informed side has been pushing, when it
+      // has been one-sided. Toxic-but-balanced points nowhere.
+      direction: Math.abs(mk.informed) > 0.3 ? (mk.informed > 0 ? "up" : "down") : null,
+      price: snap.mid,
+      detail: mk.notes[0] ?? `mark-out ${mk.toxicity.toFixed(2)} of the half-spread — expect depth to be pulled`,
+      data: {
+        toxicity: mk.toxicity,
+        informed: mk.informed,
+        referenceBps: mk.referenceBps,
+        costToMakerBps: mk.horizons[1]?.costToMakerBps ?? null,
+      },
+      key: "toxic",
+    });
+    return sig ? [sig] : [];
+  }
+
+  /**
+   * A settlement is close and the rate is big enough to matter.
+   *
+   * The point is the step: funding is charged in full at the instant, so a
+   * position that would have paid nothing pays the whole rate by being held a
+   * minute longer. Anything holding a position needs the chance to decide
+   * before that, not a note afterwards.
+   */
+  private fundingWindow(snap: Snapshot, now: number): Signal[] {
+    const f = snap.funding;
+    if (!f.nextFundingTime || Math.abs(f.rate) < this.opts.fundingMinRate) return [];
+    if (f.msToFunding > this.opts.fundingWarnMs) return [];
+
+    const sig = this.make("funding-window", now, "info", {
+      // Longs paying is a cost to a long and a credit to a short, which is a
+      // reason to prefer one side over the other for a hold across it.
+      direction: f.paying === "longs" ? "down" : f.paying === "shorts" ? "up" : null,
+      price: snap.mid,
+      detail:
+        `funding settles in ${Math.max(1, Math.round(f.msToFunding / 60_000))} min — ` +
+        `${f.paying} pay ${(Math.abs(f.rate) * 100).toFixed(4)}% of notional`,
+      data: {
+        rate: f.rate,
+        paying: f.paying,
+        msToFunding: f.msToFunding,
+        intervalHours: f.intervalHours,
+        stretched: f.stretched,
+      },
+      key: `funding:${f.nextFundingTime}`,
+    });
+    return sig ? [sig] : [];
+  }
+
+  /** Entering or leaving a scheduled-event blackout. Never suppressed. */
+  private eventWindow(snap: Snapshot, now: number): Signal[] {
+    const inBlackout = snap.events.blackout;
+    if (inBlackout === this.prevBlackout) return [];
+    const from = this.prevBlackout;
+    this.prevBlackout = inBlackout;
+    if (from === null) return [];
+
+    const sig = this.make("event-window", now, inBlackout ? "critical" : "info", {
+      direction: null,
+      price: snap.mid,
+      detail: inBlackout
+        ? (snap.events.reason ?? "entered a scheduled-event blackout — nothing here survives a gap")
+        : "scheduled-event blackout is over",
+      data: {
+        blackout: inBlackout,
+        label: snap.events.next?.label ?? null,
+        msToNext: snap.events.msToNext,
+      },
+      key: "event",
+      force: true,
     });
     return sig ? [sig] : [];
   }

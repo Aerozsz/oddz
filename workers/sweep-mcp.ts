@@ -121,7 +121,17 @@ const TOOLS: Tool[] = [
         limit: { type: "integer", minimum: 1, maximum: 200, description: "Max signals to return (default 20)." },
         kind: {
           type: "string",
-          enum: ["withdrawal", "wall-pulled", "cascade-risk", "cluster-approach", "liquidation-burst", "health"],
+          enum: [
+            "withdrawal",
+            "wall-pulled",
+            "cascade-risk",
+            "cluster-approach",
+            "liquidation-burst",
+            "flow-toxic",
+            "funding-window",
+            "event-window",
+            "health",
+          ],
           description: "Optional filter to one kind.",
         },
       },
@@ -176,6 +186,52 @@ const TOOLS: Tool[] = [
     run: () => {
       const s = getFeed().getState();
       return { health: s.health, volatilityPct: s.volatilityPct, participants: s.participants };
+    },
+  },
+  {
+    name: "sweep_flow_quality",
+    description:
+      "Mark-out: whether the aggressive side has been proven right. Compares trade prices against the " +
+      "mid 1s, 5s and 30s later. `informed` in [-1,1] says who has been correct lately (positive = " +
+      "buyers). `toxicity` in [0,1] is how far mark-out has run past the half-spread — at 1 the passive " +
+      "side loses more to adverse selection than it earns from quoting, which is the condition under " +
+      "which depth gets pulled, so this LEADS the withdrawal signal rather than confirming it. This is " +
+      "the only reading here scored against what actually happened next; it is still backward-looking " +
+      "over its window and is not a forecast of the next print.",
+    inputSchema: noArgs,
+    run: () => {
+      const s = getFeed().getState();
+      return { health: s.health, markout: s.markout };
+    },
+  },
+  {
+    name: "sweep_carry",
+    description:
+      "The funding leg. Reports the predicted rate for the next settlement, the settlement interval " +
+      "(inferred from published history, not assumed to be 8h), time remaining, mark-vs-index basis, and " +
+      "where the rate sits in its own recent distribution. Two uses: funding is a real cost charged IN " +
+      "FULL at the settlement instant rather than accrued, so a position held across one pays the whole " +
+      "rate however briefly it was open; and a stretched rate means the paying side is crowded, which is " +
+      "where liquidation fuel sits. Call this before sizing anything intended to be held more than a few " +
+      "minutes.",
+    inputSchema: noArgs,
+    run: () => {
+      const s = getFeed().getState();
+      return { health: s.health, funding: s.funding };
+    },
+  },
+  {
+    name: "sweep_calendar",
+    description:
+      "Scheduled releases the order-book model cannot see through. An earnings release gaps price past " +
+      "every level in the cascade model, so `blackout` true is a hard stop — do not open a position. " +
+      "IMPORTANT: dates marked `projected` are derived from Intel's reporting pattern, NOT from an " +
+      "announcement, and carry about a week of uncertainty; those only derate size rather than refusing, " +
+      "and `needsConfirmation` means the real date should be looked up and supplied via SWEEP_EVENTS.",
+    inputSchema: noArgs,
+    run: () => {
+      const s = getFeed().getState();
+      return { health: s.health, events: s.events, session: s.session };
     },
   },
   {
