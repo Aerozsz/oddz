@@ -9,10 +9,12 @@ import ClusterMap from "./ClusterMap";
 import LiquidityPanel from "./LiquidityPanel";
 import Tapes from "./Tapes";
 import TopBar from "./TopBar";
-import { useSnapshot } from "./useEngine";
+import { useSnapshot, useSnapshotThrottled } from "./useEngine";
 
 export default function Dashboard() {
+  // Full rate for the canvas, throttled for everything made of text.
   const snap = useSnapshot();
+  const slow = useSnapshotThrottled();
 
   // Hand the same running engine to anything automating this page, so an agent
   // and the display below can never disagree about what the book said.
@@ -30,7 +32,7 @@ export default function Dashboard() {
     // its own dark surface without touching the surrounding app's theme.
     <div className="sweep-root">
       <div className="shell">
-        <TopBar snap={snap} />
+        <TopBar snap={slow} />
 
       {blocked && (
         <div className="banner critical">
@@ -52,10 +54,10 @@ export default function Dashboard() {
 
         <div className="grid cols">
           {/* Spans all three columns; see .cascade-panel in sweep.css. */}
-          <CascadePanel snap={snap} />
+          <CascadePanel snap={slow} />
 
           <div className="stack">
-            <LiquidityPanel snap={snap} />
+            <LiquidityPanel snap={slow} />
           </div>
 
           <div className="stack">
@@ -64,7 +66,7 @@ export default function Dashboard() {
           </div>
 
           <div className="stack">
-            <Tapes snap={snap} />
+            <Tapes snap={slow} />
           </div>
         </div>
       </div>
