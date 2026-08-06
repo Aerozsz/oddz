@@ -475,6 +475,20 @@ th:first-child,
   line-height: 1.35;
 }
 
+/*
+ * Where price ends up after each level fires. Given its own line rather than
+ * appended to the cost, because it answers a different question — the cost is
+ * what it takes to get there, this is where "there" actually is.
+ */
+.sweep-root .detail.lands {
+  color: var(--ink-2);
+}
+
+.sweep-root .detail.lands b {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink);
+}
+
 /* ---------------------------------------------------------------- cascade */
 
 /*

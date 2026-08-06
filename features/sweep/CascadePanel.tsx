@@ -146,8 +146,12 @@ function CascadeBody({
                 {i === 0 ? "costs" : "paid for by the level above"} {usd(link.costToReach)}
                 {link.modelledPortion > 0 &&
                   ` (${usd(link.modelledPortion)} of it beyond what we can actually see)`}
-                {" → "}
-                {fmtPrice(link.priceAfter, precision)}
+              </div>
+              <div className="detail lands">
+                price lands at <b>{fmtPrice(link.priceAfter, precision)}</b>{" "}
+                <span className="sub">
+                  ({pct(((link.priceAfter - mid) / mid) * 100)} from here)
+                </span>
               </div>
               <div className="detail">
                 {link.cluster.sources.join(", ") || "order book"} · how sure{" "}

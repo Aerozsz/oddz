@@ -1,6 +1,6 @@
 import { SYMBOL } from "../config";
 import { type Engine, getEngine } from "../engine";
-import type { CascadePath, Cluster, Snapshot } from "../types";
+import type { CascadePath, Cluster, CostPoint, Snapshot } from "../types";
 import { assessHealth } from "./health";
 import { type SignalOptions, SignalEngine } from "./signals";
 import type { AgentCascade, AgentState, Signal } from "./types";
@@ -28,6 +28,8 @@ export interface SweepFeed {
    * position's liquidation would sit, for instance.
    */
   getClusters(): Cluster[];
+  /** Live depth curve, for sizing against how far an order would move price. */
+  getCostCurve(): CostPoint[];
   /** Newest first. */
   recentSignals(limit?: number): Signal[];
   onSignal(cb: (signal: Signal, state: AgentState) => void): () => void;
@@ -102,6 +104,7 @@ export function createSweepFeed(options: SweepFeedOptions = {}): SweepFeed {
   return {
     getState: () => state,
     getClusters: () => engine.getSnapshot().clusters,
+    getCostCurve: () => engine.getSnapshot().liquidity?.costCurve ?? [],
     recentSignals: (limit = 50) => history.slice(0, limit),
     onSignal(cb) {
       signalListeners.add(cb);
@@ -174,6 +177,8 @@ function project(snap: Snapshot, now = Date.now()): AgentState {
     cascadeDown: cascade(snap.cascadeDown),
     nearestAbove,
     nearestBelow,
+    volatilityPct: snap.volatilityPct,
+    participants: snap.participants,
     openInterestNotional: snap.openInterest?.notional ?? null,
     longShortRatio: snap.longShortRatio,
     flow: snap.flow,

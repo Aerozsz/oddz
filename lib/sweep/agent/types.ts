@@ -1,4 +1,4 @@
-import type { Cluster, Direction, SessionState, Side } from "../types";
+import type { Cluster, Direction, ParticipantRead, SessionState, Side } from "../types";
 
 /**
  * The agent-facing surface of the monitor.
@@ -142,6 +142,10 @@ export interface AgentState {
   nearestAbove: Cluster | null;
   nearestBelow: Cluster | null;
 
+  /** Recent movement, percent per minute. Used to keep stops out of the noise. */
+  volatilityPct: number;
+  /** Inferred from book behaviour, not from any identity. */
+  participants: ParticipantRead | null;
   openInterestNotional: number | null;
   longShortRatio: number | null;
   /** Rolling one-second aggressive flow, in USD. */
@@ -198,4 +202,4 @@ export interface ExecutionAdapter {
  */
 export type Strategy = (signal: Signal, state: AgentState) => TradeIntent | null;
 
-export type { Direction, Side };
+export type { Direction, ParticipantRead, Side };

@@ -28,6 +28,8 @@ import {
   type AccountRisk,
 } from "../lib/sweep/exchange/binance";
 import { previewPosition } from "../lib/sweep/exchange/preview";
+import { proposePosition } from "../lib/sweep/agent/sizing";
+import { directionalBias } from "../lib/sweep/agent/bias";
 import { checkProtection, ensureProtected, type ProtectionState } from "../lib/sweep/exchange/orders";
 import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { CONFIG, SYMBOL } from "../lib/sweep/config";
@@ -328,6 +330,49 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "POST /api/suggest": {
+        // Computes numbers and returns them. It does not apply anything, does
+        // not touch the stored limits, and cannot place an order — the operator
+        // reads the reasoning and decides what the caps should be.
+        const body = await readJson(req);
+        const state = feed?.getState() ?? null;
+        if (!state) { send(res, 200, { error: "engine is not running" }); return; }
+        const bias = directionalBias(state);
+        // "auto" hands the choice to the bias read; an explicit side overrides it.
+        const chosen =
+          body.direction === "auto" || body.direction === undefined
+            ? bias.direction
+            : body.direction === "down"
+              ? "down"
+              : "up";
+        if (!chosen) {
+          send(res, 200, { result: { ok: false, reasons: [bias.summary] }, bias, participants: state.participants, volatilityPct: state.volatilityPct, appliedNothing: true });
+          return;
+        }
+        const result = proposePosition({
+          direction: chosen,
+          state,
+          equity: account.risk?.availableBalance ?? Number(body.assumeEquity) ?? 0,
+          realisedLossToday: 0,
+          limits: {
+            maxPositionUsd: limits.maxPositionUsd > 0 ? limits.maxPositionUsd : Number(body.assumeMaxPositionUsd) || 0,
+            maxLeverage: limits.maxLeverage,
+            maxDailyLossUsd: limits.maxDailyLossUsd,
+            stopLossPct: limits.stopLossPct,
+          },
+          costCurve: feed ? feed.getCostCurve() : [],
+          clusters: feed ? feed.getClusters() : [],
+        });
+        send(res, 200, {
+          result,
+          bias,
+          participants: state.participants,
+          volatilityPct: state.volatilityPct,
+          appliedNothing: true,
+        });
+        return;
+      }
+
       case "POST /api/preview": {
         const body = await readJson(req);
         const state = feed?.getState() ?? null;
@@ -555,6 +600,14 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
     <button id="btnPreview">Preview</button>
   </div>
   <div id="pvOut" style="margin-top:12px"><span class="muted">Enter a size and press Preview.</span></div>
+  <div class="row" style="margin-top:12px;gap:8px;align-items:center;border-top:1px solid var(--hair);padding-top:12px">
+    <b style="font-size:12px">Suggest numbers</b>
+    <select id="sgDir" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
+      <option value="auto">let it decide</option><option value="up">upside</option><option value="down">downside</option></select>
+    <button id="btnSuggest">Work out a setup</button>
+    <span class="muted" style="font-size:11px">reads the live book and proposes size, stop and target — applies nothing</span>
+  </div>
+  <div id="sgOut" style="margin-top:10px"></div>
 </div>
 
 <div class="panel">
@@ -672,6 +725,43 @@ $("btnPreview").onclick=async()=>{
     (banners?'<div style="display:flex;flex-direction:column;gap:8px;margin-top:10px">'+banners+"</div>":"")+
     '<p class="note">Liquidation price is an estimate assuming isolated margin and a '+
     "modelled maintenance rate; Binance's own figure is authoritative and accounts for the notional tier, funding and cross-margin wallet.</p>";
+};
+
+$("btnSuggest").onclick=async()=>{
+  const r=await api("/api/suggest",{method:"POST",body:JSON.stringify({direction:$("sgDir").value})});
+  if(r.error){ $("sgOut").innerHTML='<div class="banner warn"><span>'+r.error+"</span></div>"; return; }
+  const res=r.result;
+  const b=r.bias;
+  const biasHtml=b?('<div class="banner '+(b.direction?"warn":"")+'" style="margin-bottom:8px"><div>'+
+    "<b>"+(b.direction?("Least resistance: "+(b.direction==="down"?"downward":"upward")+" · "+Math.round(b.conviction*100)+"% conviction"):"No clear side")+"</b>"+
+    '<div class="sub" style="margin-top:3px">'+b.summary.replace(/</g,"&lt;")+"</div>"+
+    '<div class="sub" style="margin-top:4px;opacity:.8">'+b.factors.map(f=>f.name+": "+f.detail).join(" · ").replace(/</g,"&lt;")+"</div>"+
+    '<div class="sub" style="margin-top:4px;opacity:.7">'+b.caveat+"</div>"+
+    "</div></div>"):"";
+  const beh=r.participants?('<p class="note">Book behaviour: <b>'+r.participants.regime+"</b> ("+
+    Math.round(r.participants.confidence*100)+"% confidence) — "+(r.participants.notes[0]||"")+
+    " · recent movement "+n(r.volatilityPct,2)+"%/min</p>"):"";
+  if(!res.ok){
+    $("sgOut").innerHTML=biasHtml+'<div class="banner warn"><b>No setup worth taking.</b><span>'+
+      res.reasons.join("; ")+"</span></div>"+beh;
+    return;
+  }
+  $("sgOut").innerHTML=biasHtml+beh+
+    '<div class="tiles" style="margin-top:8px">'+
+    '<div class="tile"><span class="k">Suggested size</span><span class="v">'+usd(res.notionalUsd)+'</span><span class="d">'+n(res.quantity,3)+" contracts</span></div>"+
+    '<div class="tile"><span class="k">Leverage</span><span class="v">'+res.leverage+'x</span><span class="d">'+usd(res.marginUsd)+" margin</span></div>"+
+    '<div class="tile"><span class="k">Stop</span><span class="v">'+n(res.stopPrice)+'</span><span class="d">'+n(res.stopDistancePct,2)+"% · risks "+usd(res.riskUsd)+"</span></div>"+
+    '<div class="tile"><span class="k">Target</span><span class="v">'+(res.targetPrice?n(res.targetPrice):"—")+'</span><span class="d">'+
+      (res.rewardRisk?n(res.rewardRisk,2)+":1 reward:risk":"no level ahead")+"</span></div>"+
+    "</div>"+
+    '<p class="note"><b>Why:</b> '+res.reasoning.map(x=>x.replace(/</g,"&lt;")).join(" · ")+"</p>"+
+    '<div class="row" style="margin-top:8px"><button id="btnCopy">Copy into preview</button>'+
+    '<span class="muted" style="font-size:11px">nothing has been applied or ordered — these are numbers for you to judge</span></div>';
+  document.getElementById("btnCopy").onclick=()=>{
+    $("pvSide").value=res.side; $("pvNotional").value=Math.round(res.notionalUsd);
+    $("pvLeverage").value=res.leverage; $("pvEntry").value=res.entryPrice.toFixed(2);
+    $("btnPreview").click();
+  };
 };
 
 tick(); setInterval(tick,1000);

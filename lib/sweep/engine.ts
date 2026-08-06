@@ -17,6 +17,7 @@ import { simulate } from "./metrics/cascade";
 import { buildClusters } from "./metrics/clusters";
 import { bandDepths, costCurve, findWalls } from "./metrics/depth";
 import { PLACEHOLDER_SESSION, sessionState } from "./metrics/session";
+import { ParticipantTracker } from "./metrics/participants";
 import { WithdrawalTracker } from "./metrics/withdrawal";
 import type {
   Cluster,
@@ -45,6 +46,7 @@ export class Engine {
   private book = new OrderBook();
   private stream: StreamClient | null = null;
   private tracker = new WithdrawalTracker();
+  private participants = new ParticipantTracker();
 
   private meta: SymbolMeta | null = null;
   private mark: MarkPrice | null = null;
@@ -300,7 +302,10 @@ export class Engine {
 
     switch (type) {
       case "depthUpdate": {
-        const ok = this.book.apply(d as unknown as DepthDiff);
+        const diff = d as unknown as DepthDiff;
+        const midNow = this.book.mid();
+        if (midNow) this.participants.onDepthDiff(diff.b ?? [], diff.a ?? [], midNow, Date.now());
+        const ok = this.book.apply(diff);
         if (!ok) void this.resync();
         // Only a book that is actually applying diffs clears the backoff. The
         // snapshot request returning 200 does not mean the handshake completed.
@@ -322,6 +327,7 @@ export class Engine {
         };
         this.last = price;
         this.tracker.addTrade(notional, trade.buyerIsMaker);
+        this.participants.onTrade(trade, Date.now());
         if (notional >= CONFIG.largeTradeNotional) {
           this.largeTrades.unshift(trade);
           if (this.largeTrades.length > 200) this.largeTrades.length = 200;
@@ -415,6 +421,29 @@ export class Engine {
     });
   }
 
+  /**
+   * Recent movement of mid, expressed as a percent-per-minute standard
+   * deviation. Sizing needs this so a stop is not placed inside the noise: a
+   * 0.5% stop on a contract that routinely moves 0.8% a minute is a donation.
+   */
+  private realisedVolPct(): number {
+    const samples = this.tracker.history(240);
+    if (samples.length < 20) return 0;
+    const returns: number[] = [];
+    for (let i = 1; i < samples.length; i++) {
+      const a = samples[i - 1].mid;
+      const b = samples[i].mid;
+      if (a > 0 && b > 0) returns.push(Math.log(b / a));
+    }
+    if (returns.length < 10) return 0;
+    const mean = returns.reduce((x, y) => x + y, 0) / returns.length;
+    const variance = returns.reduce((x, y) => x + (y - mean) ** 2, 0) / returns.length;
+    const perSample = Math.sqrt(variance);
+    // Samples land every CONFIG.sampleIntervalMs; scale to one minute.
+    const perMinute = perSample * Math.sqrt(60_000 / CONFIG.sampleIntervalMs);
+    return perMinute * 100;
+  }
+
   private publish() {
     const bids = this.book.bidLevels();
     const asks = this.book.askLevels();
@@ -487,6 +516,8 @@ export class Engine {
       thinning: this.tracker.events.slice(0, 30),
       depthHistory: this.tracker.history(),
       flow: this.tracker.flowSince(1000),
+      volatilityPct: this.realisedVolPct(),
+      participants: this.participants.read(),
     };
 
     for (const cb of this.listeners) cb();
@@ -525,6 +556,8 @@ export function emptySnapshot(): Snapshot {
     thinning: [],
     depthHistory: [],
     flow: { buy: 0, sell: 0 },
+    volatilityPct: 0,
+    participants: null,
   };
 }
 
