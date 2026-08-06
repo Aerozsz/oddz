@@ -37,6 +37,26 @@ export class WithdrawalTracker {
   private lastEventAt = 0;
   events: ThinningEvent[] = [];
 
+  /**
+   * The publish loop runs at 10Hz but samples land at 2Hz, so the derived
+   * history is rebuilt five times per change. At half an hour of samples that
+   * is thousands of throwaway objects a second, on a page designed to be left
+   * open all day. Cached against the sample that produced it.
+   */
+  private historyCache: { key: number; maxPoints: number; value: DepthSample[] } | null = null;
+
+  /** Index of the first sample at or after `t`. Samples are ordered by time. */
+  private firstAtOrAfter(t: number): number {
+    let lo = 0;
+    let hi = this.samples.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (this.samples[mid].t < t) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  }
+
   /** Aggressive prints, accumulated between samples. */
   addTrade(notional: number, buyerIsMaker: boolean) {
     if (buyerIsMaker) this.cumSell += notional;
@@ -46,7 +66,7 @@ export class WithdrawalTracker {
   /** Rolling one-second aggressive flow, for the tape headline. */
   flowSince(ms: number): { buy: number; sell: number } {
     const cutoff = Date.now() - ms;
-    const ref = this.samples.find((s) => s.t >= cutoff) ?? this.samples[0];
+    const ref = this.samples[this.firstAtOrAfter(cutoff)] ?? this.samples[0];
     if (!ref) return { buy: 0, sell: 0 };
     return { buy: this.cumBuy - ref.cumBuy, sell: this.cumSell - ref.cumSell };
   }
@@ -93,7 +113,7 @@ export class WithdrawalTracker {
     const last = this.samples.at(-1);
     if (!last) return null;
     const cutoff = last.t - windowSec * 1000;
-    const first = this.samples.find((s) => s.t >= cutoff);
+    const first = this.samples[this.firstAtOrAfter(cutoff)];
     if (!first || first === last) return null;
 
     const dBid = last.bid - first.bid;
@@ -137,11 +157,20 @@ export class WithdrawalTracker {
 
   history(maxPoints = 600): DepthSample[] {
     const n = this.samples.length;
-    if (n <= maxPoints) return this.samples.map(toPublic);
-    const stride = Math.ceil(n / maxPoints);
-    const out: DepthSample[] = [];
-    for (let i = n - 1; i >= 0; i -= stride) out.unshift(toPublic(this.samples[i]));
-    return out;
+    const key = n === 0 ? 0 : this.samples[n - 1].t * 1e6 + n;
+    const cached = this.historyCache;
+    if (cached && cached.key === key && cached.maxPoints === maxPoints) return cached.value;
+
+    let value: DepthSample[];
+    if (n <= maxPoints) {
+      value = this.samples.map(toPublic);
+    } else {
+      const stride = Math.ceil(n / maxPoints);
+      value = [];
+      for (let i = n - 1; i >= 0; i -= stride) value.unshift(toPublic(this.samples[i]));
+    }
+    this.historyCache = { key, maxPoints, value };
+    return value;
   }
 
   /** True once the slow baseline has seen enough data to mean something. */

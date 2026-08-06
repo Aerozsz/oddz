@@ -2,6 +2,7 @@
 
 import { OrderBook, type DepthDiff } from "./binance/book";
 import {
+  RateLimited,
   currentRoute,
   fetchDepthSnapshot,
   fetchKlines,
@@ -15,7 +16,7 @@ import { CONFIG, SYMBOL } from "./config";
 import { simulate } from "./metrics/cascade";
 import { buildClusters } from "./metrics/clusters";
 import { bandDepths, costCurve, findWalls } from "./metrics/depth";
-import { sessionState } from "./metrics/session";
+import { PLACEHOLDER_SESSION, sessionState } from "./metrics/session";
 import { WithdrawalTracker } from "./metrics/withdrawal";
 import type {
   Cluster,
@@ -27,6 +28,9 @@ import type {
   SymbolMeta,
   Trade,
 } from "./types";
+
+/** Floor between depth-snapshot requests, however often the book asks for one. */
+const MIN_RESYNC_INTERVAL_MS = 1_000;
 
 /**
  * Owns every live connection and every derived number, outside React.
@@ -49,7 +53,7 @@ export class Engine {
   private daily: Kline[] = [];
   private liquidations: Liquidation[] = [];
   private largeTrades: Trade[] = [];
-  private openInterest: { qty: number; notional: number; t: number } | null = null;
+  private openInterest: Snapshot["openInterest"] = null;
   private longShortRatio: number | null = null;
   private clusters: Cluster[] = [];
 
@@ -66,11 +70,15 @@ export class Engine {
   private msgCount = 0;
   private msgWindowStart = Date.now();
   private snapshotPending = false;
+  private resyncTimer: ReturnType<typeof setTimeout> | null = null;
+  private resyncAttempt = 0;
+  private lastResyncAt = 0;
   private timers: ReturnType<typeof setInterval>[] = [];
   private listeners = new Set<() => void>();
   private snapshot: Snapshot = emptySnapshot();
   private started = false;
   private unsubRoute: (() => void) | null = null;
+  private onVisibility: (() => void) | null = null;
 
   /* ------------------------------------------------------------- lifecycle */
 
@@ -99,6 +107,18 @@ export class Engine {
       onMessage: (msg) => this.handle(msg),
     });
     this.stream.start();
+
+    // Coming back to the tab must not show whatever the polls last managed
+    // before it was hidden; refresh on the spot rather than waiting out the
+    // remainder of a 20s or 5min interval.
+    if (typeof document !== "undefined") {
+      this.onVisibility = () => {
+        if (document.visibilityState !== "visible") return;
+        void this.refreshOpenInterest();
+        void this.refreshRatio();
+      };
+      document.addEventListener("visibilitychange", this.onVisibility);
+    }
 
     void this.bootstrap();
 
@@ -132,6 +152,12 @@ export class Engine {
     this.stream = null;
     for (const t of this.timers) clearInterval(t);
     this.timers = [];
+    if (this.resyncTimer) clearTimeout(this.resyncTimer);
+    this.resyncTimer = null;
+    if (this.onVisibility && typeof document !== "undefined") {
+      document.removeEventListener("visibilitychange", this.onVisibility);
+    }
+    this.onVisibility = null;
     this.unsubRoute?.();
   }
 
@@ -168,26 +194,81 @@ export class Engine {
       fetchKlines("1m", 1000),
       fetchKlines("1d", 60),
     ]);
-    this.minutes = minutes;
+    // The socket opens independently of this fetch and may already have pushed
+    // live bars into `minutes`. Assigning the REST result over the top would
+    // discard them and, worse, leave a bar that the stream has since updated.
+    // Merge by open time with the live copy winning.
+    const byTime = new Map<number, Kline>();
+    for (const bar of minutes) byTime.set(bar.openTime, bar);
+    for (const bar of this.minutes) byTime.set(bar.openTime, bar);
+    this.minutes = [...byTime.values()].sort((a, b) => a.openTime - b.openTime);
+    if (this.minutes.length > 1200) this.minutes = this.minutes.slice(-1200);
     this.daily = daily;
   }
 
+  /**
+   * The engine is a tab-level singleton that is deliberately never stopped, so
+   * these polls otherwise keep running for as long as the tab exists — in a
+   * background tab, or after the visitor has navigated to another route
+   * entirely. Nobody is reading the number then, and it is refetched the moment
+   * the page is looked at again, so the request is pure rate-limit spend.
+   */
+  private get pollable() {
+    return typeof document === "undefined" || document.visibilityState !== "hidden";
+  }
+
   private async refreshOpenInterest() {
+    if (!this.pollable) return;
     try {
       const oi = await fetchOpenInterest();
       const price = this.mark?.markPrice ?? this.book.mid() ?? this.last ?? 0;
-      this.openInterest = { qty: oi.qty, notional: oi.qty * price, t: oi.t };
+      this.openInterest = {
+        qty: oi.qty,
+        notional: oi.qty * price,
+        t: oi.t,
+        fetchedAt: Date.now(),
+      };
     } catch {
       /* transient; the previous value stays on screen */
     }
   }
 
   private async refreshRatio() {
-    this.longShortRatio = await fetchLongShortRatio();
+    if (!this.pollable) return;
+    // Only polled every five minutes, so a single failure would blank the
+    // ladder's long/short split for that long. Keep the last good reading.
+    const ratio = await fetchLongShortRatio();
+    if (ratio !== null) this.longShortRatio = ratio;
+  }
+
+  /**
+   * A depth snapshot is the most expensive call this page makes (weight 20 of a
+   * 2400/min budget), and a broken book asks for one on *every* diff — ten times
+   * a second. The retry therefore has to be a single chain: one timer, backed
+   * off, cancelled on stop. Rescheduling unconditionally is what turns a brief
+   * outage into a rate-limit ban, and on the proxy route that ban is shared by
+   * every visitor.
+   */
+  private scheduleResync(delayMs: number) {
+    if (this.resyncTimer || !this.started) return;
+    this.resyncTimer = setTimeout(() => {
+      this.resyncTimer = null;
+      void this.resync();
+    }, delayMs);
   }
 
   private async resync() {
-    if (this.snapshotPending) return;
+    if (this.snapshotPending || this.resyncTimer || !this.started) return;
+    // A snapshot can be fetched successfully and still leave the book unsynced
+    // — a stale snapshot never straddles the incoming diffs. Every diff then
+    // asks to resync again, so success alone is not enough to allow another
+    // immediate call; the floor applies to attempts, not to failures.
+    const since = Date.now() - this.lastResyncAt;
+    if (since < MIN_RESYNC_INTERVAL_MS) {
+      this.scheduleResync(MIN_RESYNC_INTERVAL_MS - since);
+      return;
+    }
+    this.lastResyncAt = Date.now();
     this.snapshotPending = true;
     try {
       const snap = await fetchDepthSnapshot(1000);
@@ -197,7 +278,13 @@ export class Engine {
         ...this.connection,
         error: `book snapshot: ${err instanceof Error ? err.message : String(err)}`,
       };
-      setTimeout(() => void this.resync(), 2_000);
+      // Honour an explicit cooldown when Binance gave us one; otherwise back off
+      // exponentially to a 30s ceiling, with jitter so that reconnecting tabs do
+      // not all come back in the same instant.
+      const limited = err instanceof RateLimited ? err.retryAfterMs : 0;
+      const backoff = Math.min(30_000, 1_000 * 2 ** this.resyncAttempt);
+      this.resyncAttempt++;
+      this.scheduleResync(Math.max(limited, backoff) + Math.random() * 500);
     } finally {
       this.snapshotPending = false;
     }
@@ -215,6 +302,9 @@ export class Engine {
       case "depthUpdate": {
         const ok = this.book.apply(d as unknown as DepthDiff);
         if (!ok) void this.resync();
+        // Only a book that is actually applying diffs clears the backoff. The
+        // snapshot request returning 200 does not mean the handshake completed.
+        else if (this.book.synced) this.resyncAttempt = 0;
         this.connection.bookSynced = this.book.synced;
         this.connection.resyncs = this.book.resyncs;
         break;
@@ -240,9 +330,14 @@ export class Engine {
       }
       case "forceOrder": {
         const o = d.o as Record<string, unknown>;
-        const price = Number(o.ap ?? o.p);
+        // `ap` is the average fill price and is "0" until the order actually
+        // fills. Taking it blindly puts a liquidation at price 0, which then
+        // anchors a phantom cluster at the bottom of the map.
+        const avg = Number(o.ap);
+        const price = Number.isFinite(avg) && avg > 0 ? avg : Number(o.p);
         const qty = Number(o.q);
         const side = String(o.S) as "BUY" | "SELL";
+        if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(qty) || qty <= 0) break;
         this.liquidations.unshift({
           t: Number(o.T ?? d.E),
           price,
@@ -409,7 +504,7 @@ export function emptySnapshot(): Snapshot {
       restVia: "unknown",
       error: null,
     },
-    session: sessionState(),
+    session: PLACEHOLDER_SESSION,
     mark: null,
     last: null,
     mid: null,

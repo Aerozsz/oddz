@@ -19,6 +19,49 @@ type Route = "direct" | "proxy";
 let route: Route | null = null;
 const listeners = new Set<(r: Route) => void>();
 
+/**
+ * Binance rate limits by IP, and answers an exhausted limit with 429 and then
+ * 418 — an IP ban that escalates from two minutes to three days if you keep
+ * knocking. Both routes are tracked separately because they are different IPs:
+ * "direct" is the visitor's own, "proxy" is one Vercel egress address shared by
+ * every visitor at once.
+ *
+ * The policy that asymmetry buys:
+ *
+ *  - A rate limit never fails over *within the same call*. Retrying immediately
+ *    on the other address turns one throttled IP into two, so the error is
+ *    raised instead and the caller is expected to back off.
+ *  - The throttled route is then parked until its cooldown expires. A later
+ *    call may legitimately use the other route — otherwise a throttled visitor
+ *    just gets a dead page.
+ *  - Falling back onto the shared address is affordable only because the proxy
+ *    is CDN-cached per path, so any number of visitors arriving at once
+ *    collapses into roughly one upstream call. That cache is what keeps a
+ *    crowd on the fallback route from spending the shared budget; without it
+ *    this policy would be unsafe.
+ */
+export class RateLimited extends Error {
+  constructor(
+    readonly status: number,
+    readonly retryAfterMs: number,
+  ) {
+    super(`rate limited (${status}) — retry in ${Math.ceil(retryAfterMs / 1000)}s`);
+    this.name = "RateLimited";
+  }
+}
+
+const cooldownUntil: Record<Route, number> = { direct: 0, proxy: 0 };
+
+function coolingDown(r: Route) {
+  return Date.now() < cooldownUntil[r];
+}
+
+/** Milliseconds until every route is usable again; 0 when none is parked. */
+export function rateLimitCooldownMs(): number {
+  const soonest = Math.min(cooldownUntil.direct, cooldownUntil.proxy);
+  return Math.max(0, soonest - Date.now());
+}
+
 export function onRouteChange(cb: (r: Route) => void): () => void {
   listeners.add(cb);
   return () => {
@@ -49,12 +92,25 @@ async function attempt(base: Route, path: string, params: Record<string, string 
     cache: "no-store",
     signal: AbortSignal.timeout(12_000),
   });
+  if (res.status === 429 || res.status === 418) {
+    // Retry-After is in seconds when Binance sends one at all. The floor keeps
+    // a missing or nonsensical header from turning into an instant retry.
+    const header = Number(res.headers.get("retry-after"));
+    const wait = Number.isFinite(header) && header > 0 ? header * 1000 : 60_000;
+    cooldownUntil[base] = Date.now() + wait;
+    throw new RateLimited(res.status, wait);
+  }
   if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
   return res.json();
 }
 
 export async function api<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
-  const order: Route[] = route ? [route] : ["direct", "proxy"];
+  const preferred: Route[] = route ? [route, route === "direct" ? "proxy" : "direct"] : ["direct", "proxy"];
+  const order = preferred.filter((r) => !coolingDown(r));
+  if (order.length === 0) {
+    throw new RateLimited(429, rateLimitCooldownMs());
+  }
+
   let lastError: unknown;
   for (const base of order) {
     try {
@@ -63,17 +119,10 @@ export async function api<T>(path: string, params: Record<string, string | numbe
       return data as T;
     } catch (err) {
       lastError = err;
-    }
-  }
-  // The remembered route just failed. Try the other one before giving up.
-  if (route) {
-    const other: Route = route === "direct" ? "proxy" : "direct";
-    try {
-      const data = await attempt(other, path, params);
-      setRoute(other);
-      return data as T;
-    } catch (err) {
-      lastError = err;
+      // A rate limit says the address is spent, not that the route is broken.
+      // Failing over here would move the load onto the other IP and get that
+      // one throttled too, so stop and let the caller back off instead.
+      if (err instanceof RateLimited) throw err;
     }
   }
   throw lastError instanceof Error ? lastError : new Error(String(lastError));

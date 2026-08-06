@@ -210,7 +210,12 @@ export interface Snapshot {
   mid: number | null;
   bestBid: number | null;
   bestAsk: number | null;
-  openInterest: { qty: number; notional: number; t: number } | null;
+  /**
+   * `t` is Binance's own timestamp; `fetchedAt` is local. Age is measured from
+   * the local one on purpose — a browser clock that disagrees with the exchange
+   * would otherwise report a fresh figure as minutes old, or vice versa.
+   */
+  openInterest: { qty: number; notional: number; t: number; fetchedAt: number } | null;
   longShortRatio: number | null;
   liquidity: LiquidityState | null;
   /** Live book levels, passed by reference for the depth profile render. */

@@ -18,15 +18,25 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-const ALLOWED = new Set([
-  "fapi/v1/exchangeInfo",
-  "fapi/v1/depth",
-  "fapi/v1/klines",
-  "fapi/v1/openInterest",
-  "fapi/v1/ticker/24hr",
-  "futures/data/globalLongShortAccountRatio",
-  "futures/data/topLongShortPositionRatio",
-  "futures/data/openInterestHist",
+/**
+ * Allowlisted paths, each with how long the edge may serve a cached copy.
+ *
+ * Every visitor on the fallback route shares this function's single egress IP,
+ * so they also share one Binance rate-limit budget. Caching per path is what
+ * keeps that budget survivable: N visitors seeding a book within the same
+ * couple of seconds should cost one upstream call, not N. The TTLs are set by
+ * how fast each figure actually changes — contract metadata is near-static,
+ * a book snapshot is stale almost immediately.
+ */
+const ALLOWED = new Map<string, number>([
+  ["fapi/v1/exchangeInfo", 300],
+  ["fapi/v1/depth", 2],
+  ["fapi/v1/klines", 15],
+  ["fapi/v1/openInterest", 10],
+  ["fapi/v1/ticker/24hr", 10],
+  ["futures/data/globalLongShortAccountRatio", 120],
+  ["futures/data/topLongShortPositionRatio", 120],
+  ["futures/data/openInterestHist", 120],
 ]);
 
 export async function GET(
@@ -35,7 +45,8 @@ export async function GET(
 ) {
   const { path } = await ctx.params;
   const joined = path.join("/");
-  if (!ALLOWED.has(joined)) {
+  const ttl = ALLOWED.get(joined);
+  if (ttl === undefined) {
     return NextResponse.json({ error: "path not allowed" }, { status: 404 });
   }
 
@@ -50,19 +61,45 @@ export async function GET(
       signal: AbortSignal.timeout(10_000),
     });
     const body = await res.text();
+    const contentType = res.headers.get("content-type") ?? "application/json";
+
+    // 429, then 418 — an IP ban that lengthens each time it is ignored. Pass
+    // the signal through so the browser can back off, and let the edge hold the
+    // refusal briefly: while we are throttled, every request the CDN absorbs is
+    // one that is not making the ban worse.
+    if (res.status === 429 || res.status === 418) {
+      const retryAfter = res.headers.get("retry-after") ?? "60";
+      return new NextResponse(body, {
+        status: res.status,
+        headers: {
+          "content-type": contentType,
+          "retry-after": retryAfter,
+          "cache-control": "public, max-age=0, s-maxage=10",
+        },
+      });
+    }
+
+    // Never cache an upstream failure at the TTL meant for good data; a cached
+    // 5xx would outlive the incident that caused it.
+    if (!res.ok) {
+      return new NextResponse(body, {
+        status: res.status,
+        headers: { "content-type": contentType, "cache-control": "no-store" },
+      });
+    }
+
     return new NextResponse(body, {
       status: res.status,
       headers: {
-        "content-type": res.headers.get("content-type") ?? "application/json",
-        // Short shared cache: several visitors seeding a book at once should
-        // not each cost an upstream call, but the data must stay current.
-        "cache-control": "public, max-age=0, s-maxage=2, stale-while-revalidate=5",
+        "content-type": contentType,
+        "cache-control": `public, max-age=0, s-maxage=${ttl}, stale-while-revalidate=${ttl * 4}`,
       },
     });
   } catch (err) {
+    const timedOut = err instanceof Error && err.name === "TimeoutError";
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "upstream failed" },
-      { status: 502 },
+      { error: timedOut ? "upstream timed out" : err instanceof Error ? err.message : "upstream failed" },
+      { status: timedOut ? 504 : 502, headers: { "cache-control": "no-store" } },
     );
   }
 }

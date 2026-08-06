@@ -46,6 +46,22 @@ function etParts(now: Date): EtParts {
   };
 }
 
+/**
+ * The session shown before the engine has published anything.
+ *
+ * /sweep is prerendered, so any clock read during the first render is baked
+ * into the static HTML at build time and then recomputed in the browser at
+ * hydration — two different answers for the same markup. This placeholder is
+ * constant, so both sides agree; the real phase arrives with the first publish
+ * a tenth of a second later.
+ */
+export const PLACEHOLDER_SESSION: SessionState = {
+  cashOpen: false,
+  phase: "closed",
+  msToNext: 0,
+  nextLabel: "pre-market opens",
+};
+
 export function sessionState(now = new Date()): SessionState {
   const { weekday, minutes, secondsIntoMinute } = etParts(now);
   const msIntoMinute = secondsIntoMinute * 1000 + now.getMilliseconds();
