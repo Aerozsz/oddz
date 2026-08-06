@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect } from "react";
+import { exposeSweepFeed } from "@/lib/sweep/agent/browser";
 import { CONFIG } from "@/lib/sweep/config";
 import "./sweep.css";
 import CascadePanel from "./CascadePanel";
@@ -11,6 +13,13 @@ import { useSnapshot } from "./useEngine";
 
 export default function Dashboard() {
   const snap = useSnapshot();
+
+  // Hand the same running engine to anything automating this page, so an agent
+  // and the display below can never disagree about what the book said.
+  useEffect(() => {
+    exposeSweepFeed();
+  }, []);
+
   const conn = snap.connection;
   const blocked =
     conn.socket === "error" ||

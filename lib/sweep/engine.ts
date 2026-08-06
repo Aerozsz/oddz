@@ -445,6 +445,7 @@ export class Engine {
         lwi: this.tracker.warm ? idx.total : 1,
         lwiBid: this.tracker.warm ? idx.bid : 1,
         lwiAsk: this.tracker.warm ? idx.ask : 1,
+        warm: this.tracker.warm,
         baselineNotional: idx.baseline,
         fastNotional: idx.fast,
         decomp,

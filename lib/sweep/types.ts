@@ -106,6 +106,12 @@ export interface LiquidityState {
   lwi: number;
   lwiBid: number;
   lwiAsk: number;
+  /**
+   * Whether the slow baseline has seen enough data to mean anything. Until it
+   * has, the indices above are pinned to 1 — indistinguishable from a genuinely
+   * normal book, which is a difference anything trading off them has to know.
+   */
+  warm: boolean;
   baselineNotional: number;
   fastNotional: number;
   decomp: Decomposition;

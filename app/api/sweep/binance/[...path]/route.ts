@@ -28,16 +28,57 @@ export const dynamic = "force-dynamic";
  * how fast each figure actually changes — contract metadata is near-static,
  * a book snapshot is stale almost immediately.
  */
-const ALLOWED = new Map<string, number>([
-  ["fapi/v1/exchangeInfo", 300],
-  ["fapi/v1/depth", 2],
-  ["fapi/v1/klines", 15],
-  ["fapi/v1/openInterest", 10],
-  ["fapi/v1/ticker/24hr", 10],
-  ["futures/data/globalLongShortAccountRatio", 120],
-  ["futures/data/topLongShortPositionRatio", 120],
-  ["futures/data/openInterestHist", 120],
+interface Allowed {
+  /** Seconds the edge may serve a cached copy. */
+  ttl: number;
+  /** Query parameters forwarded upstream. Everything else is dropped. */
+  params: string[];
+}
+
+const ALLOWED = new Map<string, Allowed>([
+  ["fapi/v1/exchangeInfo", { ttl: 300, params: [] }],
+  ["fapi/v1/depth", { ttl: 2, params: ["symbol", "limit"] }],
+  ["fapi/v1/klines", { ttl: 15, params: ["symbol", "interval", "limit"] }],
+  ["fapi/v1/openInterest", { ttl: 10, params: ["symbol"] }],
+  ["fapi/v1/ticker/24hr", { ttl: 10, params: ["symbol"] }],
+  ["futures/data/globalLongShortAccountRatio", { ttl: 120, params: ["symbol", "period", "limit"] }],
+  ["futures/data/topLongShortPositionRatio", { ttl: 120, params: ["symbol", "period", "limit"] }],
+  ["futures/data/openInterestHist", { ttl: 120, params: ["symbol", "period", "limit"] }],
 ]);
+
+/** Upper bounds for numeric parameters, so nobody can inflate request weight. */
+const MAX_LIMIT = 1000;
+
+/**
+ * Only known parameters are forwarded, and only within known bounds.
+ *
+ * Forwarding the query string verbatim made this trivially abusable in two
+ * ways. Any unrecognised parameter — `?_=1`, `?_=2` — is a distinct edge cache
+ * key, so an attacker could bypass the cache entirely and turn every request
+ * into an upstream call against the one IP every fallback visitor shares, until
+ * Binance bans it. And `limit` drives request weight, so an inflated value
+ * spends the shared budget faster than the cache can defend it.
+ *
+ * Dropping unknown parameters also keeps the cache dense: one canonical URL per
+ * distinct question rather than one per caller.
+ */
+function sanitize(allowed: Allowed, incoming: URLSearchParams): URLSearchParams {
+  const out = new URLSearchParams();
+  for (const name of allowed.params) {
+    const raw = incoming.get(name);
+    if (raw === null) continue;
+    if (name === "limit") {
+      const n = Number(raw);
+      if (!Number.isInteger(n) || n <= 0) continue;
+      out.set(name, String(Math.min(n, MAX_LIMIT)));
+    } else {
+      // Binance symbols, intervals and periods are all short alphanumerics.
+      if (!/^[A-Za-z0-9_]{1,24}$/.test(raw)) continue;
+      out.set(name, raw);
+    }
+  }
+  return out;
+}
 
 export async function GET(
   req: Request,
@@ -45,14 +86,20 @@ export async function GET(
 ) {
   const { path } = await ctx.params;
   const joined = path.join("/");
-  const ttl = ALLOWED.get(joined);
-  if (ttl === undefined) {
+  const allowed = ALLOWED.get(joined);
+  if (allowed === undefined) {
     return NextResponse.json({ error: "path not allowed" }, { status: 404 });
   }
+  const ttl = allowed.ttl;
 
   const incoming = new URL(req.url);
   const target = new URL(`https://fapi.binance.com/${joined}`);
-  for (const [k, v] of incoming.searchParams) target.searchParams.set(k, v);
+  // Sorted, so that two callers asking the same question produce the same URL
+  // and therefore the same cache entry.
+  const clean = sanitize(allowed, incoming.searchParams);
+  for (const [k, v] of [...clean].sort(([a], [b]) => a.localeCompare(b))) {
+    target.searchParams.set(k, v);
+  }
 
   try {
     const res = await fetch(target, {

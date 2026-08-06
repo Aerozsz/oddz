@@ -50,9 +50,17 @@ export class StreamClient {
     // is a zombie, so force it round.
     this.staleCheck = setInterval(() => {
       if (this.stopped || !this.lastMessageAt) return;
+      // Only meaningful for a socket that is actually up. While one is
+      // connecting or backing off, lastMessageAt is still old by definition, so
+      // checking here would report a stall every 15s and overwrite the real
+      // reason for the outage with a misleading one.
+      const ws = this.ws;
+      if (!ws || ws.readyState !== 1 /* OPEN */) return;
       if (Date.now() - this.lastMessageAt > 60_000) {
         this.handlers.onError("no data for 60s — cycling socket");
-        this.ws?.close();
+        // Do not wait on this one again; the close path takes over from here.
+        this.lastMessageAt = 0;
+        ws.close();
       }
     }, 15_000);
   }

@@ -72,13 +72,20 @@ export class WithdrawalTracker {
   }
 
   sample(t: number, bid: number, ask: number, mid: number) {
+    const prev = this.samples.at(-1);
     this.samples.push({ t, bid, ask, mid, cumBuy: this.cumBuy, cumSell: this.cumSell });
     const cutoff = t - CONFIG.sampleHistorySec * 1000;
     while (this.samples.length && this.samples[0].t < cutoff) this.samples.shift();
 
-    const dt = CONFIG.sampleIntervalMs / 1000;
-    this.fast = ewma(this.fast, { bid, ask }, dt, CONFIG.fastHalfLifeSec);
-    this.slow = ewma(this.slow, { bid, ask }, dt, CONFIG.slowHalfLifeSec);
+    // Measured, not assumed. The sampler is a setInterval, and browsers throttle
+    // those to roughly once a minute in a background tab — so a nominal 500ms
+    // step would decay the baseline at a fraction of real time whenever the page
+    // is not in front, and the depth index would read as normal through exactly
+    // the kind of withdrawal it exists to catch. A machine waking from sleep is
+    // the same problem an order of magnitude larger.
+    const dtSec = prev ? Math.max(0.001, (t - prev.t) / 1000) : CONFIG.sampleIntervalMs / 1000;
+    this.fast = ewma(this.fast, { bid, ask }, dtSec, CONFIG.fastHalfLifeSec);
+    this.slow = ewma(this.slow, { bid, ask }, dtSec, CONFIG.slowHalfLifeSec);
 
     this.detect(t, bid, ask);
   }
@@ -173,9 +180,20 @@ export class WithdrawalTracker {
     return value;
   }
 
-  /** True once the slow baseline has seen enough data to mean something. */
+  /**
+   * True once the slow baseline has seen enough data to mean something.
+   *
+   * Measured as elapsed time rather than a sample count, for the same reason
+   * the EWMA step is: a throttled tab accumulates samples slowly, and counting
+   * them would report a baseline as cold for an hour of real observation. Both
+   * conditions are required — a handful of samples spread over a minute is not
+   * a baseline either.
+   */
   get warm() {
-    return this.samples.length > (30_000 / CONFIG.sampleIntervalMs);
+    const first = this.samples[0];
+    const last = this.samples.at(-1);
+    if (!first || !last) return false;
+    return last.t - first.t >= 30_000 && this.samples.length >= 10;
   }
 }
 
