@@ -48,6 +48,28 @@ export default function ClusterMap({ snap }: { snap: Snapshot }) {
     [snap.clusters],
   );
 
+  /*
+   * Direction of travel, measured against a price at least a second old.
+   * Comparing consecutive published frames would flicker with every tick at
+   * 10Hz and read as noise; a second of separation makes the arrow track an
+   * actual move. The dead band below two basis points keeps it from flapping
+   * while price sits still.
+   */
+  const lastMidRef = useRef<{ price: number; at: number }>({ price: 0, at: 0 });
+  const [priceDir, setPriceDir] = useState(0);
+  useEffect(() => {
+    if (!mid) return;
+    const prev = lastMidRef.current;
+    if (prev.price === 0) {
+      lastMidRef.current = { price: mid, at: Date.now() };
+      return;
+    }
+    if (Date.now() - prev.at < 1000) return;
+    const change = (mid - prev.price) / prev.price;
+    setPriceDir(Math.abs(change) < 0.0002 ? 0 : change > 0 ? 1 : -1);
+    lastMidRef.current = { price: mid, at: Date.now() };
+  }, [mid]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas || !size.width || !mid) return;
@@ -64,8 +86,13 @@ export default function ClusterMap({ snap }: { snap: Snapshot }) {
     const LIQ = v("--liq") || "#3987e5";
     const FORCED = v("--forced") || "#d95926";
     const SURFACE = v("--surface") || "#141413";
+    const GOOD = v("--good") || "#0ca30c";
+    const CRIT = v("--critical") || "#d03b3b";
 
-    const gutter = 58;
+    // Wide enough for a price label plus the current-price badge. The badge used
+    // to be drawn at (gutter - 8 - width), which for a six-character price left
+    // it 4px from the canvas edge and clipped.
+    const gutter = 76;
     const padTop = 16;
     const padBottom = 22;
     const plotX0 = gutter;
@@ -185,22 +212,38 @@ export default function ClusterMap({ snap }: { snap: Snapshot }) {
     /* ----------------------------------------------------------- mid line */
 
     const yMid = Math.round(yOf(mid)) + 0.5;
-    ctx.strokeStyle = INK2;
-    ctx.lineWidth = 1;
+
+    // Highlight the band the price is actually sitting in. Without it there is
+    // nothing to anchor the eye and the whole map reads as one texture.
+    const midBin = Math.floor((mid - lo) / binPrice);
+    ctx.fillStyle = "rgba(255,255,255,0.05)";
+    ctx.fillRect(plotX0, plotY1 - (midBin + 1) * binPx, plotW, binPx);
+
+    // Solid, full width, and brighter than anything else on the canvas.
+    ctx.strokeStyle = INK;
+    ctx.lineWidth = 1.5;
     ctx.beginPath();
     ctx.moveTo(plotX0, yMid);
     ctx.lineTo(plotX1, yMid);
     ctx.stroke();
 
-    const label = mid.toFixed(precision);
-    ctx.font = "600 11px system-ui, -apple-system, sans-serif";
-    const w = ctx.measureText(label).width + 10;
-    ctx.fillStyle = INK2;
-    roundRect(ctx, gutter - 8 - w, yMid - 8, w, 16, 3);
+    const dir = priceDir;
+    const arrow = dir > 0 ? "\u25B2" : dir < 0 ? "\u25BC" : "\u2014";
+    const dirColor = dir > 0 ? GOOD : dir < 0 ? CRIT : INK;
+    const label = `${arrow} ${mid.toFixed(precision)}`;
+    ctx.font = "700 12px system-ui, -apple-system, sans-serif";
+    const w = ctx.measureText(label).width + 12;
+    // Anchored to the plot edge rather than measured back from the gutter, so
+    // a longer price cannot push it off the canvas.
+    const badgeX = Math.max(2, plotX0 - w - 6);
+    ctx.fillStyle = dirColor;
+    roundRect(ctx, badgeX, yMid - 9, w, 18, 3);
     ctx.fill();
     ctx.fillStyle = "#0d0d0d";
-    ctx.textAlign = "right";
-    ctx.fillText(label, gutter - 13, yMid);
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.fillText(label, badgeX + w / 2, yMid);
+    ctx.textAlign = "left";
 
     /* --------------------------------------------------------- axis labels */
 
@@ -213,7 +256,7 @@ export default function ClusterMap({ snap }: { snap: Snapshot }) {
     ctx.textAlign = "left";
     ctx.fillStyle = INK;
     ctx.fillText(`scale: ${usd(maxNotional)} per ${(0.15).toFixed(2)}% band`, plotX0, plotY0 - 6);
-  }, [snap, size.width, zoom, mid, amplifying, precision]);
+  }, [snap, size.width, zoom, mid, amplifying, precision, priceDir]);
 
   const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
     const rect = e.currentTarget.getBoundingClientRect();

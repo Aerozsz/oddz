@@ -240,6 +240,12 @@ export interface Snapshot {
   depthHistory: DepthSample[];
   /** Rolling per-second traded notional, buy and sell aggressor. */
   flow: { buy: number; sell: number };
+  /**
+   * The same over a minute. A seed is a quantity of aggressive flow, so
+   * progress toward one is only meaningful against a window long enough to
+   * accumulate it — a single second never approaches the figure.
+   */
+  flowMinute: { buy: number; sell: number };
   /** Recent realised movement of mid, as a percent-per-minute figure. */
   volatilityPct: number;
   /** What the book's behaviour suggests about who is quoting it. */

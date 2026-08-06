@@ -28,8 +28,8 @@ export default function CascadePanel({ snap }: { snap: Snapshot }) {
       </header>
 
       <div className="cascade-pair">
-        <CascadeSide label="Pushing price down" dir="down" path={snap.cascadeDown} precision={precision} mid={mid} />
-        <CascadeSide label="Pushing price up" dir="up" path={snap.cascadeUp} precision={precision} mid={mid} />
+        <CascadeSide label="Pushing price down" dir="down" path={snap.cascadeDown} precision={precision} mid={mid} flowMinute={snap.flowMinute.sell} />
+        <CascadeSide label="Pushing price up" dir="up" path={snap.cascadeUp} precision={precision} mid={mid} flowMinute={snap.flowMinute.buy} />
       </div>
     </section>
   );
@@ -41,12 +41,14 @@ function CascadeSide({
   path,
   precision,
   mid,
+  flowMinute,
 }: {
   label: string;
   dir: "down" | "up";
   path: CascadePath | null;
   precision: number;
   mid: number;
+  flowMinute: number;
 }) {
   const status = path ? riskStatus(path.risk) : null;
 
@@ -66,8 +68,52 @@ function CascadeSide({
           No stop-loss build-up found {dir === "down" ? "below" : "above"} the price right now.
         </p>
       ) : (
-        <CascadeBody path={path} precision={precision} mid={mid} />
+        <CascadeBody path={path} precision={precision} mid={mid} flowMinute={flowMinute} />
       )}
+    </div>
+  );
+}
+
+/**
+ * How close the market currently is to paying for the first link.
+ *
+ * The seed is a quantity of aggressive flow, and a bare dollar figure gives no
+ * sense of whether that is a lot here or nothing at all. Against the flow the
+ * last minute actually produced, it becomes readable: a bar near full means
+ * ordinary current activity is already the size that would set this off.
+ */
+function SeedProgress({
+  path,
+  flowMinute,
+  precision,
+}: {
+  path: CascadePath;
+  flowMinute: number;
+  precision: number;
+}) {
+  const frac = path.seedNotional > 0 ? Math.min(1, flowMinute / path.seedNotional) : 0;
+  const hot = frac >= 0.75;
+  return (
+    <div className="seedbar" style={{ marginTop: 10 }}>
+      <div className="seedbar-head">
+        <span className="sub">flow in the last minute vs what it takes</span>
+        <span className="num" style={{ color: hot ? "var(--critical)" : "var(--ink-2)" }}>
+          {usd(flowMinute)} / {usd(path.seedNotional)}
+        </span>
+      </div>
+      <div className="seedbar-track">
+        <i
+          style={{
+            width: `${frac * 100}%`,
+            background: hot ? "var(--critical)" : frac > 0.4 ? "var(--warning)" : "var(--liq)",
+          }}
+        />
+      </div>
+      <span className="sub">
+        {frac >= 1
+          ? `Current activity alone is already the size that reaches ${fmtPrice(path.links[0]?.cluster.price ?? 0, precision)}.`
+          : `${(frac * 100).toFixed(0)}% of the way — ${usd(Math.max(0, path.seedNotional - flowMinute))} more would do it.`}
+      </span>
     </div>
   );
 }
@@ -76,10 +122,12 @@ function CascadeBody({
   path,
   precision,
   mid,
+  flowMinute,
 }: {
   path: CascadePath;
   precision: number;
   mid: number;
+  flowMinute: number;
 }) {
   const status = riskStatus(path.risk);
   const modelled = path.links.reduce((s, l) => s + l.modelledPortion, 0);
@@ -104,19 +152,21 @@ function CascadeBody({
         </div>
       </div>
 
+      <SeedProgress path={path} flowMinute={flowMinute} precision={precision} />
+
       <div className="tiles" style={{ marginTop: 12 }}>
         <div className="tile">
-          <span className="k">Cost to start it</span>
+          <span className="k">1 · Cost to start it</span>
           <span className="v">{usd(path.seedNotional)}</span>
           <span className="d">to reach the first stops</span>
         </div>
         <div className="tile">
-          <span className="k">Selling it sets off</span>
+          <span className="k">2 · Sets off</span>
           <span className="v">{usd(released)}</span>
           <span className="d">across {path.links.length} price levels</span>
         </div>
         <div className="tile">
-          <span className="k">Could reach</span>
+          <span className="k">3 · Ends around</span>
           <span className="v">{fmtPrice(path.terminalPrice, precision)}</span>
           <span className="d">{pct(path.terminalPct)} from here</span>
         </div>

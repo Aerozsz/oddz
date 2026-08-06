@@ -516,6 +516,7 @@ export class Engine {
       thinning: this.tracker.events.slice(0, 30),
       depthHistory: this.tracker.history(),
       flow: this.tracker.flowSince(1000),
+      flowMinute: this.tracker.flowSince(60_000),
       volatilityPct: this.realisedVolPct(),
       participants: this.participants.read(),
     };
@@ -556,6 +557,7 @@ export function emptySnapshot(): Snapshot {
     thinning: [],
     depthHistory: [],
     flow: { buy: 0, sell: 0 },
+    flowMinute: { buy: 0, sell: 0 },
     volatilityPct: 0,
     participants: null,
   };

@@ -1,8 +1,37 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import { SYMBOL } from "@/lib/sweep/config";
 import type { Snapshot } from "@/lib/sweep/types";
 import { duration, pct, price as fmtPrice, qty, usd } from "./format";
+
+/**
+ * Price change over a fixed window, rather than against the previous frame.
+ *
+ * The engine publishes ten times a second, so a frame-to-frame delta is mostly
+ * the last tick and reads as flicker. Sampling against a price a few seconds
+ * old gives a number that actually corresponds to a move, and holding the
+ * reference for the whole window means the figure is stable enough to read
+ * before it changes.
+ */
+function usePriceChange(price: number | null, windowMs = 5_000) {
+  const ref = useRef<{ price: number; at: number }>({ price: 0, at: 0 });
+  const [change, setChange] = useState<{ abs: number; pct: number } | null>(null);
+
+  useEffect(() => {
+    if (price === null || price <= 0) return;
+    const prev = ref.current;
+    if (prev.price === 0) {
+      ref.current = { price, at: Date.now() };
+      return;
+    }
+    if (Date.now() - prev.at < windowMs) return;
+    setChange({ abs: price - prev.price, pct: ((price - prev.price) / prev.price) * 100 });
+    ref.current = { price, at: Date.now() };
+  }, [price, windowMs]);
+
+  return change;
+}
 
 export default function TopBar({ snap }: { snap: Snapshot }) {
   const precision = snap.meta?.pricePrecision ?? 2;
@@ -34,6 +63,11 @@ export default function TopBar({ snap }: { snap: Snapshot }) {
   // markup is a placeholder rather than a reading. Say so instead of counting
   // down to a boundary we have not worked out.
   const ready = snap.ts > 0;
+  const shown = snap.last ?? snap.mid;
+  const change = usePriceChange(shown);
+  const dir = !change || Math.abs(change.pct) < 0.005 ? 0 : change.pct > 0 ? 1 : -1;
+  const dirColor = dir > 0 ? "var(--good)" : dir < 0 ? "var(--critical)" : "var(--ink-muted)";
+
   const session = snap.session;
   const sessionDot = ready ? (session.cashOpen ? "live" : "warn") : "warn";
 
@@ -51,7 +85,15 @@ export default function TopBar({ snap }: { snap: Snapshot }) {
       </div>
 
       <div className="price">
-        <span className="big num">{fmtPrice(snap.last ?? snap.mid, precision)}</span>
+        <span className="big num" style={{ color: dirColor }}>
+          {fmtPrice(shown, precision)}
+        </span>
+        <span className="pricechange num" style={{ color: dirColor }}>
+          {change === null
+            ? ""
+            : `${dir > 0 ? "▲" : dir < 0 ? "▼" : "—"} ${change.abs >= 0 ? "+" : ""}${change.abs.toFixed(precision)} (${pct(change.pct, 2)})`}
+          <span className="sub"> 5s</span>
+        </span>
         <span className="sub num">
           {snap.bestBid !== null && snap.bestAsk !== null
             ? `${fmtPrice(snap.bestBid, precision)} / ${fmtPrice(snap.bestAsk, precision)}`
