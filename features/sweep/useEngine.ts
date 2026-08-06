@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
-import { emptySnapshot, getEngine } from "../lib/engine";
-import type { Snapshot } from "../lib/types";
+import { emptySnapshot, getEngine } from "@/lib/sweep/engine";
+import type { Snapshot } from "@/lib/sweep/types";
 
 const server = emptySnapshot();
 

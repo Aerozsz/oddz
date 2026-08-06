@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { Snapshot } from "../lib/types";
+import type { Snapshot } from "@/lib/sweep/types";
 import { clock, price as fmtPrice, qty, usd } from "./format";
 
 type Tab = "liq" | "prints" | "thin";

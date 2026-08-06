@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { CONFIG } from "../lib/config";
-import type { Snapshot } from "../lib/types";
+import { CONFIG } from "@/lib/sweep/config";
+import type { Snapshot } from "@/lib/sweep/types";
 import { clock, usd } from "./format";
 import { setupCanvas, useSize } from "./useEngine";
 

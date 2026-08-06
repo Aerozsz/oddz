@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import type { CascadePath, Snapshot } from "../lib/types";
+import type { CascadePath, Snapshot } from "@/lib/sweep/types";
 import { pct, price as fmtPrice, riskStatus, STATUS_VAR, usd } from "./format";
 
 /**

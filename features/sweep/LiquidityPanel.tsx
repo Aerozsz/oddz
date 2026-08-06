@@ -1,7 +1,7 @@
 "use client";
 
-import { CONFIG } from "../lib/config";
-import type { Snapshot } from "../lib/types";
+import { CONFIG } from "@/lib/sweep/config";
+import type { Snapshot } from "@/lib/sweep/types";
 import DepthHistory from "./DepthHistory";
 import { pct, ratio, usd } from "./format";
 

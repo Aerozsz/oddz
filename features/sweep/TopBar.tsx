@@ -1,7 +1,7 @@
 "use client";
 
-import { SYMBOL } from "../lib/config";
-import type { Snapshot } from "../lib/types";
+import { SYMBOL } from "@/lib/sweep/config";
+import type { Snapshot } from "@/lib/sweep/types";
 import { duration, pct, price as fmtPrice, qty, usd } from "./format";
 
 export default function TopBar({ snap }: { snap: Snapshot }) {

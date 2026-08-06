@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { CascadePath, Cluster, Snapshot } from "../lib/types";
+import type { CascadePath, Cluster, Snapshot } from "@/lib/sweep/types";
 import { price as fmtPrice, pct, usd } from "./format";
 import { setupCanvas, useSize } from "./useEngine";
 

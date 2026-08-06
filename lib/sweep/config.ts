@@ -20,7 +20,7 @@ export const FAPI_REST = "https://fapi.binance.com";
 export const FAPI_WS = "wss://fstream.binance.com/stream";
 
 /** Same-origin fallback used when the browser cannot reach Binance directly. */
-export const REST_PROXY = "/api/binance";
+export const REST_PROXY = "/api/sweep/binance";
 
 export const CONFIG = {
   /** Bands (in basis points from mid) that depth is measured across. */

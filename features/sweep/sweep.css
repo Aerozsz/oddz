@@ -1,4 +1,11 @@
 /*
+ * Scoped to .sweep-root: this dashboard is embedded in the Oddz app, which
+ * ships its own Tailwind tokens and a light/dark theme. Nothing here may
+ * reach document scope. The surface is deliberately dark in both app
+ * themes — it is a monitoring view, not a page.
+ */
+
+/*
  * Dark-only by design: this is a monitoring surface meant to be left open, and
  * the colour roles below were stepped and validated against the dark plane
  * rather than flipped from a light theme.
@@ -10,8 +17,9 @@
  * the mid line and by direct labels.
  */
 
-:root {
+.sweep-root {
   color-scheme: dark;
+  display: block;
 
   --plane: #0d0d0d;
   --surface: #141413;
@@ -43,12 +51,13 @@
   --r: 6px;
 }
 
-* {
+.sweep-root *,
+.sweep-root *::before,
+.sweep-root *::after {
   box-sizing: border-box;
 }
 
-html,
-body {
+.sweep-root {
   margin: 0;
   padding: 0;
   background: var(--plane);
@@ -59,13 +68,13 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-.num {
+.sweep-root .num {
   font-variant-numeric: tabular-nums;
 }
 
 /* ------------------------------------------------------------------ layout */
 
-.shell {
+.sweep-root .shell {
   max-width: 1680px;
   margin: 0 auto;
   padding: 16px;
@@ -74,19 +83,19 @@ body {
   gap: 12px;
 }
 
-.grid {
+.sweep-root .grid {
   display: grid;
   gap: 12px;
 }
 
 @media (min-width: 1100px) {
-  .cols {
+  .sweep-root .cols {
     grid-template-columns: minmax(280px, 1fr) minmax(420px, 1.5fr) minmax(300px, 1fr);
     align-items: start;
   }
 }
 
-.stack {
+.sweep-root .stack {
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -94,14 +103,14 @@ body {
 
 /* ------------------------------------------------------------------ panels */
 
-.panel {
+.sweep-root .panel {
   background: var(--surface);
   border: 1px solid var(--hairline);
   border-radius: var(--r);
   padding: 12px 14px 14px;
 }
 
-.panel > header {
+.sweep-root .panel > header {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -109,7 +118,7 @@ body {
   margin-bottom: 10px;
 }
 
-.panel h2 {
+.sweep-root .panel h2 {
   margin: 0;
   font-size: 12px;
   font-weight: 600;
@@ -118,20 +127,20 @@ body {
   color: var(--ink-2);
 }
 
-.panel .note {
+.sweep-root .panel .note {
   font-size: 11px;
   color: var(--ink-muted);
   margin: 0;
 }
 
-.sub {
+.sweep-root .sub {
   font-size: 11px;
   color: var(--ink-muted);
 }
 
 /* -------------------------------------------------------------- top strip */
 
-.topbar {
+.sweep-root .topbar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -142,61 +151,61 @@ body {
   padding: 12px 16px;
 }
 
-.brand {
+.sweep-root .brand {
   display: flex;
   flex-direction: column;
   gap: 1px;
   margin-right: 6px;
 }
 
-.brand b {
+.sweep-root .brand b {
   font-size: 15px;
   letter-spacing: 0.02em;
 }
 
-.brand span {
+.sweep-root .brand span {
   font-size: 11px;
   color: var(--ink-muted);
 }
 
-.price {
+.sweep-root .price {
   display: flex;
   align-items: baseline;
   gap: 8px;
 }
 
-.price .big {
+.sweep-root .price .big {
   font-size: 26px;
   font-weight: 600;
   letter-spacing: -0.01em;
 }
 
-.field {
+.sweep-root .field {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 76px;
 }
 
-.field .k {
+.sweep-root .field .k {
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-muted);
 }
 
-.field .v {
+.sweep-root .field .v {
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
-.spacer {
+.sweep-root .spacer {
   flex: 1 1 auto;
 }
 
 /* -------------------------------------------------------------- indicators */
 
-.pill {
+.sweep-root .pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -209,7 +218,7 @@ body {
   white-space: nowrap;
 }
 
-.dot {
+.sweep-root .dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -217,20 +226,20 @@ body {
   flex: none;
 }
 
-.dot.live {
+.sweep-root .dot.live {
   background: var(--good);
   box-shadow: 0 0 0 3px rgba(12, 163, 12, 0.18);
 }
-.dot.warn {
+.sweep-root .dot.warn {
   background: var(--warning);
 }
-.dot.bad {
+.sweep-root .dot.bad {
   background: var(--critical);
 }
 
 /* ------------------------------------------------------------- stat tiles */
 
-.tiles {
+.sweep-root .tiles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1px;
@@ -240,7 +249,7 @@ body {
   overflow: hidden;
 }
 
-.tile {
+.sweep-root .tile {
   background: var(--surface);
   padding: 10px 12px;
   display: flex;
@@ -248,27 +257,27 @@ body {
   gap: 2px;
 }
 
-.tile .k {
+.sweep-root .tile .k {
   font-size: 10px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: var(--ink-muted);
 }
 
-.tile .v {
+.sweep-root .tile .v {
   font-size: 19px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
-.tile .d {
+.sweep-root .tile .d {
   font-size: 11px;
   color: var(--ink-muted);
 }
 
 /* ------------------------------------------------------------------ meter */
 
-.meter {
+.sweep-root .meter {
   height: 6px;
   border-radius: 3px;
   background: var(--surface-2);
@@ -276,7 +285,7 @@ body {
   border: 1px solid var(--hairline);
 }
 
-.meter > i {
+.sweep-root .meter > i {
   display: block;
   height: 100%;
   background: var(--liq);
@@ -284,13 +293,13 @@ body {
 
 /* ------------------------------------------------------------------ table */
 
-table {
+.sweep-root table {
   width: 100%;
   border-collapse: collapse;
   font-variant-numeric: tabular-nums;
 }
 
-th {
+.sweep-root th {
   text-align: right;
   font-size: 10px;
   letter-spacing: 0.05em;
@@ -302,34 +311,34 @@ th {
 }
 
 th:first-child,
-td:first-child {
+.sweep-root td:first-child {
   text-align: left;
 }
 
-td {
+.sweep-root td {
   text-align: right;
   padding: 4px 6px;
   font-size: 12px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-tbody tr:hover {
+.sweep-root tbody tr:hover {
   background: rgba(255, 255, 255, 0.03);
 }
 
-.exhausted {
+.sweep-root .exhausted {
   color: var(--serious);
 }
 
 /* ------------------------------------------------------------------- tape */
 
-.tape {
+.sweep-root .tape {
   max-height: 232px;
   overflow-y: auto;
   margin: 0 -4px;
 }
 
-.row {
+.sweep-root .row {
   display: grid;
   align-items: baseline;
   gap: 8px;
@@ -339,25 +348,25 @@ tbody tr:hover {
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
 
-.row .t {
+.sweep-root .row .t {
   color: var(--ink-muted);
   font-size: 11px;
 }
 
-.row .tag {
+.sweep-root .row .tag {
   font-size: 10px;
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
-.tag.down {
+.sweep-root .tag.down {
   color: var(--forced);
 }
-.tag.up {
+.sweep-root .tag.up {
   color: var(--liq);
 }
 
-.empty {
+.sweep-root .empty {
   color: var(--ink-muted);
   font-size: 12px;
   padding: 14px 2px;
@@ -365,17 +374,17 @@ tbody tr:hover {
 
 /* ------------------------------------------------------------------ canvas */
 
-.canvas-wrap {
+.sweep-root .canvas-wrap {
   position: relative;
   width: 100%;
 }
 
-canvas {
+.sweep-root canvas {
   display: block;
   width: 100%;
 }
 
-.tooltip {
+.sweep-root .tooltip {
   position: absolute;
   z-index: 4;
   pointer-events: none;
@@ -389,19 +398,19 @@ canvas {
   max-width: 250px;
 }
 
-.tooltip b {
+.sweep-root .tooltip b {
   font-size: 12px;
   display: block;
   margin-bottom: 2px;
 }
 
-.tooltip .muted {
+.sweep-root .tooltip .muted {
   color: var(--ink-muted);
 }
 
 /* ----------------------------------------------------------------- legend */
 
-.legend {
+.sweep-root .legend {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 14px;
@@ -410,13 +419,13 @@ canvas {
   margin-top: 8px;
 }
 
-.legend span {
+.sweep-root .legend span {
   display: inline-flex;
   align-items: center;
   gap: 6px;
 }
 
-.swatch {
+.sweep-root .swatch {
   width: 10px;
   height: 10px;
   border-radius: 2px;
@@ -425,13 +434,13 @@ canvas {
 
 /* --------------------------------------------------------------- controls */
 
-.controls {
+.sweep-root .controls {
   display: flex;
   gap: 4px;
   align-items: center;
 }
 
-button {
+.sweep-root button {
   font: inherit;
   font-size: 11px;
   color: var(--ink-2);
@@ -442,12 +451,12 @@ button {
   cursor: pointer;
 }
 
-button:hover {
+.sweep-root button:hover {
   background: var(--raised);
   color: var(--ink);
 }
 
-button[aria-pressed="true"] {
+.sweep-root button[aria-pressed="true"] {
   background: var(--raised);
   color: var(--ink);
   border-color: rgba(255, 255, 255, 0.24);
@@ -455,24 +464,24 @@ button[aria-pressed="true"] {
 
 /* ---------------------------------------------------------------- cascade */
 
-.chain {
+.sweep-root .chain {
   display: flex;
   flex-direction: column;
   gap: 0;
   margin-top: 8px;
 }
 
-.link {
+.sweep-root .link {
   display: grid;
   grid-template-columns: 14px 1fr;
   gap: 10px;
 }
 
-.link .rail {
+.sweep-root .link .rail {
   position: relative;
 }
 
-.link .rail::before {
+.sweep-root .link .rail::before {
   content: "";
   position: absolute;
   left: 6px;
@@ -482,11 +491,11 @@ button[aria-pressed="true"] {
   background: var(--axis);
 }
 
-.link:last-child .rail::before {
+.sweep-root .link:last-child .rail::before {
   bottom: 50%;
 }
 
-.link .node {
+.sweep-root .link .node {
   position: absolute;
   left: 2px;
   top: 5px;
@@ -497,28 +506,28 @@ button[aria-pressed="true"] {
   border: 2px solid var(--surface);
 }
 
-.link .body {
+.sweep-root .link .body {
   padding-bottom: 12px;
 }
 
-.link .head {
+.sweep-root .link .head {
   display: flex;
   align-items: baseline;
   gap: 8px;
   font-variant-numeric: tabular-nums;
 }
 
-.link .head b {
+.sweep-root .link .head b {
   font-size: 14px;
 }
 
-.link .detail {
+.sweep-root .link .detail {
   font-size: 11px;
   color: var(--ink-muted);
   font-variant-numeric: tabular-nums;
 }
 
-.banner {
+.sweep-root .banner {
   display: flex;
   align-items: flex-start;
   gap: 8px;
@@ -529,43 +538,43 @@ button[aria-pressed="true"] {
   background: var(--surface-2);
 }
 
-.banner.critical {
+.sweep-root .banner.critical {
   border-color: rgba(208, 59, 59, 0.5);
 }
-.banner.serious {
+.sweep-root .banner.serious {
   border-color: rgba(236, 131, 90, 0.45);
 }
-.banner.warning {
+.sweep-root .banner.warning {
   border-color: rgba(250, 178, 25, 0.4);
 }
 
-.banner .icon {
+.sweep-root .banner .icon {
   flex: none;
   font-weight: 700;
   line-height: 1.3;
 }
 
-a {
+.sweep-root a {
   color: var(--liq);
 }
 
-.prose {
+.sweep-root .prose {
   font-size: 12px;
   line-height: 1.65;
   color: var(--ink-2);
   max-width: 78ch;
 }
 
-.prose p {
+.sweep-root .prose p {
   margin: 0 0 9px;
 }
 
-.prose strong {
+.sweep-root .prose strong {
   color: var(--ink);
   font-weight: 600;
 }
 
-.prose code {
+.sweep-root .prose code {
   font-size: 11px;
   background: var(--surface-2);
   border: 1px solid var(--hairline);

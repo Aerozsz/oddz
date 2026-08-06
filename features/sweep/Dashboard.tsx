@@ -1,6 +1,7 @@
 "use client";
 
-import { CONFIG } from "../lib/config";
+import { CONFIG } from "@/lib/sweep/config";
+import "./sweep.css";
 import CascadePanel from "./CascadePanel";
 import ClusterMap from "./ClusterMap";
 import LiquidityPanel from "./LiquidityPanel";
@@ -16,8 +17,11 @@ export default function Dashboard() {
     (conn.socket !== "open" && conn.error !== null && snap.ts > 0 && !snap.mid);
 
   return (
-    <div className="shell">
-      <TopBar snap={snap} />
+    // Every style in sweep.css is scoped to this class, so the dashboard keeps
+    // its own dark surface without touching the surrounding app's theme.
+    <div className="sweep-root">
+      <div className="shell">
+        <TopBar snap={snap} />
 
       {blocked && (
         <div className="banner critical">
@@ -37,19 +41,20 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid cols">
-        <div className="stack">
-          <LiquidityPanel snap={snap} />
-        </div>
+        <div className="grid cols">
+          <div className="stack">
+            <LiquidityPanel snap={snap} />
+          </div>
 
-        <div className="stack">
-          <ClusterMap snap={snap} />
-          <Method />
-        </div>
+          <div className="stack">
+            <ClusterMap snap={snap} />
+            <Method />
+          </div>
 
-        <div className="stack">
-          <CascadePanel snap={snap} />
-          <Tapes snap={snap} />
+          <div className="stack">
+            <CascadePanel snap={snap} />
+            <Tapes snap={snap} />
+          </div>
         </div>
       </div>
     </div>
