@@ -28,6 +28,8 @@ import {
   type AccountRisk,
 } from "../lib/sweep/exchange/binance";
 import { previewPosition } from "../lib/sweep/exchange/preview";
+import { checkProtection, ensureProtected, type ProtectionState } from "../lib/sweep/exchange/orders";
+import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { CONFIG, SYMBOL } from "../lib/sweep/config";
 
 const PORT = Number(process.env.SWEEP_CONTROL_PORT ?? 7777);
@@ -46,6 +48,11 @@ interface Limits {
   maxOpenPositions: number;
   /** Nothing may be submitted while this is false. Defaults off. */
   tradingEnabled: boolean;
+  /**
+   * How far from the mark the protective stop sits, in percent. Every position
+   * gets one on the exchange; this is the only tunable part of that.
+   */
+  stopLossPct: number;
 }
 
 const DEFAULT_LIMITS: Limits = {
@@ -54,6 +61,7 @@ const DEFAULT_LIMITS: Limits = {
   maxDailyLossUsd: 0,
   maxOpenPositions: 1,
   tradingEnabled: false,
+  stopLossPct: 2,
 };
 
 function readLimits(): Limits {
@@ -94,19 +102,63 @@ function stopEngine() {
   log("engine stopped");
 }
 
+let protection: { state: ProtectionState | null; error: string | null; at: number } = {
+  state: null,
+  error: null,
+  at: 0,
+};
+
 async function refreshAccount() {
   if (!hasCredentials()) {
     account = { risk: null, error: "no credentials configured", at: Date.now() };
+    protection = { state: null, error: null, at: Date.now() };
     return;
   }
   try {
-    account = { risk: await fetchAccountRisk(loadConfig()), error: null, at: Date.now() };
+    const cfg = loadConfig();
+    account = { risk: await fetchAccountRisk(cfg), error: null, at: Date.now() };
+    const position = await fetchPosition(cfg, SYMBOL);
+    protection = { state: await checkProtection(cfg, SYMBOL, position), error: null, at: Date.now() };
   } catch (err) {
-    account = {
-      risk: null,
-      error: redact(err instanceof Error ? err.message : String(err)),
-      at: Date.now(),
-    };
+    const message = redact(err instanceof Error ? err.message : String(err));
+    account = { risk: null, error: message, at: Date.now() };
+    protection = { state: null, error: message, at: Date.now() };
+  }
+}
+
+/**
+ * Startup reconciliation.
+ *
+ * A position can outlive this process — that is the whole point of leaving it
+ * in place rather than closing on exit — so the first thing a new run does is
+ * ask the exchange what is open and whether a stop is resting against it. A
+ * position found unprotected is covered immediately rather than reported and
+ * left, because the window where it is uncovered is the risk.
+ */
+async function reconcileOnStart() {
+  if (!hasCredentials()) return;
+  try {
+    const cfg = loadConfig();
+    const position = await fetchPosition(cfg, SYMBOL);
+    if (!position) {
+      log("startup: flat, nothing to reconcile");
+      return;
+    }
+    log(`startup: found an open position of ${position.positionAmt} ${SYMBOL}`);
+    const before = await checkProtection(cfg, SYMBOL, position);
+    if (before.protected) {
+      log(`startup: ${before.reason}`);
+      protection = { state: before, error: null, at: Date.now() };
+      return;
+    }
+    log(`startup: ${before.reason} — placing one now`);
+    const after = await ensureProtected(cfg, SYMBOL, position, limits.stopLossPct, 2);
+    log(`startup: ${after.reason}`);
+    protection = { state: after, error: null, at: Date.now() };
+  } catch (err) {
+    const message = redact(err instanceof Error ? err.message : String(err));
+    log(`startup reconciliation FAILED: ${message}`);
+    protection = { state: null, error: message, at: Date.now() };
   }
 }
 
@@ -162,6 +214,15 @@ function status() {
         })) ?? [],
     },
     limits,
+    protection: {
+      at: protection.at,
+      error: protection.error,
+      flat: protection.state ? protection.state.position === null : null,
+      protected: protection.state?.protected ?? null,
+      stopPrice: protection.state?.stop?.stopPrice ?? null,
+      stopDistancePct: protection.state?.stopDistancePct ?? null,
+      reason: protection.state?.reason ?? null,
+    },
     // Stated rather than implied, so the GUI never suggests a capability the
     // process does not have.
     execution: {
@@ -259,6 +320,7 @@ const server = createServer(async (req, res) => {
           maxDailyLossUsd: n("maxDailyLossUsd", limits.maxDailyLossUsd),
           maxOpenPositions: Math.max(0, Math.round(n("maxOpenPositions", limits.maxOpenPositions))),
           tradingEnabled: body.tradingEnabled === true,
+          stopLossPct: Math.max(0.1, n("stopLossPct", limits.stopLossPct)),
         };
         writeLimits(limits);
         log(`limits updated: ${JSON.stringify(limits)}`);
@@ -304,6 +366,17 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "POST /api/protect": {
+        if (!hasCredentials()) { send(res, 200, { error: "no credentials configured" }); return; }
+        const cfg = loadConfig();
+        const position = await fetchPosition(cfg, SYMBOL);
+        const state = await ensureProtected(cfg, SYMBOL, position, limits.stopLossPct, 2);
+        protection = { state, error: null, at: Date.now() };
+        log(`manual protect: ${state.reason}`);
+        send(res, 200, status());
+        return;
+      }
+
       case "POST /api/kill": {
         // The stop-everything control. Today that means killing the feed and
         // disarming trading; once orders exist it also cancels and flattens.
@@ -327,7 +400,10 @@ const server = createServer(async (req, res) => {
 
 server.listen(PORT, HOST, () => {
   startEngine();
-  void refreshAccount();
+  void (async () => {
+    await reconcileOnStart();
+    await refreshAccount();
+  })();
   const url = `http://${HOST}:${PORT}/?token=${TOKEN}`;
   console.log("");
   console.log("  Sweep agent control");
@@ -343,6 +419,13 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     stopEngine();
     server.close();
+    // Positions are deliberately left open: their protection is the stop
+    // resting on the exchange, which outlives this process.
+    console.log("");
+    console.log("  Stopped. Any open position is LEFT OPEN by design —");
+    console.log("  its stop-loss is on Binance and keeps working while this is off.");
+    console.log("  Restarting re-checks the position and replaces the stop if it is missing.");
+    console.log("");
     process.exit(0);
   });
 }
@@ -416,6 +499,7 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
   <button id="btnKill" class="danger">Kill</button>
 </div>
 
+<div id="protNote"></div>
 <div id="execNote"></div>
 
 <div class="grid">
@@ -451,11 +535,13 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
     <label style="width:110px">Max leverage<input id="maxLeverage" type="number" min="1" max="10" step="1"></label>
     <label style="width:150px">Max daily loss (USD)<input id="maxDailyLossUsd" type="number" min="0" step="10"></label>
     <label style="width:130px">Max open positions<input id="maxOpenPositions" type="number" min="0" step="1"></label>
+    <label style="width:140px">Stop-loss distance (%)<input id="stopLossPct" type="number" min="0.1" step="0.1"></label>
     <label style="width:130px">Trading armed<select id="tradingEnabled" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
       <option value="false">disarmed</option><option value="true">armed</option></select></label>
     <button id="btnLimits">Save limits</button>
   </div>
-  <p class="note">Stored on this machine and enforced by the execution layer when it lands. Armed does nothing until then.</p>
+  <p class="note">Stored on this machine and enforced by the execution layer when it lands. Armed does nothing until then.
+  Every position gets a stop-loss placed <b>on Binance</b> — it keeps working when this program is closed.</p>
 </div>
 
 <div class="panel">
@@ -484,7 +570,7 @@ const n=(v,d=2)=>v===null||v===undefined||!isFinite(v)?"—":Number(v).toFixed(d
 const usd=v=>v===null||v===undefined||!isFinite(v)?"—":(Math.abs(v)>=1e6?"$"+(v/1e6).toFixed(2)+"M":Math.abs(v)>=1e3?"$"+(v/1e3).toFixed(1)+"k":"$"+v.toFixed(2));
 
 let limitsDirty=false;
-for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions"]) $(id).addEventListener("input",()=>limitsDirty=true);
+for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct"]) $(id).addEventListener("input",()=>limitsDirty=true);
 $("tradingEnabled").addEventListener("change",()=>limitsDirty=true);
 
 function render(s){
@@ -496,6 +582,17 @@ function render(s){
   $("healthNote").textContent=h?h.summary:"";
   $("uptime").textContent=s.engine.running?s.engine.uptimeSec+"s up · "+s.engine.symbol:"stopped";
   $("btnStart").disabled=s.engine.running; $("btnStop").disabled=!s.engine.running;
+
+  const pr=s.protection;
+  $("protNote").innerHTML =
+    pr.error ? '<div class="banner warn"><b>Cannot check protection.</b><span>'+pr.error+'</span></div>'
+    : pr.protected===false ? '<div class="banner bad"><b>OPEN POSITION WITH NO STOP-LOSS.</b><span>'+
+        'Nothing will close this if price runs against you except liquidation. '+
+        '<button id="btnProtect" style="margin-left:8px">Place stop now</button></span></div>'
+    : pr.protected===true && pr.flat===false ? '<div class="banner warn"><span>Position protected — '+pr.reason+'</span></div>'
+    : "";
+  const bp=document.getElementById("btnProtect");
+  if(bp) bp.onclick=async()=>render(await api("/api/protect",{method:"POST"}));
 
   $("execNote").innerHTML=s.execution.available?"":
     '<div class="banner warn"><b>Read-only.</b><span>'+s.execution.reason+'</span></div>';
@@ -526,6 +623,7 @@ function render(s){
     $("maxDailyLossUsd").value=s.limits.maxDailyLossUsd;
     $("maxOpenPositions").value=s.limits.maxOpenPositions;
     $("tradingEnabled").value=String(s.limits.tradingEnabled);
+    $("stopLossPct").value=s.limits.stopLossPct;
   }
 }
 
@@ -547,7 +645,7 @@ $("btnKill").onclick=async()=>{ if(confirm("Stop the engine and disarm trading?"
 $("btnLimits").onclick=async()=>{
   const body={maxPositionUsd:+$("maxPositionUsd").value,maxLeverage:+$("maxLeverage").value,
     maxDailyLossUsd:+$("maxDailyLossUsd").value,maxOpenPositions:+$("maxOpenPositions").value,
-    tradingEnabled:$("tradingEnabled").value==="true"};
+    tradingEnabled:$("tradingEnabled").value==="true",stopLossPct:+$("stopLossPct").value};
   limitsDirty=false; render(await api("/api/limits",{method:"POST",body:JSON.stringify(body)}));
 };
 

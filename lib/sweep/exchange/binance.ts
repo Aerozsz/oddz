@@ -78,14 +78,15 @@ function sign(query: string, secret: string): string {
 }
 
 /**
- * Signed GET. Binance signs the exact query string it receives, so the encoded
- * form sent must be byte-identical to the one hashed — build it once and reuse
- * it rather than re-serialising.
+ * Signed request. Binance verifies the signature against the exact query string
+ * it receives, so the string that was hashed is the one sent — built once and
+ * reused rather than re-serialised, which is where signature bugs come from.
  */
-async function signedGet<T>(
+export async function signedRequest<T>(
   cfg: BinanceConfig,
+  method: "GET" | "POST" | "DELETE",
   path: string,
-  params: Record<string, string | number> = {},
+  params: Record<string, string | number | boolean> = {},
 ): Promise<T> {
   const query = new URLSearchParams({
     ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
@@ -97,6 +98,7 @@ async function signedGet<T>(
   const url = `${cfg.baseUrl}${path}?${query}&signature=${signature}`;
 
   const res = await fetch(url, {
+    method,
     headers: { "X-MBX-APIKEY": cfg.apiKey, accept: "application/json" },
     signal: AbortSignal.timeout(10_000),
   });
@@ -114,6 +116,9 @@ async function signedGet<T>(
   }
   return JSON.parse(body) as T;
 }
+
+const signedGet = <T>(cfg: BinanceConfig, path: string, params: Record<string, string | number> = {}) =>
+  signedRequest<T>(cfg, "GET", path, params);
 
 /* ------------------------------------------------------------------ shapes */
 
