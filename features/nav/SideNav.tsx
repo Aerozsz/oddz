@@ -33,9 +33,8 @@ const SECTIONS: Section[] = [
       { href: "/yields", label: "Yields" },
       { href: "/overround", label: "Overround" },
       { href: "/movers", label: "Movers" },
-      // Not a prediction-market signal: a live Binance perp monitor that runs
-      // entirely off client-side sockets, so it shares no data path with the rest.
-      { href: "/sweep", label: "Liquidity sweep" },
+      // /sweep is deliberately absent. The liquidity monitor is unlisted and
+      // reached by direct URL only; it still renders normally if you go there.
     ],
   },
   {
