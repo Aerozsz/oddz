@@ -59,6 +59,19 @@ export function riskStatus(risk: number): {
   return { key: "good", label: "Contained", icon: "✓" };
 }
 
+/**
+ * Colour for "how close is price to a trigger level", by distance in percent.
+ *
+ * Shared so the top strip and the cascade panel cannot disagree about what
+ * counts as close — two different ramps on the same quantity is worse than one
+ * imperfect one.
+ */
+export function levelHeat(distPct: number): string {
+  if (distPct <= 0.2) return "var(--critical)";
+  if (distPct <= 0.5) return "var(--warning)";
+  return "var(--ink)";
+}
+
 export const STATUS_VAR: Record<string, string> = {
   good: "var(--good)",
   warning: "var(--warning)",

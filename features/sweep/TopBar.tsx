@@ -3,7 +3,31 @@
 import { useEffect, useRef, useState } from "react";
 import { SYMBOL } from "@/lib/sweep/config";
 import type { Snapshot } from "@/lib/sweep/types";
-import { duration, pct, price as fmtPrice, qty, usd } from "./format";
+import { duration, levelHeat, pct, price as fmtPrice, qty, usd } from "./format";
+
+/**
+ * The nearer of the two first trigger levels, up or down.
+ *
+ * Lives in the top strip because it is the figure that has to be readable
+ * without hunting for it: the panel below says what a sweep would cost, but
+ * none of that is in play until price actually arrives, and which side is
+ * closer changes on its own as the book moves.
+ */
+function nearestLevel(snap: Snapshot): { price: number; distPct: number; below: boolean } | null {
+  const mid = snap.mid ?? 0;
+  if (!mid) return null;
+
+  const candidates = [snap.cascadeDown?.links[0]?.cluster.price, snap.cascadeUp?.links[0]?.cluster.price]
+    .filter((p): p is number => typeof p === "number" && p > 0);
+  if (!candidates.length) return null;
+
+  const nearest = candidates.reduce((a, b) => (Math.abs(b - mid) < Math.abs(a - mid) ? b : a));
+  return {
+    price: nearest,
+    distPct: Math.abs((nearest - mid) / mid) * 100,
+    below: nearest < mid,
+  };
+}
 
 /**
  * Price change over a fixed window, rather than against the previous frame.
@@ -77,6 +101,9 @@ export default function TopBar({ snap }: { snap: Snapshot }) {
   const oiAgeMs = snap.openInterest ? snap.ts - snap.openInterest.fetchedAt : 0;
   const oiStale = snap.openInterest !== null && oiAgeMs > 60_000;
 
+  const nearest = nearestLevel(snap);
+  const nearestColor = nearest ? levelHeat(nearest.distPct) : "var(--ink)";
+
   return (
     <div className="topbar">
       <div className="brand">
@@ -99,6 +126,25 @@ export default function TopBar({ snap }: { snap: Snapshot }) {
             ? `${fmtPrice(snap.bestBid, precision)} / ${fmtPrice(snap.bestAsk, precision)}`
             : "—"}
         </span>
+      </div>
+
+      <div className="nearest">
+        <span className="k">Nearest trigger level</span>
+        {nearest ? (
+          <span className="nearest-row">
+            <b className="num" style={{ color: nearestColor }}>
+              {fmtPrice(nearest.price, precision)}
+            </b>
+            <span className="nearest-pct num" style={{ color: nearestColor }}>
+              {nearest.distPct.toFixed(2)}%
+            </span>
+            <span className="sub">{nearest.below ? "below" : "above"}</span>
+          </span>
+        ) : (
+          <span className="nearest-row">
+            <b className="num">—</b>
+          </span>
+        )}
       </div>
 
       <div className="field">
