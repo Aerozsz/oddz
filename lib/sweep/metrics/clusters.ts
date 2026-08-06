@@ -155,7 +155,7 @@ function compress(minutes: Kline[], factor: number): Kline[] {
  *     long  liq ≈ P · (1 − 1/L + mmr)
  *     short liq ≈ P · (1 + 1/L − mmr)
  *
- * INTCUSDT caps at 10x, so even the most levered tier liquidates roughly 8.5%
+ * INTCUSDT caps at 20x, so the most levered tier liquidates roughly 3.4%
  * from entry rather than the sub-1% of a 100x crypto perp. The ladder is
  * correspondingly wide and sparse, which is worth knowing: the first cluster
  * below is usually a stop cluster, not a liquidation one.

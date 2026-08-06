@@ -12,7 +12,10 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "snapshot:once": "tsx workers/run-once.ts"
+    "snapshot:once": "tsx workers/run-once.ts",
+    "sweep:mcp": "tsx workers/sweep-mcp.ts",
+    "sweep:paper": "tsx workers/sweep-paper.ts",
+    "sweep:control": "tsx workers/sweep-control.ts"
   },
   "dependencies": {
     "@neondatabase/serverless": "^0.10.4",
@@ -44,6 +47,6 @@
     "typescript": "^5.7.2"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   }
 }

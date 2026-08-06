@@ -1,3 +1,7 @@
+// Type-only, so the cycle with participants.ts (which imports Trade from here)
+// is erased at compile time and never exists at runtime.
+import type { ParticipantRead } from "./metrics/participants";
+
 export type Side = "bid" | "ask";
 export type Direction = "up" | "down";
 
@@ -236,7 +240,19 @@ export interface Snapshot {
   depthHistory: DepthSample[];
   /** Rolling per-second traded notional, buy and sell aggressor. */
   flow: { buy: number; sell: number };
+  /**
+   * The same over a minute. A seed is a quantity of aggressive flow, so
+   * progress toward one is only meaningful against a window long enough to
+   * accumulate it — a single second never approaches the figure.
+   */
+  flowMinute: { buy: number; sell: number };
+  /** Recent realised movement of mid, as a percent-per-minute figure. */
+  volatilityPct: number;
+  /** What the book's behaviour suggests about who is quoting it. */
+  participants: ParticipantRead | null;
 }
+
+export type { ParticipantRead } from "./metrics/participants";
 
 export interface DepthSample {
   t: number;

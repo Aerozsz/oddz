@@ -48,20 +48,20 @@ export default function LiquidityPanel({ snap }: { snap: Snapshot }) {
   return (
     <section className="panel">
       <header>
-        <h2>Liquidity — reserves</h2>
-        <p className="note">±{CONFIG.primaryBandBps} bps band</p>
+        <h2>How much is on the order book</h2>
+        <p className="note">within {(CONFIG.primaryBandBps / 100).toFixed(2)}% of the price</p>
       </header>
 
       <div className="tiles">
         <div className="tile">
-          <span className="k">Withdrawal index</span>
+          <span className="k">vs. normal</span>
           <span className="v" style={{ color: thinning ? "var(--serious)" : undefined }}>
             {ratio(liq.lwi)}
           </span>
           <span className="d">
             {liq.lwi < 1
-              ? `${((1 - liq.lwi) * 100).toFixed(0)}% below baseline`
-              : `${((liq.lwi - 1) * 100).toFixed(0)}% above baseline`}
+              ? `${((1 - liq.lwi) * 100).toFixed(0)}% thinner than usual`
+              : `${((liq.lwi - 1) * 100).toFixed(0)}% thicker than usual`}
           </span>
           <div className="meter" style={{ marginTop: 4 }}>
             <i
@@ -74,7 +74,7 @@ export default function LiquidityPanel({ snap }: { snap: Snapshot }) {
         </div>
 
         <div className="tile">
-          <span className="k">Band depth</span>
+          <span className="k">Orders nearby</span>
           <span className="v">{usd(liq.primary.bidNotional + liq.primary.askNotional)}</span>
           <span className="d">
             bid {usd(liq.primary.bidNotional)} · ask {usd(liq.primary.askNotional)}
@@ -82,15 +82,15 @@ export default function LiquidityPanel({ snap }: { snap: Snapshot }) {
         </div>
 
         <div className="tile">
-          <span className="k">Book skew</span>
+          <span className="k">Lopsided?</span>
           <span className="v">{pct(liq.imbalance * 100, 0)}</span>
-          <span className="d">{liq.imbalance >= 0 ? "bid-heavy" : "ask-heavy"}</span>
+          <span className="d">{liq.imbalance >= 0 ? "more buyers waiting" : "more sellers waiting"}</span>
         </div>
 
         <div className="tile">
           <span className="k">Spread</span>
           <span className="v">{liq.spreadBps.toFixed(1)}</span>
-          <span className="d">bps</span>
+          <span className="d">gap between buy and sell, in hundredths of a %</span>
         </div>
       </div>
 
@@ -104,14 +104,14 @@ export default function LiquidityPanel({ snap }: { snap: Snapshot }) {
           }}
         >
           <h3 style={{ margin: 0, fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>
-            Where the depth went
+            Did those orders get bought, or just cancelled?
           </h3>
           <span className="sub">last {decomp.windowSec}s</span>
         </div>
 
         {removed <= 0 ? (
           <p className="sub" style={{ margin: 0 }}>
-            Depth is flat or building — {usd(added)} posted, nothing net removed.
+            Orders are steady or being added — {usd(added)} posted, nothing pulled on balance.
           </p>
         ) : (
           <>
@@ -141,20 +141,20 @@ export default function LiquidityPanel({ snap }: { snap: Snapshot }) {
             </div>
             <div className="legend" style={{ marginTop: 7 }}>
               <span>
-                <i className="swatch" style={{ background: "var(--forced)" }} /> withdrawn{" "}
+                <i className="swatch" style={{ background: "var(--forced)" }} /> cancelled{" "}
                 {usd(withdrawn)}
               </span>
               <span>
-                <i className="swatch" style={{ background: "var(--liq)" }} /> traded away{" "}
+                <i className="swatch" style={{ background: "var(--liq)" }} /> actually bought/sold{" "}
                 {usd(consumed)}
               </span>
             </div>
             <p className="sub" style={{ margin: "7px 0 0" }}>
               {wShare > 0.6
-                ? "Mostly cancellation. Quotes are leaving without printing — the same order size now travels further than it did a minute ago."
+                ? "Mostly cancelled. People are pulling their orders without trading, so the same size order now moves price further than it did a minute ago."
                 : wShare < 0.25
-                  ? "Mostly consumption. Depth is being traded away rather than pulled, which is ordinary and self-limiting."
-                  : "Mixed. Part traded, part pulled."}
+                  ? "Mostly traded. Orders are being filled rather than yanked, which is normal and tends to settle down on its own."
+                  : "A mix of both — some traded, some pulled."}
             </p>
           </>
         )}
@@ -162,14 +162,14 @@ export default function LiquidityPanel({ snap }: { snap: Snapshot }) {
 
       <div style={{ marginTop: 14 }}>
         <h3 style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>
-          Band depth over time
+          How order-book depth has changed
         </h3>
         <DepthHistory snap={snap} />
       </div>
 
       <div style={{ marginTop: 14 }}>
         <h3 style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>
-          Cost to move price
+          What it would cost to move the price
         </h3>
         <table>
           <thead>
@@ -196,16 +196,16 @@ export default function LiquidityPanel({ snap }: { snap: Snapshot }) {
           </tbody>
         </table>
         <p className="sub" style={{ margin: "6px 0 0" }}>
-          Aggressive notional required to walk the live book that far, and the
-          price that lands at. “Book ends” means no posted liquidity reaches the
-          target at all.
+          How much someone would have to buy or sell at market to push the price
+          that far, and where it would end up. “Book ends” means there aren’t
+          enough orders to get there at all.
         </p>
       </div>
 
       {liq.walls.length > 0 && (
         <div style={{ marginTop: 14 }}>
           <h3 style={{ margin: "0 0 4px", fontSize: 12, fontWeight: 600, color: "var(--ink-2)" }}>
-            Absorbing walls
+            Big orders in the way
           </h3>
           <table>
             <thead>

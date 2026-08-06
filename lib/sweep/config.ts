@@ -5,9 +5,9 @@
  * Intel Corp on Nasdaq. Two properties of that make it different from a crypto
  * perp and drive several defaults below:
  *
- *  1. Max leverage is 10x, not 100x+. Liquidation levels therefore sit *far*
- *     from entry (a 10x long liquidates ~8.5% below entry, not ~1%). The
- *     leverage ladder in the cluster model is built accordingly.
+ *  1. Max leverage is 20x — high enough that liquidations sit close to entry.
+ *     A 20x long liquidates ~3.4% below it. The leverage ladder in the cluster
+ *     model is built accordingly.
  *  2. The underlying cash market closes; the perp does not. Depth withdrawal
  *     is structurally worse when Nasdaq is shut, which is exactly the
  *     precondition that makes the first trigger cluster cheap to reach.
@@ -63,21 +63,42 @@ export const CONFIG = {
   clusterMergePct: 0.15,
 
   /**
-   * Maintenance margin rate assumed for the liquidation ladder. Binance only
-   * exposes real leverage brackets over a signed endpoint, so this is a
-   * modelled input, surfaced in the UI as such and adjustable there.
+   * Maintenance margin rate for the liquidation ladder.
+   *
+   * Measured, not inferred. A real position on this contract — 1,400 contracts
+   * at 101.58, so $142,212 of notional — carried $2,805 of maintenance margin,
+   * which is this rate directly. Binance only exposes the bracket table over a
+   * signed endpoint, and maintenance margin divided by notional needs neither
+   * that nor any assumption about leverage or margin mode.
+   *
+   * An earlier value here was back-solved from a liquidation price instead.
+   * That was unsound: under cross margin the liquidation price moves with the
+   * whole wallet, so it cannot identify a rate belonging to one position. It
+   * came out 18% low.
+   *
+   * Caveat that matters for sizing: this was measured at $142k of notional,
+   * which is a higher bracket than anything this tool would propose. Smaller
+   * positions sit in lower brackets at lower rates, so using this figure places
+   * modelled liquidations slightly nearer than they really are — the safe
+   * direction for a risk model to be wrong in.
    */
-  maintenanceMarginRate: 0.015,
+  maintenanceMarginRate: 0.0197,
 
   /**
    * Leverage mix assumed across open positions, skewed toward the cap the way
    * retail positioning generally is. Must sum to 1.
+   *
+   * The cap is 20x. An earlier version of this table stopped at 10x, which
+   * pushed every modelled liquidation to roughly twice its true distance from
+   * price — and the levels that matter most are the near ones, so the ladder
+   * was missing them entirely rather than merely misplacing them.
    */
   leverageMix: [
-    { leverage: 2, share: 0.15 },
-    { leverage: 3, share: 0.2 },
-    { leverage: 5, share: 0.3 },
-    { leverage: 10, share: 0.35 },
+    { leverage: 2, share: 0.1 },
+    { leverage: 3, share: 0.15 },
+    { leverage: 5, share: 0.2 },
+    { leverage: 10, share: 0.25 },
+    { leverage: 20, share: 0.3 },
   ],
 
   /** Half-life (hours) applied to kline volume when inferring where positions were opened. */

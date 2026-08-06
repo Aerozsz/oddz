@@ -105,7 +105,7 @@ function Method() {
         <p>
           Cluster sizes are estimates. Nobody publishes a book of stops. The
           leverage ladder assumes a {(CONFIG.maintenanceMarginRate * 100).toFixed(1)}%
-          maintenance margin rate and a mix skewed toward this contract&rsquo;s 10x
+          maintenance margin rate and a mix skewed toward this contract&rsquo;s 20x
           cap, and scales to {(CONFIG.liquidatableOiFraction * 100).toFixed(0)}% of
           open interest. Levels where liquidations have actually printed are marked
           at full opacity; everything fainter is inference.
