@@ -207,7 +207,12 @@ export class SignalEngine {
     const out: Signal[] = [];
     for (const c of snap.clusters) {
       if (c.effect !== "amplifying") continue;
-      const remaining = c.notional - c.spent;
+      // Already net: buildClusters subtracts the spent portion from `notional`
+      // and leaves `spent` at its gross value, so taking the difference here
+      // deducts it twice. An observed-only cluster came out negative and was
+      // filtered out permanently — silently suppressing exactly the levels
+      // where liquidations have printed, which carry the highest confidence.
+      const remaining = c.notional;
       if (remaining < this.opts.clusterMinNotional) continue;
       const distPct = Math.abs((c.price - mid) / mid) * 100;
       if (distPct > this.opts.clusterApproachPct) continue;
