@@ -1,0 +1,201 @@
+import type { Cluster, Direction, SessionState, Side } from "../types";
+
+/**
+ * The agent-facing surface of the monitor.
+ *
+ * The dashboard's Snapshot is shaped for rendering: it carries book levels by
+ * reference, a downsampled history for a canvas, tapes sized for a scroll pane.
+ * None of that is what a decision needs, and depending on it would tie any
+ * consumer to the layout. What follows is a separate, narrower projection —
+ * stable field names, plain numbers, no references into engine-owned arrays.
+ */
+
+/* ------------------------------------------------------------------ health */
+
+/**
+ * Whether the feed is fit to act on. This is the first thing an execution layer
+ * must read and the reason the layer exists at all: every number here is
+ * derived from a continuous stream, and a stream that has stalled, desynced or
+ * been rate-limited keeps producing *plausible* values rather than obviously
+ * broken ones. A stale book still has a mid; a cascade still scores. Acting on
+ * either is worse than not acting.
+ *
+ *  - `ok`       every input is live and the baselines are established
+ *  - `degraded` usable, but something that feeds sizing is stale or unwarmed
+ *  - `blind`    the book or the stream cannot be trusted; do not act
+ */
+export type HealthLevel = "ok" | "degraded" | "blind";
+
+export interface FeedHealth {
+  level: HealthLevel;
+  /** True only at `ok`. Execution must gate on this and nothing looser. */
+  tradeable: boolean;
+  /** Machine-readable causes, most severe first. Empty when `ok`. */
+  reasons: HealthReason[];
+  /** Human-readable one-liner, for logs and for the UI. */
+  summary: string;
+  /** Age of the snapshot this was computed from, in ms. */
+  snapshotAgeMs: number;
+}
+
+export type HealthReasonCode =
+  | "socket-down"
+  | "book-desynced"
+  | "feed-stalled"
+  | "no-price"
+  | "rate-limited"
+  | "snapshot-stale"
+  | "baseline-cold"
+  | "open-interest-stale"
+  | "metadata-missing";
+
+export interface HealthReason {
+  code: HealthReasonCode;
+  /** `blind` reasons veto trading; `degraded` ones only downgrade it. */
+  severity: Exclude<HealthLevel, "ok">;
+  detail: string;
+}
+
+/* ------------------------------------------------------------------ signals */
+
+export type SignalKind =
+  /** Depth left the band without being traded through — the precondition. */
+  | "withdrawal"
+  /** A resting wall vanished without prints against it. */
+  | "wall-pulled"
+  /** Modelled cascade risk crossed a band, in either direction. */
+  | "cascade-risk"
+  /** Price came within range of a significant amplifying cluster. */
+  | "cluster-approach"
+  /** Liquidations printed above a notional threshold inside a short window. */
+  | "liquidation-burst"
+  /** The tradeability gate changed state. Always emitted, never suppressed. */
+  | "health";
+
+export type SignalSeverity = "info" | "warning" | "critical";
+
+export interface Signal {
+  /** Stable and unique; safe to use for idempotent handling. */
+  id: string;
+  kind: SignalKind;
+  t: number;
+  severity: SignalSeverity;
+  /** Which way this points, when it points anywhere. */
+  direction: Direction | null;
+  /** Price the signal is anchored to, when it has one. */
+  price: number | null;
+  /** One line, already written for a human. */
+  detail: string;
+  /** Kind-specific payload; see each detector for the shape it emits. */
+  data: Record<string, number | string | boolean | null>;
+}
+
+/* -------------------------------------------------------------------- state */
+
+export interface AgentLiquidity {
+  /** Primary-band depth over its slow baseline. Below 1 is thinner than usual. */
+  lwi: number;
+  lwiBid: number;
+  lwiAsk: number;
+  /** False until the slow baseline means something; see LiquidityState.warm. */
+  warm: boolean;
+  imbalance: number;
+  spreadBps: number;
+  bidNotional: number;
+  askNotional: number;
+  /** Decomposition over the tracker's window, in USD. */
+  withdrawnBid: number;
+  withdrawnAsk: number;
+  consumedBid: number;
+  consumedAsk: number;
+  windowSec: number;
+}
+
+export interface AgentCascade {
+  direction: Direction;
+  /** 0..100. */
+  risk: number;
+  /** Aggressive notional needed to set the first link off, in USD. */
+  seedNotional: number;
+  terminalPct: number;
+  linkCount: number;
+  firstClusterPrice: number | null;
+}
+
+export interface AgentState {
+  ts: number;
+  symbol: string;
+  health: FeedHealth;
+  session: SessionState;
+
+  mid: number | null;
+  mark: number | null;
+  last: number | null;
+  bestBid: number | null;
+  bestAsk: number | null;
+
+  liquidity: AgentLiquidity | null;
+  cascadeUp: AgentCascade | null;
+  cascadeDown: AgentCascade | null;
+
+  /** Nearest amplifying cluster either side of mid, if any. */
+  nearestAbove: Cluster | null;
+  nearestBelow: Cluster | null;
+
+  openInterestNotional: number | null;
+  longShortRatio: number | null;
+  /** Rolling one-second aggressive flow, in USD. */
+  flow: { buy: number; sell: number };
+}
+
+/* ---------------------------------------------------------------- execution */
+
+/**
+ * What a strategy proposes. Deliberately not an order: no quantity, no order
+ * type, no venue. Turning an intent into an order means position sizing,
+ * account state and risk limits that live in the execution layer, not here —
+ * this module observes a market, it does not know what anyone's book looks
+ * like.
+ */
+export interface TradeIntent {
+  /** Derived from the signal, so re-delivery is detectable. */
+  id: string;
+  t: number;
+  side: "buy" | "sell";
+  /** The signal that produced it. */
+  signalId: string;
+  signalKind: SignalKind;
+  /** Why, in one line — carry this into the order's client id or your log. */
+  reason: string;
+  /** 0..1, the strategy's own confidence. Not a probability. */
+  confidence: number;
+  reference: {
+    mid: number;
+    /** Level the thesis is built on, when there is one. */
+    trigger: number | null;
+    /** Level at which the thesis is wrong, when the strategy names one. */
+    invalidation: number | null;
+  };
+}
+
+/**
+ * Where a real trading implementation plugs in.
+ *
+ * Nothing in this repository places orders, holds an API key or signs a
+ * request. An adapter is the seam where that code — yours, with your own
+ * credentials and risk limits — receives intents. The runner guarantees only
+ * what it can: it will not call you when the feed is not tradeable, and it will
+ * not deliver the same intent id twice.
+ */
+export interface ExecutionAdapter {
+  readonly name: string;
+  submit(intent: TradeIntent, state: AgentState): Promise<void> | void;
+}
+
+/**
+ * Maps state and a signal onto an intent, or declines by returning null.
+ * Called only while the feed is tradeable.
+ */
+export type Strategy = (signal: Signal, state: AgentState) => TradeIntent | null;
+
+export type { Direction, Side };
