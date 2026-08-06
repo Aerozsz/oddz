@@ -22,6 +22,12 @@ export interface SweepFeedOptions {
 export interface SweepFeed {
   /** The current projection. Cheap; computed at most once per state interval. */
   getState(): AgentState;
+  /**
+   * Every mapped level, not just the nearest either side. Needed to answer
+   * questions about a price that is not the current one — where a proposed
+   * position's liquidation would sit, for instance.
+   */
+  getClusters(): Cluster[];
   /** Newest first. */
   recentSignals(limit?: number): Signal[];
   onSignal(cb: (signal: Signal, state: AgentState) => void): () => void;
@@ -95,6 +101,7 @@ export function createSweepFeed(options: SweepFeedOptions = {}): SweepFeed {
 
   return {
     getState: () => state,
+    getClusters: () => engine.getSnapshot().clusters,
     recentSignals: (limit = 50) => history.slice(0, limit),
     onSignal(cb) {
       signalListeners.add(cb);
