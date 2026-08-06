@@ -17,6 +17,14 @@ import { NextResponse } from "next/server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+/**
+ * Pinned off us-east. Binance answers 451 to US IPs, so a function running in
+ * iad1 — the project default — makes this fallback useless exactly when it is
+ * needed. Scoped to this route so the rest of the app keeps its own region and
+ * its latency to the database.
+ */
+export const preferredRegion = ["fra1"];
+
 const ALLOWED = new Set([
   "fapi/v1/exchangeInfo",
   "fapi/v1/depth",
