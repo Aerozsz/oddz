@@ -207,9 +207,9 @@ export default function ClusterMap({ snap }: { snap: Snapshot }) {
     ctx.font = "10px system-ui, -apple-system, sans-serif";
     ctx.fillStyle = MUTED;
     ctx.textAlign = "right";
-    ctx.fillText("← forced flow (modelled)", divider - 6, plotY1 + 12);
+    ctx.fillText("← stop-losses (estimated)", divider - 6, plotY1 + 12);
     ctx.textAlign = "left";
-    ctx.fillText("posted depth (live) →", divider + 6, plotY1 + 12);
+    ctx.fillText("orders waiting (live) →", divider + 6, plotY1 + 12);
     ctx.textAlign = "left";
     ctx.fillStyle = INK;
     ctx.fillText(`scale: ${usd(maxNotional)} per ${(0.15).toFixed(2)}% band`, plotX0, plotY0 - 6);
@@ -234,7 +234,7 @@ export default function ClusterMap({ snap }: { snap: Snapshot }) {
   return (
     <section className="panel">
       <header>
-        <h2>Cluster map — forced flow vs posted depth</h2>
+        <h2>Where the stop-losses are stacked</h2>
         <div className="controls">
           {ZOOMS.map((z) => (
             <button key={z} aria-pressed={zoom === z} onClick={() => setZoom(z)}>
@@ -266,7 +266,7 @@ export default function ClusterMap({ snap }: { snap: Snapshot }) {
             <span className="muted">{pct(mid ? ((hover.hit.price - mid) / mid) * 100 : 0)} from mid</span>
             {hover.hit.cluster && (
               <div>
-                forced flow {usd(hover.hit.cluster.notional)} ·{" "}
+                stop-losses {usd(hover.hit.cluster.notional)} ·{" "}
                 {hover.hit.cluster.pushes === "down" ? "sells into a fall" : "buys into a rally"}
                 <br />
                 <span className="muted">
@@ -294,7 +294,7 @@ export default function ClusterMap({ snap }: { snap: Snapshot }) {
           <i className="swatch" style={{ background: "var(--liq)" }} /> posted depth — resting
           limits, absorb the move
         </span>
-        <span className="sub">faint = inferred · solid = liquidations printed there</span>
+        <span className="sub">faint = our estimate · solid = we actually saw forced closures here</span>
       </div>
 
       {showTable && (
