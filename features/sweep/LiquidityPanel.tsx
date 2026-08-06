@@ -3,7 +3,7 @@
 import { CONFIG } from "@/lib/sweep/config";
 import type { Snapshot } from "@/lib/sweep/types";
 import DepthHistory from "./DepthHistory";
-import { pct, ratio, usd } from "./format";
+import { pct, price as fmtPrice, ratio, usd } from "./format";
 
 /**
  * The reserves side of the picture. Two numbers carry it:
@@ -29,6 +29,11 @@ export default function LiquidityPanel({ snap }: { snap: Snapshot }) {
       </section>
     );
   }
+
+  // The curve was computed against this same mid in the engine's publish pass,
+  // so deriving the target prices here cannot drift from the costs beside them.
+  const mid = snap.mid ?? 0;
+  const precision = snap.meta?.pricePrecision ?? 2;
 
   const { decomp } = liq;
   const withdrawn = decomp.withdrawnBid + decomp.withdrawnAsk;
@@ -180,17 +185,20 @@ export default function LiquidityPanel({ snap }: { snap: Snapshot }) {
                 <td className="num">{c.pct}%</td>
                 <td className={`num${c.downExhausted ? " exhausted" : ""}`}>
                   {c.downExhausted ? "book ends" : usd(c.downNotional)}
+                  <span className="cost-px">{fmtPrice(mid * (1 - c.pct / 100), precision)}</span>
                 </td>
                 <td className={`num${c.upExhausted ? " exhausted" : ""}`}>
                   {c.upExhausted ? "book ends" : usd(c.upNotional)}
+                  <span className="cost-px">{fmtPrice(mid * (1 + c.pct / 100), precision)}</span>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
         <p className="sub" style={{ margin: "6px 0 0" }}>
-          Aggressive notional required to walk the live book that far. “Book ends”
-          means no posted liquidity reaches the target at all.
+          Aggressive notional required to walk the live book that far, and the
+          price that lands at. “Book ends” means no posted liquidity reaches the
+          target at all.
         </p>
       </div>
 
