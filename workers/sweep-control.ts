@@ -77,15 +77,38 @@ interface Limits {
    * gets one on the exchange; this is the only tunable part of that.
    */
   stopLossPct: number;
+  /** Entries allowed per day. Overtrading is how discipline usually fails. */
+  maxTradesPerDay: number;
+  /** Minutes to wait after a loss before another entry. */
+  lossCooldownMin: number;
+  /** Only trade while the Nasdaq cash market is open. */
+  requireCashOpen: boolean;
+  /** Minimum reward-to-risk before a setup is worth taking. */
+  minRewardRisk: number;
 }
 
+/*
+ * The structural constraints stay on whatever the dials are set to — a daily
+ * loss cap, a cooldown after a loss, a ceiling on trades per day, and a
+ * minimum reward-to-risk. Those are not conservatism, they are the difference
+ * between a plan and improvisation, and they cost nothing when the numbers are
+ * loose.
+ *
+ * The dials themselves are set here at a middle setting: meaningfully more
+ * exposure than a cautious default, and far short of the leverage where one
+ * adverse move ends the account.
+ */
 const DEFAULT_LIMITS: Limits = {
   maxPositionUsd: 0,
-  maxLeverage: 1,
+  maxLeverage: 5,
   maxDailyLossUsd: 0,
   maxOpenPositions: 1,
   tradingEnabled: false,
-  stopLossPct: 2,
+  stopLossPct: 2.5,
+  maxTradesPerDay: 8,
+  lossCooldownMin: 30,
+  requireCashOpen: false,
+  minRewardRisk: 1.5,
 };
 
 function readLimits(): Limits {
@@ -345,6 +368,10 @@ const server = createServer(async (req, res) => {
           maxOpenPositions: Math.max(0, Math.round(n("maxOpenPositions", limits.maxOpenPositions))),
           tradingEnabled: body.tradingEnabled === true,
           stopLossPct: Math.max(0.1, n("stopLossPct", limits.stopLossPct)),
+          maxTradesPerDay: Math.max(0, Math.round(n("maxTradesPerDay", limits.maxTradesPerDay))),
+          lossCooldownMin: Math.max(0, n("lossCooldownMin", limits.lossCooldownMin)),
+          requireCashOpen: body.requireCashOpen !== false,
+          minRewardRisk: Math.max(0, n("minRewardRisk", limits.minRewardRisk)),
         };
         writeLimits(limits);
         log(`limits updated: ${JSON.stringify(limits)}`);
@@ -376,11 +403,17 @@ const server = createServer(async (req, res) => {
           state,
           equity: account.risk?.availableBalance ?? Number(body.assumeEquity) ?? 0,
           realisedLossToday: 0,
+          tradesToday: 0,
+          lastLossAt: 0,
           limits: {
             maxPositionUsd: limits.maxPositionUsd > 0 ? limits.maxPositionUsd : Number(body.assumeMaxPositionUsd) || 0,
             maxLeverage: limits.maxLeverage,
             maxDailyLossUsd: limits.maxDailyLossUsd,
             stopLossPct: limits.stopLossPct,
+            maxTradesPerDay: limits.maxTradesPerDay,
+            lossCooldownMin: limits.lossCooldownMin,
+            requireCashOpen: limits.requireCashOpen,
+            minRewardRisk: limits.minRewardRisk,
           },
           costCurve: feed ? feed.getCostCurve() : [],
           clusters: feed ? feed.getClusters() : [],

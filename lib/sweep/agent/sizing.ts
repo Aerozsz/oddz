@@ -33,6 +33,15 @@ export interface SizingLimits {
   maxLeverage: number;
   maxDailyLossUsd: number;
   stopLossPct: number;
+  /** Refuse once this many trades have been taken today. Overtrading is the
+   *  usual way a disciplined plan stops being one. */
+  maxTradesPerDay: number;
+  /** Wait this long after a loss before another entry is allowed. */
+  lossCooldownMin: number;
+  /** Refuse entirely while the Nasdaq cash market is shut. */
+  requireCashOpen: boolean;
+  /** Minimum reward-to-risk. Overrides the config default when higher. */
+  minRewardRisk: number;
 }
 
 export interface SizingConfig {
@@ -71,6 +80,10 @@ export interface SizingInput {
   equity: number;
   /** Loss already taken today, positive number. */
   realisedLossToday: number;
+  /** Entries already taken today. */
+  tradesToday: number;
+  /** When the last losing trade closed, epoch ms. 0 when there has not been one. */
+  lastLossAt: number;
   limits: SizingLimits;
   /** Depth curve from the live book, for the liquidity cap. */
   costCurve: CostPoint[];
@@ -179,6 +192,23 @@ export function proposePosition(input: SizingInput): SizingResult {
   }
   if (limits.maxDailyLossUsd > 0 && input.realisedLossToday >= limits.maxDailyLossUsd) {
     reasons.push(`daily loss cap reached (${input.realisedLossToday.toFixed(2)} of ${limits.maxDailyLossUsd})`);
+  }
+  if (limits.maxTradesPerDay > 0 && input.tradesToday >= limits.maxTradesPerDay) {
+    reasons.push(`already took ${input.tradesToday} trades today, the cap is ${limits.maxTradesPerDay}`);
+  }
+  if (limits.lossCooldownMin > 0 && input.lastLossAt > 0) {
+    const elapsedMin = (Date.now() - input.lastLossAt) / 60_000;
+    if (elapsedMin < limits.lossCooldownMin) {
+      reasons.push(
+        `cooling off after a loss — ${Math.ceil(limits.lossCooldownMin - elapsedMin)} min left of ${limits.lossCooldownMin}`,
+      );
+    }
+  }
+  // The book is structurally thinner with no cash market to anchor it, which
+  // is exactly when a stop is cheapest to reach. Refusing outright is stricter
+  // than sizing down for it, and that is the point.
+  if (limits.requireCashOpen && !state.session.cashOpen) {
+    reasons.push(`Nasdaq is ${state.session.phase} — trading only while the cash market is open`);
   }
   if (reasons.length) return { ok: false, reasons };
 
@@ -292,11 +322,15 @@ export function proposePosition(input: SizingInput): SizingResult {
       ],
     };
   }
-  if (rewardRisk !== null && rewardRisk < cfg.minRewardRisk) {
+  const requiredRR = Math.max(cfg.minRewardRisk, limits.minRewardRisk || 0);
+  if (rewardRisk !== null && rewardRisk < requiredRR) {
     return {
       ok: false,
-      reasons: [`reward-to-risk is ${rewardRisk.toFixed(2)}, below the ${cfg.minRewardRisk} minimum`],
+      reasons: [`reward-to-risk is ${rewardRisk.toFixed(2)}, below the ${requiredRR} minimum`],
     };
+  }
+  if (rewardRisk === null) {
+    return { ok: false, reasons: ["no level ahead to target — nothing to size a reward against"] };
   }
   if (margin > input.equity) {
     return { ok: false, reasons: [`needs ${margin.toFixed(2)} margin, only ${input.equity.toFixed(2)} free`] };
