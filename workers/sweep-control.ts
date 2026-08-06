@@ -32,6 +32,9 @@ import { proposePosition } from "../lib/sweep/agent/sizing";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import { checkProtection, ensureProtected, type ProtectionState } from "../lib/sweep/exchange/orders";
 import { fetchPosition } from "../lib/sweep/exchange/binance";
+import { dayDrawdown, fetchDayActivity, type DayActivity } from "../lib/sweep/exchange/activity";
+import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
+import { attachExecution, intentId, type ExecutionRunner } from "../lib/sweep/agent";
 import { CONFIG, SYMBOL } from "../lib/sweep/config";
 
 /*
@@ -159,6 +162,10 @@ function stopEngine() {
   log("engine stopped");
 }
 
+let day: { activity: DayActivity | null; error: string | null; at: number } = { activity: null, error: null, at: 0 };
+let execHistory: ExecutionRecord[] = [];
+let runner: ExecutionRunner | null = null;
+
 let protection: { state: ProtectionState | null; error: string | null; at: number } = {
   state: null,
   error: null,
@@ -176,6 +183,7 @@ async function refreshAccount() {
     account = { risk: await fetchAccountRisk(cfg), error: null, at: Date.now() };
     const position = await fetchPosition(cfg, SYMBOL);
     protection = { state: await checkProtection(cfg, SYMBOL, position), error: null, at: Date.now() };
+    day = { activity: await fetchDayActivity(cfg, SYMBOL), error: null, at: Date.now() };
   } catch (err) {
     const message = redact(err instanceof Error ? err.message : String(err));
     account = { risk: null, error: message, at: Date.now() };
@@ -217,6 +225,87 @@ async function reconcileOnStart() {
     log(`startup reconciliation FAILED: ${message}`);
     protection = { state: null, error: message, at: Date.now() };
   }
+}
+
+/**
+ * Connects signals to the exchange.
+ *
+ * The strategy here is deliberately thin: it takes a signal, asks the sizer
+ * what it would do, and forwards the answer. All the judgement lives in
+ * proposePosition and all the safety lives in the adapter — this only decides
+ * that a signal is worth asking about at all.
+ */
+function startExecutionLoop() {
+  if (runner || !feed || !hasCredentials()) return;
+  const cfg = loadConfig();
+  const adapter = createBinanceAdapter({
+    cfg,
+    symbol: SYMBOL,
+    limits: () => ({ ...limits }),
+    quantityPrecision: 0,
+    pricePrecision: 2,
+    onRecord: (r) => {
+      execHistory = [r, ...execHistory].slice(0, 200);
+      log(`execution ${r.outcome}: ${r.detail}`);
+    },
+  });
+
+  runner = attachExecution(feed, {
+    adapter,
+    minIntervalMs: Math.max(60_000, limits.lossCooldownMin * 60_000),
+    maxPerHour: Math.max(1, limits.maxTradesPerDay),
+    onRejected: (reason) => log(`intent rejected: ${reason}`),
+    strategy: (signal, state) => {
+      // Health signals describe the feed, not the market.
+      if (signal.kind === "health") return null;
+      const bias = directionalBias(state);
+      if (!bias.direction) return null;
+
+      const proposal = proposePosition({
+        direction: bias.direction,
+        state,
+        equity: account.risk?.availableBalance ?? 0,
+        realisedLossToday: day.activity ? dayDrawdown(day.activity) : 0,
+        tradesToday: day.activity?.trades ?? 0,
+        lastLossAt: day.activity?.lastLossAt ?? 0,
+        limits: {
+          maxPositionUsd: limits.maxPositionUsd,
+          maxLeverage: limits.maxLeverage,
+          maxDailyLossUsd: limits.maxDailyLossUsd,
+          stopLossPct: limits.stopLossPct,
+          maxTradesPerDay: limits.maxTradesPerDay,
+          lossCooldownMin: limits.lossCooldownMin,
+          requireCashOpen: limits.requireCashOpen,
+          minRewardRisk: limits.minRewardRisk,
+        },
+        costCurve: feed!.getCostCurve(),
+        clusters: feed!.getClusters(),
+        config: { riskFraction: limits.riskPerTradePct / 100 },
+      });
+      if (!proposal.ok) return null;
+
+      return {
+        id: intentId(signal),
+        t: Date.now(),
+        side: proposal.side === "long" ? "buy" : "sell",
+        signalId: signal.id,
+        signalKind: signal.kind,
+        reason: `${signal.detail} | ${bias.summary}`,
+        confidence: bias.conviction,
+        reference: {
+          mid: proposal.entryPrice,
+          trigger: proposal.targetPrice,
+          invalidation: proposal.stopPrice,
+        },
+      };
+    },
+  });
+  log(`execution loop attached (${adapter.name})`);
+}
+
+function stopExecutionLoop() {
+  runner?.stop();
+  runner = null;
 }
 
 function status() {
@@ -271,6 +360,33 @@ function status() {
         })) ?? [],
     },
     limits,
+    day: day.activity
+      ? {
+          at: day.at,
+          realisedPnl: day.activity.realisedPnl,
+          drawdown: dayDrawdown(day.activity),
+          trades: day.activity.trades,
+          fees: day.activity.fees,
+          funding: day.activity.funding,
+          lastLossAt: day.activity.lastLossAt,
+          cooldownLeftMin:
+            limits.lossCooldownMin > 0 && day.activity.lastLossAt > 0
+              ? Math.max(0, limits.lossCooldownMin - (Date.now() - day.activity.lastLossAt) / 60_000)
+              : 0,
+        }
+      : { at: day.at, error: day.error },
+    execution: {
+      available: hasCredentials() && limits.tradingEnabled,
+      armed: limits.tradingEnabled,
+      running: runner !== null,
+      reason: !hasCredentials()
+        ? "no exchange credentials configured — monitor only"
+        : !limits.tradingEnabled
+          ? "trading is disarmed; set your caps and arm it to allow orders"
+          : "armed — orders will be placed when a setup passes every check",
+      history: execHistory.slice(0, 20),
+      stats: runner?.stats() ?? null,
+    },
     protection: {
       at: protection.at,
       error: protection.error,
@@ -279,12 +395,6 @@ function status() {
       stopPrice: protection.state?.stop?.stopPrice ?? null,
       stopDistancePct: protection.state?.stopDistancePct ?? null,
       reason: protection.state?.reason ?? null,
-    },
-    // Stated rather than implied, so the GUI never suggests a capability the
-    // process does not have.
-    execution: {
-      available: false,
-      reason: "order placement is not implemented yet — read-only until risk limits are set and reviewed",
     },
   };
 }
@@ -388,6 +498,9 @@ const server = createServer(async (req, res) => {
         };
         writeLimits(limits);
         log(`limits updated: ${JSON.stringify(limits)}`);
+        // Arming and disarming take effect immediately rather than at restart.
+        if (limits.tradingEnabled) startExecutionLoop();
+        else stopExecutionLoop();
         send(res, 200, status());
         return;
       }
@@ -491,13 +604,23 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "POST /api/flatten": {
+        if (!hasCredentials()) { send(res, 200, { error: "no credentials configured" }); return; }
+        const result = await flatten(loadConfig(), SYMBOL);
+        log(`FLATTEN: ${result}`);
+        await refreshAccount();
+        send(res, 200, { ...status(), flattened: result });
+        return;
+      }
+
       case "POST /api/kill": {
         // The stop-everything control. Today that means killing the feed and
         // disarming trading; once orders exist it also cancels and flattens.
         limits = { ...limits, tradingEnabled: false };
         writeLimits(limits);
+        stopExecutionLoop();
         stopEngine();
-        log("KILL: engine stopped, trading disarmed");
+        log("KILL: execution detached, engine stopped, trading disarmed");
         send(res, 200, { ...status(), killed: true });
         return;
       }
@@ -536,6 +659,7 @@ server.listen(PORT, HOST, () => {
 
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
+    stopExecutionLoop();
     stopEngine();
     server.close();
     // Positions are deliberately left open: their protection is the stop
