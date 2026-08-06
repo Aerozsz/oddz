@@ -75,44 +75,62 @@ function CascadeSide({
 }
 
 /**
- * How close the market currently is to paying for the first link.
+ * How close price is to setting the first level off.
  *
- * The seed is a quantity of aggressive flow, and a bare dollar figure gives no
- * sense of whether that is a lot here or nothing at all. Against the flow the
- * last minute actually produced, it becomes readable: a bar near full means
- * ordinary current activity is already the size that would set this off.
+ * An earlier version filled this against aggressive flow versus the seed, which
+ * was the wrong quantity: on this contract a minute of real flow is a few
+ * thousand dollars against a seed in the hundreds of thousands, so the bar sat
+ * at zero permanently and told you nothing.
+ *
+ * Distance is the quantity that actually moves. Price is either near the level
+ * or it is not, that changes continuously, and it is the thing that has to
+ * happen first — the seed is only what it costs to close that distance. The
+ * seed stays on screen as a figure; the bar tracks the approach.
  */
 function SeedProgress({
   path,
   flowMinute,
   precision,
+  mid,
 }: {
   path: CascadePath;
   flowMinute: number;
   precision: number;
+  mid: number;
 }) {
-  const frac = path.seedNotional > 0 ? Math.min(1, flowMinute / path.seedNotional) : 0;
-  const hot = frac >= 0.75;
+  const first = path.links[0]?.cluster;
+  if (!first || !mid) return null;
+
+  const distPct = Math.abs((first.price - mid) / mid) * 100;
+  // Full when price is at the level, empty a full percent away. Beyond that the
+  // level is not in play and the bar should read as such rather than clipping.
+  const WINDOW_PCT = 1;
+  const frac = Math.max(0, Math.min(1, 1 - distPct / WINDOW_PCT));
+  const hot = frac >= 0.8;
+  const near = frac >= 0.5;
+
   return (
     <div className="seedbar" style={{ marginTop: 10 }}>
       <div className="seedbar-head">
-        <span className="sub">flow in the last minute vs what it takes</span>
+        <span className="sub">
+          distance to the first level at <b>{fmtPrice(first.price, precision)}</b>
+        </span>
         <span className="num" style={{ color: hot ? "var(--critical)" : "var(--ink-2)" }}>
-          {usd(flowMinute)} / {usd(path.seedNotional)}
+          {distPct.toFixed(2)}% away
         </span>
       </div>
       <div className="seedbar-track">
         <i
           style={{
             width: `${frac * 100}%`,
-            background: hot ? "var(--critical)" : frac > 0.4 ? "var(--warning)" : "var(--liq)",
+            background: hot ? "var(--critical)" : near ? "var(--warning)" : "var(--liq)",
           }}
         />
       </div>
       <span className="sub">
-        {frac >= 1
-          ? `Current activity alone is already the size that reaches ${fmtPrice(path.links[0]?.cluster.price ?? 0, precision)}.`
-          : `${(frac * 100).toFixed(0)}% of the way — ${usd(Math.max(0, path.seedNotional - flowMinute))} more would do it.`}
+        {hot
+          ? `Price is on top of it. ${usd(path.seedNotional)} of aggressive flow would take it through.`
+          : `${usd(path.seedNotional)} would close the gap · ${usd(flowMinute)} traded that way in the last minute.`}
       </span>
     </div>
   );
@@ -152,7 +170,7 @@ function CascadeBody({
         </div>
       </div>
 
-      <SeedProgress path={path} flowMinute={flowMinute} precision={precision} />
+      <SeedProgress path={path} flowMinute={flowMinute} precision={precision} mid={mid} />
 
       <div className="tiles" style={{ marginTop: 12 }}>
         <div className="tile">
