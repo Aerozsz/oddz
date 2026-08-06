@@ -504,6 +504,41 @@ th:first-child,
  * "how close is this", which is a proportion, and a proportion is read faster
  * as a length than as two figures to divide in your head.
  */
+/*
+ * The distance readout. Deliberately the largest thing in the panel: it is the
+ * one figure being watched continuously, and it was previously set at 11px
+ * above the bar where it could not be read without leaning in.
+ */
+.sweep-root .distance {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin-bottom: 6px;
+  flex-wrap: wrap;
+}
+
+.sweep-root .distance-value {
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+  transition: color 250ms linear;
+}
+
+.sweep-root .distance-label {
+  font-size: 12px;
+  color: var(--ink-2);
+}
+
+.sweep-root .distance-label b {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.sweep-root .seedbar-track {
+  height: 10px;
+}
+
 .sweep-root .seedbar-head {
   display: flex;
   align-items: baseline;

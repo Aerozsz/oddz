@@ -111,12 +111,18 @@ function SeedProgress({
 
   return (
     <div className="seedbar" style={{ marginTop: 10 }}>
-      <div className="seedbar-head">
-        <span className="sub">
-          distance to the first level at <b>{fmtPrice(first.price, precision)}</b>
+      {/* The headline of the whole panel: how far price has to travel before
+          any of the rest of it matters. Sized to be readable at a glance from
+          across a desk, because it is the number being watched. */}
+      <div className="distance">
+        <span
+          className="distance-value num"
+          style={{ color: hot ? "var(--critical)" : near ? "var(--warning)" : "var(--ink)" }}
+        >
+          {distPct.toFixed(2)}%
         </span>
-        <span className="num" style={{ color: hot ? "var(--critical)" : "var(--ink-2)" }}>
-          {distPct.toFixed(2)}% away
+        <span className="distance-label">
+          away from <b className="num">{fmtPrice(first.price, precision)}</b>
         </span>
       </div>
       <div className="seedbar-track">
