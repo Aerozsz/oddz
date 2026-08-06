@@ -85,6 +85,12 @@ interface Limits {
   requireCashOpen: boolean;
   /** Minimum reward-to-risk before a setup is worth taking. */
   minRewardRisk: number;
+  /**
+   * Percent of free collateral put at risk if the stop fills. This is the dial
+   * that actually sets aggression — leverage only decides how much margin the
+   * same position ties up, whereas this decides what a loss costs.
+   */
+  riskPerTradePct: number;
 }
 
 /*
@@ -100,15 +106,19 @@ interface Limits {
  */
 const DEFAULT_LIMITS: Limits = {
   maxPositionUsd: 0,
-  maxLeverage: 5,
+  maxLeverage: 8,
   maxDailyLossUsd: 0,
   maxOpenPositions: 1,
   tradingEnabled: false,
-  stopLossPct: 2.5,
-  maxTradesPerDay: 8,
-  lossCooldownMin: 30,
+  // Wider than the cautious setting on purpose: a bigger position behind a
+  // tighter stop is the same risk with worse odds of surviving noise, so the
+  // stop widens as the size does.
+  stopLossPct: 3,
+  maxTradesPerDay: 12,
+  lossCooldownMin: 15,
   requireCashOpen: false,
-  minRewardRisk: 1.5,
+  minRewardRisk: 1.2,
+  riskPerTradePct: 2,
 };
 
 function readLimits(): Limits {
@@ -372,6 +382,9 @@ const server = createServer(async (req, res) => {
           lossCooldownMin: Math.max(0, n("lossCooldownMin", limits.lossCooldownMin)),
           requireCashOpen: body.requireCashOpen !== false,
           minRewardRisk: Math.max(0, n("minRewardRisk", limits.minRewardRisk)),
+          // Capped at 10%: past that a short losing run ends the account
+          // regardless of how good the entries are.
+          riskPerTradePct: Math.min(10, Math.max(0.01, n("riskPerTradePct", limits.riskPerTradePct))),
         };
         writeLimits(limits);
         log(`limits updated: ${JSON.stringify(limits)}`);
@@ -417,6 +430,7 @@ const server = createServer(async (req, res) => {
           },
           costCurve: feed ? feed.getCostCurve() : [],
           clusters: feed ? feed.getClusters() : [],
+          config: { riskFraction: limits.riskPerTradePct / 100 },
         });
         send(res, 200, {
           result,
@@ -641,6 +655,7 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
     <label style="width:150px">Max daily loss (USD)<input id="maxDailyLossUsd" type="number" min="0" step="10"></label>
     <label style="width:130px">Max open positions<input id="maxOpenPositions" type="number" min="0" step="1"></label>
     <label style="width:140px">Stop-loss distance (%)<input id="stopLossPct" type="number" min="0.1" step="0.1"></label>
+    <label style="width:140px">Risk per trade (%)<input id="riskPerTradePct" type="number" min="0.01" max="10" step="0.1"></label>
     <label style="width:130px">Trading armed<select id="tradingEnabled" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
       <option value="false">disarmed</option><option value="true">armed</option></select></label>
     <button id="btnLimits">Save limits</button>
@@ -683,7 +698,7 @@ const n=(v,d=2)=>v===null||v===undefined||!isFinite(v)?"—":Number(v).toFixed(d
 const usd=v=>v===null||v===undefined||!isFinite(v)?"—":(Math.abs(v)>=1e6?"$"+(v/1e6).toFixed(2)+"M":Math.abs(v)>=1e3?"$"+(v/1e3).toFixed(1)+"k":"$"+v.toFixed(2));
 
 let limitsDirty=false;
-for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct"]) $(id).addEventListener("input",()=>limitsDirty=true);
+for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct","riskPerTradePct"]) $(id).addEventListener("input",()=>limitsDirty=true);
 $("tradingEnabled").addEventListener("change",()=>limitsDirty=true);
 
 function render(s){
@@ -737,6 +752,7 @@ function render(s){
     $("maxOpenPositions").value=s.limits.maxOpenPositions;
     $("tradingEnabled").value=String(s.limits.tradingEnabled);
     $("stopLossPct").value=s.limits.stopLossPct;
+    $("riskPerTradePct").value=s.limits.riskPerTradePct;
   }
 }
 
@@ -758,7 +774,8 @@ $("btnKill").onclick=async()=>{ if(confirm("Stop the engine and disarm trading?"
 $("btnLimits").onclick=async()=>{
   const body={maxPositionUsd:+$("maxPositionUsd").value,maxLeverage:+$("maxLeverage").value,
     maxDailyLossUsd:+$("maxDailyLossUsd").value,maxOpenPositions:+$("maxOpenPositions").value,
-    tradingEnabled:$("tradingEnabled").value==="true",stopLossPct:+$("stopLossPct").value};
+    tradingEnabled:$("tradingEnabled").value==="true",stopLossPct:+$("stopLossPct").value,
+    riskPerTradePct:+$("riskPerTradePct").value};
   limitsDirty=false; render(await api("/api/limits",{method:"POST",body:JSON.stringify(body)}));
 };
 

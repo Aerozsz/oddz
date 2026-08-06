@@ -65,18 +65,24 @@ export const CONFIG = {
   /**
    * Maintenance margin rate for the liquidation ladder.
    *
-   * Not assumed: back-solved from an observed position on this contract — a
-   * short entered at 101.58 that Binance reported as liquidating at 104.91,
-   * which at 20x implies exactly this rate and reproduces that price to the
-   * cent. Binance only exposes real brackets over a signed endpoint, so a
-   * single observed liquidation is the best calibration available without one,
-   * and it beats a round number picked for looking plausible.
+   * Measured, not inferred. A real position on this contract — 1,400 contracts
+   * at 101.58, so $142,212 of notional — carried $2,805 of maintenance margin,
+   * which is this rate directly. Binance only exposes the bracket table over a
+   * signed endpoint, and maintenance margin divided by notional needs neither
+   * that nor any assumption about leverage or margin mode.
    *
-   * It is a first-tier rate. Larger notionals sit in higher brackets with
-   * higher rates, so the ladder understates how close a big position's
-   * liquidation really is.
+   * An earlier value here was back-solved from a liquidation price instead.
+   * That was unsound: under cross margin the liquidation price moves with the
+   * whole wallet, so it cannot identify a rate belonging to one position. It
+   * came out 18% low.
+   *
+   * Caveat that matters for sizing: this was measured at $142k of notional,
+   * which is a higher bracket than anything this tool would propose. Smaller
+   * positions sit in lower brackets at lower rates, so using this figure places
+   * modelled liquidations slightly nearer than they really are — the safe
+   * direction for a risk model to be wrong in.
    */
-  maintenanceMarginRate: 0.01667,
+  maintenanceMarginRate: 0.0197,
 
   /**
    * Leverage mix assumed across open positions, skewed toward the cap the way
