@@ -119,10 +119,10 @@ function SeedProgress({
           className="distance-value num"
           style={{ color: hot ? "var(--critical)" : near ? "var(--warning)" : "var(--ink)" }}
         >
-          {distPct.toFixed(2)}%
+          {fmtPrice(first.price, precision)}
         </span>
         <span className="distance-label">
-          away from <b className="num">{fmtPrice(first.price, precision)}</b>
+          first level · <b className="num">{distPct.toFixed(2)}%</b> away
         </span>
       </div>
       <div className="seedbar-track">
