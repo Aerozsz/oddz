@@ -146,13 +146,22 @@ export interface CascadeInputs {
   asks: BookLevel[];
   mid: number;
   clusters: Cluster[];
-  /** Primary-band depth over baseline. Below 1 thins the modelled tail too. */
-  lwi: number;
+  /**
+   * Depth over baseline, per side. A downward walk consumes bids and an upward
+   * walk consumes asks, so each direction is scored against the side it would
+   * actually have to eat through. Using a combined figure for both made a
+   * one-sided withdrawal — the floor disappearing while offers stay put — raise
+   * the upside score just as much as the downside one, which is exactly
+   * backwards: bids leaving makes a move *down* cheap, not a move up.
+   */
+  lwiBid: number;
+  lwiAsk: number;
   openInterestNotional: number;
 }
 
 export function simulate(input: CascadeInputs, dir: Direction): CascadePath | null {
-  const { mid, clusters, lwi } = input;
+  const { mid, clusters } = input;
+  const lwi = dir === "down" ? input.lwiBid : input.lwiAsk;
   if (!mid) return null;
 
   const levels = dir === "down" ? input.bids : input.asks;

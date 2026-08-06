@@ -459,7 +459,8 @@ export class Engine {
       asks,
       mid: mid ?? 0,
       clusters: this.clusters,
-      lwi: liquidity?.lwi ?? 1,
+      lwiBid: liquidity?.lwiBid ?? 1,
+      lwiAsk: liquidity?.lwiAsk ?? 1,
       openInterestNotional: this.openInterest?.notional ?? 0,
     };
 

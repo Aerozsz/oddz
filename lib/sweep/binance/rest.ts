@@ -56,9 +56,17 @@ function coolingDown(r: Route) {
   return Date.now() < cooldownUntil[r];
 }
 
-/** Milliseconds until every route is usable again; 0 when none is parked. */
+/**
+ * Milliseconds until some route is usable again; 0 when one already is.
+ *
+ * Only routes that exist here are counted. Headless without a configured proxy
+ * origin there is just the direct one, and taking the minimum across both would
+ * read the permanently-zero proxy slot as "a route is available" and report no
+ * throttling at all — while the only route in use was parked.
+ */
 export function rateLimitCooldownMs(): number {
-  const soonest = Math.min(cooldownUntil.direct, cooldownUntil.proxy);
+  const routes: Route[] = proxyBase() === null ? ["direct"] : ["direct", "proxy"];
+  const soonest = Math.min(...routes.map((r) => cooldownUntil[r]));
   return Math.max(0, soonest - Date.now());
 }
 
@@ -79,11 +87,32 @@ function setRoute(r: Route) {
   for (const cb of listeners) cb(r);
 }
 
+/**
+ * Where the proxy route lives, or null when it cannot be reached from here.
+ *
+ * REST_PROXY is same-origin and therefore relative, which resolves only in a
+ * browser. A headless runner has no origin, so `fetch("/api/...")` throws
+ * "Failed to parse URL" before any request is made — and because that happens
+ * inside the fallback path, it surfaces as a confusing parse error at the
+ * moment the direct route is already in trouble.
+ *
+ * Outside a browser the proxy is therefore used only when an absolute origin is
+ * configured, and otherwise reported as unavailable so the caller stays on the
+ * direct route rather than failing over into something that cannot work.
+ */
+function proxyBase(): string | null {
+  if (typeof window !== "undefined") return REST_PROXY;
+  const origin =
+    typeof process !== "undefined" ? process.env.SWEEP_PROXY_ORIGIN?.replace(/\/+$/, "") : undefined;
+  return origin ? `${origin}${REST_PROXY}` : null;
+}
+
 function url(base: Route, path: string, params: Record<string, string | number>) {
   const qs = new URLSearchParams(
     Object.entries(params).map(([k, v]) => [k, String(v)]),
   ).toString();
-  const prefix = base === "direct" ? FAPI_REST : REST_PROXY;
+  const prefix = base === "direct" ? FAPI_REST : proxyBase();
+  if (prefix === null) throw new Error("proxy route unavailable (set SWEEP_PROXY_ORIGIN to enable it)");
   return `${prefix}${path}${qs ? `?${qs}` : ""}`;
 }
 
@@ -106,7 +135,8 @@ async function attempt(base: Route, path: string, params: Record<string, string 
 
 export async function api<T>(path: string, params: Record<string, string | number> = {}): Promise<T> {
   const preferred: Route[] = route ? [route, route === "direct" ? "proxy" : "direct"] : ["direct", "proxy"];
-  const order = preferred.filter((r) => !coolingDown(r));
+  const usable = proxyBase() === null ? preferred.filter((r) => r !== "proxy") : preferred;
+  const order = usable.filter((r) => !coolingDown(r));
   if (order.length === 0) {
     throw new RateLimited(429, rateLimitCooldownMs());
   }
