@@ -21,6 +21,21 @@ import { dirname, resolve } from "node:path";
 import { createSweepFeed } from "../lib/sweep/agent";
 import type { AgentState, Signal } from "../lib/sweep/agent";
 
+/*
+ * Node 22 or newer. The engine uses the global WebSocket, which older releases
+ * do not provide — without this check that surfaces as "WebSocket is not
+ * defined" deep inside a stream callback, which is a miserable first
+ * experience for something that is really just a version mismatch.
+ */
+const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
+if (NODE_MAJOR < 22) {
+  console.error("");
+  console.error(`  This needs Node 22 or newer. You are on ${process.versions.node}.`);
+  console.error("  Install the current LTS from https://nodejs.org and run this again.");
+  console.error("");
+  process.exit(1);
+}
+
 /** When to look back and see what happened, in seconds after the signal. */
 const HORIZONS = [60, 300, 900] as const;
 

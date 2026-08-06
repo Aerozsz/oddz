@@ -34,6 +34,21 @@ import { checkProtection, ensureProtected, type ProtectionState } from "../lib/s
 import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { CONFIG, SYMBOL } from "../lib/sweep/config";
 
+/*
+ * Node 22 or newer. The engine uses the global WebSocket, which older releases
+ * do not provide — without this check that surfaces as "WebSocket is not
+ * defined" deep inside a stream callback, which is a miserable first
+ * experience for something that is really just a version mismatch.
+ */
+const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
+if (NODE_MAJOR < 22) {
+  console.error("");
+  console.error(`  This needs Node 22 or newer. You are on ${process.versions.node}.`);
+  console.error("  Install the current LTS from https://nodejs.org and run this again.");
+  console.error("");
+  process.exit(1);
+}
+
 const PORT = Number(process.env.SWEEP_CONTROL_PORT ?? 7777);
 /*
  * Loopback by default. This process holds an exchange secret and can move a

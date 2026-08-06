@@ -26,6 +26,21 @@ import { directionalBias } from "../lib/sweep/agent/bias";
 import { proposePosition } from "../lib/sweep/agent/sizing";
 import type { Signal } from "../lib/sweep/agent";
 
+/*
+ * Node 22 or newer. The engine uses the global WebSocket, which older releases
+ * do not provide — without this check that surfaces as "WebSocket is not
+ * defined" deep inside a stream callback, which is a miserable first
+ * experience for something that is really just a version mismatch.
+ */
+const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
+if (NODE_MAJOR < 22) {
+  console.error("");
+  console.error(`  This needs Node 22 or newer. You are on ${process.versions.node}.`);
+  console.error("  Install the current LTS from https://nodejs.org and run this again.");
+  console.error("");
+  process.exit(1);
+}
+
 const SERVER_NAME = "oddz-sweep";
 const SERVER_VERSION = "0.1.0";
 const DEFAULT_PROTOCOL = "2025-06-18";
