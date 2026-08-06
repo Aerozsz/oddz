@@ -7,10 +7,15 @@
  *
  * Deliberately not a strategy. There is no entry rule here and nothing is
  * scored as a win or a loss, because inventing a rule before there is any
- * evidence would only produce a backtest of a guess. What this answers is the
- * question that has to come first: when a signal fires, what does price do
- * next? Until that has a few hundred rows behind it, any strategy built on
- * these signals is decoration.
+ * evidence would only produce a backtest of a guess.
+ *
+ * It samples on a clock rather than only when a signal fires. Recording only
+ * signals would mean the file can never answer a question about any threshold
+ * except the ones already hard-coded — and those are guesses. A row every few
+ * seconds, whether or not anything tripped, gives thousands of observations a
+ * day and lets a threshold be chosen from the data afterwards instead of
+ * assumed in advance. Rows that coincided with a signal are flagged, so the
+ * narrower question is still answerable from the same file.
  *
  * Needs no exchange account and no credentials — it reads the same public
  * market data the dashboard does, and places nothing.
@@ -19,6 +24,7 @@
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { createSweepFeed } from "../lib/sweep/agent";
+import { directionalBias } from "../lib/sweep/agent/bias";
 import type { AgentState, Signal } from "../lib/sweep/agent";
 
 /*
@@ -36,8 +42,11 @@ if (NODE_MAJOR < 22) {
   process.exit(1);
 }
 
-/** When to look back and see what happened, in seconds after the signal. */
+/** When to look back and see what happened, in seconds after each sample. */
 const HORIZONS = [60, 300, 900] as const;
+
+/** How often to record, in seconds. ~5,700 rows a day at 15s. */
+const SAMPLE_SEC = Number(process.env.SWEEP_SAMPLE_SEC ?? 15);
 
 const argOut = process.argv.indexOf("--out");
 const OUT = resolve(argOut > -1 ? process.argv[argOut + 1] : "data/sweep-paper.jsonl");
@@ -64,6 +73,13 @@ interface Record {
   nearestAbove: number | null;
   nearestBelow: number | null;
   session: string;
+  /** Signal kinds that fired within a few seconds of this sample, if any. */
+  signals: string[];
+  /** Behavioural read at the time: mechanical, human, mixed or unclear. */
+  flowCharacter: string;
+  /** Direction of least resistance, when one was called. */
+  biasDirection: string | null;
+  biasConviction: number | null;
   /** Filled in later: mid at +60s, +300s, +900s, and the move in percent. */
   outcomes: Partial<Record_Outcomes>;
 }
@@ -74,15 +90,20 @@ const feed = createSweepFeed();
 const pending = new Map<string, { record: Record; remaining: number }>();
 let written = 0;
 
-function snapshotOf(signal: Signal, state: AgentState): Record {
+function snapshotOf(state: AgentState, firedSignals: Signal[], id: string): Record {
+  const bias = directionalBias(state);
   return {
-    id: signal.id,
-    kind: signal.kind,
-    severity: signal.severity,
-    direction: signal.direction,
-    t: signal.t,
-    iso: new Date(signal.t).toISOString(),
-    detail: signal.detail,
+    id,
+    kind: (firedSignals[0]?.kind ?? "sample") as Record["kind"],
+    severity: (firedSignals[0]?.severity ?? "info") as Record["severity"],
+    direction: firedSignals[0]?.direction ?? null,
+    t: Date.now(),
+    iso: new Date().toISOString(),
+    detail: firedSignals.map((s) => s.detail).join(" | ") || "periodic sample",
+    signals: firedSignals.map((s) => s.kind),
+    flowCharacter: state.participants?.character.label ?? "unclear",
+    biasDirection: bias.direction,
+    biasConviction: bias.direction ? Number(bias.conviction.toFixed(3)) : null,
     midAtSignal: state.mid,
     health: state.health.level,
     lwi: state.liquidity?.lwi ?? null,
@@ -101,27 +122,38 @@ function snapshotOf(signal: Signal, state: AgentState): Record {
 function flush(record: Record) {
   appendFileSync(OUT, `${JSON.stringify(record)}\n`);
   written++;
-  console.error(
-    `[paper] wrote ${record.kind} @ ${record.midAtSignal ?? "?"} ` +
+  if (written % 20 === 0 || record.signals.length > 0) console.error(
+    `[paper] ${record.signals.length ? record.signals.join("+") : "sample"} @ ${record.midAtSignal ?? "?"} ` +
       `(${Object.entries(record.outcomes)
         .map(([k, v]) => `${k}:${v.pct === null ? "?" : `${v.pct > 0 ? "+" : ""}${v.pct.toFixed(2)}%`}`)
         .join(" ")}) — ${written} rows in ${OUT}`,
   );
 }
 
-feed.onSignal((signal, state) => {
-  // Health transitions describe the feed, not the market; logging them as
-  // observations would pollute the very set this exists to build.
+// Signals seen since the last sample, so a row can be tagged with what tripped.
+let recentSignals: Signal[] = [];
+feed.onSignal((signal) => {
   if (signal.kind === "health") return;
-  // A signal raised while the feed is not trustworthy is not evidence either.
-  if (!state.health.tradeable) return;
+  recentSignals.push(signal);
+});
 
-  const record = snapshotOf(signal, state);
-  pending.set(signal.id, { record, remaining: HORIZONS.length });
+let seq = 0;
+function take() {
+  const state = feed.getState();
+  // A sample taken while the feed is untrustworthy is not evidence.
+  if (!state.health.tradeable) {
+    recentSignals = [];
+    return;
+  }
+
+  const id = `s${Date.now().toString(36)}${(seq++).toString(36)}`;
+  const record = snapshotOf(state, recentSignals, id);
+  recentSignals = [];
+  pending.set(id, { record, remaining: HORIZONS.length });
 
   for (const horizon of HORIZONS) {
     setTimeout(() => {
-      const entry = pending.get(signal.id);
+      const entry = pending.get(id);
       if (!entry) return;
       const now = feed.getState();
       const mid = now.health.tradeable ? now.mid : null;
@@ -132,12 +164,14 @@ feed.onSignal((signal, state) => {
       };
       entry.remaining--;
       if (entry.remaining === 0) {
-        pending.delete(signal.id);
+        pending.delete(id);
         flush(entry.record);
       }
     }, horizon * 1000).unref?.();
   }
-});
+}
+
+setInterval(take, SAMPLE_SEC * 1000);
 
 let lastLevel = "";
 feed.onState((s) => {
@@ -160,5 +194,6 @@ function shutdown() {
 for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, shutdown);
 
 console.error(`[paper] recording to ${OUT}`);
-console.error(`[paper] horizons: ${HORIZONS.map((h) => `${h}s`).join(", ")} — first rows land ~15min after the first signal`);
+console.error(`[paper] sampling every ${SAMPLE_SEC}s — about ${Math.round(86400 / SAMPLE_SEC)} rows a day`);
+console.error(`[paper] each row is scored at ${HORIZONS.map((h) => `${h}s`).join(", ")}, so the first lands ~15min in`);
 console.error("[paper] ctrl-c to stop; partial rows are flushed on exit");
