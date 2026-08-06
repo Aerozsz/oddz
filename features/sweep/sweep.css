@@ -462,7 +462,80 @@ th:first-child,
   border-color: rgba(255, 255, 255, 0.24);
 }
 
+/*
+ * The price a cost-curve row lands at, under the notional it takes to get
+ * there. Secondary to the cost, but the two are read together — a figure is
+ * hard to judge without the level it buys.
+ */
+.sweep-root .cost-px {
+  display: block;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-muted);
+  line-height: 1.35;
+}
+
 /* ---------------------------------------------------------------- cascade */
+
+/*
+ * The cascade panel spans the whole grid so both directions fit side by side.
+ * In a single column it was ~380px wide, which is not enough for two of
+ * anything — and the two directions are read against each other, so putting one
+ * behind a tab hid the comparison that matters.
+ */
+@media (min-width: 1100px) {
+  .sweep-root .cols > .cascade-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+.sweep-root .cascade-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 14px;
+}
+
+@media (min-width: 900px) {
+  .sweep-root .cascade-pair {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 18px;
+  }
+
+  .sweep-root .cascade-side + .cascade-side {
+    border-left: 1px solid var(--hairline);
+    padding-left: 18px;
+  }
+}
+
+.sweep-root .cascade-side {
+  display: flex;
+  flex-direction: column;
+  /* Without this a long chain detail line can force the column past its track. */
+  min-width: 0;
+}
+
+.sweep-root .side-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.sweep-root .side-head h3 {
+  margin: 0;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+.sweep-root .side-risk {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
 
 .sweep-root .chain {
   display: flex;

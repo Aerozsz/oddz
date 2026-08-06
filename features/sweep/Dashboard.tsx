@@ -51,6 +51,9 @@ export default function Dashboard() {
       )}
 
         <div className="grid cols">
+          {/* Spans all three columns; see .cascade-panel in sweep.css. */}
+          <CascadePanel snap={snap} />
+
           <div className="stack">
             <LiquidityPanel snap={snap} />
           </div>
@@ -61,7 +64,6 @@ export default function Dashboard() {
           </div>
 
           <div className="stack">
-            <CascadePanel snap={snap} />
             <Tapes snap={snap} />
           </div>
         </div>

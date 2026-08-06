@@ -1,45 +1,74 @@
 "use client";
 
-import { useState } from "react";
 import type { CascadePath, Snapshot } from "@/lib/sweep/types";
 import { pct, price as fmtPrice, riskStatus, STATUS_VAR, usd } from "./format";
 
 /**
- * The chain, priced.
+ * The chain, priced, in both directions at once.
  *
  * Read the seed figure first: it is what an aggressor has to spend to reach the
  * first cluster from here. Everything after it is paid for by the clusters
  * themselves. When the seed number falls while price has not moved, the book
  * got thinner — that is the sweep becoming affordable, and it is visible before
  * anything shows up on a price chart.
+ *
+ * Shown side by side rather than behind a toggle because the two directions are
+ * read against each other: a downside seed a fraction of the upside one is the
+ * asymmetry, and a tab hides exactly that comparison.
  */
 export default function CascadePanel({ snap }: { snap: Snapshot }) {
-  const [dir, setDir] = useState<"down" | "up">("down");
-  const path = dir === "down" ? snap.cascadeDown : snap.cascadeUp;
   const precision = snap.meta?.pricePrecision ?? 2;
+  const mid = snap.mid ?? 0;
 
   return (
-    <section className="panel">
+    <section className="panel cascade-panel">
       <header>
         <h2>Cascade path</h2>
-        <div className="controls">
-          <button aria-pressed={dir === "down"} onClick={() => setDir("down")}>
-            downside
-          </button>
-          <button aria-pressed={dir === "up"} onClick={() => setDir("up")}>
-            upside
-          </button>
-        </div>
+        <span className="sub">priced against the live book, both directions</span>
       </header>
+
+      <div className="cascade-pair">
+        <CascadeSide label="Downside" dir="down" path={snap.cascadeDown} precision={precision} mid={mid} />
+        <CascadeSide label="Upside" dir="up" path={snap.cascadeUp} precision={precision} mid={mid} />
+      </div>
+    </section>
+  );
+}
+
+function CascadeSide({
+  label,
+  dir,
+  path,
+  precision,
+  mid,
+}: {
+  label: string;
+  dir: "down" | "up";
+  path: CascadePath | null;
+  precision: number;
+  mid: number;
+}) {
+  const status = path ? riskStatus(path.risk) : null;
+
+  return (
+    <div className="cascade-side">
+      <div className="side-head">
+        <h3>{label}</h3>
+        {status && path && (
+          <span className="side-risk" style={{ color: STATUS_VAR[status.key] }}>
+            {status.label} · {path.risk.toFixed(0)}/100
+          </span>
+        )}
+      </div>
 
       {!path ? (
         <p className="empty">
           No amplifying levels mapped {dir === "down" ? "below" : "above"} the mark within range.
         </p>
       ) : (
-        <CascadeBody path={path} precision={precision} mid={snap.mid ?? 0} />
+        <CascadeBody path={path} precision={precision} mid={mid} />
       )}
-    </section>
+    </div>
   );
 }
 
