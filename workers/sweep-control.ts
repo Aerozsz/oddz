@@ -30,6 +30,7 @@ import {
 import { previewPosition } from "../lib/sweep/exchange/preview";
 import { proposePosition } from "../lib/sweep/agent/sizing";
 import { directionalBias } from "../lib/sweep/agent/bias";
+import { DEFAULT_FEES, type FeeSchedule, parseFeeTiers } from "../lib/sweep/metrics/fees";
 import { checkProtection, ensureProtected, type ProtectionState } from "../lib/sweep/exchange/orders";
 import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { dayDrawdown, fetchDayActivity, type DayActivity } from "../lib/sweep/exchange/activity";
@@ -124,6 +125,40 @@ const DEFAULT_LIMITS: Limits = {
   riskPerTradePct: 2,
 };
 
+/**
+ * The fee schedule the sizer prices against.
+ *
+ * Read from the environment rather than hardcoded, because the two things most
+ * likely to be wrong here are account-specific: whether the BNB discount is
+ * switched on, and whether this account is on a rate schedule that escalates
+ * with activity. Both change the arithmetic of every proposal, and at this
+ * frequency the arithmetic of fees is most of the arithmetic.
+ *
+ *   SWEEP_FEE_DISCOUNT=0.9      # BNB fee payment enabled
+ *   SWEEP_MAX_FEE_SHARE=0.4     # refuse once fees pass 40% of the day's gross
+ *   SWEEP_MAX_DAILY_FEE=100     # ...or once they pass this many dollars
+ *   SWEEP_FEE_TIERS='[{"fromTradeCount":10,"makerRate":0.0004,"takerRate":0.0008}]'
+ *
+ * The default is the published Binance VIP-0 schedule with no discount applied,
+ * which is the honest default: assuming a discount that has not been enabled
+ * would make every proposal look cheaper than it really is.
+ */
+function readFeeSchedule(): FeeSchedule {
+  const parsed = parseFeeTiers(process.env.SWEEP_FEE_TIERS);
+  if (parsed.error) log(`fee tiers ignored: ${parsed.error}`);
+  const num = (name: string, fallback: number) => {
+    const v = Number(process.env[name]);
+    return Number.isFinite(v) && v >= 0 ? v : fallback;
+  };
+  return {
+    ...DEFAULT_FEES,
+    discount: num("SWEEP_FEE_DISCOUNT", DEFAULT_FEES.discount),
+    maxFeeShareOfGross: num("SWEEP_MAX_FEE_SHARE", DEFAULT_FEES.maxFeeShareOfGross),
+    maxDailyFeeUsd: num("SWEEP_MAX_DAILY_FEE", DEFAULT_FEES.maxDailyFeeUsd),
+    tiers: parsed.tiers,
+  };
+}
+
 function readLimits(): Limits {
   if (!existsSync(LIMITS_PATH)) return { ...DEFAULT_LIMITS };
   try {
@@ -146,6 +181,7 @@ let account: { risk: AccountRisk | null; error: string | null; at: number } = {
   at: 0,
 };
 let limits = readLimits();
+const fees = readFeeSchedule();
 
 function startEngine() {
   if (feed) return;
@@ -268,6 +304,13 @@ function startExecutionLoop() {
         realisedLossToday: day.activity ? dayDrawdown(day.activity) : 0,
         tradesToday: day.activity?.trades ?? 0,
         lastLossAt: day.activity?.lastLossAt ?? 0,
+        // Both from Binance's income ledger rather than from anything this
+        // process remembers: a restart is exactly when a costly run has just
+        // happened, and in-memory counters would clear the budget at the moment
+        // it matters. REALIZED_PNL is booked before commission, so it is the
+        // gross figure the fee share is measured against.
+        feesPaidToday: day.activity?.fees ?? 0,
+        grossProfitToday: day.activity?.realisedPnl ?? 0,
         limits: {
           maxPositionUsd: limits.maxPositionUsd,
           maxLeverage: limits.maxLeverage,
@@ -280,7 +323,7 @@ function startExecutionLoop() {
         },
         costCurve: feed!.getCostCurve(),
         clusters: feed!.getClusters(),
-        config: { riskFraction: limits.riskPerTradePct / 100 },
+        config: { riskFraction: limits.riskPerTradePct / 100, fees },
       });
       if (!proposal.ok) return null;
 
@@ -531,6 +574,13 @@ const server = createServer(async (req, res) => {
           realisedLossToday: 0,
           tradesToday: 0,
           lastLossAt: 0,
+          // Advisory: the day counters are zeroed so a suggestion is not
+          // suppressed by the caps. The fee tier is not zeroed, because a
+          // suggestion priced at a rate that is no longer in force is worse
+          // than no suggestion.
+          feeTierTradeCount: day.activity?.trades ?? 0,
+          feesPaidToday: day.activity?.fees ?? 0,
+          grossProfitToday: day.activity?.realisedPnl ?? 0,
           limits: {
             maxPositionUsd: limits.maxPositionUsd > 0 ? limits.maxPositionUsd : Number(body.assumeMaxPositionUsd) || 0,
             maxLeverage: limits.maxLeverage,
@@ -543,7 +593,7 @@ const server = createServer(async (req, res) => {
           },
           costCurve: feed ? feed.getCostCurve() : [],
           clusters: feed ? feed.getClusters() : [],
-          config: { riskFraction: limits.riskPerTradePct / 100 },
+          config: { riskFraction: limits.riskPerTradePct / 100, fees },
         });
         send(res, 200, {
           result,
@@ -986,7 +1036,15 @@ $("btnSuggest").onclick=async()=>{
     '<div class="tile"><span class="k">Funding over the hold</span><span class="v">'+
       (res.carry.free?"none":(res.carry.costUsd>=0?"-":"+")+usd(Math.abs(res.carry.costUsd)))+'</span><span class="d">'+
       res.carry.note.replace(/</g,"&lt;")+"</span></div>"+
+    '<div class="tile"><span class="k">Round-trip fees</span><span class="v">'+usd(res.fees.totalUsd)+'</span><span class="d">'+
+      n(res.fees.bps,1)+"bp · "+res.fees.style.entry+" in, "+res.fees.style.exit+" out · needs +"+
+      n(res.fees.breakevenPct,3)+"% to break even</span></div>"+
+    '<div class="tile"><span class="k">Fees vs the target</span><span class="v">'+
+      (res.rewardUsd?Math.round(100*res.fees.totalUsd/res.rewardUsd)+"%":"—")+
+      '</span><span class="d">of gross reward goes to the venue'+
+      (res.budget.share!==null?" · today "+Math.round(res.budget.share*100)+"% of gross so far":"")+"</span></div>"+
     "</div>"+
+    '<p class="note"><b>Execution:</b> '+res.entryPostable.reason.replace(/</g,"&lt;")+"</p>"+
     '<p class="note"><b>Why:</b> '+res.reasoning.map(x=>x.replace(/</g,"&lt;")).join(" · ")+"</p>"+
     '<div class="row" style="margin-top:8px"><button id="btnCopy">Copy into preview</button>'+
     '<span class="muted" style="font-size:11px">nothing has been applied or ordered — these are numbers for you to judge</span></div>';

@@ -1,4 +1,15 @@
+import {
+  DEFAULT_FEES,
+  type FeeBudget,
+  type FeeSchedule,
+  type RoundTrip,
+  type StylePair,
+  canPostEntry,
+  feeBudget,
+  roundTripCost,
+} from "../metrics/fees";
 import { type CarryEstimate, estimateCarry } from "../metrics/funding";
+import type { ExecutionStyle } from "../metrics/fees";
 import type { Cluster, CostPoint, Direction } from "../types";
 import type { AgentState } from "./types";
 
@@ -54,11 +65,21 @@ export interface SizingConfig {
   clusterBufferPct: number;
   /** Entry may consume at most this share of depth inside the stop distance. */
   maxDepthShare: number;
-  /** A target must be worth at least this multiple of the round-trip fee. */
+  /** A target must be worth at least this multiple of the round-trip cost. */
   minRewardOverFees: number;
   /** Minimum acceptable reward-to-risk before a trade is worth taking. */
   minRewardRisk: number;
-  takerFeeRate: number;
+  /** Maker/taker rates, discounts, any escalating tier, and the day's budget. */
+  fees: FeeSchedule;
+  /**
+   * How the exit is expected to execute. Kept separate from the entry because
+   * the entry is a choice — it can be posted and waited on — while an exit is
+   * usually a stop, and a stop is a market order by construction. Assuming a
+   * maker exit would understate the cost of every proposal.
+   */
+  exitStyle: ExecutionStyle;
+  /** Above this mark-out toxicity, an entry is assumed to cross rather than rest. */
+  postableToxicity: number;
   /**
    * How long a position is assumed to be held, for funding purposes.
    *
@@ -89,7 +110,9 @@ export const DEFAULT_SIZING: SizingConfig = {
   maxDepthShare: 0.1,
   minRewardOverFees: 3,
   minRewardRisk: 1.5,
-  takerFeeRate: 0.0005,
+  fees: DEFAULT_FEES,
+  exitStyle: "taker",
+  postableToxicity: 0.6,
   expectedHoldMin: 30,
   maxFundingShareOfReward: 0.35,
   maxToxicity: 0.95,
@@ -104,6 +127,19 @@ export interface SizingInput {
   realisedLossToday: number;
   /** Entries already taken today. */
   tradesToday: number;
+  /**
+   * Trade count used to select the fee tier. Defaults to `tradesToday`.
+   *
+   * Separate because the advisory path deliberately zeroes the day counters so
+   * a suggestion is not suppressed by the daily caps — but the *price* of that
+   * suggestion still has to be quoted at the tier actually in force, or the
+   * numbers shown are cheaper than the trade would really be.
+   */
+  feeTierTradeCount?: number;
+  /** Fees paid today, in USD. From the exchange ledger, not from memory. */
+  feesPaidToday?: number;
+  /** Today's profit *before* fees, in USD. Negative is fine. */
+  grossProfitToday?: number;
   /** When the last losing trade closed, epoch ms. 0 when there has not been one. */
   lastLossAt: number;
   limits: SizingLimits;
@@ -130,6 +166,12 @@ export interface Proposal {
   leverage: number;
   marginUsd: number;
   roundTripFeeUsd: number;
+  /** The full fee picture, including which side could be posted and which crossed. */
+  fees: RoundTrip;
+  /** Whether the entry was priced as a resting order, and why. */
+  entryPostable: { ok: boolean; reason: string };
+  /** Where the day's fee budget stands. */
+  budget: FeeBudget;
   /** Funding over the assumed hold. Positive is paid, negative is received. */
   carry: CarryEstimate;
   /** 0..1 — how much of the raw size survived the scaling factors. */
@@ -247,6 +289,12 @@ export function proposePosition(input: SizingInput): SizingResult {
       `flow is toxic (${state.markout.toxicity.toFixed(2)}) — ${state.markout.notes[0] ?? "mark-out exceeds the spread"}`,
     );
   }
+  // Every trade can pass its own reward-over-fees test and the day still end
+  // with the venue taking most of what the edge produced. That is a winning
+  // strategy being farmed rather than a losing one being found, so it needs a
+  // cap of its own rather than being caught by the loss limit.
+  const budget = feeBudget(cfg.fees, input.feesPaidToday ?? 0, input.grossProfitToday ?? 0);
+  if (budget.exhausted) reasons.push(budget.reason ?? "daily fee budget spent");
   if (reasons.length) return { ok: false, reasons };
 
   const entry = state.mid as number;
@@ -364,7 +412,24 @@ export function proposePosition(input: SizingInput): SizingResult {
   const quantity = notional / entry;
   const margin = notional / leverage;
   const actualRisk = notional * (stopPct / 100);
-  const roundTripFee = notional * cfg.takerFeeRate * 2;
+
+  /* ------------------------------------------------------------------- fees */
+
+  // Whether the entry can rest on the book is the largest single lever on net
+  // return at this frequency — 4bp against 10bp on a target worth 30–50bp — and
+  // it is decided by the mark-out reading rather than by preference.
+  const postable = canPostEntry(state.markout, cfg.postableToxicity);
+  const style: StylePair = {
+    entry: postable.ok ? "maker" : "taker",
+    exit: cfg.exitStyle,
+  };
+  const fees = roundTripCost(cfg.fees, notional, style, input.feeTierTradeCount ?? input.tradesToday);
+  const roundTripFee = fees.totalUsd;
+  reasoning.push(
+    `${postable.reason} — pricing the round trip at ${fees.bps.toFixed(1)}bp ` +
+      `(${style.entry} in, ${style.exit} out), ${fees.breakevenPct.toFixed(3)}% just to break even` +
+      (fees.tierNote ? ` · ${fees.tierNote}` : ""),
+  );
 
   /* ------------------------------------------------------------------ target */
 
@@ -443,6 +508,9 @@ export function proposePosition(input: SizingInput): SizingResult {
     leverage,
     marginUsd: margin,
     roundTripFeeUsd: roundTripFee,
+    fees,
+    entryPostable: postable,
+    budget,
     carry,
     sizeRetained: rawRisk > 0 ? riskUsd / rawRisk : 0,
     reasoning,
