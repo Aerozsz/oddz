@@ -79,7 +79,29 @@ const HOST = process.env.SWEEP_CONTROL_HOST ?? "127.0.0.1";
 const TOKEN = process.env.SWEEP_CONTROL_TOKEN ?? randomBytes(16).toString("hex");
 const LIMITS_PATH = resolve(process.env.SWEEP_LIMITS ?? "data/sweep-limits.json");
 
-const log = (...a: unknown[]) => console.log("[control]", ...a.map((x) => (typeof x === "string" ? redact(x) : x)));
+/**
+ * Everything the server says, kept in a ring so the GUI can show it.
+ *
+ * Telling an operator to watch a terminal is telling them the interface is
+ * incomplete: the console is where the interesting things happen — an order
+ * going out, a stop landing, the sizer explaining a refusal — and none of it
+ * was reachable from the page they are actually looking at.
+ *
+ * Redacted on the way in, the same as the console, so a secret cannot reach the
+ * browser even though this is loopback-only.
+ */
+interface LogLine {
+  t: number;
+  text: string;
+}
+const logLines: LogLine[] = [];
+
+const log = (...a: unknown[]) => {
+  const text = a.map((x) => (typeof x === "string" ? redact(x) : JSON.stringify(x))).join(" ");
+  logLines.push({ t: Date.now(), text });
+  if (logLines.length > 500) logLines.shift();
+  console.log("[control]", text);
+};
 
 /* -------------------------------------------------------------------- state */
 
@@ -201,6 +223,9 @@ function startEngine() {
   if (feed) return;
   feed = createSweepFeed();
   attachCalendar(getEngine());
+  feed.onSignal((s) => {
+    if (s.kind !== "health") signalsSeen++;
+  });
   startedAt = Date.now();
   log("engine started");
 }
@@ -286,8 +311,27 @@ async function reconcileOnStart() {
  * proposePosition and all the safety lives in the adapter — this only decides
  * that a signal is worth asking about at all.
  */
+/**
+ * Why the loop is or is not running, and what it has been doing.
+ *
+ * "Armed" and "armed but silently not attached" looked identical, and so did
+ * "armed and waiting for a setup" versus "armed and refusing every one". Silence
+ * is the expected state here — signals are rare on purpose — which is exactly
+ * why it has to be legible rather than inferred.
+ */
+let lastRefusal: { at: number; reason: string } | null = null;
+let signalsSeen = 0;
+
 function startExecutionLoop() {
-  if (runner || !feed || !hasCredentials()) return;
+  if (runner) return;
+  if (!feed) {
+    log("cannot arm: the engine is not running — start it first");
+    return;
+  }
+  if (!hasCredentials()) {
+    log("cannot arm: no API credentials");
+    return;
+  }
   const cfg = loadConfig();
   const adapter = createBinanceAdapter({
     cfg,
@@ -329,6 +373,7 @@ function startExecutionLoop() {
         config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
       });
       if (!proposal.ok) {
+        lastRefusal = { at: Date.now(), reason: proposal.reasons.join("; ") };
         log(`sizer declined: ${proposal.reasons.join("; ")}`);
         return null;
       }
@@ -378,7 +423,10 @@ function startExecutionLoop() {
     adapter,
     minIntervalMs: Math.max(60_000, limits.lossCooldownMin * 60_000),
     maxPerHour: Math.max(1, limits.maxTradesPerDay),
-    onRejected: (reason) => log(`intent rejected: ${reason}`),
+    onRejected: (reason) => {
+      lastRefusal = { at: Date.now(), reason };
+      log(`intent rejected: ${reason}`);
+    },
     strategy: (signal, state) => {
       // Health signals describe the feed, not the market.
       if (signal.kind === "health") return null;
@@ -509,6 +557,12 @@ function status() {
     execution: {
       available: hasCredentials() && limits.tradingEnabled,
       armed: limits.tradingEnabled,
+      loop: {
+        attached: runner !== null,
+        signalsSeen,
+        ...(runner ? runner.stats() : { accepted: 0, rejected: 0, lastAcceptedAt: 0 }),
+        lastRefusal,
+      },
       running: runner !== null,
       reason: !hasCredentials()
         ? "no exchange credentials configured — monitor only"
@@ -762,6 +816,65 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "GET /api/log": {
+        const since = Number(new URL(req.url ?? "", "http://x").searchParams.get("since") ?? 0);
+        send(res, 200, { lines: logLines.filter((l) => l.t > since).slice(-200), now: Date.now() });
+        return;
+      }
+
+      case "GET /api/runs": {
+        /*
+         * The paper sampler and the shadow run are separate processes, so their
+         * stdout is not reachable from here. Their output files are, and the
+         * files are the part worth seeing anyway — whether they are running,
+         * how much they have recorded, and what the shadow run would have made.
+         */
+        const read = (file: string) => {
+          const full = resolve(file);
+          if (!existsSync(full)) return { path: full, exists: false, rows: 0, lastAt: 0, lines: [] as string[] };
+          const text = readFileSync(full, "utf8");
+          const lines = text.split("\n").filter((l) => l.trim());
+          let lastAt = 0;
+          try {
+            lastAt = JSON.parse(lines[lines.length - 1] ?? "{}").at ?? JSON.parse(lines[lines.length - 1] ?? "{}").t ?? 0;
+          } catch { /* a half-written last line is normal while appending */ }
+          return { path: full, exists: true, rows: lines.length, lastAt, lines: lines.slice(-30) };
+        };
+
+        const paper = read(process.env.SWEEP_PAPER_OUT ?? "data/sweep-paper.jsonl");
+        const shadowRaw = read(process.env.SWEEP_SHADOW_OUT ?? "data/sweep-shadow.jsonl");
+
+        interface ShadowRow {
+          at: number; side: string; entryPrice: number; quantity: number; signalKind: string;
+          feeUsd: number; resolved?: string; style: { entry: string };
+          outcomes: Record<string, { netUsd: number | null }>;
+        }
+        const trades: ShadowRow[] = [];
+        for (const line of shadowRaw.lines) {
+          try { trades.push(JSON.parse(line) as ShadowRow); } catch { /* skip */ }
+        }
+        const scored = trades.filter((t) => typeof t.outcomes?.t900?.netUsd === "number");
+        const net = scored.reduce((a, t) => a + (t.outcomes.t900.netUsd as number), 0);
+        const fees = scored.reduce((a, t) => a + t.feeUsd, 0);
+
+        send(res, 200, {
+          paper: { ...paper, lines: undefined },
+          shadow: {
+            path: shadowRaw.path,
+            exists: shadowRaw.exists,
+            rows: shadowRaw.rows,
+            lastAt: shadowRaw.lastAt,
+            scored: scored.length,
+            netUsd: net,
+            feesUsd: fees,
+            wins: scored.filter((t) => (t.outcomes.t900.netUsd as number) > 0).length,
+            recent: trades.slice(-8).reverse(),
+          },
+          now: Date.now(),
+        });
+        return;
+      }
+
       case "GET /api/funds": {
         if (!hasCredentials()) { send(res, 200, { error: "no credentials" }); return; }
         const cfg2 = loadConfig();
@@ -993,6 +1106,25 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
 </div>
 
 <div class="panel">
+  <h2>Background runs</h2>
+  <div class="tiles">
+    <div class="tile"><span class="k">Evidence log</span><span class="v" id="rPaper">—</span><span class="d" id="rPaperD">npm run sweep:paper</span></div>
+    <div class="tile"><span class="k">Shadow trades</span><span class="v" id="rShadow">—</span><span class="d" id="rShadowD">npm run sweep:shadow</span></div>
+    <div class="tile"><span class="k">Shadow net P&amp;L</span><span class="v" id="rNet">—</span><span class="d" id="rNetD">after fees</span></div>
+  </div>
+  <table style="margin-top:10px"><thead><tr><th style="text-align:left">Time</th><th style="text-align:left">Trade</th><th style="text-align:left">Signal</th><th>Net</th><th style="text-align:left">Outcome</th></tr></thead>
+  <tbody id="rTrades"><tr><td colspan="5" class="muted">nothing recorded yet</td></tr></tbody></table>
+  <p class="note" id="rNote"></p>
+</div>
+
+<div class="panel">
+  <h2>Activity</h2>
+  <pre id="logBox" style="margin:0;max-height:280px;overflow:auto;background:var(--plane);border:1px solid var(--hair);border-radius:6px;padding:10px;font-size:11px;line-height:1.5;white-space:pre-wrap"></pre>
+  <p class="note">Everything this server does, as it happens — orders going out, stops landing, and the sizer's
+  reason whenever it declines a setup. Same lines as the terminal.</p>
+</div>
+
+<div class="panel">
   <h2>Funds</h2>
   <div class="tiles">
     <div class="tile"><span class="k">Futures wallet</span><span class="v" id="fFut">—</span><span class="d">what positions are sized against</span></div>
@@ -1012,6 +1144,12 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
     <button id="btnArm" style="font-size:14px;padding:10px 20px">Start trading</button>
     <span id="armState" class="muted"></span>
   </div>
+  <div class="tiles" style="margin-top:10px">
+    <div class="tile"><span class="k">Signals seen</span><span class="v" id="lSig">—</span><span class="d">since the engine started</span></div>
+    <div class="tile"><span class="k">Orders placed</span><span class="v" id="lAcc">—</span><span class="d">accepted by every check</span></div>
+    <div class="tile"><span class="k">Filtered out</span><span class="v" id="lRej">—</span><span class="d">signals that did not become a trade</span></div>
+  </div>
+  <p class="note" id="lWhy"></p>
   <p class="note">Nothing is sent while this is off — Suggest and Preview keep working. Arming needs a max
   position and a max daily loss set below, because those are the only things bounding what it can do.
   Every position gets a stop placed <b>on Binance</b>, so it survives this program being closed.</p>
@@ -1086,6 +1224,25 @@ function render(s){
   $("armState").textContent=armed
     ?"ARMED — orders will be placed when a setup passes every check"
     :"disarmed — nothing will be sent";
+  const L=s.loop||{};
+  $("lSig").textContent=L.signalsSeen??"—";
+  $("lAcc").textContent=L.accepted??"—";
+  $("lRej").textContent=L.rejected??"—";
+  // Silence is the expected state, so say which kind of silence it is.
+  let why="";
+  if(armed&&!L.attached){
+    why="<b style='color:var(--bad)'>Armed but the loop is not attached.</b> The engine has to be running "+
+      "and credentials present. Check the terminal.";
+  } else if(armed&&L.signalsSeen===0){
+    why="No signal has fired yet. That is the normal state — the detectors only fire on a real event "+
+      "(depth pulled without trading, a wall vanishing, cascade risk crossing a band, a liquidation burst). "+
+      "Quiet stretches of an hour are ordinary.";
+  } else if(armed&&L.accepted===0&&L.lastRefusal){
+    const mins=Math.round((Date.now()-L.lastRefusal.at)/60000);
+    why="Signals are firing but none has become a trade. Most recent reason ("+mins+"m ago): <b>"+
+      String(L.lastRefusal.reason).replace(/</g,"&lt;")+"</b>";
+  }
+  $("lWhy").innerHTML=why;
   $("mode").className="mode "+s.mode;
   $("mode").textContent=s.mode==="live"?"LIVE — real money":s.mode==="testnet"?"testnet":"no credentials";
   const h=s.health;
@@ -1309,6 +1466,63 @@ $("btnArm").onclick=()=>{
   arm(!armed);
 };
 
-tick(); setInterval(tick,1000); funds(); setInterval(funds,15000);
+let logSince=0;
+async function pullLog(){
+  const r=await api("/api/log?since="+logSince);
+  if(!r.lines) return;
+  const box=$("logBox");
+  const atBottom=box.scrollHeight-box.scrollTop-box.clientHeight<40;
+  for(const l of r.lines){
+    logSince=Math.max(logSince,l.t);
+    const time=new Date(l.t).toTimeString().slice(0,8);
+    const div=document.createElement("div");
+    // Colour the two lines that matter at a glance without reading them.
+    const bad=/fail|error|rejected|cannot|FAILED/i.test(l.text);
+    const good=/submitted|fill |ARMED|stop resting/i.test(l.text);
+    div.style.color=bad?"var(--bad)":good?"var(--good)":"var(--ink2)";
+    div.textContent=time+"  "+l.text;
+    box.appendChild(div);
+  }
+  while(box.childNodes.length>400) box.removeChild(box.firstChild);
+  if(atBottom) box.scrollTop=box.scrollHeight;
+}
+
+const ago=(t)=>{ if(!t) return "never"; const m=Math.round((Date.now()-t)/60000);
+  return m<1?"just now":m<60?m+"m ago":Math.round(m/60)+"h ago"; };
+
+async function runs(){
+  const r=await api("/api/runs");
+  if(!r.paper) return;
+  $("rPaper").textContent=r.paper.exists?r.paper.rows.toLocaleString():"not running";
+  $("rPaperD").textContent=r.paper.exists?("rows · last "+ago(r.paper.lastAt)):"npm run sweep:paper";
+  $("rShadow").textContent=r.shadow.exists?r.shadow.rows:"not running";
+  $("rShadowD").textContent=r.shadow.exists?(r.shadow.scored+" scored · last "+ago(r.shadow.lastAt)):"npm run sweep:shadow";
+  const n=r.shadow.netUsd;
+  $("rNet").textContent=r.shadow.scored?((n>=0?"+":"")+n.toFixed(2)):"—";
+  $("rNet").style.color=r.shadow.scored?(n>=0?"var(--good)":"var(--bad)"):"";
+  $("rNetD").textContent=r.shadow.scored
+    ?(r.shadow.wins+"/"+r.shadow.scored+" won · "+usd(r.shadow.feesUsd)+" of fees")
+    :"after fees";
+
+  const rows=r.shadow.recent||[];
+  $("rTrades").innerHTML=rows.length?rows.map(t=>{
+    const net=t.outcomes&&t.outcomes.t900?t.outcomes.t900.netUsd:null;
+    const col=net===null||net===undefined?"var(--ink2)":net>=0?"var(--good)":"var(--bad)";
+    return "<tr><td>"+new Date(t.at).toTimeString().slice(0,5)+"</td>"+
+      "<td>"+t.side+" "+t.quantity+" @ "+(+t.entryPrice).toFixed(2)+" <span class='muted'>("+t.style.entry+")</span></td>"+
+      "<td>"+t.signalKind+"</td>"+
+      "<td style='text-align:right;color:"+col+"'>"+(net===null||net===undefined?"pending":(net>=0?"+":"")+net.toFixed(2))+"</td>"+
+      "<td>"+(t.resolved||"open")+"</td></tr>";
+  }).join(""):"<tr><td colspan='5' class='muted'>nothing recorded yet</td></tr>";
+
+  $("rNote").textContent=r.shadow.scored<30
+    ? "Shadow trades are recorded by a separate process against real prices, with no order placed. Fewer than 30 scored is not a result yet."
+    : "Net is after the fees each trade would have paid. Run npm run sweep:shadow:report for the full breakdown.";
+}
+
+tick(); setInterval(tick,1000);
+funds(); setInterval(funds,15000);
+pullLog(); setInterval(pullLog,2000);
+runs(); setInterval(runs,10000);
 </script></body></html>`;
 }
