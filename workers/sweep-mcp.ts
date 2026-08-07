@@ -20,6 +20,7 @@
  *    smoothed over — see the `health` field on every response.
  */
 
+import { loadEnv } from "./load-env";
 import { createInterface } from "node:readline";
 import { attachCalendar } from "../lib/sweep/metrics/event-store";
 import { getEngine } from "../lib/sweep/engine";
@@ -35,6 +36,8 @@ import type { Signal } from "../lib/sweep/agent";
  * defined" deep inside a stream callback, which is a miserable first
  * experience for something that is really just a version mismatch.
  */
+loadEnv();
+
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 22) {
   console.error("");

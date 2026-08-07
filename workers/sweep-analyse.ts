@@ -35,11 +35,14 @@
  *     invites building on it anyway.
  */
 
+import { loadEnv } from "./load-env";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { DEFAULT_FEES, roundTripCost } from "../lib/sweep/metrics/fees";
 
 /* ------------------------------------------------------------------- input */
+
+loadEnv();
 
 const arg = (name: string, fallback: string): string => {
   const i = process.argv.indexOf(`--${name}`);
