@@ -24,6 +24,7 @@ import { createInterface } from "node:readline";
 import { createSweepFeed, type SweepFeed } from "../lib/sweep/agent";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import { proposePosition } from "../lib/sweep/agent/sizing";
+import { recordEvent, storePath } from "../lib/sweep/metrics/event-store";
 import type { Signal } from "../lib/sweep/agent";
 
 /*
@@ -232,6 +233,51 @@ const TOOLS: Tool[] = [
     run: () => {
       const s = getFeed().getState();
       return { health: s.health, events: s.events, session: s.session };
+    },
+  },
+  {
+    name: "sweep_record_event",
+    description:
+      "Record a scheduled market event (an earnings release, mainly) so the tool refuses to trade through it. " +
+      "USE YOUR WEB SEARCH FIRST: find Intel's officially announced next quarterly-results date and the exact " +
+      "release time, then record it with the source URL you found it on. The release time is what matters, not " +
+      "the trading day — Intel reports after the US close, typically 16:05 ET, so pass that instant in UTC. " +
+      "A `confirmed` entry hard-blocks trading in a window around it; without a sourceUrl the entry is recorded " +
+      "as `projected` instead, which only derates size, because a date nobody can check should not be able to " +
+      "halt trading. The store is append-only — recording a corrected date supersedes the old one rather than " +
+      "deleting it, and nothing here can remove a blackout. Call sweep_calendar first to see what is already known.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        label: { type: "string", description: 'e.g. "Intel Q3 2026 results".' },
+        at: { type: "string", description: "ISO 8601 instant of the release in UTC, e.g. 2026-10-22T20:05:00Z." },
+        sourceUrl: {
+          type: "string",
+          description:
+            "Where you found the date. Required for the entry to count as confirmed — an unsourced date is downgraded.",
+        },
+        certainty: { type: "string", enum: ["confirmed", "projected"] },
+        kind: { type: "string", enum: ["earnings", "macro", "custom"] },
+        note: { type: "string", description: "Anything worth knowing when this is read back later." },
+      },
+      required: ["label", "at"],
+      additionalProperties: false,
+    },
+    run: (args) => {
+      const result = recordEvent({
+        label: String(args.label ?? ""),
+        at: String(args.at ?? ""),
+        sourceUrl: typeof args.sourceUrl === "string" ? args.sourceUrl : null,
+        certainty: args.certainty === "projected" ? "projected" : "confirmed",
+        kind: args.kind === "macro" || args.kind === "custom" ? args.kind : "earnings",
+        note: typeof args.note === "string" ? args.note : null,
+        recordedBy: "hermes",
+      });
+      return {
+        ...result,
+        storedAt: storePath(),
+        appliesWithin: "up to 60s — the engine re-reads the calendar on a timer",
+      };
     },
   },
   {
