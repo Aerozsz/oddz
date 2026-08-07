@@ -79,6 +79,65 @@ export function hasCredentials(env: NodeJS.ProcessEnv = process.env): boolean {
  * redacted too: they are derived from the secret, and a large enough sample of
  * signature/payload pairs is not something to leave lying in a log file.
  */
+/**
+ * Binance error codes that mean something specific and actionable.
+ *
+ * The raw body is accurate and useless: `{"code":-4411,"msg":"..."}` in a log
+ * line does not tell an operator that an order was rejected because a checkbox
+ * on a website has not been ticked, and that no amount of retrying or
+ * reconfiguring will change it. These are the ones that have actually been hit
+ * here, each mapped to the thing to do about it.
+ */
+const KNOWN_ERRORS: { code: number; explain: (symbol: string) => string }[] = [
+  {
+    code: -4411,
+    explain: (symbol) =>
+      `${symbol} is a traditional-asset perpetual, and Binance requires a separate agreement per ` +
+      `account before it will accept any order on one. Nothing here can sign it — it is a modal on ` +
+      `their website, under Trading Rules for Traditional Asset Perpetuals. On the demo environment ` +
+      `that modal frequently fails with "System abnormality", in which case the agreement cannot be ` +
+      `signed there at all and this contract cannot be tested on demo. Prove the order path on a ` +
+      `crypto pair instead — SWEEP_SYMBOL=BTCUSDT npm run sweep:control — which needs no agreement. ` +
+      `The agreement is per account, so signing it on live is a separate step from signing it on demo.`,
+  },
+  {
+    code: -4120,
+    explain: () =>
+      `A conditional order was sent to the wrong endpoint. Binance moved stops and take-profits to ` +
+      `the Algo Order service; this build already targets it, so seeing this means something is ` +
+      `still calling the old path.`,
+  },
+  {
+    code: -5022,
+    explain: () =>
+      `A post-only entry would have crossed the spread, so it was rejected rather than filled as a ` +
+      `taker. That is the order type working: the next signal is priced fresh.`,
+  },
+  {
+    code: -2019,
+    explain: () => `Not enough margin for the position at the leverage in force. Reduce the size or the risk per trade.`,
+  },
+  {
+    code: -1021,
+    explain: () =>
+      `The request timestamp was outside Binance's window — this machine's clock has drifted. ` +
+      `Sync it (Windows: Settings > Time & language > Date & time > Sync now).`,
+  },
+];
+
+/**
+ * A Binance error with the operator's next action attached, when it has one.
+ *
+ * Returns the original message unchanged when the code is not one that has a
+ * specific answer, because a wrong explanation is worse than none.
+ */
+export function explainError(message: string, symbol = "this contract"): string {
+  const match = message.match(/"code"\s*:\s*(-?\d+)/);
+  if (!match) return message;
+  const known = KNOWN_ERRORS.find((k) => k.code === Number(match[1]));
+  return known ? `${message}\n    → ${known.explain(symbol)}` : message;
+}
+
 export function redact(text: string): string {
   return text
     .replace(/(signature=)[A-Fa-f0-9]+/g, "$1<redacted>")

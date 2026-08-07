@@ -35,6 +35,7 @@ import {
   fetchTradableSymbols,
   hasCredentials,
   loadConfig,
+  explainError,
   redact,
   transferUsdt,
   transfersAllowed,
@@ -1301,7 +1302,7 @@ function armDesk(desk: Desk) {
         });
         desk.positionOpenedAt = Date.now();
       }
-      log(`execution ${desk.symbol} ${r.outcome}: ${r.detail}`);
+      log(`execution ${desk.symbol} ${r.outcome}: ${explainError(r.detail, desk.symbol)}`);
     },
   });
 
@@ -1578,6 +1579,15 @@ function readiness() {
       `a ${limits.stopLossPct}% stop at ${limits.minRewardRisk} reward-to-risk needs a level ` +
         `${need.toFixed(1)}% away, and levels are only mapped to ±${CONFIG.clusterRangePct}% — nothing can ever qualify`,
     );
+  } else {
+    const roundTripPct = (fees.tiers[0]?.takerRate ?? 0.0005) * 2 * 100;
+    if (need < roundTripPct * 3) {
+      blockers.push(
+        `a ${limits.stopLossPct}% stop asks for a ${need.toFixed(2)}% move, but the round trip costs about ` +
+          `${roundTripPct.toFixed(2)}% — the reward cannot clear the fees, so every setup is refused. ` +
+          `The stop needs to be at least ${((roundTripPct * 3) / Math.max(limits.minRewardRisk, 0.1)).toFixed(2)}%.`,
+      );
+    }
   }
 
   for (const d of allDesks()) {
@@ -1911,6 +1921,37 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "POST /api/limits/reset": {
+        /*
+         * Back to the values that were derived rather than chosen.
+         *
+         * Every one came out of the same week of real trades, and any of them
+         * can be edited afterwards — the point is that a known state exists to
+         * return to. Without one, a session of tired edits leaves a
+         * configuration nobody can reconstruct, producing a failure that looks
+         * like a quiet market rather than like a setting.
+         *
+         * Deliberately disarms. This changes what every future order looks
+         * like, and resuming trading on a configuration nobody has read yet is
+         * exactly the decision this program refuses to make on its own.
+         */
+        limits = {
+          ...DEFAULT_LIMITS,
+          // The account's numbers rather than the strategy's, so they are
+          // recomputed from the live balance instead of reset to a zero that
+          // would refuse everything.
+          maxPositionUsd: 0,
+          maxDailyLossUsd: 0,
+          tradingEnabled: false,
+        };
+        writeLimits(limits);
+        stopExecutionLoop();
+        await deriveUnsetCaps();
+        log(`limits reset to the derived defaults: ${JSON.stringify(limits)}`);
+        send(res, 200, status());
+        return;
+      }
+
       case "POST /api/suggest": {
         // Computes numbers and returns them. It does not apply anything, does
         // not touch the stored limits, and cannot place an order — the operator
@@ -2056,8 +2097,9 @@ const server = createServer(async (req, res) => {
           send(res, 200, { ok: true, symbol, entry, stop, leverage, quantity: qty, ...status() });
         } catch (err) {
           const message = err instanceof Error ? redact(err.message) : String(err);
-          log(`MANUAL ORDER failed (${symbol}): ${message}`);
-          send(res, 200, { error: message });
+          const explained = explainError(message, symbol);
+          log(`MANUAL ORDER failed (${symbol}): ${explained}`);
+          send(res, 200, { error: explained });
         }
         return;
       }
@@ -2128,8 +2170,9 @@ const server = createServer(async (req, res) => {
           send(res, 200, { ok: result.ok, result, ...status() });
         } catch (err) {
           const message = err instanceof Error ? redact(err.message) : String(err);
-          log(`EXIT TEST failed (${symbol}): ${message}`);
-          send(res, 200, { error: message });
+          const explained = explainError(message, symbol);
+          log(`EXIT TEST failed (${symbol}): ${explained}`);
+          send(res, 200, { error: explained });
         }
         return;
       }
@@ -2351,14 +2394,32 @@ const server = createServer(async (req, res) => {
           const need = limits.stopLossPct * (limits.minRewardRisk > 0 ? limits.minRewardRisk : 1.5);
           const mapped = CONFIG.clusterRangePct;
           const impossible = need > mapped;
+          /*
+           * The same failure from the other end.
+           *
+           * A stop can be too tight as surely as too wide, and it is less
+           * obvious: the target it implies gets smaller with it, and once that
+           * target is worth less than a multiple of the round trip, every
+           * setup is refused for a reward that was never going to clear its own
+           * costs. A 0.1% stop at 1.2 reward-to-risk asks for a 0.12% move
+           * against a round trip near 0.10% — structurally unpayable, and it
+           * presents as a quiet market rather than as a setting.
+           */
+          const roundTripPct = (fees.tiers[0]?.takerRate ?? 0.0005) * 2 * 100;
+          const feeFloor = roundTripPct * 3;
+          const tooTight = !impossible && need < feeFloor;
           // A stop this wide is also almost certainly a unit mix-up rather than
           // a deliberate choice, so the two are worth separating.
           const implausible = !impossible && limits.stopLossPct > 5;
-          add("stop distance is reachable", !impossible && !implausible,
+          add("stop distance is reachable", !impossible && !implausible && !tooTight,
             `${limits.stopLossPct}% stop × ${limits.minRewardRisk} reward-to-risk needs a level ` +
               `${need.toFixed(1)}% away; levels are mapped to ±${mapped}%` +
               (impossible ? " — nothing can ever satisfy this" : ""),
-            impossible
+            tooTight
+              ? `A ${limits.stopLossPct}% stop asks for a ${need.toFixed(2)}% move, and the round trip costs ` +
+                `about ${roundTripPct.toFixed(2)}% — the reward is smaller than the fee hurdle, so every setup ` +
+                `is refused. Set the stop to at least ${(feeFloor / Math.max(limits.minRewardRisk, 0.1)).toFixed(2)}%.`
+              : impossible
               ? `Set the stop to about ${(mapped / 4 / Math.max(limits.minRewardRisk, 1)).toFixed(1)}% or less. ` +
                 "This field is a price move, not a percentage of your money: 0.5% means price moving half a " +
                 `percent against you, which at ${limits.maxLeverage}x is ` +
@@ -2367,7 +2428,7 @@ const server = createServer(async (req, res) => {
                 ? "That is a very wide stop for an intraday equity perp. It is a price move, not a share of " +
                   "your money — check it is the number you meant."
                 : undefined,
-            impossible ? "bad" : implausible ? "warn" : "ok");
+            impossible || tooTight ? "bad" : implausible ? "warn" : "ok");
         }
 
         add("max daily loss set", limits.maxDailyLossUsd > 0,
@@ -2945,6 +3006,7 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
     <label style="width:130px">Trading armed<select id="tradingEnabled" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
       <option value="false">disarmed</option><option value="true">armed</option></select></label>
     <button id="btnLimits">Save limits</button>
+    <button id="btnReset" title="Restore the values derived from your own trade history">Reset to agreed</button>
   </div>
   <div id="limitsMean" style="margin-top:12px"></div>
   <p class="note"><b>These defaults are derived from your own week of trading, not chosen.</b> That week won 58% of
@@ -3317,12 +3379,16 @@ function explainLimits(s){
   const notional=cap>0?Math.min(wanted,cap):wanted;
   const margin=notional/lev;
   const need=stop*(s.limits?s.limits.minRewardRisk:1.2);
-  // Levels are only mapped within a fixed band of mark; past it no target can
-  // exist in any market, which is arithmetic rather than a market judgement.
+  // Two ways the stop makes trading arithmetically impossible. Too wide: the
+  // target it demands sits outside the mapped band, so no level can qualify.
+  // Too tight: the target is worth less than the round trip, so no level is
+  // worth taking. Both present as a quiet market rather than as a setting.
   const impossible=need>12;
+  const roundTripPct=0.10;              // VIP-0 taker in and out
+  const tooTight=!impossible&&need<roundTripPct*3;
 
-  box.innerHTML='<div class="banner '+(impossible?"bad":"")+'" style="display:block">'+
-    "<b>"+(impossible
+  box.innerHTML='<div class="banner '+(impossible||tooTight?"bad":"")+'" style="display:block">'+
+    "<b>"+(impossible||tooTight
       ? "This stop can never produce a trade."
       : "What these settings mean in money")+"</b>"+
     '<div style="font-size:12px;margin-top:6px;line-height:1.7">'+
@@ -3342,6 +3408,11 @@ function explainLimits(s){
         ? '<b style="color:var(--bad)">Levels are only mapped to ±12% of price, so nothing can ever satisfy that — '+
           "every setup will be refused, in any market. Set the stop to about "+
           n(12/4/Math.max(s.limits?s.limits.minRewardRisk:1.2,1),1)+"% or less.</b>"
+        : tooTight
+        ? '<b style="color:var(--bad)">The round trip costs about '+n(roundTripPct,2)+
+          "%, so a "+n(need,2)+"% target is worth less than the fees needed to reach it — every setup "+
+          "will be refused for a reward that could never clear its own costs. Set the stop to at least "+
+          n(roundTripPct*3/Math.max(s.limits?s.limits.minRewardRisk:1.2,0.1),2)+"%.</b>"
         : "Levels are mapped to ±12%, so that is reachable.")+
     "</div></div>";
 }
@@ -3428,6 +3499,14 @@ $("btnClose").onclick=async()=>{
   if(!r.error) render(r);
 };
 
+$("btnReset").onclick=async()=>{
+  if(!confirm("Put every risk setting back to the values derived from your trade history?\\n\\n"+
+    "0.5% stop · 4% risk · 10x max leverage · 30 min max hold · 1 position at a time · "+
+    "8 trades a day · 15 min loss cooldown · derates at half.\\n\\n"+
+    "Max position and max daily loss are recalculated from your balance. Trading is disarmed."))return;
+  limitsDirty=false;
+  render(await api("/api/limits/reset",{method:"POST"}));
+};
 $("btnPreview").onclick=async()=>{
   const body={side:$("pvSide").value,notionalUsd:+$("pvNotional").value,
     leverage:+$("pvLeverage").value,entryPrice:$("pvEntry").value?+$("pvEntry").value:undefined,symbol:focusSymbol};
