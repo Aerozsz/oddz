@@ -1633,8 +1633,12 @@ $("btnLimits").onclick=async()=>{
 $("btnPlace").onclick=async()=>{
   const side=$("pvSide").value, notionalUsd=+$("pvNotional").value, stopPct=+$("pvStopPct").value;
   const live=$("mode").textContent.indexOf("LIVE")===0;
-  if(!confirm((live?"REAL MONEY.\n\n":"Demo trading.\n\n")+
-    "Place a "+side+" of "+notionalUsd+" USDT now, with a "+stopPct+"% protective stop?\n\n"+
+  // Double-escaped on purpose: this whole script lives inside a template
+  // literal, so a single backslash-n becomes a real newline in the emitted
+  // page and breaks the JS string it sits in — which takes the entire script
+  // down, not just this line.
+  if(!confirm((live?"REAL MONEY.\\n\\n":"Demo trading.\\n\\n")+
+    "Place a "+side+" of "+notionalUsd+" USDT now, with a "+stopPct+"% protective stop?\\n\\n"+
     "This bypasses the strategy and the sizer. Every safety interlock still applies."))return;
   $("btnPlace").disabled=true;
   const r=await api("/api/place",{method:"POST",body:JSON.stringify({side,notionalUsd,stopPct})});
