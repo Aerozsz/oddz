@@ -320,4 +320,68 @@ export class DislocationTracker {
           : "unaccompanied moves are more often flow than news"),
     };
   }
+
+  /**
+   * How much `symbol` moves per unit of `peer`, over the shared window.
+   *
+   * The hedge ratio for a pair, and it comes from the same returns the
+   * correlation does on purpose: a beta fitted on a different window than the
+   * correlation that justifies using it is two estimates pretending to be one.
+   *
+   * Least squares through the origin — cov/var — because an intercept would be
+   * a drift term the pair explicitly does not want to bet on.
+   */
+  beta(symbol: string, peer: string): number | null {
+    const a = this.returns(symbol);
+    const b = this.returns(peer);
+    const n = Math.min(a.length, b.length);
+    if (n < 8) return null;
+    const xa = a.slice(-n);
+    const xb = b.slice(-n);
+    const ma = xa.reduce((s, v) => s + v, 0) / n;
+    const mb = xb.reduce((s, v) => s + v, 0) / n;
+    let cov = 0;
+    let varB = 0;
+    for (let i = 0; i < n; i++) {
+      cov += (xa[i] - ma) * (xb[i] - mb);
+      varB += (xb[i] - mb) ** 2;
+    }
+    return varB > 0 ? cov / varB : null;
+  }
+
+  /**
+   * Standard deviation of the residual, in percent — the spread's own vol.
+   *
+   * What a pair's stop is measured in. Pass the peer and the hedge ratio to get
+   * the volatility of what the pair actually carries; without them it is the
+   * unhedged residual against the whole group, which is the right quantity for
+   * the bias factor and the wrong one for sizing a spread stop.
+   */
+  spreadVolPct(symbol: string, peer?: string, beta = 1): number | null {
+    const own = this.series.get(symbol);
+    const peers = peer ? [peer] : [...this.series.keys()].filter((k) => k !== symbol);
+    if (!own || peers.length === 0) return null;
+    const ownSeries = this.horizonSeries(symbol);
+    const peerSeries = peers.map((p) => this.horizonSeries(p));
+    const residuals: number[] = [];
+    for (const [t, ownBps] of ownSeries) {
+      const vals = peerSeries.map((m) => m.get(t)).filter((v): v is number => v !== undefined);
+      if (vals.length === 0) continue;
+      /*
+       * The hedged residual when a beta is supplied, the raw one otherwise.
+       *
+       * These are different quantities and using the wrong one costs real
+       * money. A pair holding beta units of the peer against one of this
+       * contract has already removed beta times the peer's move; measuring the
+       * spread's volatility without subtracting that leaves in variance the
+       * hedge cancels, which sizes the stop far wider than the position needs
+       * and shrinks it for a risk it is not carrying.
+       */
+      residuals.push(ownBps - beta * median(vals));
+    }
+    if (residuals.length < MIN_SAMPLES) return null;
+    const mean = residuals.reduce((s, v) => s + v, 0) / residuals.length;
+    const variance = residuals.reduce((s, v) => s + (v - mean) ** 2, 0) / Math.max(1, residuals.length - 1);
+    return Math.sqrt(variance) / 100; // basis points to percent
+  }
 }
