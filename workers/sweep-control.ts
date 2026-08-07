@@ -109,8 +109,38 @@ interface LogLine {
 }
 const logLines: LogLine[] = [];
 
+/**
+ * Collapse a line that is repeating.
+ *
+ * A rejection that recurs once a second is one fact, not four hundred, and
+ * printing it four hundred times does not make it more true — it buries the
+ * line that mattered. That happened: a loop rejecting every signal on a
+ * mistaken fifteen-minute cooldown filled the log so completely that the
+ * execution record explaining what the *first* trade actually did was pushed
+ * out of the ring entirely.
+ *
+ * Consecutive identical lines become one entry with a count. Anything
+ * different flushes it, so ordering is preserved and nothing is lost — only
+ * repetition is compressed.
+ */
+let repeat: { text: string; count: number; first: number } | null = null;
+
 const log = (...a: unknown[]) => {
   const text = a.map((x) => (typeof x === "string" ? redact(x) : JSON.stringify(x))).join(" ");
+
+  if (repeat && repeat.text === text) {
+    repeat.count++;
+    const line = logLines[logLines.length - 1];
+    if (line) line.text = `${text}  (×${repeat.count} since ${new Date(repeat.first).toLocaleTimeString()})`;
+    // Printed on a cadence rather than every time, so a terminal stays readable
+    // without the repetition becoming invisible.
+    if (repeat.count === 5 || repeat.count % 50 === 0) {
+      console.log("[control]", `${text}  (×${repeat.count})`);
+    }
+    return;
+  }
+
+  repeat = { text, count: 1, first: Date.now() };
   logLines.push({ t: Date.now(), text });
   if (logLines.length > 500) logLines.shift();
   console.log("[control]", text);
@@ -358,6 +388,16 @@ interface Desk {
   pendingTarget: number | null;
   /** When the stop was moved to break-even, so it happens at most once. */
   ratchetedAt: number;
+  /**
+   * Consecutive failures placing the take-profit for the current position.
+   *
+   * The repair pass runs every twenty seconds, so a target the exchange will
+   * never accept — a rejected trigger, an order type it wants shaped
+   * differently — retries forever and says so every time. That is the same
+   * failure that just buried a log: a real problem, reported truthfully, at a
+   * rate that hides everything else including itself.
+   */
+  targetFailures: number;
 }
 
 function newDesk(symbol: string): Desk {
@@ -375,6 +415,7 @@ function newDesk(symbol: string): Desk {
     positionOpenedAt: 0,
     pendingTarget: null,
     ratchetedAt: 0,
+    targetFailures: 0,
   };
 }
 
@@ -669,6 +710,9 @@ function concurrencyBlock(symbol: string): string | null {
  *    travelled far enough, the stop moves to break-even plus the round trip, so
  *    the worst case becomes a scratch instead.
  */
+/** Attempts at the take-profit before leaving the position on its stop. */
+const MAX_TARGET_ATTEMPTS = 3;
+
 async function maintainBrackets() {
   if (!hasCredentials()) return;
   const cfg = loadConfig();
@@ -680,12 +724,38 @@ async function maintainBrackets() {
     const target = journalTarget(desk.symbol);
     const precision = metaFor(desk.symbol)?.pricePrecision ?? 2;
 
-    // Re-place anything missing from the bracket.
-    if (!state.protected || (target !== null && !state.takeProfit)) {
+    /*
+     * Re-place anything missing from the bracket.
+     *
+     * A missing stop is always retried: the position is uncovered and there is
+     * no number of failures that makes giving up correct. A missing target is
+     * given a few attempts and then left alone, because a target the exchange
+     * keeps refusing is a defect to be read about once rather than a condition
+     * to retry every twenty seconds for the life of the position. The position
+     * still exits on its stop and its time limit, which is where it was before
+     * targets existed.
+     */
+    const wantTarget = target !== null && !state.takeProfit && desk.targetFailures < MAX_TARGET_ATTEMPTS;
+    if (!state.protected || wantTarget) {
       try {
+        const before = state.takeProfit;
         const fixed = await ensureProtected(cfg, desk.symbol, pos, limits.stopLossPct, precision, target);
         desk.protection = { state: fixed, error: null, at: Date.now() };
-        log(`bracket ${desk.symbol}: ${fixed.reason}`);
+        if (target !== null && !before && !fixed.takeProfit) {
+          desk.targetFailures++;
+          if (desk.targetFailures >= MAX_TARGET_ATTEMPTS) {
+            log(
+              `bracket ${desk.symbol}: the exchange refused the target ${desk.targetFailures} times — ` +
+                `no longer retrying. The stop and the ${limits.maxHoldMinutes} min time limit still govern ` +
+                `this position. ${fixed.reason}`,
+            );
+          } else {
+            log(`bracket ${desk.symbol}: ${fixed.reason}`);
+          }
+        } else {
+          desk.targetFailures = 0;
+          log(`bracket ${desk.symbol}: ${fixed.reason}`);
+        }
       } catch (err) {
         log(`bracket ${desk.symbol} FAILED: ${redact(err instanceof Error ? err.message : String(err))}`);
       }
@@ -785,6 +855,7 @@ async function enforceMaxHold() {
       if (desk.positionOpenedAt) journalClose(desk.symbol);
       desk.positionOpenedAt = 0;
       desk.ratchetedAt = 0;
+      desk.targetFailures = 0;
       continue;
     }
     if (!desk.positionOpenedAt) {
@@ -1087,15 +1158,34 @@ function pooledRefusals() {
 }
 
 /**
- * The last entry the account accepted, on any desk.
+ * The shortest gap between two entries, on any desk.
  *
- * The per-runner minimum interval only paces one desk. Three desks each pacing
- * themselves is three times the pace, which would take the frequency gained
- * from watching more contracts and spend it on trading the same setup three
- * times over rather than on finding better ones. The gap is therefore enforced
- * across all of them, exactly as it was when there was one.
+ * This is a burst guard and nothing more. One market event fires several
+ * correlated signals inside a second — a withdrawal, a cluster approach and a
+ * liquidation burst are three views of the same thing, not three opportunities
+ * — and without a floor the loop would take all three as separate trades.
+ *
+ * It was previously set to the *loss* cooldown, which was a straight mistake:
+ * that rule means "wait after a losing trade", the sizer already enforces it
+ * from the exchange's own ledger, and reusing it here applied a loss penalty
+ * after every entry including the winners. The visible symptom was a loop that
+ * took one trade and then rejected every signal for fifteen minutes while
+ * saying so once a second.
  */
-let lastEntryAt = 0;
+const BURST_GUARD_MS = 60_000;
+
+/**
+ * When any desk last accepted an entry.
+ *
+ * Read from the runners rather than tracked separately. An earlier version kept
+ * its own timestamp updated on submission while the runners updated theirs on
+ * acceptance, so the two disagreed exactly when an order was accepted and then
+ * failed at the exchange — the account-wide gate stayed open while every
+ * per-desk gate was shut, which is the worst of both.
+ */
+function lastAcceptedAnywhere(): number {
+  return allDesks().reduce((newest, d) => Math.max(newest, d.runner?.stats().lastAcceptedAt ?? 0), 0);
+}
 
 function armDesk(desk: Desk) {
   if (desk.runner) return;
@@ -1211,18 +1301,23 @@ function armDesk(desk: Desk) {
         });
         desk.positionOpenedAt = Date.now();
       }
-      // The account-wide clock starts when an entry actually reached the
-      // exchange, not when one was proposed — a refused or failed submission
-      // has not spent anything and must not pace the other desks.
-      if (r.outcome === "submitted") lastEntryAt = Date.now();
       log(`execution ${desk.symbol} ${r.outcome}: ${r.detail}`);
     },
   });
 
   desk.runner = attachExecution(feed, {
     adapter,
-    minIntervalMs: Math.max(60_000, limits.lossCooldownMin * 60_000),
-    maxPerHour: Math.max(1, limits.maxTradesPerDay),
+    minIntervalMs: BURST_GUARD_MS,
+    /*
+     * A burst ceiling, not the daily cap.
+     *
+     * The daily cap is enforced by the sizer against Binance's own ledger of
+     * closed trades, which survives a restart; this only stops one unusual hour
+     * spending the whole day's budget before the ledger catches up. A third of
+     * the day, floored at two so a small cap does not become a one-trade-per-
+     * hour rule.
+     */
+    maxPerHour: Math.max(2, Math.ceil(limits.maxTradesPerDay / 3)),
     onRejected: (reason) => {
       desk.lastRefusal = { at: Date.now(), reason };
       tallyRefusal(desk, reason);
@@ -1247,11 +1342,11 @@ function armDesk(desk: Desk) {
         desk.runner?.noteDecline(blocked);
         return null;
       }
-      const gapMs = Math.max(60_000, limits.lossCooldownMin * 60_000);
-      const sinceEntry = Date.now() - lastEntryAt;
-      if (lastEntryAt > 0 && sinceEntry < gapMs) {
+      const lastEntry = lastAcceptedAnywhere();
+      const sinceEntry = Date.now() - lastEntry;
+      if (lastEntry > 0 && sinceEntry < BURST_GUARD_MS) {
         desk.runner?.noteDecline(
-          `account-wide spacing: ${Math.ceil((gapMs - sinceEntry) / 60_000)} min until the next entry on any contract`,
+          `another contract just entered — ${Math.ceil((BURST_GUARD_MS - sinceEntry) / 1000)}s of burst guard left`,
         );
         return null;
       }
