@@ -75,7 +75,7 @@ export const DEFAULT_FEES: FeeSchedule = {
   takerRate: 0.0005,
   discount: 1,
   tiers: [],
-  maxFeeShareOfGross: 0.4,
+  maxFeeShareOfGross: 0.6,
   maxDailyFeeUsd: 0,
 };
 
@@ -194,12 +194,40 @@ export interface FeeBudget {
  * rather than on anything this process remembers, for the same reason the loss
  * cap is: a restart is exactly when a bad run has just happened.
  */
+/**
+ * Gross that must exist before the share test means anything.
+ *
+ * A ratio computed on the first trade of the day is not a measurement of
+ * anything. One 0.25% winner on a small position produces a gross of a few
+ * dollars against a fee of a couple, and a share that reads 45% — which then
+ * refuses every subsequent setup on the strength of a single sample. The
+ * absolute floor makes the check start describing a day rather than a trade.
+ */
+const MIN_GROSS_FOR_SHARE_USD = 50;
+
 export function feeBudget(
   schedule: FeeSchedule,
   feesPaidUsd: number,
   grossProfitUsd: number,
+  /**
+   * The reward-to-cost floor the sizer is enforcing, when it is known.
+   *
+   * These two settings are the same quantity seen from opposite ends, and left
+   * independent they contradict each other silently. A trade admitted at
+   * reward/cost of 2 pays half its own gross in fees by construction; a 40%
+   * share cap then refuses the exact profile the sizer just approved. That
+   * combination produced 1055 consecutive refusals against 1200 signals — the
+   * strategy was working as designed and being blocked for working as designed.
+   *
+   * So the cap can never sit below what a compliant trade produces. Passing
+   * this raises it to `1/minRewardOverFees` plus headroom for the losing trades
+   * that pay fees and contribute no gross.
+   */
+  minRewardOverFees?: number,
 ): FeeBudget {
   const share = grossProfitUsd > 0 ? feesPaidUsd / grossProfitUsd : null;
+  const floorFromSizer = minRewardOverFees && minRewardOverFees > 0 ? 1 / minRewardOverFees + 0.2 : 0;
+  const cap = Math.max(schedule.maxFeeShareOfGross, floorFromSizer);
 
   if (schedule.maxDailyFeeUsd > 0 && feesPaidUsd >= schedule.maxDailyFeeUsd) {
     return {
@@ -214,10 +242,10 @@ export function feeBudget(
   // Only bites once there is something to compare against. A losing day is
   // caught by the loss cap; this one is about a *winning* day being farmed.
   if (
-    schedule.maxFeeShareOfGross > 0 &&
-    grossProfitUsd > 0 &&
+    cap > 0 &&
+    grossProfitUsd >= MIN_GROSS_FOR_SHARE_USD &&
     share !== null &&
-    share >= schedule.maxFeeShareOfGross
+    share >= cap
   ) {
     return {
       feesPaidUsd,
@@ -227,7 +255,7 @@ export function feeBudget(
       reason:
         `fees are ${(share * 100).toFixed(0)}% of today's gross profit ` +
         `(${feesPaidUsd.toFixed(2)} of ${grossProfitUsd.toFixed(2)}) — ` +
-        `past the ${(schedule.maxFeeShareOfGross * 100).toFixed(0)}% cap. ` +
+        `past the ${(cap * 100).toFixed(0)}% cap. ` +
         `The edge is being converted into commission.`,
     };
   }
