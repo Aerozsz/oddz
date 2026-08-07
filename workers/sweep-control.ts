@@ -1668,6 +1668,41 @@ const server = createServer(async (req, res) => {
           limits.maxPositionUsd > 0 ? `${limits.maxPositionUsd} USD` : "not set — every setup is refused",
           "Set it in Risk limits and save.");
 
+        /*
+         * The stop and the reward-to-risk floor multiply into a demand for a
+         * level a certain distance away, and the cluster model only maps a
+         * fixed band around mark. Past that band the demand cannot be met by
+         * any book in any market condition — it is arithmetic, not a market
+         * judgement, and it is knowable the instant the setting is saved.
+         *
+         * This is here because it happened: a 50% stop, entered in the belief
+         * that it meant "close at a 50% loss", asked for a level 60% away and
+         * refused every setup silently and forever. The refusal reason was
+         * true and useless; nothing said the configuration could never work.
+         */
+        {
+          const need = limits.stopLossPct * (limits.minRewardRisk > 0 ? limits.minRewardRisk : 1.5);
+          const mapped = CONFIG.clusterRangePct;
+          const impossible = need > mapped;
+          // A stop this wide is also almost certainly a unit mix-up rather than
+          // a deliberate choice, so the two are worth separating.
+          const implausible = !impossible && limits.stopLossPct > 5;
+          add("stop distance is reachable", !impossible && !implausible,
+            `${limits.stopLossPct}% stop × ${limits.minRewardRisk} reward-to-risk needs a level ` +
+              `${need.toFixed(1)}% away; levels are mapped to ±${mapped}%` +
+              (impossible ? " — nothing can ever satisfy this" : ""),
+            impossible
+              ? `Set the stop to about ${(mapped / 4 / Math.max(limits.minRewardRisk, 1)).toFixed(1)}% or less. ` +
+                "This field is a price move, not a percentage of your money: 0.5% means price moving half a " +
+                `percent against you, which at ${limits.maxLeverage}x is ` +
+                `${(0.5 * limits.maxLeverage).toFixed(0)}% of the margin behind the position.`
+              : implausible
+                ? "That is a very wide stop for an intraday equity perp. It is a price move, not a share of " +
+                  "your money — check it is the number you meant."
+                : undefined,
+            impossible ? "bad" : implausible ? "warn" : "ok");
+        }
+
         add("max daily loss set", limits.maxDailyLossUsd > 0,
           limits.maxDailyLossUsd > 0 ? `${limits.maxDailyLossUsd} USD` : "not set",
           "Set it in Risk limits and save.");
@@ -2182,12 +2217,12 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
 <div class="panel">
   <h2>Risk limits</h2>
   <div class="row" style="gap:12px;align-items:flex-end">
-    <label style="width:150px">Max position (USD)<input id="maxPositionUsd" type="number" min="0" step="10"></label>
+    <label style="width:170px">Max position (USD notional)<input id="maxPositionUsd" type="number" min="0" step="10"></label>
     <label style="width:110px">Max leverage<input id="maxLeverage" type="number" min="1" max="10" step="1"></label>
     <label style="width:150px">Max daily loss (USD)<input id="maxDailyLossUsd" type="number" min="0" step="10"></label>
     <label style="width:130px">Max open positions<input id="maxOpenPositions" type="number" min="0" step="1"></label>
-    <label style="width:140px">Stop-loss distance (%)<input id="stopLossPct" type="number" min="0.1" step="0.1"></label>
-    <label style="width:140px">Risk per trade (%)<input id="riskPerTradePct" type="number" min="0.01" max="10" step="0.1"></label>
+    <label style="width:180px">Stop distance (% price move)<input id="stopLossPct" type="number" min="0.1" step="0.1"></label>
+    <label style="width:180px">Risk per trade (% of collateral)<input id="riskPerTradePct" type="number" min="0.01" max="10" step="0.1"></label>
     <label style="width:150px">Max hold (minutes)<input id="maxHoldMinutes" type="number" min="0" step="5"></label>
     <label style="width:150px">When Nasdaq is shut<select id="requireCashOpen" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
       <option value="false">trade, sized down</option><option value="true">do not trade</option></select></label>
@@ -2195,6 +2230,7 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
       <option value="false">disarmed</option><option value="true">armed</option></select></label>
     <button id="btnLimits">Save limits</button>
   </div>
+  <div id="limitsMean" style="margin-top:12px"></div>
   <p class="note"><b>These defaults are derived from your own week of trading, not chosen.</b> That week won 58% of
   60 trades and still lost 8,873, because four trades worse than -30% ROI cost 15,570 between them. A hard stop
   and a 30-minute limit applied to the same trades turn it into +3,263 at a 70% win rate. <b>Max hold</b> is the
@@ -2209,7 +2245,7 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
   <div class="row" style="gap:12px;align-items:flex-end">
     <label style="width:110px">Side<select id="pvSide" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
       <option value="long">long</option><option value="short">short</option></select></label>
-    <label style="width:150px">Size (USD)<input id="pvNotional" type="number" min="0" step="50" value="1000"></label>
+    <label style="width:170px">Size (USD notional)<input id="pvNotional" type="number" min="0" step="50" value="1000"></label>
     <label style="width:110px">Leverage<input id="pvLeverage" type="number" min="1" max="10" step="1" value="2"></label>
     <label style="width:150px">Entry (blank = mark)<input id="pvEntry" type="number" step="0.01" placeholder="mark"></label>
     <button id="btnPreview">Preview</button>
@@ -2246,11 +2282,15 @@ const n=(v,d=2)=>v===null||v===undefined||!isFinite(v)?"—":Number(v).toFixed(d
 const usd=v=>v===null||v===undefined||!isFinite(v)?"—":(Math.abs(v)>=1e6?"$"+(v/1e6).toFixed(2)+"M":Math.abs(v)>=1e3?"$"+(v/1e3).toFixed(1)+"k":"$"+v.toFixed(2));
 
 let limitsDirty=false;
+/* The most recent status, so the settings explainer can redraw the instant a
+   field is typed rather than waiting for the next poll. */
+let lastStatus=null;
 /* Which contract the order controls point at; the server is the authority and
    this mirrors it so a request can name it explicitly rather than relying on
    server-side state that another tab may have changed. */
 let focusSymbol="";
-for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct","riskPerTradePct","maxHoldMinutes"]) $(id).addEventListener("input",()=>limitsDirty=true);
+for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct","riskPerTradePct","maxHoldMinutes"])
+  $(id).addEventListener("input",()=>{limitsDirty=true; explainLimits(lastStatus);});
 $("tradingEnabled").addEventListener("change",()=>limitsDirty=true);
 $("requireCashOpen").addEventListener("change",()=>limitsDirty=true);
 
@@ -2444,6 +2484,8 @@ function render(s){
     "<tr><td>"+p.symbol+"</td><td>"+n(p.amt,3)+"</td><td>"+n(p.entry)+"</td><td>"+n(p.liquidation)+"</td><td>"+usd(p.pnl)+"</td></tr>").join("")
     :'<tr><td colspan="5" class="muted">'+(a.error?"unavailable":"flat")+"</td></tr>";
 
+  lastStatus=s;
+
   if(!limitsDirty){
     $("maxPositionUsd").value=s.limits.maxPositionUsd;
     $("maxLeverage").value=s.limits.maxLeverage;
@@ -2455,6 +2497,64 @@ function render(s){
     $("riskPerTradePct").value=s.limits.riskPerTradePct;
     $("maxHoldMinutes").value=s.limits.maxHoldMinutes;
   }
+
+  // After the fields are populated, never before: this reads the form rather
+  // than the status, so running it first explains the previous poll's numbers.
+  explainLimits(s);
+}
+
+/*
+ * What the numbers in the form actually mean, in money, live.
+ *
+ * Every USD field here is *notional* — the whole position, leverage included —
+ * and the stop is a percentage of price, not of your money. Both are the
+ * conventional meanings and neither is guessable from the label alone. One of
+ * them has already cost a run: a 50% stop entered as "close me out at a 50%
+ * loss" asked for a target 60% away and refused every setup, silently, forever.
+ *
+ * Reads from the live fields rather than the saved limits, so it updates as
+ * the numbers are typed and before anything is committed.
+ */
+function explainLimits(s){
+  const box=$("limitsMean"); if(!box||!s) return;
+  const num=id=>{const v=Number(($(id)||{}).value); return isFinite(v)?v:0;};
+  const stop=num("stopLossPct"), lev=Math.max(1,num("maxLeverage"));
+  const riskPct=num("riskPerTradePct"), cap=num("maxPositionUsd");
+  const equity=(s.account&&s.account.availableBalance)||0;
+  if(!(stop>0)){ box.innerHTML=""; return; }
+
+  // The same arithmetic the sizer does, so the two cannot disagree.
+  const riskUsd=equity*riskPct/100;
+  const wanted=riskUsd/(stop/100);
+  const notional=cap>0?Math.min(wanted,cap):wanted;
+  const margin=notional/lev;
+  const need=stop*(s.limits?s.limits.minRewardRisk:1.2);
+  // Levels are only mapped within a fixed band of mark; past it no target can
+  // exist in any market, which is arithmetic rather than a market judgement.
+  const impossible=need>12;
+
+  box.innerHTML='<div class="banner '+(impossible?"bad":"")+'" style="display:block">'+
+    "<b>"+(impossible
+      ? "This stop can never produce a trade."
+      : "What these settings mean in money")+"</b>"+
+    '<div style="font-size:12px;margin-top:6px;line-height:1.7">'+
+    "<b>"+n(stop,2)+"% stop</b> is a <b>price move</b>, not a share of your money — price moving "+
+      n(stop,2)+"% against you. That is <b>"+n(stop*lev,1)+"% of the margin</b> behind the position at "+
+      lev+"x."+
+    "<br><b>Max position</b> and <b>Size</b> are <b>notional</b> — the whole position, leverage included. "+
+      (equity>0
+        ? "On your "+usd(equity)+": risking "+n(riskPct,2)+"% is <b>"+usd(riskUsd)+
+          "</b> if the stop fills, which sizes a <b>"+usd(notional)+" notional</b> position tying up <b>"+
+          usd(margin)+"</b> of margin at "+lev+"x."
+        : "Connect an account to see this in your own numbers.")+
+    "<br>A target must sit <b>"+n(need,2)+"% away</b> ("+n(stop,2)+"% × "+
+      n(s.limits?s.limits.minRewardRisk:1.2,2)+" reward-to-risk). "+
+      (impossible
+        ? '<b style="color:var(--bad)">Levels are only mapped to ±12% of price, so nothing can ever satisfy that — '+
+          "every setup will be refused, in any market. Set the stop to about "+
+          n(12/4/Math.max(s.limits?s.limits.minRewardRisk:1.2,1),1)+"% or less.</b>"
+        : "Levels are mapped to ±12%, so that is reachable.")+
+    "</div></div>";
 }
 
 async function tick(){
