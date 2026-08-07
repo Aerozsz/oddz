@@ -81,6 +81,17 @@ export interface SizingConfig {
   /** Above this mark-out toxicity, an entry is assumed to cross rather than rest. */
   postableToxicity: number;
   /**
+   * Whether the execution path can actually post an entry rather than cross.
+   *
+   * Defaults to false, and that default is load-bearing. The order layer sends
+   * MARKET orders, so quoting a maker entry would advertise a 7bp round trip
+   * that the system cannot deliver and then fill at 10bp — an error that makes
+   * every proposal look better than the trade it produces, which is the worst
+   * available direction to be wrong in. Flip this when post-only entries exist,
+   * not before.
+   */
+  canPostEntries: boolean;
+  /**
    * How long a position is assumed to be held, for funding purposes.
    *
    * An assumption, and named as one. It exists because funding is charged in a
@@ -113,6 +124,7 @@ export const DEFAULT_SIZING: SizingConfig = {
   fees: DEFAULT_FEES,
   exitStyle: "taker",
   postableToxicity: 0.6,
+  canPostEntries: false,
   expectedHoldMin: 30,
   maxFundingShareOfReward: 0.35,
   maxToxicity: 0.95,
@@ -418,7 +430,15 @@ export function proposePosition(input: SizingInput): SizingResult {
   // Whether the entry can rest on the book is the largest single lever on net
   // return at this frequency — 4bp against 10bp on a target worth 30–50bp — and
   // it is decided by the mark-out reading rather than by preference.
-  const postable = canPostEntry(state.markout, cfg.postableToxicity);
+  const wouldPost = canPostEntry(state.markout, cfg.postableToxicity);
+  const postable = cfg.canPostEntries
+    ? wouldPost
+    : {
+        ok: false,
+        reason: wouldPost.ok
+          ? `the book would allow a resting entry (${wouldPost.reason}), but the order layer only sends market orders — priced as a taker until post-only entries exist`
+          : wouldPost.reason,
+      };
   const style: StylePair = {
     entry: postable.ok ? "maker" : "taker",
     exit: cfg.exitStyle,
