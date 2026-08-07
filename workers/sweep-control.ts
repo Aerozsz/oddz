@@ -53,6 +53,7 @@ import {
   placeProtectiveStop,
   ensureProtected,
   openProtectedPosition,
+  placeTakeProfit,
   setLeverage,
   testExitPath,
   type ProtectionState,
@@ -1757,6 +1758,15 @@ function status() {
       protected: desk.protection.state?.protected ?? null,
       stopPrice: desk.protection.state?.stop?.stopPrice ?? null,
       stopDistancePct: desk.protection.state?.stopDistancePct ?? null,
+      targetPrice: desk.protection.state?.takeProfit?.stopPrice ?? null,
+      targetDistancePct: desk.protection.state?.targetDistancePct ?? null,
+      entryPrice: desk.protection.state?.position?.entryPrice ?? null,
+      markPrice: desk.protection.state?.position?.markPrice ?? null,
+      side: desk.protection.state?.position
+        ? desk.protection.state.position.positionAmt > 0 ? "long" : "short"
+        : null,
+      heldMin: desk.positionOpenedAt ? Math.round((Date.now() - desk.positionOpenedAt) / 60_000) : 0,
+      ratcheted: desk.ratchetedAt > 0,
       reason: desk.protection.state?.reason ?? null,
     },
   };
@@ -1918,6 +1928,97 @@ const server = createServer(async (req, res) => {
         if (limits.tradingEnabled) startExecutionLoop();
         else stopExecutionLoop();
         send(res, 200, status());
+        return;
+      }
+
+      case "POST /api/bracket": {
+        /*
+         * Move the stop or the target on a position that is already open.
+         *
+         * The brackets are placed and maintained automatically, and that is the
+         * right default — the whole point is not having to watch. But automatic
+         * is not the same as unchangeable, and an operator looking at a level
+         * the model cannot see should be able to act on it in one place rather
+         * than switching to Binance's own interface, which is where mistakes
+         * with position sizes get made.
+         *
+         * Every interlock that makes the automatic path safe applies here.
+         * New order first, old one second, so a rejected move leaves the
+         * original resting rather than uncovering the position. A stop on the
+         * wrong side of mark is refused outright instead of filling instantly
+         * at market. And a moved target is written to the journal, so the
+         * maintenance sweep and the break-even ratchet both measure against the
+         * level actually resting rather than the one the sizer chose.
+         */
+        if (!hasCredentials()) { send(res, 200, { error: "no API credentials" }); return; }
+        const body = await readJson(req);
+        const desk = deskFor(body.symbol);
+        const symbol = desk.symbol;
+        const cfg2 = loadConfig();
+        const precision = metaFor(symbol)?.pricePrecision ?? 2;
+
+        try {
+          const pos = await fetchPosition(cfg2, symbol);
+          if (!pos) { send(res, 200, { error: `flat on ${symbol} — nothing to adjust` }); return; }
+          const current = await checkProtection(cfg2, symbol, pos);
+          const long = pos.positionAmt > 0;
+          const done: string[] = [];
+
+          const wantStop = Number(body.stopPrice);
+          if (Number.isFinite(wantStop) && wantStop > 0) {
+            if (long ? wantStop >= pos.markPrice : wantStop <= pos.markPrice) {
+              send(res, 200, {
+                error: `a ${long ? "long" : "short"} stop must sit ${long ? "below" : "above"} the mark ` +
+                  `(${pos.markPrice}) — at ${wantStop} it would fill immediately at market`,
+              });
+              return;
+            }
+            const placed = await placeProtectiveStop(cfg2, symbol, pos, wantStop, precision);
+            if (current.stop) {
+              await cancelOrder(cfg2, symbol, current.stop.orderId, current.stop.isAlgo).catch(() => {});
+            }
+            // Cancels the ratchet: the operator has made this decision by hand,
+            // and having the machine move the stop back underneath them is the
+            // opposite of an override.
+            desk.ratchetedAt = Date.now();
+            done.push(`stop moved to ${placed.stopPrice}`);
+          }
+
+          const wantTarget = Number(body.targetPrice);
+          if (Number.isFinite(wantTarget) && wantTarget > 0) {
+            if (long ? wantTarget <= pos.markPrice : wantTarget >= pos.markPrice) {
+              send(res, 200, {
+                error: `a ${long ? "long" : "short"} target must sit ${long ? "above" : "below"} the mark ` +
+                  `(${pos.markPrice}) — at ${wantTarget} it would fill immediately at market`,
+              });
+              return;
+            }
+            const placed = await placeTakeProfit(cfg2, symbol, pos, wantTarget, precision);
+            if (current.takeProfit) {
+              await cancelOrder(cfg2, symbol, current.takeProfit.orderId, current.takeProfit.isAlgo).catch(() => {});
+            }
+            const j = journal[symbol];
+            journalOpen(symbol, {
+              openedAt: j?.openedAt ?? desk.positionOpenedAt ?? Date.now(),
+              side: long ? "long" : "short",
+              entryPrice: pos.entryPrice,
+              targetPrice: wantTarget,
+              stopPct: limits.stopLossPct,
+              reason: `${j?.reason ?? "manual"} · target moved by hand`,
+            });
+            desk.targetFailures = 0;
+            done.push(`target moved to ${placed.stopPrice}`);
+          }
+
+          if (done.length === 0) { send(res, 200, { error: "nothing to change" }); return; }
+          log(`MANUAL BRACKET ${symbol}: ${done.join("; ")}`);
+          await refreshAccount();
+          send(res, 200, { ok: true, moved: done.join("; "), ...status() });
+        } catch (err) {
+          const message = explainError(err instanceof Error ? redact(err.message) : String(err), symbol);
+          log(`manual bracket ${symbol} FAILED: ${message}`);
+          send(res, 200, { error: message });
+        }
         return;
       }
 
@@ -2811,8 +2912,9 @@ function html(token: string): string {
 <html lang="en"><head><meta charset="utf-8"><title>Sweep agent control</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{--plane:#0d0d0d;--surface:#141413;--surface2:#1a1a19;--ink:#fff;--ink2:#c3c2b7;--muted:#898781;
---hair:rgba(255,255,255,.1);--good:#0ca30c;--warn:#fab219;--bad:#d03b3b;--liq:#3987e5;--forced:#d95926;--r:6px}
+:root{--plane:#0b0b0c;--surface:#141416;--surface2:#1c1c1f;--ink:#f2f2f0;--ink2:#b9b8b2;--muted:#807e79;
+--hair:rgba(255,255,255,.09);--hair2:rgba(255,255,255,.16);--good:#3fb950;--warn:#e3a008;--bad:#e5534b;
+--liq:#4f8ff7;--forced:#d95926;--r:8px;--accent:#4f8ff7}
 *{box-sizing:border-box}body{margin:0;background:var(--plane);color:var(--ink);
 font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1200px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:12px}
@@ -2868,6 +2970,29 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
 .desk .px{font-size:19px;font-variant-numeric:tabular-nums;margin:3px 0 1px}
 .desk .sub{font-size:11px;color:var(--dim)}
 .desk .hold{font-size:11px;margin-top:3px}
+
+/* Grouped inputs. The flat row gave a stop distance and a daily loss cap the
+   same visual weight, which is how a form of fifteen numbers stops being read
+   at all. Each group answers one question. */
+.fieldset{border:1px solid var(--hair);border-radius:var(--r);padding:14px 14px 12px;margin-top:12px;position:relative;background:var(--plane)}
+.fieldset+.fieldset{margin-top:14px}
+.legend{position:absolute;top:-8px;left:12px;background:var(--surface);padding:0 7px;font-size:10px;
+letter-spacing:.08em;text-transform:uppercase;color:var(--ink2);font-weight:600}
+.fields{display:grid;gap:10px 14px;grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.fields label{gap:4px}
+/* The unit belongs with the label, not in the operator's head. A stop that is a
+   price move and a cap that is dollars looked identical without it. */
+label i{font-style:normal;color:var(--muted);font-size:10px;display:block;line-height:1.3;min-height:1.3em}
+input,select{background:var(--surface2);border:1px solid var(--hair);border-radius:5px;color:var(--ink);
+padding:7px 9px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
+input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 2px rgba(79,143,247,.18)}
+button{transition:border-color .12s,background .12s}
+button.primary{background:var(--accent);border-color:var(--accent);color:#06131f;font-weight:600}
+button.primary:hover:not(:disabled){background:#6ba1f8;border-color:#6ba1f8}
+.panel h2{display:flex;align-items:center;gap:8px}
+.tile{transition:background .12s}
+.banner{line-height:1.5}
+.banner:not(.bad):not(.warn){background:rgba(255,255,255,.03);border-color:var(--hair)}
 </style></head><body><div class="wrap">
 
 <div class="bar">
@@ -2885,6 +3010,23 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
 <div id="venueNote"></div>
 <div id="protNote"></div>
 <div id="execNote"></div>
+<div class="panel" id="livePanel" style="display:none">
+  <h2>Open position <span id="liveSym" class="muted" style="font-weight:400;font-size:11px"></span></h2>
+  <div id="liveTiles" class="tiles"></div>
+  <div class="fieldset" style="margin-top:12px">
+    <div class="legend">Move a bracket</div>
+    <div class="fields" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <label>Stop price <i id="liveStopHint">&nbsp;</i><input id="liveStop" type="number" step="0.01"></label>
+      <label>Target price <i id="liveTargetHint">&nbsp;</i><input id="liveTarget" type="number" step="0.01"></label>
+      <label>&nbsp;<button id="btnMoveBracket" class="primary">Move</button></label>
+      <label>&nbsp;<button id="btnCloseLive">Close at market</button></label>
+    </div>
+  </div>
+  <p class="note">Both are placed and maintained automatically — this is only for overriding them. A moved stop
+  cancels the break-even ratchet for this position, because having the machine move it back under you is the
+  opposite of an override. Blank means leave that one alone.</p>
+  <div id="liveOut" style="margin-top:8px"></div>
+</div>
 
 <div class="panel" id="deskPanel" style="display:none">
   <h2>Contracts</h2>
@@ -2991,21 +3133,48 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
 
 <div class="panel">
   <h2>Risk limits</h2>
-  <div class="row" style="gap:12px;align-items:flex-end">
-    <label style="width:170px">Max position (USD notional)<input id="maxPositionUsd" type="number" min="0" step="10"></label>
-    <label style="width:110px">Max leverage<input id="maxLeverage" type="number" min="1" max="20" step="1"></label>
-    <label style="width:150px">Max daily loss (USD)<input id="maxDailyLossUsd" type="number" min="0" step="10"></label>
-    <label style="width:130px">Max open positions<input id="maxOpenPositions" type="number" min="0" step="1"></label>
-    <label style="width:180px">Stop distance (% price move)<input id="stopLossPct" type="number" min="0.1" step="0.1"></label>
-    <label style="width:180px">Risk per trade (% of collateral)<input id="riskPerTradePct" type="number" min="0.01" max="25" step="0.5"></label>
-    <label style="width:170px">Condition derates<select id="sizeDerateStrength" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
-      <option value="1">full — size down hard</option><option value="0.5">half — balanced</option><option value="0">off — size on the setup only</option></select></label>
-    <label style="width:150px">Max hold (minutes)<input id="maxHoldMinutes" type="number" min="0" step="5"></label>
-    <label style="width:150px">When Nasdaq is shut<select id="requireCashOpen" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
-      <option value="false">trade, sized down</option><option value="true">do not trade</option></select></label>
-    <label style="width:130px">Trading armed<select id="tradingEnabled" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
+  <!-- Grouped by what each rule governs rather than by when it was added.
+       Flat, the form was fifteen numbers in a row with no indication that a
+       stop distance and a daily loss cap answer completely different
+       questions — and four of the rules had no field at all, so they could
+       not be reached from here regardless. -->
+  <div class="fieldset">
+    <div class="legend">Every trade</div>
+    <div class="fields">
+      <label>Stop distance <i>% price move</i><input id="stopLossPct" type="number" min="0.05" step="0.05"></label>
+      <label>Risk per trade <i>% of collateral</i><input id="riskPerTradePct" type="number" min="0.01" max="25" step="0.5"></label>
+      <label>Minimum reward-to-risk <i>target ÷ stop</i><input id="minRewardRisk" type="number" min="0.1" max="10" step="0.1"></label>
+      <label>Move stop to break-even <i>% of the way to target · 0 = never</i><input id="breakEvenAtPct" type="number" min="0" max="100" step="5"></label>
+      <label>Max hold <i>minutes · 0 = no limit</i><input id="maxHoldMinutes" type="number" min="0" step="5"></label>
+    </div>
+  </div>
+
+  <div class="fieldset">
+    <div class="legend">Exposure</div>
+    <div class="fields">
+      <label>Max position <i>USD notional</i><input id="maxPositionUsd" type="number" min="0" step="10"></label>
+      <label>Max leverage <i>ceiling; size is derived</i><input id="maxLeverage" type="number" min="1" max="20" step="1"></label>
+      <label>Max open positions <i>at once, across contracts</i><input id="maxOpenPositions" type="number" min="0" step="1"></label>
+      <label>Condition derates <i>thin book, session, events</i><select id="sizeDerateStrength">
+        <option value="1">full — size down hard</option><option value="0.5">half — balanced</option><option value="0">off — size on the setup only</option></select></label>
+    </div>
+  </div>
+
+  <div class="fieldset">
+    <div class="legend">Stopping for the day</div>
+    <div class="fields">
+      <label>Max daily loss <i>USD, net of fees</i><input id="maxDailyLossUsd" type="number" min="0" step="10"></label>
+      <label>Max trades per day <i>closed round trips</i><input id="maxTradesPerDay" type="number" min="0" step="1"></label>
+      <label>Cooldown after a loss <i>minutes</i><input id="lossCooldownMin" type="number" min="0" step="5"></label>
+      <label>When Nasdaq is shut<select id="requireCashOpen">
+        <option value="false">trade, sized down</option><option value="true">do not trade</option></select></label>
+    </div>
+  </div>
+
+  <div class="row" style="gap:10px;align-items:center;margin-top:12px">
+    <label style="width:130px">Trading armed<select id="tradingEnabled">
       <option value="false">disarmed</option><option value="true">armed</option></select></label>
-    <button id="btnLimits">Save limits</button>
+    <button id="btnLimits" class="primary">Save limits</button>
     <button id="btnReset" title="Restore the values derived from your own trade history">Reset to agreed</button>
   </div>
   <div id="limitsMean" style="margin-top:12px"></div>
@@ -3077,11 +3246,14 @@ let limitsDirty=false;
 /* The most recent status, so the settings explainer can redraw the instant a
    field is typed rather than waiting for the next poll. */
 let lastStatus=null;
+/* Set while a bracket price is being typed, so the poll does not overwrite it. */
+let liveDirty=false;
 /* Which contract the order controls point at; the server is the authority and
    this mirrors it so a request can name it explicitly rather than relying on
    server-side state that another tab may have changed. */
 let focusSymbol="";
-for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct","riskPerTradePct","maxHoldMinutes"])
+for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct",
+  "riskPerTradePct","maxHoldMinutes","minRewardRisk","breakEvenAtPct","maxTradesPerDay","lossCooldownMin"])
   $(id).addEventListener("input",()=>{limitsDirty=true; explainLimits(lastStatus);});
 $("tradingEnabled").addEventListener("change",()=>limitsDirty=true);
 $("requireCashOpen").addEventListener("change",()=>limitsDirty=true);
@@ -3267,7 +3439,35 @@ function render(s){
       "</span></div>"
     : "";
 
+  /* The open position, with its brackets editable in place.
+     Hidden when flat, so the page does not carry a dead panel most of the day.
+     The inputs are only refreshed while untouched — overwriting a half-typed
+     price once a second makes the field unusable. */
   const pr=s.protection;
+  const holding=pr.flat===false&&pr.side;
+  $("livePanel").style.display=holding?"":"none";
+  if(holding){
+    $("liveSym").textContent="— "+(s.focus||"")+" "+pr.side;
+    const pnlPct=pr.entryPrice&&pr.markPrice
+      ? ((pr.markPrice-pr.entryPrice)/pr.entryPrice*100)*(pr.side==="long"?1:-1) : null;
+    const tile=(k,v,d,col)=>'<div class="tile"><span class="k">'+k+'</span><span class="v"'+
+      (col?' style="color:'+col+'"':"")+">"+v+'</span><span class="d">'+d+"</span></div>";
+    $("liveTiles").innerHTML=
+      tile("Entry",n(pr.entryPrice),"held "+pr.heldMin+" min"+(s.limits.maxHoldMinutes?" of "+s.limits.maxHoldMinutes:""))+
+      tile("Mark",n(pr.markPrice),pnlPct===null?"—":n(pnlPct,2)+"% "+(pnlPct>=0?"ahead":"behind"),
+        pnlPct===null?null:pnlPct>=0?"var(--good)":"var(--bad)")+
+      tile("Stop",pr.stopPrice?n(pr.stopPrice):"NONE",
+        pr.stopPrice?n(pr.stopDistancePct,2)+"% away"+(pr.ratcheted?" · at break-even":""):"unprotected",
+        pr.stopPrice?(pr.ratcheted?"var(--good)":null):"var(--bad)")+
+      tile("Target",pr.targetPrice?n(pr.targetPrice):"none",
+        pr.targetPrice?n(pr.targetDistancePct,2)+"% away":"closes on the stop or the time limit",
+        pr.targetPrice?null:"var(--warn)");
+    if(document.activeElement!==$("liveStop")&&!liveDirty) $("liveStop").value=pr.stopPrice??"";
+    if(document.activeElement!==$("liveTarget")&&!liveDirty) $("liveTarget").value=pr.targetPrice??"";
+    $("liveStopHint").textContent=pr.side==="long"?"must be below "+n(pr.markPrice):"must be above "+n(pr.markPrice);
+    $("liveTargetHint").textContent=pr.side==="long"?"must be above "+n(pr.markPrice):"must be below "+n(pr.markPrice);
+  } else { liveDirty=false; }
+
   $("protNote").innerHTML =
     pr.error ? '<div class="banner warn"><b>Cannot check protection.</b><span>'+pr.error+'</span></div>'
     : pr.protected===false ? '<div class="banner bad"><b>OPEN POSITION WITH NO STOP-LOSS.</b><span>'+
@@ -3314,6 +3514,10 @@ function render(s){
     $("riskPerTradePct").value=s.limits.riskPerTradePct;
     $("maxHoldMinutes").value=s.limits.maxHoldMinutes;
     $("sizeDerateStrength").value=String(s.limits.sizeDerateStrength);
+    $("minRewardRisk").value=s.limits.minRewardRisk;
+    $("breakEvenAtPct").value=s.limits.breakEvenAtPct;
+    $("maxTradesPerDay").value=s.limits.maxTradesPerDay;
+    $("lossCooldownMin").value=s.limits.lossCooldownMin;
   }
 
   // After the fields are populated, never before: this reads the form rather
@@ -3442,7 +3646,9 @@ $("btnLimits").onclick=async()=>{
     tradingEnabled:$("tradingEnabled").value==="true",stopLossPct:+$("stopLossPct").value,
     requireCashOpen:$("requireCashOpen").value==="true",
     riskPerTradePct:+$("riskPerTradePct").value,maxHoldMinutes:+$("maxHoldMinutes").value,
-    sizeDerateStrength:+$("sizeDerateStrength").value};
+    sizeDerateStrength:+$("sizeDerateStrength").value,minRewardRisk:+$("minRewardRisk").value,
+    breakEvenAtPct:+$("breakEvenAtPct").value,maxTradesPerDay:+$("maxTradesPerDay").value,
+    lossCooldownMin:+$("lossCooldownMin").value};
   limitsDirty=false; render(await api("/api/limits",{method:"POST",body:JSON.stringify(body)}));
 };
 
@@ -3499,6 +3705,29 @@ $("btnClose").onclick=async()=>{
   if(!r.error) render(r);
 };
 
+for(const id of ["liveStop","liveTarget"]) $(id).addEventListener("input",()=>liveDirty=true);
+$("btnMoveBracket").onclick=async()=>{
+  const stopPrice=$("liveStop").value?+$("liveStop").value:undefined;
+  const targetPrice=$("liveTarget").value?+$("liveTarget").value:undefined;
+  if(stopPrice===undefined&&targetPrice===undefined){
+    $("liveOut").innerHTML='<div class="banner warn"><span>Enter a stop or a target.</span></div>'; return; }
+  $("btnMoveBracket").disabled=true;
+  const r=await api("/api/bracket",{method:"POST",body:JSON.stringify({symbol:focusSymbol,stopPrice,targetPrice})});
+  $("btnMoveBracket").disabled=false;
+  liveDirty=false;
+  $("liveOut").innerHTML=r.error
+    ?'<div class="banner bad"><b>Refused.</b><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
+    :'<div class="banner"><span>'+String(r.moved).replace(/</g,"&lt;")+"</span></div>";
+  if(!r.error) render(r);
+};
+$("btnCloseLive").onclick=async()=>{
+  if(!confirm("Close the open "+(focusSymbol||"")+" position at market?"))return;
+  const r=await api("/api/close",{method:"POST",body:JSON.stringify({symbol:focusSymbol})});
+  $("liveOut").innerHTML=r.error
+    ?'<div class="banner bad"><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
+    :'<div class="banner"><span>Closed at market.</span></div>';
+  if(!r.error) render(r);
+};
 $("btnReset").onclick=async()=>{
   if(!confirm("Put every risk setting back to the values derived from your trade history?\\n\\n"+
     "0.5% stop · 4% risk · 10x max leverage · 30 min max hold · 1 position at a time · "+
