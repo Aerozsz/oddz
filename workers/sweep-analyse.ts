@@ -88,6 +88,7 @@ interface Row {
   fundingStretched?: boolean;
   fundingCrowded?: string | null;
   eventBlackout?: boolean;
+  lateResolve?: boolean;
   signals?: string[];
   outcomes: Record<string, { mid: number | null; pct: number | null }>;
 }
@@ -109,10 +110,15 @@ const scored = rows.filter((r) => {
   const o = r.outcomes?.[key];
   return o && typeof o.pct === "number" && Number.isFinite(o.pct) && r.health === "ok";
 });
+// Rows whose horizon resolved late — the machine slept mid-window — carry a
+// forward return measured over the wrong interval. The sampler nulls those
+// outcomes, so they drop out of `scored` above; this only counts them.
+const lateRows = rows.filter((r) => r.lateResolve).length;
 
 console.log(`\n  ${IN}`);
 console.log(`  ${rows.length} rows, ${scored.length} scored at ${HORIZON}s on a healthy feed` +
-  (malformed ? `, ${malformed} unreadable` : ""));
+  (malformed ? `, ${malformed} unreadable` : "") +
+  (lateRows ? `, ${lateRows} discarded for resolving late (machine slept mid-window)` : ""));
 
 if (scored.length === 0) {
   console.log("\n  Nothing scored yet. Each row is only resolved once the horizon has elapsed,");

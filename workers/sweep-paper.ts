@@ -104,6 +104,12 @@ interface Record {
   biasConviction: number | null;
   /** Filled in later: mid at +60s, +300s, +900s, and the move in percent. */
   outcomes: Partial<Record_Outcomes>;
+  /**
+   * True when at least one horizon resolved materially later than it should
+   * have — the machine slept, or the process was starved. Those outcomes are
+   * null rather than wrong.
+   */
+  lateResolve?: boolean;
 }
 
 type Record_Outcomes = { [K in `t${(typeof HORIZONS)[number]}`]: { mid: number | null; pct: number | null } };
@@ -184,6 +190,7 @@ function take() {
   const id = `s${Date.now().toString(36)}${(seq++).toString(36)}`;
   const record = snapshotOf(state, recentSignals, id);
   recentSignals = [];
+  const takenAt = Date.now();
   pending.set(id, { record, remaining: HORIZONS.length });
 
   for (const horizon of HORIZONS) {
@@ -191,8 +198,27 @@ function take() {
       const entry = pending.get(id);
       if (!entry) return;
       const now = feed.getState();
-      const mid = now.health.tradeable ? now.mid : null;
+
+      /*
+       * Resolve by the wall clock, not by the fact that the timer fired.
+       *
+       * A setTimeout does not run during suspend — it runs when the machine
+       * wakes, however much later that is. On a laptop that sleeps overnight
+       * the 900s timer fires eight hours late, and taking the mid at that
+       * moment records an eight-hour move in a column labelled fifteen
+       * minutes. That is not a missing observation, it is a wrong one, and the
+       * analyser has no way to tell it apart from a real one — a handful of
+       * them would dominate every mean in the file.
+       *
+       * So a late resolution is recorded as null and flagged, which the
+       * analyser already filters out.
+       */
+      const elapsedSec = (Date.now() - takenAt) / 1000;
+      const late = elapsedSec > horizon + Math.max(10, horizon * 0.1);
+      const mid = !late && now.health.tradeable ? now.mid : null;
       const base = entry.record.midAtSignal;
+      if (late) entry.record.lateResolve = true;
+
       entry.record.outcomes[`t${horizon}` as keyof Record_Outcomes] = {
         mid,
         pct: mid !== null && base !== null && base > 0 ? ((mid - base) / base) * 100 : null,
@@ -216,17 +242,60 @@ feed.onState((s) => {
   }
 });
 
-function shutdown() {
+function shutdown(code = 0) {
   // Anything still waiting on a horizon is written with the outcomes it has,
   // so a run that is stopped early still yields usable rows.
   for (const { record } of pending.values()) flush(record);
   pending.clear();
   feed.close();
   console.error(`[paper] stopped — ${written} rows total in ${OUT}`);
-  process.exit(0);
+  process.exit(code);
 }
 
-for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, shutdown);
+for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, () => shutdown(0));
+
+/*
+ * This is meant to run unattended for days, and the whole plan depends on it.
+ * Node's default for an unhandled rejection is to kill the process — so one
+ * transient fetch failure inside a listener could end a two-day recording,
+ * lose every row still waiting on a horizon, and leave a window that looks
+ * like it is still working because nothing further is printed.
+ *
+ * A single throw is not a reason to stop recording, so these log loudly and
+ * carry on. Only a genuinely fatal error takes the process down, and it
+ * flushes what it has on the way out.
+ */
+let recentFaults = 0;
+setInterval(() => (recentFaults = 0), 60_000).unref?.();
+
+process.on("unhandledRejection", (reason) => {
+  recentFaults++;
+  console.error(`[paper] unhandled rejection (${recentFaults} this minute): ${reason}`);
+  // A steady stream of them means something is broken rather than flaky, and
+  // continuing would fill the file with rows taken from a feed in that state.
+  if (recentFaults > 30) {
+    console.error("[paper] too many failures — stopping and flushing what is recorded");
+    shutdown(1);
+  }
+});
+
+process.on("uncaughtException", (err) => {
+  console.error(`[paper] uncaught exception: ${err.stack ?? err.message}`);
+  shutdown(1);
+});
+
+/*
+ * A heartbeat, because silence is ambiguous. Nothing is printed while the feed
+ * is healthy and no signal fires, which looks identical to a process that has
+ * quietly stopped sampling.
+ */
+setInterval(() => {
+  const s = feed.getState();
+  console.error(
+    `[paper] alive — ${written} rows written, ${pending.size} awaiting outcomes, ` +
+      `feed ${s.health.level}${s.mid ? ` @ ${s.mid}` : ""}`,
+  );
+}, 15 * 60_000).unref?.();
 
 console.error(`[paper] recording to ${OUT}`);
 console.error(`[paper] sampling every ${SAMPLE_SEC}s — about ${Math.round(86400 / SAMPLE_SEC)} rows a day`);
