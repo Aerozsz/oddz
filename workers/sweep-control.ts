@@ -308,6 +308,15 @@ function startExecutionLoop() {
       const price = side === "BUY" ? state.bestBid : state.bestAsk;
       return price && price > 0 ? price : null;
     },
+    // Every fill goes into the mark-out tracker, which is what turns the
+    // maker-entry argument from a claim into a measurement: it reports the
+    // slippage against the mid we decided on, and how the position marked out
+    // 30s later. A maker fill that consistently marks out badly is being
+    // adversely selected, and that is worth more than the 3bp it saved.
+    onFill: (f) => {
+      getEngine().recordOwnFill(f);
+      log(`fill ${f.tag} ${f.side} ${f.notional.toFixed(0)} at ${f.price}`);
+    },
     onRecord: (r) => {
       execHistory = [r, ...execHistory].slice(0, 200);
       log(`execution ${r.outcome}: ${r.detail}`);
