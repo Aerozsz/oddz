@@ -2626,6 +2626,49 @@ const server = createServer(async (req, res) => {
   }
 });
 
+/**
+ * A port already in use, said in English.
+ *
+ * Node's default is an unhandled 'error' event and a stack trace, which is a
+ * poor way to tell someone the thing they wanted is already running. It is also
+ * the single most likely first-run failure: this program is left open in a
+ * terminal for hours, and the natural way to pick up new code is to start it
+ * again in a second window.
+ *
+ * Starting anyway on another port would be worse than failing. Two control
+ * servers against one account both reconcile the same position, both maintain
+ * its bracket, both enforce the time limit and both ratchet the stop — placing
+ * and cancelling each other's orders on a twenty-second cycle. Refusing is
+ * correct; the message is what has to be good.
+ */
+server.on("error", (err: NodeJS.ErrnoException) => {
+  if (err.code !== "EADDRINUSE") {
+    console.error(`\n  Could not start: ${err.message}\n`);
+    process.exit(1);
+  }
+  console.error("");
+  console.error(`  Port ${PORT} is already in use — this is almost certainly an older copy of`);
+  console.error("  this program still running in another window.");
+  console.error("");
+  console.error("  Stop the old one first. It will not close any position: every stop and");
+  console.error("  target rests on Binance and keeps working while nothing is running here.");
+  console.error("");
+  console.error("    Ctrl-C in the window that is already running it, or:");
+  console.error("");
+  if (process.platform === "win32") {
+    console.error(`      netstat -ano | findstr :${PORT}`);
+    console.error("      taskkill /PID <the number in the last column> /F");
+  } else {
+    console.error(`      lsof -ti tcp:${PORT} | xargs kill`);
+  }
+  console.error("");
+  console.error(`  Or run this one somewhere else:  SWEEP_CONTROL_PORT=${PORT + 1} npm run sweep:control`);
+  console.error("  — but note that two of these against one account will fight over the same");
+  console.error("  position, so only do that to watch a different one.");
+  console.error("");
+  process.exit(1);
+});
+
 server.listen(PORT, HOST, () => {
   // The file may still say armed from the last session; readLimits() has
   // already overridden it, and writing it back keeps the two in step.
