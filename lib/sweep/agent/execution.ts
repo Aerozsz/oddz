@@ -48,6 +48,17 @@ export interface ExecutionRunner {
      * broken loop rather than as a strategy that declined seven times.
      */
     declined: number;
+    /**
+     * Signals that arrived before the feed was fit to act on.
+     *
+     * Counted apart from `rejected` because they are not the same event and
+     * conflating them makes the loop look broken at every start. A rejection
+     * means an intent was formed and a rule turned it down; this means the
+     * depth baseline had not established yet, so nothing was formed, nothing
+     * was judged, and the correct behaviour was to wait. It resolves on its own
+     * within about thirty seconds of the book syncing.
+     */
+    notReady: number;
     lastAcceptedAt: number;
   };
 }
@@ -80,6 +91,7 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
   let accepted = 0;
   let rejected = 0;
   let declined = 0;
+  let notReady = 0;
 
   /**
    * Set by a strategy through `noteDecline` to explain the null it is about to
@@ -104,8 +116,14 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
     seen++;
     // Checked before the strategy runs, so a strategy cannot be written in a
     // way that depends on being consulted during an outage.
+    //
+    // Not a rejection. Nothing was proposed and nothing was refused — the feed
+    // was not yet fit to be asked, which at start-up is simply the first thirty
+    // seconds. Reporting it as a refusal put a burst of alarming lines in the
+    // log at every launch and inflated the tally of rules that turn setups
+    // away, which is the one number that has to stay trustworthy.
     if (!state.health.tradeable) {
-      reject(`feed not tradeable: ${state.health.summary}`, signal, null);
+      notReady++;
       return;
     }
 
@@ -164,7 +182,7 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
     noteDecline(reason: string) {
       lastDeclineReason = reason;
     },
-    stats: () => ({ seen, accepted, rejected, declined, lastAcceptedAt }),
+    stats: () => ({ seen, accepted, rejected, declined, notReady, lastAcceptedAt }),
   };
 }
 
