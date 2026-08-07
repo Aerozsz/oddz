@@ -860,6 +860,64 @@ async function refreshAccount() {
  * position found unprotected is covered immediately rather than reported and
  * left, because the window where it is uncovered is the risk.
  */
+/**
+ * Fill in the caps that have no sensible default, once the balance is known.
+ *
+ * maxPositionUsd and maxDailyLossUsd ship as 0, and 0 max position is a hard
+ * refusal on every setup — the safest possible default and a terrible first
+ * experience, because the system boots looking healthy and declines everything
+ * for a reason that appears nowhere until diagnostics are run. They cannot have
+ * static defaults either: the right number is a share of an account whose size
+ * is not known until the exchange answers.
+ *
+ * So they are derived here, once, from the balance and the risk settings that
+ * are already in force, and only when they are still unset. Anything the
+ * operator has actually chosen is never overwritten — a cap someone set to 500
+ * on purpose stays 500 forever, including when the balance grows.
+ */
+async function deriveUnsetCaps() {
+  const equity = account.risk?.availableBalance ?? 0;
+  if (!(equity > 0)) return;
+
+  const next = { ...limits };
+  const notes: string[] = [];
+
+  if (!(limits.maxPositionUsd > 0)) {
+    /*
+     * The structural ceiling rather than a second opinion on size.
+     *
+     * The risk budget already decides how big a position is: at 4% risk and a
+     * 0.5% stop it asks for eight times the collateral in notional. This cap
+     * sits just above that, at the most the leverage ceiling could fund, so it
+     * backstops a sizing bug without quietly becoming the thing that sets size.
+     * A cap below the risk budget would truncate every position and make the
+     * risk dial mean nothing.
+     */
+    next.maxPositionUsd = Math.round(equity * limits.maxLeverage);
+    notes.push(
+      `max position ${next.maxPositionUsd} (${limits.maxLeverage}x the ${equity.toFixed(2)} balance — ` +
+        `the ceiling, not the target; the ${limits.riskPerTradePct}% risk budget sizes below it)`,
+    );
+  }
+
+  if (!(limits.maxDailyLossUsd > 0)) {
+    // Three full stop-outs ends the day. At 4% risk that is 12% of the
+    // account: past a third of the way to the five-loss run that costs 20%,
+    // and early enough that the day can be reviewed rather than salvaged.
+    const perTrade = equity * (limits.riskPerTradePct / 100);
+    next.maxDailyLossUsd = Math.round(perTrade * 3);
+    notes.push(
+      `max daily loss ${next.maxDailyLossUsd} (three full stop-outs at ${limits.riskPerTradePct}% each)`,
+    );
+  }
+
+  if (notes.length === 0) return;
+  limits = next;
+  writeLimits(limits);
+  log(`caps were unset, so they were derived from the balance: ${notes.join("; ")}`);
+  log("change them in Risk limits — once set, they are never overwritten.");
+}
+
 async function reconcileOnStart() {
   if (!hasCredentials()) return;
   const cfg = loadConfig();
@@ -1387,6 +1445,69 @@ function wouldTrade() {
   };
 }
 
+/**
+ * Whether pressing Start trading would actually do anything.
+ *
+ * Every one of these is reported somewhere already, and that was the problem:
+ * spread across a diagnostics panel, a health dot and a refusal tally, none of
+ * which answers the only question being asked before arming. The failure this
+ * prevents is arming a system that looks healthy and then declines every setup
+ * for a reason that was knowable beforehand.
+ *
+ * Ordered by what has to be true first, so the first blocker listed is the one
+ * to fix — a cold depth baseline behind missing credentials is not worth
+ * mentioning yet.
+ */
+function readiness() {
+  const blockers: string[] = [];
+  const waiting: string[] = [];
+
+  if (!hasCredentials()) {
+    blockers.push("no API credentials — this is monitor-only until BINANCE_API_KEY and BINANCE_API_SECRET are set");
+  } else {
+    if (account.risk === null) {
+      blockers.push(`the exchange is not answering${account.error ? ` — ${account.error}` : ""}`);
+    }
+    if (orderable.symbols) {
+      const missing = SYMBOLS.filter((x) => !orderable.symbols!.has(x));
+      if (missing.length) blockers.push(`${missing.join(", ")} cannot be traded at ${orderable.venue}`);
+    }
+    if (!(limits.maxPositionUsd > 0)) blockers.push("max position is 0, which refuses every setup");
+    if (!(limits.maxDailyLossUsd > 0)) waiting.push("no daily loss cap set");
+  }
+
+  // The structural check that produced a silent, permanent zero once already.
+  const need = limits.stopLossPct * (limits.minRewardRisk > 0 ? limits.minRewardRisk : 1.5);
+  if (need > CONFIG.clusterRangePct) {
+    blockers.push(
+      `a ${limits.stopLossPct}% stop at ${limits.minRewardRisk} reward-to-risk needs a level ` +
+        `${need.toFixed(1)}% away, and levels are only mapped to ±${CONFIG.clusterRangePct}% — nothing can ever qualify`,
+    );
+  }
+
+  for (const d of allDesks()) {
+    if (!d.feed) { waiting.push(`${d.symbol}: engine stopped`); continue; }
+    const st = d.feed.getState();
+    if (!st.health.tradeable) waiting.push(`${d.symbol}: ${st.health.summary}`);
+    else if (st.liquidity && !st.liquidity.warm) waiting.push(`${d.symbol}: depth baseline still warming (about 10 min)`);
+  }
+
+  const ready = blockers.length === 0 && waiting.length === 0;
+  return {
+    ready,
+    armed: limits.tradingEnabled,
+    blockers,
+    waiting,
+    summary: blockers.length
+      ? blockers[0]
+      : waiting.length
+        ? waiting[0]
+        : limits.tradingEnabled
+          ? "armed — orders go out when a setup passes every check"
+          : "ready — press Start trading",
+  };
+}
+
 function status() {
   const desk = focused();
   const state = desk.feed?.getState() ?? null;
@@ -1423,6 +1544,7 @@ function status() {
     desks: deskSummaries(),
     focus,
     wouldTrade: wouldTrade(),
+    readiness: readiness(),
     orderVenue: {
       url: orderable.venue,
       checked: orderable.symbols !== null,
@@ -2420,6 +2542,8 @@ server.listen(PORT, HOST, () => {
     await checkOrderVenue();
     await reconcileOnStart();
     await refreshAccount();
+    // After the balance is known, because that is what they are derived from.
+    await deriveUnsetCaps();
     setInterval(() => {
       void (async () => {
         await refreshAccount();
@@ -2649,6 +2773,7 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
     <button id="btnArm" style="font-size:14px;padding:10px 20px">Start trading</button>
     <span id="armState" class="muted"></span>
   </div>
+  <div id="readyBox" style="margin-top:10px"></div>
   <div class="tiles" style="margin-top:10px">
     <div class="tile"><span class="k">Signals seen</span><span class="v" id="lSig">—</span><span class="d" id="lSigD">by the loop, since armed</span></div>
     <div class="tile"><span class="k">Orders placed</span><span class="v" id="lAcc">—</span><span class="d">accepted by every check</span></div>
@@ -2810,6 +2935,26 @@ function render(s){
       String(L.lastRefusal.reason).replace(/</g,"&lt;")+"</b>";
   }
   $("lWhy").innerHTML=why;
+
+  /* Can this be armed at all, and if not, what is in the way.
+     Everything here is reported somewhere else already — that was the problem.
+     Spread across diagnostics, a health dot and a refusal tally, none of which
+     answers the one question asked immediately before arming. */
+  const R=s.readiness;
+  if(R){
+    const esc=t=>String(t).replace(/</g,"&lt;");
+    const list=(items,label)=>items.length
+      ? '<div style="margin-top:4px"><span class="muted" style="font-size:11px">'+label+"</span>"+
+        items.map(x=>'<div style="font-size:12px">· '+esc(x)+"</div>").join("")+"</div>"
+      : "";
+    $("readyBox").innerHTML= R.ready&&R.armed
+      ? '<div class="banner"><b>Armed.</b><span>Orders go out when a setup passes every check.</span></div>'
+      : R.ready
+        ? '<div class="banner"><b>Ready.</b><span>Nothing is in the way — press Start trading.</span></div>'
+        : '<div class="banner '+(R.blockers.length?"bad":"warn")+'" style="display:block"><b>'+
+          (R.blockers.length?"Not ready to arm.":"Nearly ready — still warming up.")+"</b>"+
+          list(R.blockers,"HAS TO BE FIXED")+list(R.waiting,"WAITING ON")+"</div>";
+  }
 
   /* Would it trade right now, on the contract in focus.
      The tally below only fills once signals have fired; this answers the same
