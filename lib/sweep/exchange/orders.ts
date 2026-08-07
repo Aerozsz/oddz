@@ -1,4 +1,4 @@
-import { signedRequest, type BinanceConfig, type Position } from "./binance";
+import { fetchPosition, signedRequest, type BinanceConfig, type Position } from "./binance";
 
 /**
  * Order placement, built around one rule: a position never exists without a
@@ -26,6 +26,13 @@ export interface Order {
   closePosition: boolean;
   reduceOnly: boolean;
   quantity: number;
+  /** How much of `quantity` has actually filled. Partial fills are the norm
+   *  for a resting order, not an edge case. */
+  executedQty: number;
+  /** Average fill price, 0 until something fills. */
+  avgPrice: number;
+  /** Limit price, for a resting order. */
+  price: number;
   status: string;
 }
 
@@ -38,6 +45,9 @@ interface RawOrder {
   closePosition?: boolean;
   reduceOnly?: boolean;
   origQty?: string;
+  executedQty?: string;
+  avgPrice?: string;
+  price?: string;
   status: string;
 }
 
@@ -56,6 +66,9 @@ function toOrder(o: RawOrder): Order {
     closePosition: Boolean(o.closePosition),
     reduceOnly: Boolean(o.reduceOnly),
     quantity: num(o.origQty),
+    executedQty: num(o.executedQty),
+    avgPrice: num(o.avgPrice),
+    price: num(o.price),
     status: o.status,
   };
 }
@@ -268,6 +281,252 @@ export async function openProtectedPosition(
       `entry filled but the protective stop failed — position was closed again. Cause: ${
         err instanceof Error ? err.message : String(err)
       }`,
+    );
+  }
+}
+
+/* ---------------------------------------------------------- maker entries */
+
+export interface MakerEntryOptions {
+  /** Give up and cancel after this long. */
+  waitMs: number;
+  /** How often to check whether it filled. */
+  pollMs: number;
+  /**
+   * Abandon the order if price runs this far away from the limit, in percent.
+   *
+   * The case this exists for: the order rests, price leaves without it, and the
+   * setup that justified the entry is gone — but the order is still sitting
+   * there waiting to be filled by price coming back, which is now a different
+   * and worse trade. A resting order is a standing offer to trade at a price
+   * that made sense at the time, and the time expires.
+   */
+  abandonPct: number;
+  /**
+   * Keep a partial fill, or close it and start again.
+   *
+   * Keeping is the default. A partial fill is a real position and closing it
+   * costs a taker fee in each direction to end up flat — paying 10bp to undo
+   * the thing you paid 2bp to get. The stop is sized to whatever actually
+   * filled, so a partial is protected exactly like a full one; it is simply
+   * smaller than intended, which is the benign direction for a size error.
+   */
+  keepPartial: boolean;
+}
+
+export const DEFAULT_MAKER_ENTRY: MakerEntryOptions = {
+  // Long enough to be filled by ordinary flow, short enough that the setup is
+  // still the one that was measured. Beyond about half a minute the book has
+  // usually moved on.
+  waitMs: 20_000,
+  pollMs: 1_000,
+  abandonPct: 0.15,
+  keepPartial: true,
+};
+
+export interface MakerEntryResult {
+  /** Null when nothing filled at all. */
+  order: Order | null;
+  filledQty: number;
+  avgPrice: number;
+  /** What happened, for the log and for the operator. */
+  outcome: "filled" | "partial" | "unfilled" | "rejected" | "abandoned";
+  /** True when Binance refused the order because it would have crossed. */
+  wouldHaveCrossed: boolean;
+  reason: string;
+}
+
+/**
+ * Place an entry that rests on the book rather than crossing it.
+ *
+ * `GTX` is the mechanism and the reason this is safe: Binance rejects the order
+ * outright if it would match immediately, rather than filling it as a taker. So
+ * there is no path where this quietly becomes the expensive execution it exists
+ * to avoid — either it rests and earns the maker rate, or it is refused and the
+ * caller decides what to do about that. Silently paying 10bp when 4bp was
+ * quoted is exactly the failure worth engineering out.
+ *
+ * Nothing here places a stop. The caller does that against whatever actually
+ * filled, because the amount that fills is not known in advance.
+ */
+export async function placeMakerEntry(
+  cfg: BinanceConfig,
+  symbol: string,
+  side: Side,
+  quantity: string,
+  limitPrice: string,
+  options: Partial<MakerEntryOptions> = {},
+): Promise<MakerEntryResult> {
+  const opts = { ...DEFAULT_MAKER_ENTRY, ...options };
+
+  let order: Order;
+  try {
+    order = toOrder(
+      await signedRequest<RawOrder>(cfg, "POST", "/fapi/v1/order", {
+        symbol,
+        side,
+        type: "LIMIT",
+        // Post-only. Rejected rather than filled if it would take.
+        timeInForce: "GTX",
+        quantity,
+        price: limitPrice,
+      }),
+    );
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    // -5022 is Binance's "would immediately match" rejection, which is the
+    // post-only guarantee working rather than an error to retry blindly.
+    const crossed = message.includes("-5022") || message.toLowerCase().includes("post only");
+    return {
+      order: null,
+      filledQty: 0,
+      avgPrice: 0,
+      outcome: "rejected",
+      wouldHaveCrossed: crossed,
+      reason: crossed
+        ? `a resting order at ${limitPrice} would have crossed the spread — the book moved between pricing and sending`
+        : `entry rejected: ${message}`,
+    };
+  }
+
+  const limit = Number(limitPrice);
+  const deadline = Date.now() + opts.waitMs;
+
+  while (Date.now() < deadline) {
+    await sleep(opts.pollMs);
+    const live = await queryOrder(cfg, symbol, order.orderId);
+    order = live;
+
+    if (live.status === "FILLED") {
+      return {
+        order: live,
+        filledQty: live.executedQty,
+        avgPrice: live.avgPrice,
+        outcome: "filled",
+        wouldHaveCrossed: false,
+        reason: `filled ${live.executedQty} at ${live.avgPrice} as a maker`,
+      };
+    }
+    if (live.status === "CANCELED" || live.status === "EXPIRED" || live.status === "REJECTED") break;
+
+    // Has price left this order behind? Measured against the mark rather than
+    // the book, because the mark is what the stop and the liquidation price are
+    // referenced to and it cannot be moved by a single thin print.
+    const mark = await markPrice(cfg, symbol);
+    if (mark > 0 && limit > 0) {
+      const awayPct = ((side === "BUY" ? mark - limit : limit - mark) / limit) * 100;
+      if (awayPct > opts.abandonPct) {
+        const cancelled = await cancelAndRead(cfg, symbol, order.orderId);
+        return settle(cancelled, "abandoned",
+          `price moved ${awayPct.toFixed(2)}% away from the ${limitPrice} entry before it filled — ` +
+            `the setup this was priced against no longer exists`);
+      }
+    }
+  }
+
+  const cancelled = await cancelAndRead(cfg, symbol, order.orderId);
+  return settle(cancelled, "unfilled",
+    `not filled within ${Math.round(opts.waitMs / 1000)}s at ${limitPrice}`);
+}
+
+function settle(order: Order, ifEmpty: MakerEntryResult["outcome"], reason: string): MakerEntryResult {
+  // A cancel races the fill. Between deciding to cancel and the cancel landing,
+  // the order can fill in whole or in part, so what matters is what the
+  // exchange reports afterwards — never what was intended.
+  if (order.executedQty > 0) {
+    const full = order.executedQty >= order.quantity;
+    return {
+      order,
+      filledQty: order.executedQty,
+      avgPrice: order.avgPrice,
+      outcome: full ? "filled" : "partial",
+      wouldHaveCrossed: false,
+      reason: full
+        ? `filled ${order.executedQty} at ${order.avgPrice} just before the cancel landed`
+        : `${reason} — but ${order.executedQty} of ${order.quantity} had already filled at ${order.avgPrice}`,
+    };
+  }
+  return { order, filledQty: 0, avgPrice: 0, outcome: ifEmpty, wouldHaveCrossed: false, reason };
+}
+
+async function queryOrder(cfg: BinanceConfig, symbol: string, orderId: number): Promise<Order> {
+  return toOrder(await signedRequest<RawOrder>(cfg, "GET", "/fapi/v1/order", { symbol, orderId }));
+}
+
+/**
+ * Cancel, then read back what the exchange says the order did.
+ *
+ * The read-back is the point. A cancel that returns an error because the order
+ * already filled is not a failure, it is a fill — and treating it as a failure
+ * would leave an unprotected position, which is the one outcome this module
+ * exists to prevent.
+ */
+async function cancelAndRead(cfg: BinanceConfig, symbol: string, orderId: number): Promise<Order> {
+  try {
+    return toOrder(await signedRequest<RawOrder>(cfg, "DELETE", "/fapi/v1/order", { symbol, orderId }));
+  } catch {
+    return queryOrder(cfg, symbol, orderId);
+  }
+}
+
+async function markPrice(cfg: BinanceConfig, symbol: string): Promise<number> {
+  try {
+    const d = await signedRequest<{ markPrice: string }>(cfg, "GET", "/fapi/v1/premiumIndex", { symbol });
+    return num(d.markPrice);
+  } catch {
+    // Not knowing the mark must not abandon a resting order; the timeout still
+    // bounds it.
+    return 0;
+  }
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * A maker entry with a protective stop attached to whatever actually filled.
+ *
+ * The maker equivalent of openProtectedPosition, and it fails closed the same
+ * way. The extra hazard here is the partial fill: a position smaller than
+ * intended is still a position, and it is unprotected until the stop lands. So
+ * the stop is sized from the exchange's report of the position rather than from
+ * what was ordered.
+ */
+export async function openProtectedMakerPosition(
+  cfg: BinanceConfig,
+  symbol: string,
+  side: Side,
+  quantity: string,
+  limitPrice: string,
+  stopPct: number,
+  pricePrecision: number,
+  options: Partial<MakerEntryOptions> = {},
+): Promise<{ entry: MakerEntryResult; stop: Order | null }> {
+  const entry = await placeMakerEntry(cfg, symbol, side, quantity, limitPrice, options);
+
+  if (entry.filledQty <= 0) return { entry, stop: null };
+
+  const opts = { ...DEFAULT_MAKER_ENTRY, ...options };
+  if (entry.outcome === "partial" && !opts.keepPartial) {
+    await closePosition(cfg, symbol).catch(() => {});
+    return {
+      entry: { ...entry, reason: `${entry.reason} — partial closed again, keepPartial is off` },
+      stop: null,
+    };
+  }
+
+  try {
+    // Read the position back rather than assuming the fill size. A partial
+    // fill, or a fill that landed on top of something already open, both make
+    // "what was ordered" the wrong basis for a stop.
+    const position = await fetchPosition(cfg, symbol);
+    if (!position) throw new Error("entry reported a fill but no position is open");
+    const state = await ensureProtected(cfg, symbol, position, stopPct, pricePrecision);
+    return { entry, stop: state.stop };
+  } catch (err) {
+    await closePosition(cfg, symbol).catch(() => {});
+    throw new Error(
+      `maker entry filled ${entry.filledQty} but the protective stop failed — position was closed again. ` +
+        `Cause: ${err instanceof Error ? err.message : String(err)}`,
     );
   }
 }
