@@ -32,6 +32,7 @@ import type { Signal } from "../lib/sweep/agent";
 import {
   fetchAccountRisk,
   fetchSpotUsdt,
+  fetchTradableSymbols,
   hasCredentials,
   loadConfig,
   redact,
@@ -362,6 +363,54 @@ let account: { risk: AccountRisk | null; error: string | null; at: number } = {
 };
 let limits = readLimits();
 const fees = readFeeSchedule();
+
+/**
+ * What the order venue will accept, checked once at startup.
+ *
+ * `null` means the question has not been answered — either it has not been
+ * asked yet or asking failed — and an unanswered question is reported as
+ * unknown rather than as a pass. Claiming a symbol is tradeable because the
+ * check errored is the one wrong answer here.
+ */
+let orderable: { symbols: Set<string> | null; error: string | null; venue: string } = {
+  symbols: null,
+  error: null,
+  venue: "",
+};
+
+async function checkOrderVenue() {
+  if (!hasCredentials()) {
+    orderable = { symbols: null, error: "no credentials — order venue not checked", venue: "" };
+    return;
+  }
+  const cfg = loadConfig();
+  orderable.venue = cfg.baseUrl;
+  try {
+    orderable = { symbols: await fetchTradableSymbols(cfg), error: null, venue: cfg.baseUrl };
+    const missing = SYMBOLS.filter((s) => !orderable.symbols!.has(s));
+    if (missing.length === 0) {
+      log(`order venue ${cfg.baseUrl} lists all ${SYMBOLS.length} configured contract(s)`);
+      return;
+    }
+    /*
+     * Loud, because this is the failure that looks like nothing being wrong.
+     * The book, the signals and the sizer all come from production and will
+     * work perfectly on a contract this account cannot send an order for.
+     */
+    log(
+      `!! ${missing.join(", ")} ${missing.length === 1 ? "is" : "are"} NOT tradeable at ${cfg.baseUrl}. ` +
+        `Market data comes from production and will look completely normal, but every order on ` +
+        `${missing.length === 1 ? "it" : "them"} will be rejected. Demo lists far fewer contracts than production.`,
+    );
+  } catch (err) {
+    orderable = {
+      symbols: null,
+      error: redact(err instanceof Error ? err.message : String(err)),
+      venue: cfg.baseUrl,
+    };
+    log(`could not read the order venue's contract list: ${orderable.error}`);
+  }
+}
 
 function startEngine() {
   for (const desk of allDesks()) {
@@ -1002,6 +1051,14 @@ function status() {
     desks: deskSummaries(),
     focus,
     wouldTrade: wouldTrade(),
+    orderVenue: {
+      url: orderable.venue,
+      checked: orderable.symbols !== null,
+      error: orderable.error,
+      // Only what this run is configured for. The full list is thousands long
+      // on production and the question here is about these contracts.
+      untradeable: orderable.symbols ? SYMBOLS.filter((s) => !orderable.symbols!.has(s)) : [],
+    },
     engine: {
       running: anyRunning,
       uptimeSec: desk.startedAt ? Math.round((Date.now() - desk.startedAt) / 1000) : 0,
@@ -1555,6 +1612,30 @@ const server = createServer(async (req, res) => {
                  : (account.error ?? "no account read yet"),
           acctOk ? undefined : "npm run sweep:check names the specific cause.");
 
+        /*
+         * The check that catches a perfectly healthy monitor pointed at a
+         * contract the account cannot trade. Placed directly after the
+         * credential checks because when it fails, nothing below it matters.
+         */
+        if (orderable.symbols) {
+          const missing = SYMBOLS.filter((s) => !orderable.symbols!.has(s));
+          add("contracts tradeable here", missing.length === 0,
+            missing.length === 0
+              ? `${SYMBOLS.join(", ")} all listed at ${orderable.venue}`
+              : `${missing.join(", ")} not listed at ${orderable.venue}`,
+            missing.length === 0
+              ? undefined
+              : "Market data comes from production, so the book, the signals and the sizer will all look " +
+                "completely normal — and every order on these will be rejected. Demo lists far fewer " +
+                "contracts than production. Either drop them from SWEEP_SYMBOLS for demo testing, or test " +
+                "the order path on a contract demo does list.");
+        } else if (hasCredentials()) {
+          add("contracts tradeable here", false,
+            orderable.error ?? "not checked yet",
+            "Without this, a symbol the demo account cannot trade is indistinguishable from a quiet market.",
+            "warn");
+        }
+
         const live = allDesks().filter((d) => d.feed !== null);
         add("engines running", live.length === desks.size,
           live.length === 0
@@ -1849,6 +1930,9 @@ server.listen(PORT, HOST, () => {
   writeLimits(limits);
   startEngine();
   void (async () => {
+    // First, because it decides whether anything else can possibly work and
+    // needs no credentials to answer.
+    await checkOrderVenue();
     await reconcileOnStart();
     await refreshAccount();
     setInterval(() => {
@@ -1989,6 +2073,7 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
   <button id="btnKill" class="danger">Kill</button>
 </div>
 
+<div id="venueNote"></div>
 <div id="protNote"></div>
 <div id="execNote"></div>
 
@@ -2309,6 +2394,21 @@ function render(s){
         (apart.length?"<b>"+String(apart[0].dislocation.note).replace(/</g,"&lt;")+"</b>":"Nothing is meaningfully out of line.");
     }
   }
+
+  /* A contract this account cannot send an order for. Top of the page and red,
+     because everything else on it will look completely healthy: the book, the
+     signals and the sizer all come from production, and only the order does
+     not. Nothing about the monitor would tell you. */
+  const V=s.orderVenue;
+  $("venueNote").innerHTML = V&&V.untradeable&&V.untradeable.length
+    ? '<div class="banner bad"><b>'+V.untradeable.join(", ")+
+      (V.untradeable.length===1?" cannot be traded":" cannot be traded")+' on this account.</b><span>'+
+      V.url+" does not list "+(V.untradeable.length===1?"it":"them")+
+      ". You will still see a live book, live signals and sized proposals — market data comes from "+
+      "production regardless — and every order will be rejected. Demo lists far fewer contracts than "+
+      "production. Run <b>npm run sweep:symbols</b> to see what this account can actually trade."+
+      "</span></div>"
+    : "";
 
   const pr=s.protection;
   $("protNote").innerHTML =
