@@ -122,6 +122,11 @@ export async function signedRequest<T>(
     // naming it saves a long detour into signature debugging.
     const hint = body.includes("-1021")
       ? " (system clock is out of sync with Binance — resync NTP)"
+      : body.includes("-4411")
+        ? " (INTCUSDT is a TradFi perpetual — it tracks a stock, and Binance requires a separate " +
+          "agreement for those on top of the normal futures one. Open the INTCUSDT page in the " +
+          "Binance interface for this environment and accept the prompt, then retry. It is a " +
+          "one-off per account and cannot be done over the API.)"
       : body.includes("-2015") || body.includes("-2014")
         ? cfg.live
           ? " (key rejected: check it has Futures enabled and this IP is allowlisted)"
