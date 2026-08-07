@@ -9,6 +9,7 @@ import {
   type MakerEntryOptions,
   type Order,
 } from "./orders";
+import { classifyConstraint, type ConstraintEvent } from "./constraints";
 
 /**
  * The adapter that actually sends an order.
@@ -34,6 +35,25 @@ export interface AdapterLimits {
   lossCooldownMin: number;
   stopLossPct: number;
   tradingEnabled: boolean;
+  /**
+   * Share of free collateral held back rather than committed, in percent.
+   *
+   * The direct cause of "-2019 Margin is insufficient", and the reason this
+   * exists as a dial rather than a constant. Sizing used the whole available
+   * balance as margin: `notional = equity × leverage` is by definition the most
+   * the account can fund, so any position at that boundary rejects, because the
+   * opening commission comes out of the same balance and Binance rounds initial
+   * margin up at the applied leverage. The order was not slightly too large, it
+   * was exactly too large — and every attempt at maximum size failed for a few
+   * dollars of fee.
+   *
+   * The right amount of headroom is account-specific: it depends on the fee
+   * tier, on whether a leverage bracket quietly reduces the applied leverage,
+   * and on unrealised PnL moving the free balance between the read and the
+   * order. So it starts small and the constraint loop raises it when the venue
+   * says it is still not enough.
+   */
+  marginHeadroomPct: number;
 }
 
 export interface ExecutionRecord {
@@ -102,6 +122,21 @@ export interface BinanceAdapterOptions {
     tag: string;
   }) => void;
   onRecord?: (record: ExecutionRecord) => void;
+  /**
+   * Every venue rejection, classified, so the constraint loop can count them.
+   *
+   * Fired for the attempts that were retried as well as the one that finally
+   * failed, because a margin rejection that a smaller retry rescued is still
+   * evidence the sizing is calibrated too close to the edge — arguably the
+   * clearest evidence there is, since it says so without costing a trade.
+   */
+  onConstraint?: (event: ConstraintEvent) => void;
+  /**
+   * The venue says nothing will work until something changes outside this
+   * process. Scope is "symbol" for a per-contract permission and "all" for a
+   * key, a clock or a ban.
+   */
+  onHalt?: (scope: "halt-symbol" | "halt-all", symbol: string, reason: string) => void;
 }
 
 class Refused extends Error {}
@@ -125,8 +160,49 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
 
     async submit(intent: TradeIntent, state: AgentState) {
       const { cfg, symbol } = options;
-      const limits = options.limits();
 
+      /*
+       * One attempt, plus whatever the constraint table allows.
+       *
+       * The retry loop lives outside the body rather than around the HTTP call
+       * because most of what has to change on a retry is decided before the
+       * request: the size, the leverage, the precision. Retrying at the call
+       * site could only re-send the same bytes, which for every code in the
+       * table is either pointless or harmful.
+       */
+      let sizeScale = 1;
+      let attempt = 0;
+      // eslint-disable-next-line no-constant-condition
+      while (true) {
+        attempt++;
+        const outcome = await attemptSubmit(intent, state, sizeScale, attempt);
+        if (outcome.done) return;
+        sizeScale = outcome.nextScale;
+        // A pause before a retry that asked for one, so a rate limit is not
+        // answered by immediately spending another request against it.
+        if (outcome.waitMs > 0) await new Promise((r) => setTimeout(r, outcome.waitMs));
+      }
+    },
+  };
+
+  /**
+   * A single attempt, returning what the caller should do next.
+   *
+   * Split out so the retry policy is readable in one place and cannot
+   * accidentally re-enter the interlocks with stale numbers — every attempt
+   * re-reads limits, balance and position from the exchange, which is the whole
+   * reason a retry is safe at all.
+   */
+  async function attemptSubmit(
+    intent: TradeIntent,
+    state: AgentState,
+    sizeScale: number,
+    attempt: number,
+  ): Promise<{ done: true } | { done: false; nextScale: number; waitMs: number }> {
+    const { cfg, symbol } = options;
+    const limits = options.limits();
+
+    {
       try {
         /* ---------------------------------------------------- the interlocks */
 
@@ -177,12 +253,27 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
         const mid = state.mid;
         if (!mid || mid <= 0) throw new Refused("no price to size against");
 
-        const sized = options.size(intent, state, risk.availableBalance);
+        /*
+         * Size against what can actually be committed, not the whole balance.
+         *
+         * See marginHeadroomPct. The sizer's affordability ceiling is
+         * `equity × leverage`, which is the exact maximum the account can fund
+         * and therefore fails as soon as the opening commission is taken from
+         * the same balance. Holding a slice back turns "exactly too large" into
+         * "comfortably fundable" without changing anything about how risk is
+         * computed — the risk budget is a fraction of equity either way.
+         */
+        const headroom = Math.min(50, Math.max(0, limits.marginHeadroomPct)) / 100;
+        const committable = risk.availableBalance * (1 - headroom);
+
+        const sized = options.size(intent, state, committable);
         if (!sized) throw new Refused("sizing declined this setup");
 
         // The cap is a ceiling on the sizer, not the size itself.
-        const notional = Math.min(sized.notionalUsd, limits.maxPositionUsd);
+        let notional = Math.min(sized.notionalUsd, limits.maxPositionUsd);
         if (notional <= 0) throw new Refused("max position size is not set");
+        // Applied by the caller when a rejection asked for a smaller order.
+        notional *= sizeScale;
 
         const rawQty = notional / mid;
         const quantity = Number(rawQty.toFixed(qtyPrecision));
@@ -200,7 +291,16 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
         // Re-derive from what will actually be traded, since rounding to whole
         // contracts can push the notional above what was sized.
         const actualNotional = quantity * mid;
-        const impliedLeverage = actualNotional / Math.max(risk.availableBalance, 1e-9);
+        /*
+         * Leverage derived from the committable balance too.
+         *
+         * Against the raw balance this rounds down: a notional that needs 10.0x
+         * of everything needs 10.5x of what is actually spendable, and `ceil`
+         * of the wrong ratio hands back a leverage whose margin requirement the
+         * account cannot meet. That mismatch is the -2019 arriving from the
+         * other direction, and fixing only the sizer would have left it.
+         */
+        const impliedLeverage = actualNotional / Math.max(committable, 1e-9);
         if (impliedLeverage > limits.maxLeverage) {
           throw new Refused(
             `${quantity} contract${quantity === 1 ? "" : "s"} is ${actualNotional.toFixed(2)} of notional, ` +
@@ -241,7 +341,7 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
               outcome: "refused",
               detail: `no position opened — ${entry.reason}`,
             });
-            return;
+            return { done: true };
           }
 
           options.onFill?.({
@@ -265,7 +365,7 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
             entry: entry.order ?? undefined,
             stop: stop ?? undefined,
           });
-          return;
+          return { done: true };
         }
 
         const { entry, stop } = await openProtectedPosition(
@@ -297,22 +397,70 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
           entry,
           stop,
         });
+        return { done: true };
       } catch (err) {
         const refused = err instanceof Refused;
         const detail = err instanceof Error ? err.message : String(err);
+
+        /*
+         * A Refused is our own decision and never a venue constraint, so it is
+         * never classified and never retried. Conflating the two would send the
+         * daily loss cap through the retry machinery and shrink the order until
+         * it squeezed past a limit that exists precisely to stop the trade.
+         */
+        if (refused) {
+          record({ at: Date.now(), intentId: intent.id, outcome: "refused", detail });
+          return { done: true };
+        }
+
+        const c = classifyConstraint(err);
+        options.onConstraint?.({ at: Date.now(), symbol, kind: c.kind, code: c.code, detail });
+
+        const canRetry = attempt < c.maxAttempts;
+        const retryable =
+          c.immediate === "retry-smaller" || c.immediate === "retry-later" || c.immediate === "retry-rounded";
+
+        if (canRetry && retryable) {
+          const nextScale = c.immediate === "retry-smaller" ? sizeScale * (c.retryScale ?? 0.66) : sizeScale;
+          record({
+            at: Date.now(),
+            intentId: intent.id,
+            // Not "failed": the order is still in flight as far as this loop is
+            // concerned, and marking it failed would put a permanent error in
+            // the history for something about to succeed.
+            outcome: "refused",
+            detail:
+              `${detail}\n    → ${c.explain}\n    → retrying (attempt ${attempt + 1} of ${c.maxAttempts})` +
+              (c.immediate === "retry-smaller" ? ` at ${(nextScale * 100).toFixed(0)}% of the sized position` : ""),
+          });
+          // Rate limits and 5xx get a real pause; a resize does not need one.
+          return { done: false, nextScale, waitMs: c.immediate === "retry-later" ? 2_000 * attempt : 0 };
+        }
+
         record({
           at: Date.now(),
           intentId: intent.id,
-          outcome: refused ? "refused" : "failed",
-          detail,
+          outcome: "failed",
+          detail:
+            `${detail}\n    → ${c.explain}` +
+            (c.operatorAction ? `\n    → ${c.operatorAction}` : "") +
+            (attempt > 1 ? `\n    → gave up after ${attempt} attempts` : ""),
         });
-        // A refusal is a normal outcome and stays quiet. A failure is not:
-        // something went wrong mid-flight and openProtectedPosition may have
-        // already unwound a position, which the operator needs to see.
-        if (!refused) throw new Error(`order failed: ${detail}`);
+
+        // Halts are the venue saying nothing will work until something changes
+        // outside this process, and they are reported to the caller rather than
+        // thrown, so one unsigned agreement does not read as a crash.
+        if (c.immediate === "halt-symbol" || c.immediate === "halt-all") {
+          options.onHalt?.(c.immediate, symbol, `${c.explain}${c.operatorAction ? ` ${c.operatorAction}` : ""}`);
+          return { done: true };
+        }
+
+        // Everything else stays loud: something went wrong mid-flight and
+        // openProtectedPosition may have already unwound a position.
+        throw new Error(`order failed: ${detail}`);
       }
-    },
-  };
+    }
+  }
 }
 
 /** Close everything and cancel resting orders. The panic path. */

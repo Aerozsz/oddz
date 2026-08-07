@@ -66,6 +66,10 @@ import { appendTrade, loadTrades } from "../lib/sweep/metrics/trade-log";
 import { analyse, classifyLoss, recommendations } from "../lib/sweep/agent/learn";
 import { BOUNDS, proposeTuning, type TuneChange, type TuneEntry, type Tunable } from "../lib/sweep/agent/autotune";
 import { appendTune, appendTuneChecked, loadTuning } from "../lib/sweep/metrics/tune-log";
+import {
+  ConstraintMemory, classifyConstraint,
+  type ConstraintEvent, type ConstraintKind,
+} from "../lib/sweep/exchange/constraints";
 import { newsFor } from "../lib/sweep/metrics/news-store";
 import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
 import { attachExecution, intentId, type ExecutionRunner } from "../lib/sweep/agent";
@@ -229,6 +233,21 @@ interface Limits {
    */
   autoTune: boolean;
   /**
+   * Share of free collateral held back rather than committed, in percent.
+   *
+   * Answers "-2019 Margin is insufficient" at its cause. Sizing used the whole
+   * available balance, so `notional = equity × leverage` was exactly the most
+   * the account could fund and the opening commission pushed every maximum-size
+   * order over. Held back, the same risk arithmetic produces an order that
+   * actually fits.
+   *
+   * The right value is account-specific — fee tier, leverage brackets,
+   * unrealised PnL moving the free balance between the read and the order — so
+   * the constraint loop raises it when the venue keeps saying it is not enough,
+   * and lowers it again after a long clean run.
+   */
+  marginHeadroomPct: number;
+  /**
    * How many times the round trip a target must be worth.
    *
    * The dial that decides whether small, fast moves are tradeable at all. See
@@ -308,6 +327,9 @@ const DEFAULT_LIMITS: Limits = {
   breakEvenAtPct: 60,
   minRewardOverFees: 2,
   autoTune: false,
+  // Enough to cover a taker commission on both legs plus the exchange's own
+  // initial-margin rounding, which is what the boundary case was short of.
+  marginHeadroomPct: 5,
 };
 
 /**
@@ -1142,6 +1164,229 @@ async function recordClosedTrade(desk: Desk) {
 
 const usdShort = (x: number) => `${x < 0 ? "-" : "+"}$${Math.abs(x).toFixed(2)}`;
 
+/* ----------------------------------------------------- venue constraints */
+
+/**
+ * Rejections seen lately, and the contracts the venue has closed to us.
+ *
+ * Separate from the trade log on purpose. A rejection is not a trade — nothing
+ * was risked and nothing was learned about the market — but it is the clearest
+ * possible evidence about the *account*, and mixing the two would let a run of
+ * refused orders look like a run of losses in every statistic downstream.
+ */
+const constraints = new ConstraintMemory();
+
+/**
+ * Contracts and, at worst, the whole account, stopped by the venue.
+ *
+ * Held in memory rather than written to the limits file, because every one of
+ * these clears when something outside this process is fixed — an agreement
+ * signed, a clock synced, a ban expired — and a halt that survived a restart
+ * would keep the agent down long after the cause was gone, with no obvious way
+ * to tell why.
+ */
+const halted = new Map<string, { at: number; reason: string; scope: "symbol" | "all" }>();
+
+/**
+ * Orders accepted since the last venue rejection.
+ *
+ * The evidence that a tightened dial is no longer needed. Counted in accepted
+ * orders rather than elapsed time because a quiet week proves nothing — the
+ * constraint was never tested — while twenty accepted orders is twenty chances
+ * for it to have fired.
+ */
+let acceptedSinceRejection = 0;
+const HALT_ALL = "*";
+
+function haltFor(scope: "halt-symbol" | "halt-all", symbol: string, reason: string) {
+  const key = scope === "halt-all" ? HALT_ALL : symbol;
+  if (halted.has(key)) return;
+  halted.set(key, { at: Date.now(), reason, scope: scope === "halt-all" ? "all" : "symbol" });
+
+  if (scope === "halt-all") {
+    /*
+     * Disarm, rather than merely stopping the loops.
+     *
+     * A halt-all means a key, a clock or a ban — every signed request will fail
+     * identically until a person fixes it. Leaving the agent armed would have
+     * it re-attempt on the next signal, and against a rate-limit ban that
+     * escalates the ban itself. Disarming also makes the state visible: the
+     * button says disarmed, which is true, instead of the agent looking live
+     * while nothing it sends can succeed.
+     */
+    limits = { ...limits, tradingEnabled: false };
+    writeLimits(limits);
+    stopExecutionLoop();
+    log(`!! HALTED — trading disarmed. ${reason}`);
+  } else {
+    desks.get(symbol)?.runner?.stop();
+    if (desks.get(symbol)) desks.get(symbol)!.runner = null;
+    log(`!! ${symbol} halted — the venue will not accept orders on it. ${reason}`);
+  }
+}
+
+const haltReason = (symbol: string) => halted.get(HALT_ALL) ?? halted.get(symbol) ?? null;
+
+/**
+ * Persistent adaptation to a constraint that keeps recurring.
+ *
+ * Distinct from the outcome tuner in what it treats as evidence. A rejection is
+ * a fact about the account rather than a sample from a distribution, so this
+ * needs no confidence interval and no spacing in trades — but it does need a
+ * repeat count, because one margin rejection during a funding settlement is
+ * noise and five in six hours is a miscalibration.
+ *
+ * It writes through the same log and the same bounded-change machinery as the
+ * outcome tuner, so there is one audit trail, one history table and one undo
+ * button rather than two systems changing the same numbers by different rules.
+ */
+async function applyConstraintAdaptation(e: ConstraintEvent) {
+  const c = classifyConstraint(new Error(`{"code":${e.code}}`));
+  if (c.adaptAfter === null) return;
+  const seen = constraints.count(e.kind, undefined);
+  if (seen < c.adaptAfter) return;
+  if (!limits.autoTune) {
+    log(
+      `${e.kind} has happened ${seen} times — auto-tune is off, so nothing was changed. ` +
+        `Turn it on, or adjust the caps by hand.`,
+    );
+    return;
+  }
+
+  const change = constraintChange(e.kind, seen, limits);
+  if (!change) return;
+
+  const entry: TuneEntry = { ...change, at: Date.now(), by: "auto", tradesAt: loadTrades().records.length };
+  if (!appendTuneChecked(entry)) {
+    log(`constraint adaptation declined: could not record the change to ${change.setting}`);
+    return;
+  }
+  limits = { ...limits, [change.setting]: change.to };
+  writeLimits(limits);
+  // Cleared so the next adaptation needs a fresh run of rejections rather than
+  // re-counting the ones this change was meant to fix. Without this the same
+  // history would trip the threshold again on the very next rejection and walk
+  // the dial to its bound in a handful of orders.
+  constraints.clear(e.kind);
+  log(`ADAPTED ${change.setting}: ${change.from} → ${change.to} — ${change.reason}`);
+}
+
+/** The specific cap that answers each recurring constraint. */
+function constraintChange(kind: ConstraintKind, seen: number, now: Limits): TuneChange | null {
+  switch (kind) {
+    case "margin-short": {
+      /*
+       * More headroom, not less risk.
+       *
+       * The tempting answer is to cut riskPerTradePct, and it is the wrong one:
+       * the account is not taking too much risk, it is committing too much of
+       * its collateral as margin. Cutting risk shrinks the edge to fix an
+       * arithmetic problem, and it would have to keep cutting, because the
+       * boundary being hit is the *fraction of balance* rather than any
+       * absolute size. Raising the headroom moves the boundary and leaves the
+       * risk budget alone.
+       */
+      const to = Math.min(40, Math.round((now.marginHeadroomPct + 5) * 10) / 10);
+      if (to <= now.marginHeadroomPct) return null;
+      return {
+        setting: "marginHeadroomPct" as Tunable,
+        from: now.marginHeadroomPct,
+        to,
+        direction: "safer",
+        reason:
+          `${seen} margin rejections — ${now.marginHeadroomPct}% of free collateral held back was not ` +
+          `enough to cover the opening commission and the venue's margin rounding. At ${to}% the same risk ` +
+          `budget produces an order the account can actually fund; the risk per trade is untouched.`,
+      };
+    }
+    case "position-limit":
+    case "leverage-bracket": {
+      // Binance's brackets cap position size as leverage rises, so the durable
+      // fix is the leverage ceiling rather than a one-off smaller order.
+      const to = Math.max(3, Math.floor(now.maxLeverage * 0.7));
+      if (to >= now.maxLeverage) return null;
+      return {
+        setting: "maxLeverage" as Tunable,
+        from: now.maxLeverage,
+        to,
+        direction: "safer",
+        reason:
+          `${seen} rejections for exceeding what Binance allows at ${now.maxLeverage}x. Their brackets ` +
+          `tighten the maximum position as leverage rises, so the ceiling comes down to ${to}x — which is ` +
+          `where this account's positions were actually being capped anyway.`,
+      };
+    }
+    case "rate-limited": {
+      const to = Math.max(2, Math.floor(now.maxTradesPerDay * 0.7));
+      if (to >= now.maxTradesPerDay) return null;
+      return {
+        setting: "maxTradesPerDay" as Tunable,
+        from: now.maxTradesPerDay,
+        to,
+        direction: "safer",
+        reason:
+          `${seen} rate-limit rejections. The next step after ignoring these is an IP ban that escalates ` +
+          `from minutes to days, so the daily order ceiling comes down to ${to}.`,
+      };
+    }
+    case "order-limit": {
+      const to = Math.max(1, now.maxOpenPositions - 1);
+      if (to >= now.maxOpenPositions) return null;
+      return {
+        setting: "maxOpenPositions" as Tunable,
+        from: now.maxOpenPositions,
+        to,
+        direction: "safer",
+        reason:
+          `${seen} rejections for hitting the account's ceiling on resting stop orders. Fewer concurrent ` +
+          `positions means fewer brackets, so the ceiling on open positions comes down to ${to}.`,
+      };
+    }
+    /*
+     * Everything else is deliberately absent. A notional floor, a precision
+     * fault, an unsigned agreement and a drifted clock are all real problems
+     * that no cap change repairs, and moving a number in response would hide
+     * the cause while leaving the agent quietly smaller for good.
+     */
+    default:
+      return null;
+  }
+}
+
+/**
+ * Relax the headroom again after a long clean run.
+ *
+ * Adaptation that only ever tightens is a ratchet, and a ratchet driven by
+ * transient conditions ends at its bound. A fee-tier change, a larger balance
+ * or a symbol switch can all make yesterday's headroom unnecessary, and without
+ * this the account would keep committing 40% less collateral than it can afford
+ * for the rest of its life because of one bad afternoon.
+ *
+ * Deliberately slower to loosen than to tighten: five points up on evidence,
+ * one point down on the absence of it.
+ */
+function relaxHeadroom(acceptedSinceLastRejection: number) {
+  if (!limits.autoTune) return;
+  if (limits.marginHeadroomPct <= DEFAULT_LIMITS.marginHeadroomPct) return;
+  if (acceptedSinceLastRejection < 20) return;
+  if (constraints.count("margin-short") > 0) return;
+  const to = Math.max(DEFAULT_LIMITS.marginHeadroomPct, Math.round((limits.marginHeadroomPct - 1) * 10) / 10);
+  const entry: TuneEntry = {
+    setting: "marginHeadroomPct" as Tunable,
+    from: limits.marginHeadroomPct,
+    to,
+    direction: "riskier",
+    reason: `${acceptedSinceLastRejection} orders accepted with no margin rejection — headroom relaxed to ${to}%`,
+    at: Date.now(),
+    by: "auto",
+    tradesAt: loadTrades().records.length,
+  };
+  if (!appendTuneChecked(entry)) return;
+  limits = { ...limits, marginHeadroomPct: to };
+  writeLimits(limits);
+  log(`ADAPTED marginHeadroomPct: ${entry.from} → ${to} — ${entry.reason}`);
+}
+
 /* --------------------------------------------------------- the tuning loop */
 
 /**
@@ -1618,6 +1863,18 @@ function lastAcceptedAnywhere(): number {
 
 function armDesk(desk: Desk) {
   if (desk.runner) return;
+  /*
+   * A halted contract is not armed, however the arming was triggered.
+   *
+   * Checked here rather than only at the call sites because arming happens from
+   * several places — the button, a limits save, a restart — and a halt that
+   * only one of them respected would come back the first time any other ran.
+   */
+  const halt = haltReason(desk.symbol);
+  if (halt) {
+    log(`cannot arm ${desk.symbol}: ${halt.reason}`);
+    return;
+  }
   if (!desk.feed) {
     log(`cannot arm ${desk.symbol}: the engine is not running — start it first`);
     return;
@@ -1765,9 +2022,20 @@ function armDesk(desk: Desk) {
         desk.excursion = entryPrice > 0 ? new Excursion(entryPrice, !!long) : null;
         desk.excursionFromOpen = !!desk.excursion;
         desk.exitIntent = null;
+        acceptedSinceRejection++;
+        relaxHeadroom(acceptedSinceRejection);
       }
       log(`execution ${desk.symbol} ${r.outcome}: ${explainError(r.detail, desk.symbol)}`);
     },
+    onConstraint: (e) => {
+      constraints.record(e);
+      acceptedSinceRejection = 0;
+      // Counted first, then acted on: the adaptation reads the count, so a
+      // rejection has to be on the books before it can be the one that tips a
+      // threshold.
+      void applyConstraintAdaptation(e);
+    },
+    onHalt: (scope, symbol, reason) => haltFor(scope, symbol, reason),
   });
 
   desk.runner = attachExecution(feed, {
@@ -2391,6 +2659,7 @@ const server = createServer(async (req, res) => {
           // break-even hit rate climbs past anything this has ever measured.
           minRewardOverFees: Math.min(10, Math.max(1.2, n("minRewardOverFees", limits.minRewardOverFees))),
           autoTune: typeof body.autoTune === "boolean" ? body.autoTune : limits.autoTune,
+          marginHeadroomPct: Math.min(50, Math.max(0, n("marginHeadroomPct", limits.marginHeadroomPct))),
         };
         writeLimits(limits);
         // Written to the tuning log so the tuner sees a human touched these and
@@ -3184,6 +3453,48 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "GET /api/constraints": {
+        send(res, 200, {
+          headroomPct: limits.marginHeadroomPct,
+          summary: constraints.summary(),
+          recent: constraints.recent(15),
+          halted: [...halted.entries()].map(([key, v]) => ({
+            symbol: key === HALT_ALL ? "all contracts" : key,
+            ...v,
+          })),
+          acceptedSince: acceptedSinceRejection,
+        });
+        return;
+      }
+
+      case "POST /api/constraints/clear": {
+        /*
+         * Resume after the cause has been fixed outside this process.
+         *
+         * Every halt here is waiting on something a person does elsewhere — a
+         * signature, a clock, a ban expiring — so the agent cannot know when it
+         * is over and must not guess. Without this the only way back is a
+         * restart, which also throws away the trade context and the excursion
+         * trackers of anything still open.
+         *
+         * The rejection history is cleared with it: keeping counts accumulated
+         * before the fix would have the next stray rejection trip a threshold
+         * that the fix already answered.
+         */
+        const body = await readJson(req);
+        const which = String(body.symbol ?? "").toUpperCase();
+        if (which === "ALL" || which === "") {
+          halted.clear();
+          constraints.clear();
+          log("halts cleared by hand — re-arm when ready");
+        } else {
+          halted.delete(which);
+          log(`halt cleared for ${which} — re-arm when ready`);
+        }
+        send(res, 200, status());
+        return;
+      }
+
       case "GET /api/tuning": {
         const { entries, path } = loadTuning();
         send(res, 200, {
@@ -3730,6 +4041,21 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
     <div class="tiles" id="dayTiles" style="margin-top:10px"></div>
     <p class="note" id="acctNote"></p>
   </div>
+</div>
+
+<div class="panel">
+  <h2>What the venue refused</h2>
+  <div id="cxHalt"></div>
+  <div class="tiles">
+    <div class="tile"><span class="k">Margin headroom</span><span class="v" id="cxHead">—</span><span class="d">of free collateral kept uncommitted</span></div>
+    <div class="tile"><span class="k">Clean streak</span><span class="v" id="cxClean">—</span><span class="d">orders accepted since the last rejection</span></div>
+  </div>
+  <div id="cxSummary" style="margin-top:10px"></div>
+  <table style="margin-top:10px"><thead><tr><th style="text-align:left">When</th><th style="text-align:left">Contract</th><th style="text-align:left">What</th><th style="text-align:left">Detail</th></tr></thead>
+  <tbody id="cxRecent"><tr><td colspan="4" class="muted">nothing refused yet</td></tr></tbody></table>
+  <p class="note">Rejections are answered immediately where a retry can help, and repeats move the cap that
+  actually governs them. A clock, a key, an unsigned agreement or a ban are never answered by trading smaller —
+  they stop the agent instead, because no size works until they are fixed.</p>
 </div>
 
 <div class="panel">
@@ -4881,6 +5207,72 @@ $("tuneOn").onchange=async()=>{
   tuning();
 };
 
+const CX_LABEL={
+  "margin-short":"not enough margin",
+  "notional-floor":"order below the venue minimum",
+  "precision":"badly formed order",
+  "leverage-bracket":"leverage not allowed at this size",
+  "position-limit":"position over the venue cap",
+  "order-limit":"too many resting stop orders",
+  "trigger-side":"stop or target the wrong side of mark",
+  "post-only-rejected":"resting entry would have crossed",
+  "reduce-only":"reduce-only rejected — already flat",
+  "rate-limited":"rate limited",
+  "banned":"IP banned",
+  "not-permitted":"contract not permitted on this account",
+  "auth":"key rejected",
+  "clock":"clock drift",
+  "price-band":"price outside the venue band",
+  "wrong-endpoint":"order sent to a retired endpoint",
+  "unknown":"unrecognised rejection"
+};
+
+async function constraintsPanel(){
+  const c=await api("/api/constraints");
+  if(!c.summary) return;
+  const esc=(s)=>String(s).replace(/</g,"&lt;");
+
+  $("cxHead").textContent=c.headroomPct+"%";
+  // Amber once it has been raised above the default: not a fault, but it means
+  // the account is committing less than it could and somebody should know why.
+  $("cxHead").style.color=c.headroomPct>5?"var(--warn)":"var(--ink)";
+  $("cxClean").textContent=c.acceptedSince;
+  $("cxClean").style.color=c.acceptedSince>=20?"var(--good)":"var(--ink)";
+
+  $("cxHalt").innerHTML=(c.halted||[]).map(h=>
+    '<div class="banner critical" style="margin-bottom:8px">'+
+      '<span class="icon" style="color:var(--bad)">!!</span>'+
+      '<div><strong>'+esc(h.symbol)+' is halted.</strong>'+
+      '<div class="sub" style="margin-top:2px">'+esc(h.reason)+'</div>'+
+      '<button data-clearhalt="'+esc(h.symbol==="all contracts"?"all":h.symbol)+'" style="margin-top:8px;padding:3px 10px;font-size:11px">Fixed — clear it</button>'+
+      '</div></div>').join("");
+
+  $("cxSummary").innerHTML=(c.summary||[]).map(s=>{
+    // Red for the ones that stop everything, amber for the ones that adapt.
+    const bad=["auth","clock","banned","not-permitted"].includes(s.kind);
+    const col=bad?"var(--bad)":"var(--warn)";
+    return '<div style="display:grid;grid-template-columns:40px 1fr;gap:8px;padding:4px 0;font-size:12px;align-items:baseline">'+
+      '<span style="color:'+col+';font-weight:600;text-align:right">'+s.count+'x</span>'+
+      '<span>'+esc(CX_LABEL[s.kind]||s.kind)+' <span class="muted">· last '+ago(s.last)+'</span></span></div>';
+  }).join("")||'<p class="note" style="margin:0">No rejections in the last six hours.</p>';
+
+  const rows=c.recent||[];
+  $("cxRecent").innerHTML=rows.length?rows.map(e=>
+    "<tr><td>"+new Date(e.at).toTimeString().slice(0,8)+"</td>"+
+    "<td>"+esc(e.symbol)+"</td>"+
+    "<td>"+esc(CX_LABEL[e.kind]||e.kind)+"</td>"+
+    "<td class='muted'>"+esc(e.detail).slice(0,90)+"</td></tr>"
+  ).join(""):"<tr><td colspan='4' class='muted'>nothing refused yet</td></tr>";
+
+  for(const b of document.querySelectorAll("[data-clearhalt]")){
+    b.onclick=async()=>{
+      if(!confirm("Clear the halt on "+b.dataset.clearhalt+"? Only do this once the cause is actually fixed.")) return;
+      render(await api("/api/constraints/clear",{method:"POST",body:JSON.stringify({symbol:b.dataset.clearhalt})}));
+      constraintsPanel();
+    };
+  }
+}
+
 async function diagnose(){
   $("btnDiag").disabled=true; $("diagVerdict").textContent="checking…";
   const r=await api("/api/diagnose");
@@ -4910,5 +5302,6 @@ runs(); setInterval(runs,10000);
 // changes between position closes.
 learn(); setInterval(learn,30000);
 tuning(); setInterval(tuning,30000);
+constraintsPanel(); setInterval(constraintsPanel,10000);
 </script></body></html>`;
 }
