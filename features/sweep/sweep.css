@@ -861,3 +861,30 @@ th:first-child,
   height: 100%;
   transition: width 300ms ease-out, background 300ms linear;
 }
+
+/* Whether the projection above has ever been right. Sits between the heading
+   and the two directions because it qualifies both of them, and a qualifier
+   under the thing it qualifies is read after the damage is done. */
+.cascade-cal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  align-items: baseline;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r);
+  background: var(--plane);
+  font-size: 12px;
+}
+.cascade-cal.cold {
+  border-style: dashed;
+  opacity: 0.85;
+}
+.cascade-cal .cal-item {
+  white-space: nowrap;
+}
+.cascade-cal .cal-item b {
+  font-size: 15px;
+  margin-right: 4px;
+}

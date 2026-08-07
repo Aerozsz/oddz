@@ -3,6 +3,27 @@ import type { BookLevel, CascadeLink, CascadePath, Cluster, Direction } from "..
 import { tailDensity } from "./depth";
 
 /**
+ * The share of a cluster that fires on a touch, before confidence is applied.
+ *
+ * A floor rather than a fixed value: even a level nobody has corroborated
+ * releases something when price trades through it, because the modelled
+ * leverage it was built from is real open interest at real prices. What is
+ * uncertain is how much, not whether.
+ */
+const DISCHARGE_FLOOR = 0.35;
+
+/**
+ * How much more each hop costs once mid-sweep replenishment is charged for.
+ *
+ * Scaled by how withdrawn the book already is: a book whose quotes have been
+ * pulled is one where nobody is rushing to replace them, so a thin book pays
+ * less of this surcharge than a healthy one. That is the opposite of a
+ * conservatism knob — it makes genuinely fragile books look more fragile, and
+ * ordinary ones less.
+ */
+const REPLENISH_SURCHARGE = 0.6;
+
+/**
  * The sequence, run forward on live data.
  *
  * A seed order walks the book until it reaches the nearest amplifying cluster.
@@ -157,6 +178,15 @@ export interface CascadeInputs {
   lwiBid: number;
   lwiAsk: number;
   openInterestNotional: number;
+  /**
+   * Measured travel, as a fraction of what the model projected. 1 until there
+   * are enough outcomes to say otherwise.
+   *
+   * See cascade-outcomes.ts. This is the only correction here that is evidence
+   * rather than reasoning, and it is applied to the chain rather than to the
+   * headline so the levels and the terminal cannot disagree.
+   */
+  calibration?: number;
 }
 
 export function simulate(input: CascadeInputs, dir: Direction): CascadePath | null {
@@ -167,6 +197,23 @@ export function simulate(input: CascadeInputs, dir: Direction): CascadePath | nu
   const levels = dir === "down" ? input.bids : input.asks;
   if (levels.length < 5) return null;
   const c = cumulative(levels, mid, dir === "down" ? "bid" : "ask");
+  const calibration = clamp(input.calibration ?? 1, 0.1, 1.5);
+
+  /*
+   * Depth that arrives during the sweep, which the walk never charges for.
+   *
+   * The book is spent as a frozen snapshot: every level is consumed once and
+   * nothing replaces it. A real sweep takes seconds and quotes arrive
+   * throughout — a market maker whose bid is lifted posts another one. Charging
+   * the sweep nothing for that depth is why a chain that should stall two levels
+   * in runs to the end of the map instead.
+   *
+   * Applied as a surcharge on the cost of every hop after the first, because
+   * the first hop is the seed order and happens fast enough that replenishment
+   * has not started. It is a prior, not a measurement, and it is deliberately
+   * mild: the outcome tracker is what corrects the magnitude.
+   */
+  const replenish = 1 + REPLENISH_SURCHARGE * clamp(lwi, 0, 1);
 
   // Withdrawal does not stop at the edge of what we can see. If the visible
   // band is at 40% of its baseline, the unobservable tail is treated as thin
@@ -195,14 +242,30 @@ export function simulate(input: CascadeInputs, dir: Direction): CascadePath | nu
     if (links.length === 0) {
       // The first link is what the seed order has to pay for.
       seed = cost;
-    } else if (flow < cost) {
-      // Chain breaks: the previous discharge could not reach this level.
+    } else if (flow < cost * replenish) {
+      // Chain breaks: the previous discharge could not reach this level, once
+      // the depth that arrives mid-sweep is paid for as well.
       break;
     } else {
-      flow -= cost;
+      flow -= cost * replenish;
     }
 
-    const released = cluster.notional;
+    /*
+     * How much of the cluster actually fires when price arrives.
+     *
+     * Not all of it, and assuming otherwise is the larger of the two reasons
+     * this projection overshoots. Stops sit distributed around a level rather
+     * than stacked on it, so touching the level triggers the near side of the
+     * distribution and leaves the rest; and forced liquidations do not hit the
+     * market as one order — Binance unwinds them incrementally, which spreads
+     * the flow over time and lets quotes refill between tranches.
+     *
+     * Scaled by the cluster's own confidence for the same reason it is reported:
+     * a level inferred entirely from modelled leverage deserves less weight than
+     * one corroborated by liquidations that have actually printed there.
+     */
+    const dischargeShare = DISCHARGE_FLOOR + (1 - DISCHARGE_FLOOR) * clamp(cluster.confidence, 0, 1);
+    const released = cluster.notional * dischargeShare * calibration;
     flow += released;
     const after = priceForFlow(c, cluster.price, flow, dir, thinness);
 

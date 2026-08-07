@@ -175,6 +175,8 @@ export interface Cluster {
   distPct: number;
 }
 
+import type { CascadeCalibration } from "./metrics/cascade-outcomes";
+
 export interface CascadeLink {
   cluster: Cluster;
   /** Notional of aggressive flow needed to walk price into this cluster. */
@@ -287,6 +289,8 @@ export interface Snapshot {
   clusters: Cluster[];
   cascadeDown: CascadePath | null;
   cascadeUp: CascadePath | null;
+  /** Whether the projection above has been borne out by the tape, and by how much. */
+  cascadeCalibration: CascadeCalibration;
   liquidations: Liquidation[];
   largeTrades: Trade[];
   thinning: ThinningEvent[];

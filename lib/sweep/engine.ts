@@ -21,6 +21,7 @@ import { NO_EVENT_RISK, eventRisk, parseEnvEvents, type MarketEvent } from "./me
 import { EMPTY_FUNDING, type FundingSettlement, readFunding } from "./metrics/funding";
 import { EMPTY_MARKOUT, MarkoutTracker } from "./metrics/markout";
 import { PLACEHOLDER_SESSION, sessionState } from "./metrics/session";
+import { CascadeOutcomes, EMPTY_CALIBRATION } from "./metrics/cascade-outcomes";
 import { ParticipantTracker } from "./metrics/participants";
 import { WithdrawalTracker } from "./metrics/withdrawal";
 import type {
@@ -114,6 +115,14 @@ export class Engine {
   private minutes: Kline[] = [];
   private daily: Kline[] = [];
   private liquidations: Liquidation[] = [];
+  /**
+   * Whether the cascade projection is borne out by the tape.
+   *
+   * Lives on the engine rather than beside the simulator because it needs the
+   * one thing a pure function cannot have: memory of what was projected before,
+   * and of what price did afterwards. See metrics/cascade-outcomes.ts.
+   */
+  private readonly outcomes = new CascadeOutcomes();
   private largeTrades: Trade[] = [];
   private openInterest: Snapshot["openInterest"] = null;
   private longShortRatio: number | null = null;
@@ -438,6 +447,8 @@ export class Engine {
           positionSide: side === "SELL" ? "long" : "short",
         });
         if (this.liquidations.length > 800) this.liquidations.length = 800;
+        // Direct evidence that stops existed where a cluster said they did.
+        this.outcomes.liquidation(price * qty);
         break;
       }
       case "markPriceUpdate": {
@@ -590,6 +601,26 @@ export class Engine {
     };
 
     const now = Date.now();
+    /*
+     * Simulate, then feed the result to the outcome tracker before publishing.
+     *
+     * Order matters: the tracker arms on the projection that is about to be
+     * shown, so what gets scored is the number the operator actually saw rather
+     * than one recomputed later from a book that has since moved.
+     */
+    const calibration = this.outcomes.read();
+    const cascadeDown = mid ? simulate({ ...cascadeInput, calibration: calibration.factor }, "down") : null;
+    const cascadeUp = mid ? simulate({ ...cascadeInput, calibration: calibration.factor }, "up") : null;
+    if (mid) {
+      this.outcomes.price(mid, now);
+      for (const path of [cascadeDown, cascadeUp]) {
+        const first = path?.links[0]?.cluster;
+        if (path && first) {
+          this.outcomes.observe(path.direction, mid, first.price, path.terminalPrice, path.risk, now);
+        }
+      }
+    }
+
     this.snapshot = {
       ts: now,
       meta: this.meta,
@@ -606,8 +637,9 @@ export class Engine {
       bookBids: bids,
       bookAsks: asks,
       clusters: this.clusters,
-      cascadeDown: mid ? simulate(cascadeInput, "down") : null,
-      cascadeUp: mid ? simulate(cascadeInput, "up") : null,
+      cascadeDown,
+      cascadeUp,
+      cascadeCalibration: calibration,
       liquidations: this.liquidations.slice(0, 60),
       largeTrades: this.largeTrades.slice(0, 40),
       thinning: this.tracker.events.slice(0, 30),
@@ -652,6 +684,7 @@ export function emptySnapshot(): Snapshot {
     clusters: [],
     cascadeDown: null,
     cascadeUp: null,
+    cascadeCalibration: EMPTY_CALIBRATION,
     liquidations: [],
     largeTrades: [],
     thinning: [],
