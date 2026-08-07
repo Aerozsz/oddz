@@ -62,6 +62,24 @@ export interface BinanceAdapterOptions {
    */
   makerEntryPrice?: (side: "BUY" | "SELL") => number | null;
   makerEntry?: Partial<MakerEntryOptions>;
+  /**
+   * Called with every fill so execution quality can be measured.
+   *
+   * Without this the maker path is an unverified claim: the whole argument for
+   * resting an entry is that it costs 3bp less, and nothing would have checked
+   * whether the fills actually came in where the model said, or whether the
+   * ones that did fill were the ones we would rather have missed. `arrivalMid`
+   * is the mid at the moment of the decision, so slippage is measured against
+   * what was seen rather than against the fill itself.
+   */
+  onFill?: (fill: {
+    t: number;
+    side: "buy" | "sell";
+    price: number;
+    notional: number;
+    arrivalMid: number | null;
+    tag: string;
+  }) => void;
   onRecord?: (record: ExecutionRecord) => void;
 }
 
@@ -184,6 +202,15 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
             return;
           }
 
+          options.onFill?.({
+            t: Date.now(),
+            side: intent.side,
+            price: entry.avgPrice,
+            notional: entry.filledQty * entry.avgPrice,
+            arrivalMid: state.mid,
+            tag: `maker:${entry.outcome}`,
+          });
+
           record({
             at: Date.now(),
             intentId: intent.id,
@@ -207,6 +234,16 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
           limits.stopLossPct,
           pricePrecision,
         );
+
+        const filled = await fetchPosition(cfg, symbol);
+        options.onFill?.({
+          t: Date.now(),
+          side: intent.side,
+          price: filled?.entryPrice ?? state.mid ?? 0,
+          notional,
+          arrivalMid: state.mid,
+          tag: "taker",
+        });
 
         record({
           at: Date.now(),
