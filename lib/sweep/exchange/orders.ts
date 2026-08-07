@@ -212,6 +212,69 @@ export async function placeProtectiveStop(
   return fromAlgo(raw);
 }
 
+/**
+ * A resting order that closes the position when it reaches its target.
+ *
+ * The counterpart to the stop, and its absence was a hole with a cost. The
+ * sizer chooses a target, refuses any setup whose target does not justify the
+ * risk, and reports the reward-to-risk that follows from it — and then nothing
+ * placed an order there. A position that reached its target sat until either the
+ * time limit closed it at whatever price had arrived by then, or it round-tripped
+ * back through entry and stopped out. Every winner was being held past the point
+ * the plan said to take it.
+ *
+ * Triggered on mark price for the same reason the stop is: last price wicks on a
+ * thin book, and a target filled by a print nobody could have traded is not a
+ * fill. `closePosition` means Binance sizes the exit itself, so it stays correct
+ * if the position was partly closed by something else.
+ */
+export async function placeTakeProfit(
+  cfg: BinanceConfig,
+  symbol: string,
+  position: Position,
+  targetPrice: number,
+  pricePrecision: number,
+): Promise<Order> {
+  if (position.positionAmt === 0) throw new Error("no position to take profit on");
+  const long = position.positionAmt > 0;
+
+  // The mirror of the stop's check: a long takes profit above, a short below.
+  // Placing one on the wrong side of mark fills instantly at market, which
+  // closes the position for a loss the moment it is created.
+  if (long && targetPrice <= position.markPrice) {
+    throw new Error(`long target ${targetPrice} must be above mark ${position.markPrice}`);
+  }
+  if (!long && targetPrice >= position.markPrice) {
+    throw new Error(`short target ${targetPrice} must be below mark ${position.markPrice}`);
+  }
+
+  const raw = await signedRequest<RawAlgoOrder>(cfg, "POST", ALGO_PATH, {
+    symbol,
+    side: long ? "SELL" : "BUY",
+    algoType: "CONDITIONAL",
+    type: "TAKE_PROFIT_MARKET",
+    triggerPrice: targetPrice.toFixed(pricePrecision),
+    closePosition: true,
+    workingType: "MARK_PRICE",
+  });
+  return fromAlgo(raw);
+}
+
+/** A resting order that would close this position at a profit. */
+export function findTakeProfit(orders: Order[], position: Position): Order | null {
+  const long = position.positionAmt > 0;
+  const closingSide: Side = long ? "SELL" : "BUY";
+  return (
+    orders.find(
+      (o) =>
+        o.side === closingSide &&
+        o.type.includes("TAKE_PROFIT") &&
+        (o.closePosition || o.reduceOnly) &&
+        o.stopPrice > 0,
+    ) ?? null
+  );
+}
+
 /** A resting order that would close this position if price runs against it. */
 export function findProtectiveStop(orders: Order[], position: Position): Order | null {
   const long = position.positionAmt > 0;
@@ -231,9 +294,21 @@ export function findProtectiveStop(orders: Order[], position: Position): Order |
 export interface ProtectionState {
   position: Position | null;
   stop: Order | null;
+  /**
+   * The resting order that closes this at its target, when one exists.
+   *
+   * Separate from `protected`, and deliberately not part of it: a position
+   * without a stop is an emergency, a position without a take-profit is only
+   * leaving money on the table. Folding the second into the first would make
+   * the alarm that means "nothing will stop this losing" fire for something
+   * that is merely suboptimal, and an alarm that cries wolf stops working.
+   */
+  takeProfit: Order | null;
   protected: boolean;
   /** Distance from mark to the stop, percent. Null when unprotected or flat. */
   stopDistancePct: number | null;
+  /** Distance from mark to the target, percent. Null when there is no target. */
+  targetDistancePct: number | null;
   reason: string;
 }
 
@@ -250,16 +325,25 @@ export async function checkProtection(
   position: Position | null,
 ): Promise<ProtectionState> {
   if (!position || position.positionAmt === 0) {
-    return { position: null, stop: null, protected: true, stopDistancePct: null, reason: "flat" };
+    return {
+      position: null, stop: null, takeProfit: null, protected: true,
+      stopDistancePct: null, targetDistancePct: null, reason: "flat",
+    };
   }
   const orders = await listOpenOrders(cfg, symbol);
   const stop = findProtectiveStop(orders, position);
+  const takeProfit = findTakeProfit(orders, position);
+  const targetDistancePct = takeProfit
+    ? Math.abs((takeProfit.stopPrice - position.markPrice) / position.markPrice) * 100
+    : null;
   if (!stop) {
     return {
       position,
       stop: null,
+      takeProfit,
       protected: false,
       stopDistancePct: null,
+      targetDistancePct,
       reason: "OPEN POSITION WITH NO STOP ON THE EXCHANGE — only liquidation would close it",
     };
   }
@@ -267,9 +351,15 @@ export async function checkProtection(
   return {
     position,
     stop,
+    takeProfit,
     protected: true,
     stopDistancePct: distance,
-    reason: `stop resting at ${stop.stopPrice} (${distance.toFixed(2)}% away)`,
+    targetDistancePct,
+    reason:
+      `stop resting at ${stop.stopPrice} (${distance.toFixed(2)}% away)` +
+      (takeProfit
+        ? `, target at ${takeProfit.stopPrice} (${targetDistancePct!.toFixed(2)}% away)`
+        : ", no target resting — this closes on the stop or the time limit only"),
   };
 }
 
@@ -287,21 +377,53 @@ export async function ensureProtected(
   position: Position | null,
   stopPct: number,
   pricePrecision: number,
+  /** Where to rest the take-profit, or null when the target is not known. */
+  targetPrice: number | null = null,
 ): Promise<ProtectionState> {
   const state = await checkProtection(cfg, symbol, position);
-  if (state.protected || !state.position) return state;
+  if (!state.position) return state;
 
   const long = state.position.positionAmt > 0;
   const mark = state.position.markPrice;
-  const stopPrice = long ? mark * (1 - stopPct / 100) : mark * (1 + stopPct / 100);
-  const stop = await placeProtectiveStop(cfg, symbol, state.position, stopPrice, pricePrecision);
+  const done: string[] = [];
 
+  let stop = state.stop;
+  if (!stop) {
+    const stopPrice = long ? mark * (1 - stopPct / 100) : mark * (1 + stopPct / 100);
+    stop = await placeProtectiveStop(cfg, symbol, state.position, stopPrice, pricePrecision);
+    done.push(`placed a protective stop at ${stop.stopPrice} (${stopPct}% from mark)`);
+  }
+
+  /*
+   * The target, when one is known and none is resting.
+   *
+   * Attempted after the stop and never instead of it: if the exchange refuses
+   * the take-profit the position is still covered, so this reports the failure
+   * and carries on rather than unwinding a protected position over a missing
+   * exit. The reverse ordering would trade a real safety property for a
+   * convenience one.
+   */
+  let takeProfit = state.takeProfit;
+  if (!takeProfit && targetPrice !== null && targetPrice > 0) {
+    try {
+      takeProfit = await placeTakeProfit(cfg, symbol, state.position, targetPrice, pricePrecision);
+      done.push(`target at ${takeProfit.stopPrice}`);
+    } catch (err) {
+      done.push(`could not place the target: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  if (done.length === 0) return state;
+
+  const stopDistancePct = Math.abs((stop.stopPrice - mark) / mark) * 100;
   return {
     position: state.position,
     stop,
+    takeProfit,
     protected: true,
-    stopDistancePct: stopPct,
-    reason: `placed a protective stop at ${stop.stopPrice} (${stopPct}% from mark)`,
+    stopDistancePct,
+    targetDistancePct: takeProfit ? Math.abs((takeProfit.stopPrice - mark) / mark) * 100 : null,
+    reason: done.join("; "),
   };
 }
 
@@ -656,4 +778,164 @@ export async function closePosition(cfg: BinanceConfig, symbol: string): Promise
     quantity: Math.abs(amt).toString(),
     reduceOnly: true,
   });
+}
+
+/* ------------------------------------------------------------- exit proving */
+
+export interface ExitTestStep {
+  at: number;
+  text: string;
+}
+
+export interface ExitTestResult {
+  ok: boolean;
+  /** Which bracket actually closed the position, when one did. */
+  closedBy: "stop" | "target" | "timeout-manual" | "none";
+  entryPrice: number;
+  exitPrice: number | null;
+  stopPrice: number;
+  targetPrice: number;
+  /** Realised gap between the trigger price and the fill, in basis points. */
+  slippageBps: number | null;
+  steps: ExitTestStep[];
+}
+
+/**
+ * Prove that a stop and a take-profit actually fire.
+ *
+ * Placing a conditional order and having it trigger are different claims, and
+ * only the first has ever been observed here. The stop resting on the exchange
+ * is the property the whole design leans on — positions are deliberately left
+ * open on shutdown because the stop survives this process — and that property
+ * had never once been tested end to end. A stop that rests but does not trigger
+ * looks identical in every readout to one that works.
+ *
+ * So this opens a deliberately small position with both brackets placed
+ * unusually close to mark, and waits for the market to take one of them. It is
+ * not a simulation and not a dry run: real orders, real triggers, real fills.
+ * The tight brackets are the whole point — at ordinary distances the test would
+ * take hours and prove nothing about the mechanism.
+ *
+ * What it reports is the thing worth knowing: which bracket fired, how long it
+ * took, and how far the fill landed from the trigger. That last number is the
+ * one that does not appear anywhere else, and it is the difference between a
+ * stop that bounds a loss and a stop that merely gestures at one.
+ *
+ * Fails closed. If neither bracket fires inside the timeout the position is
+ * closed at market and reported as inconclusive, because a test that leaves an
+ * open position behind is worse than no test.
+ */
+export async function testExitPath(
+  cfg: BinanceConfig,
+  symbol: string,
+  side: Side,
+  quantity: string,
+  bracketPct: number,
+  pricePrecision: number,
+  timeoutMs = 5 * 60_000,
+): Promise<ExitTestResult> {
+  const steps: ExitTestStep[] = [];
+  const note = (text: string) => steps.push({ at: Date.now(), text });
+
+  const entry = toOrder(
+    await signedRequest<RawOrder>(cfg, "POST", "/fapi/v1/order", { symbol, side, type: "MARKET", quantity }),
+  );
+  note(`entry filled: ${side} ${quantity} ${symbol}`);
+
+  let position = await fetchPosition(cfg, symbol);
+  if (!position) {
+    note("entry reported filled but no position exists — nothing to test");
+    return {
+      ok: false, closedBy: "none", entryPrice: entry.avgPrice, exitPrice: null,
+      stopPrice: 0, targetPrice: 0, slippageBps: null, steps,
+    };
+  }
+
+  const long = position.positionAmt > 0;
+  const mark = position.markPrice;
+  const stopPrice = long ? mark * (1 - bracketPct / 100) : mark * (1 + bracketPct / 100);
+  const targetPrice = long ? mark * (1 + bracketPct / 100) : mark * (1 - bracketPct / 100);
+
+  let stop: Order;
+  try {
+    stop = await placeProtectiveStop(cfg, symbol, position, stopPrice, pricePrecision);
+    note(`stop resting at ${stop.stopPrice}`);
+  } catch (err) {
+    // The position is naked, so it goes now rather than staying open while a
+    // test result is assembled.
+    note(`stop REJECTED: ${err instanceof Error ? err.message : String(err)} — closing the position`);
+    await closePosition(cfg, symbol);
+    return {
+      ok: false, closedBy: "none", entryPrice: position.entryPrice, exitPrice: null,
+      stopPrice, targetPrice, slippageBps: null, steps,
+    };
+  }
+
+  let target: Order | null = null;
+  try {
+    target = await placeTakeProfit(cfg, symbol, position, targetPrice, pricePrecision);
+    note(`target resting at ${target.stopPrice}`);
+  } catch (err) {
+    note(`target REJECTED: ${err instanceof Error ? err.message : String(err)} — the stop still stands`);
+  }
+
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    await sleep(3_000);
+    position = await fetchPosition(cfg, symbol);
+    if (position && position.positionAmt !== 0) continue;
+
+    // Flat. Which bracket did it, and at what price — read from the trade
+    // ledger rather than inferred, because inferring it from the last mark is
+    // how a stop that filled 40bp away gets recorded as having filled at its
+    // trigger.
+    const fills = await signedRequest<{ price: string; qty: string; time: number; side: string }[]>(
+      cfg, "GET", "/fapi/v1/userTrades", { symbol, limit: 20 },
+    ).catch(() => []);
+    const closing = fills.filter((f) => f.side !== side).sort((a, b) => b.time - a.time)[0];
+    const exitPrice = closing ? num(closing.price) : null;
+    const nearer =
+      exitPrice === null
+        ? null
+        : Math.abs(exitPrice - stopPrice) <= Math.abs(exitPrice - targetPrice)
+          ? ("stop" as const)
+          : ("target" as const);
+    const trigger = nearer === "stop" ? stopPrice : targetPrice;
+    const slippageBps =
+      exitPrice !== null && trigger > 0 ? ((exitPrice - trigger) / trigger) * 10_000 : null;
+    note(
+      `position closed by the ${nearer ?? "exchange"}` +
+        (exitPrice !== null ? ` at ${exitPrice} (trigger ${trigger.toFixed(pricePrecision)})` : ""),
+    );
+
+    // Whichever one did not fire is still resting and would open a new position
+    // in the opposite direction if it triggered later. closePosition orders are
+    // cancelled automatically by Binance, but not instantly, and not verifying
+    // that is how a test leaves a live order behind.
+    for (const o of await listOpenOrders(cfg, symbol)) {
+      await cancelOrder(cfg, symbol, o.orderId, o.isAlgo).catch(() => {});
+      note(`cancelled the leftover ${o.type}`);
+    }
+
+    return {
+      ok: nearer !== null,
+      closedBy: nearer ?? "none",
+      entryPrice: entry.avgPrice || 0,
+      exitPrice,
+      stopPrice,
+      targetPrice,
+      slippageBps,
+      steps,
+    };
+  }
+
+  note(`neither bracket fired within ${Math.round(timeoutMs / 60_000)} min — closing at market`);
+  await closePosition(cfg, symbol);
+  for (const o of await listOpenOrders(cfg, symbol)) {
+    await cancelOrder(cfg, symbol, o.orderId, o.isAlgo).catch(() => {});
+  }
+  return {
+    ok: false, closedBy: "timeout-manual", entryPrice: entry.avgPrice || 0, exitPrice: null,
+    stopPrice, targetPrice, slippageBps: null, steps,
+  };
 }

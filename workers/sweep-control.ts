@@ -22,7 +22,7 @@
 import { readHeartbeat } from "./heartbeat";
 import { loadEnv } from "./load-env";
 import { randomBytes } from "node:crypto";
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, resolve } from "node:path";
 import { attachCalendar } from "../lib/sweep/metrics/event-store";
@@ -46,11 +46,14 @@ import { directionalBias } from "../lib/sweep/agent/bias";
 import { DEFAULT_FEES, type FeeSchedule, canPostEntry, parseFeeTiers } from "../lib/sweep/metrics/fees";
 import { DislocationTracker, EMPTY_DISLOCATION } from "../lib/sweep/metrics/dislocation";
 import {
+  cancelOrder,
   checkProtection,
   closePosition,
+  placeProtectiveStop,
   ensureProtected,
   openProtectedPosition,
   setLeverage,
+  testExitPath,
   type ProtectionState,
 } from "../lib/sweep/exchange/orders";
 import { fetchPosition } from "../lib/sweep/exchange/binance";
@@ -162,6 +165,18 @@ interface Limits {
    * costs, which is a different question from how much conviction to size with.
    */
   sizeDerateStrength: number;
+  /**
+   * Move the stop to break-even once the position is this far to its target,
+   * in percent of the distance. Zero disables it.
+   *
+   * 60 is not arbitrary. At a 1.2 reward-to-risk the target sits 1.2 stops away,
+   * so 60% of the way there is 0.72 stops of open profit — comfortably past the
+   * noise the stop was widened to sit outside of, and far enough that a reversal
+   * from here is information rather than a wiggle. Lower and it scratches
+   * healthy trades on ordinary retracement; higher and most winners never reach
+   * it, which is the same as not having it.
+   */
+  breakEvenAtPct: number;
 }
 
 /*
@@ -232,6 +247,7 @@ const DEFAULT_LIMITS: Limits = {
   maxHoldMinutes: 30,
   riskPerTradePct: 4,
   sizeDerateStrength: 0.5,
+  breakEvenAtPct: 60,
 };
 
 /**
@@ -334,6 +350,14 @@ interface Desk {
    * moment the program comes back, not holding it a little longer.
    */
   positionOpenedAt: number;
+  /**
+   * The target from the most recent sizing, held until the execution record
+   * that follows it arrives. The adapter reports what happened but not what was
+   * intended, and the take-profit needs the second.
+   */
+  pendingTarget: number | null;
+  /** When the stop was moved to break-even, so it happens at most once. */
+  ratchetedAt: number;
 }
 
 function newDesk(symbol: string): Desk {
@@ -349,6 +373,8 @@ function newDesk(symbol: string): Desk {
     day: { activity: null, error: null, at: 0 },
     protection: { state: null, error: null, at: 0 },
     positionOpenedAt: 0,
+    pendingTarget: null,
+    ratchetedAt: 0,
   };
 }
 
@@ -473,6 +499,87 @@ function stopEngine() {
   }
 }
 
+/* ------------------------------------------------------- position journal */
+
+/**
+ * What this process knew about a position, kept on disk so a restart does not
+ * forget it.
+ *
+ * Everything that matters about an open position lives on the exchange — the
+ * entry, the stop, the target — and that is deliberate, because orders survive
+ * a crash and intentions do not. But three things never make it onto the
+ * exchange: when the position was opened, what target the sizer had chosen, and
+ * which reasoning produced it. Without them a restart re-protects the position
+ * and then manages it wrongly: the thirty-minute time stop starts counting from
+ * the restart rather than the entry, so a position already past its limit gets
+ * a fresh half hour, and a target that was never placed as an order is simply
+ * lost.
+ *
+ * Written when a position is first seen, cleared when it goes flat, and read
+ * once at startup. Small enough that a torn write is the only real failure
+ * mode, which the tmp-and-rename handles.
+ */
+interface JournalEntry {
+  symbol: string;
+  openedAt: number;
+  side: "long" | "short";
+  entryPrice: number;
+  /** Where the sizer wanted to take profit. Null when it had no target. */
+  targetPrice: number | null;
+  stopPct: number;
+  reason: string;
+  updatedAt: number;
+}
+
+const JOURNAL_PATH = resolve(process.env.SWEEP_JOURNAL ?? "data/sweep-positions.json");
+
+function readJournal(): Record<string, JournalEntry> {
+  if (!existsSync(JOURNAL_PATH)) return {};
+  try {
+    const parsed = JSON.parse(readFileSync(JOURNAL_PATH, "utf8")) as Record<string, JournalEntry>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    // A corrupt journal must not stop the program: the exchange is still the
+    // authority on what is open, and the journal only adds context to it.
+    log("position journal unreadable — continuing without the remembered context");
+    return {};
+  }
+}
+
+function writeJournal(next: Record<string, JournalEntry>) {
+  try {
+    mkdirSync(dirname(JOURNAL_PATH), { recursive: true });
+    const tmp = `${JOURNAL_PATH}.tmp`;
+    writeFileSync(tmp, `${JSON.stringify(next, null, 2)}\n`);
+    renameSync(tmp, JOURNAL_PATH);
+  } catch (err) {
+    log(`could not write the position journal: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
+let journal: Record<string, JournalEntry> = {};
+
+/** Remember what the sizer intended, so a restart can carry on managing it. */
+function journalOpen(symbol: string, entry: Omit<JournalEntry, "symbol" | "updatedAt">) {
+  journal[symbol] = { ...entry, symbol, updatedAt: Date.now() };
+  writeJournal(journal);
+}
+
+function journalClose(symbol: string) {
+  if (!journal[symbol]) return;
+  delete journal[symbol];
+  writeJournal(journal);
+}
+
+/**
+ * The target the loop last chose for a symbol, from memory or from disk.
+ *
+ * Used to re-place a take-profit that a restart would otherwise lose, and to
+ * decide nothing when there was never a target — a position opened manually has
+ * none, and inventing one would be worse than leaving it on the time stop.
+ */
+const journalTarget = (symbol: string): number | null => journal[symbol]?.targetPrice ?? null;
+
 /* -------------------------------------------------- account-wide day counters */
 
 /**
@@ -543,12 +650,110 @@ function concurrencyBlock(symbol: string): string | null {
  *
  * Zero disables it.
  */
+/**
+ * Keep every open position under a full bracket, and take the winners.
+ *
+ * Runs on the same sweep as the time stop, because the three failures it covers
+ * all present the same way — a position that stays open when it should not.
+ *
+ *  - No target resting. The commonest and most expensive: the sizer picks a
+ *    target, refuses setups whose target does not justify the risk, and until
+ *    now nothing ever placed an order there. Winners rode to the time limit and
+ *    were closed at whatever price had arrived, or round-tripped through entry
+ *    and stopped out.
+ *  - No stop resting. Covered on startup already; covered here too because a
+ *    stop can be cancelled by hand, and the window between noticing and fixing
+ *    it should be one sweep rather than one restart.
+ *  - The give-back. A position that reaches most of the way to its target and
+ *    then reverses to the stop turns a winner into a full loss. Once it has
+ *    travelled far enough, the stop moves to break-even plus the round trip, so
+ *    the worst case becomes a scratch instead.
+ */
+async function maintainBrackets() {
+  if (!hasCredentials()) return;
+  const cfg = loadConfig();
+  for (const desk of allDesks()) {
+    const state = desk.protection.state;
+    const pos = state?.position;
+    if (!pos || pos.positionAmt === 0) continue;
+
+    const target = journalTarget(desk.symbol);
+    const precision = metaFor(desk.symbol)?.pricePrecision ?? 2;
+
+    // Re-place anything missing from the bracket.
+    if (!state.protected || (target !== null && !state.takeProfit)) {
+      try {
+        const fixed = await ensureProtected(cfg, desk.symbol, pos, limits.stopLossPct, precision, target);
+        desk.protection = { state: fixed, error: null, at: Date.now() };
+        log(`bracket ${desk.symbol}: ${fixed.reason}`);
+      } catch (err) {
+        log(`bracket ${desk.symbol} FAILED: ${redact(err instanceof Error ? err.message : String(err))}`);
+      }
+      continue; // next sweep reads the repaired state before ratcheting on it
+    }
+
+    /*
+     * The break-even ratchet.
+     *
+     * Only ever moves the stop toward the entry, never away from it, and only
+     * once. Moving a stop further out is how a bounded loss becomes an
+     * unbounded one, and it is the single most common way a disciplined exit
+     * plan is abandoned in the moment — so the direction is enforced here
+     * rather than trusted.
+     *
+     * The new level is entry plus the full round trip, not entry itself: a stop
+     * exactly at entry still loses the fees both ways, which on this frequency
+     * is most of what a scratch trade costs.
+     */
+    if (!limits.breakEvenAtPct || desk.ratchetedAt) continue;
+    if (target === null) continue;
+
+    const long = pos.positionAmt > 0;
+    const entryPrice = pos.entryPrice;
+    const totalMove = Math.abs(target - entryPrice);
+    if (!(totalMove > 0)) continue;
+    const travelled = long ? pos.markPrice - entryPrice : entryPrice - pos.markPrice;
+    const progress = travelled / totalMove;
+    if (progress < limits.breakEvenAtPct / 100) continue;
+
+    // Round trip in price terms, so the scratch is genuinely flat after fees.
+    const feePct = (fees.tiers[0]?.takerRate ?? 0.0005) * 2 * 100;
+    const beStop = long ? entryPrice * (1 + feePct / 100) : entryPrice * (1 - feePct / 100);
+    const current = state.stop?.stopPrice ?? 0;
+    const improves = long ? beStop > current : beStop < current;
+    if (!improves) {
+      desk.ratchetedAt = Date.now();
+      continue;
+    }
+    // Refuse to place a stop the wrong side of mark — it would fill instantly
+    // at market, closing the position at whatever the book offers.
+    if (long ? beStop >= pos.markPrice : beStop <= pos.markPrice) continue;
+
+    try {
+      if (state.stop) await cancelOrder(cfg, desk.symbol, state.stop.orderId, state.stop.isAlgo);
+      const moved = await placeProtectiveStop(cfg, desk.symbol, pos, beStop, precision);
+      desk.ratchetedAt = Date.now();
+      log(
+        `RATCHET ${desk.symbol}: ${(progress * 100).toFixed(0)}% of the way to target, ` +
+          `stop moved to break-even + fees at ${moved.stopPrice} — this can no longer be a losing trade`,
+      );
+      await refreshAccount();
+    } catch (err) {
+      // The old stop may already be cancelled, so the next sweep's repair pass
+      // is what covers this rather than a retry here.
+      log(`ratchet ${desk.symbol} FAILED: ${redact(err instanceof Error ? err.message : String(err))}`);
+    }
+  }
+}
+
 async function enforceMaxHold() {
   if (!limits.maxHoldMinutes || !hasCredentials()) return;
   for (const desk of allDesks()) {
     const pos = desk.protection.state?.position;
     if (!pos || pos.positionAmt === 0) {
+      if (desk.positionOpenedAt) journalClose(desk.symbol);
       desk.positionOpenedAt = 0;
+      desk.ratchetedAt = 0;
       continue;
     }
     if (!desk.positionOpenedAt) {
@@ -627,28 +832,111 @@ async function refreshAccount() {
 async function reconcileOnStart() {
   if (!hasCredentials()) return;
   const cfg = loadConfig();
-  for (const desk of allDesks()) {
+  journal = readJournal();
+
+  /*
+   * Every position the account holds, not every desk configured.
+   *
+   * These are different sets and the difference is the dangerous part. A
+   * position can outlive the configuration that opened it — SWEEP_SYMBOLS
+   * edited between runs, a contract dropped, a manual order on something else
+   * entirely — and a reconciliation that only walks the current desks leaves
+   * exactly those positions unprotected and unmanaged, silently, because
+   * nothing is looking at them. The exchange is asked what is open, and that
+   * answer governs.
+   */
+  let held: string[] = [];
+  try {
+    const risk = await fetchAccountRisk(cfg);
+    held = risk.openPositions.filter((p) => p.positionAmt !== 0).map((p) => p.symbol);
+  } catch (err) {
+    log(`startup: could not read the account — ${redact(err instanceof Error ? err.message : String(err))}`);
+  }
+  const symbols = [...new Set([...SYMBOLS, ...held, ...Object.keys(journal)])];
+
+  for (const symbol of symbols) {
+    const desk = desks.get(symbol) ?? null;
     try {
-      const position = await fetchPosition(cfg, desk.symbol);
+      const position = await fetchPosition(cfg, symbol);
       if (!position) {
-        log(`startup: flat on ${desk.symbol}, nothing to reconcile`);
+        // A journal entry with no position means it closed while this was down.
+        if (journal[symbol]) {
+          log(`startup: ${symbol} closed while this was not running — clearing its journal entry`);
+          journalClose(symbol);
+        }
+        if (desk) {
+          desk.positionOpenedAt = 0;
+          log(`startup: flat on ${symbol}, nothing to reconcile`);
+        }
         continue;
       }
-      log(`startup: found an open position of ${position.positionAmt} ${desk.symbol}`);
-      const before = await checkProtection(cfg, desk.symbol, position);
-      if (before.protected) {
-        log(`startup: ${before.reason}`);
-        desk.protection = { state: before, error: null, at: Date.now() };
-        continue;
+
+      const remembered = journal[symbol];
+      if (!desk) {
+        // Held, but nothing is watching it. Protect it and say so loudly —
+        // the time stop and the loop only run for configured desks, so this
+        // position will sit on its stop until someone acts.
+        log(
+          `!! startup: holding ${position.positionAmt} ${symbol}, which is NOT in SWEEP_SYMBOLS. ` +
+            `It will be protected but not managed — no time stop, no target, no loop. ` +
+            `Add it to SWEEP_SYMBOLS or close it.`,
+        );
+      } else {
+        log(`startup: found an open position of ${position.positionAmt} ${symbol}`);
       }
-      log(`startup: ${before.reason} — placing one now`);
-      const after = await ensureProtected(cfg, desk.symbol, position, limits.stopLossPct, 2);
-      log(`startup: ${after.reason}`);
-      desk.protection = { state: after, error: null, at: Date.now() };
+
+      const before = await checkProtection(cfg, symbol, position);
+      const target = remembered?.targetPrice ?? null;
+      const needsWork = !before.protected || (target !== null && !before.takeProfit);
+      const state = needsWork
+        ? await ensureProtected(cfg, symbol, position, limits.stopLossPct, 2, target)
+        : before;
+      log(`startup: ${state.reason}`);
+      if (desk) desk.protection = { state, error: null, at: Date.now() };
+
+      /*
+       * The hold clock continues from the original entry rather than restarting.
+       *
+       * The previous behaviour gave an inherited position a fresh clock, on the
+       * argument that closing something the instant the program returns is the
+       * wrong way to be wrong. That argument holds when nothing is known about
+       * the position; it does not hold when the journal says exactly when it
+       * opened. A position already past the time limit is the one the data says
+       * loses money, and handing it another half hour because the process
+       * restarted is the failure the limit exists to prevent.
+       */
+      if (desk) {
+        if (remembered?.openedAt) {
+          const heldMin = Math.round((Date.now() - remembered.openedAt) / 60_000);
+          desk.positionOpenedAt = remembered.openedAt;
+          log(
+            `startup: ${symbol} has been open ${heldMin} min` +
+              (limits.maxHoldMinutes && heldMin >= limits.maxHoldMinutes
+                ? ` — past the ${limits.maxHoldMinutes} min limit, so it closes on the next sweep`
+                : limits.maxHoldMinutes
+                  ? ` of a ${limits.maxHoldMinutes} min limit`
+                  : ""),
+          );
+        } else {
+          // No journal entry: opened by hand, or by a build that predates this.
+          // Starting the clock now is the only defensible choice, and it is
+          // worth saying so rather than letting it look like a known age.
+          desk.positionOpenedAt = Date.now();
+          log(`startup: ${symbol} has no recorded open time — the time limit starts from now`);
+        }
+        journalOpen(symbol, {
+          openedAt: desk.positionOpenedAt,
+          side: position.positionAmt > 0 ? "long" : "short",
+          entryPrice: position.entryPrice,
+          targetPrice: target,
+          stopPct: limits.stopLossPct,
+          reason: remembered?.reason ?? "recovered at startup",
+        });
+      }
     } catch (err) {
       const message = redact(err instanceof Error ? err.message : String(err));
-      log(`startup reconciliation FAILED (${desk.symbol}): ${message}`);
-      desk.protection = { state: null, error: message, at: Date.now() };
+      log(`startup reconciliation FAILED (${symbol}): ${message}`);
+      if (desk) desk.protection = { state: null, error: message, at: Date.now() };
     }
   }
 }
@@ -782,6 +1070,7 @@ function armDesk(desk: Desk) {
         log(`sizer declined (${desk.symbol}): ${proposal.reasons.join("; ")}`);
         return null;
       }
+      desk.pendingTarget = proposal.targetPrice;
       return {
         notionalUsd: proposal.notionalUsd,
         stopPct: proposal.stopDistancePct,
@@ -819,6 +1108,20 @@ function armDesk(desk: Desk) {
     },
     onRecord: (r) => {
       desk.execHistory = [r, ...desk.execHistory].slice(0, 200);
+      // Remember the target the sizer chose. It is not on the exchange yet and
+      // it is not derivable from the position, so if this is not written down
+      // now a restart loses it and the position runs to the time stop instead.
+      if (r.outcome === "submitted" && desk.pendingTarget !== null) {
+        journalOpen(desk.symbol, {
+          openedAt: Date.now(),
+          side: r.entry?.side === "BUY" ? "long" : "short",
+          entryPrice: r.entry?.avgPrice ?? 0,
+          targetPrice: desk.pendingTarget,
+          stopPct: limits.stopLossPct,
+          reason: r.detail.slice(0, 200),
+        });
+        desk.positionOpenedAt = Date.now();
+      }
       // The account-wide clock starts when an entry actually reached the
       // exchange, not when one was proposed — a refused or failed submission
       // has not spent anything and must not pace the other desks.
@@ -1349,6 +1652,7 @@ const server = createServer(async (req, res) => {
           // under full Kelly and far above anything sensible to run.
           riskPerTradePct: Math.min(25, Math.max(0.01, n("riskPerTradePct", limits.riskPerTradePct))),
           sizeDerateStrength: Math.min(1, Math.max(0, n("sizeDerateStrength", limits.sizeDerateStrength))),
+          breakEvenAtPct: Math.min(100, Math.max(0, n("breakEvenAtPct", limits.breakEvenAtPct))),
         };
         writeLimits(limits);
         log(`limits updated: ${JSON.stringify(limits)}`);
@@ -1505,6 +1809,78 @@ const server = createServer(async (req, res) => {
         } catch (err) {
           const message = err instanceof Error ? redact(err.message) : String(err);
           log(`MANUAL ORDER failed (${symbol}): ${message}`);
+          send(res, 200, { error: message });
+        }
+        return;
+      }
+
+      case "POST /api/testexit": {
+        /*
+         * Prove the brackets fire, rather than assuming they do because they
+         * were accepted.
+         *
+         * Every readout in this program reports a resting stop as protection.
+         * None of them has ever observed one trigger. Those are different
+         * claims, and the whole design — leaving positions open on shutdown
+         * because the stop lives on the exchange — rests on the second one.
+         *
+         * This opens a small real position with both brackets unusually close
+         * to mark so the market takes one within minutes, then reports which
+         * fired and how far the fill landed from the trigger. Interlocks that
+         * bound a mistake still apply; the ones that decide whether a setup is
+         * worth taking do not, because this is not a setup.
+         */
+        const body = await readJson(req);
+        if (!hasCredentials()) { send(res, 200, { error: "no API credentials" }); return; }
+        const desk = deskFor(body.symbol);
+        const symbol = desk.symbol;
+
+        const notional = Math.max(0, Number(body.notionalUsd) || 0);
+        const bracketPct = Math.min(2, Math.max(0.02, Number(body.bracketPct) || 0.1));
+        if (notional <= 0) { send(res, 200, { error: "enter a size" }); return; }
+        if (limits.maxPositionUsd > 0 && notional > limits.maxPositionUsd) {
+          send(res, 200, { error: `${notional} exceeds the ${limits.maxPositionUsd} max position` });
+          return;
+        }
+        const blocked = concurrencyBlock(symbol);
+        if (blocked) { send(res, 200, { error: blocked }); return; }
+
+        const st = desk.feed?.getState() ?? null;
+        const price = st?.mark ?? st?.mid ?? 0;
+        if (!price) { send(res, 200, { error: "no price yet — start the engine and wait for the book" }); return; }
+
+        try {
+          const cfg2 = loadConfig();
+          if (await fetchPosition(cfg2, symbol)) {
+            send(res, 200, { error: `already holding ${symbol} — close it first` });
+            return;
+          }
+          const qp = metaFor(symbol)?.quantityPrecision ?? 0;
+          const qty = Number((notional / price).toFixed(qp));
+          if (!(qty > 0)) {
+            send(res, 200, { error: `${notional} is below the smallest tradable size at ${price.toFixed(2)}` });
+            return;
+          }
+          await setLeverage(cfg2, symbol, Math.min(limits.maxLeverage, 2));
+          log(`EXIT TEST ${symbol}: ${qty} with brackets ${bracketPct}% either side — waiting for one to fire`);
+          const result = await testExitPath(
+            cfg2, symbol, body.side === "short" ? "SELL" : "BUY", String(qty),
+            bracketPct, metaFor(symbol)?.pricePrecision ?? 2,
+            Math.min(15, Math.max(1, Number(body.timeoutMin) || 5)) * 60_000,
+          );
+          for (const step of result.steps) log(`  exit test: ${step.text}`);
+          log(
+            result.ok
+              ? `EXIT TEST PASSED — the ${result.closedBy} fired` +
+                (result.slippageBps !== null ? `, filling ${result.slippageBps.toFixed(1)}bp from its trigger` : "")
+              : `EXIT TEST INCONCLUSIVE — ${result.closedBy}`,
+          );
+          journalClose(symbol);
+          await refreshAccount();
+          send(res, 200, { ok: result.ok, result, ...status() });
+        } catch (err) {
+          const message = err instanceof Error ? redact(err.message) : String(err);
+          log(`EXIT TEST failed (${symbol}): ${message}`);
           send(res, 200, { error: message });
         }
         return;
@@ -2016,6 +2392,7 @@ server.listen(PORT, HOST, () => {
     setInterval(() => {
       void (async () => {
         await refreshAccount();
+        await maintainBrackets();
         await enforceMaxHold();
       })();
     }, 20_000).unref?.();
@@ -2297,6 +2674,7 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
     <label style="width:120px">Stop (%)<input id="pvStopPct" type="number" min="0.1" step="0.1" value="3"></label>
     <button id="btnPlace" style="border-color:var(--warn);color:var(--warn)">Place this order</button>
     <button id="btnClose">Close position</button>
+    <button id="btnExitTest" title="Opens a small position with tight brackets and waits for one to fire">Prove the exits fire</button>
   </div>
   <div id="pvOut" style="margin-top:12px"><span class="muted">Enter a size and press Preview.</span></div>
   <p class="note"><b>Place this order</b> sends a real order now, bypassing the strategy, the bias and the sizer —
@@ -2702,6 +3080,30 @@ $("btnPlace").onclick=async()=>{
       "x · protective stop resting on Binance at "+(r.stop&&r.stop.stopPrice)+
       ". Check it on the exchange, then use Close position.</span></div>";
   if(!r.error) render(r);
+};
+$("btnExitTest").onclick=async()=>{
+  const notionalUsd=+$("pvNotional").value;
+  if(!confirm("Open a REAL "+notionalUsd+" USDT position on "+(focusSymbol||"the current contract")+
+    " with a stop and a target 0.1% either side, and wait up to 5 minutes for one to fire?\\n\\n"+
+    "This proves the brackets actually trigger rather than merely rest. It costs the round trip "+
+    "and whatever the move is. If neither fires it closes at market."))return;
+  $("btnExitTest").disabled=true;
+  $("pvOut").innerHTML='<div class="banner warn"><span>Running — this takes up to 5 minutes. '+
+    "Watch the log below.</span></div>";
+  const r=await api("/api/testexit",{method:"POST",body:JSON.stringify({notionalUsd,symbol:focusSymbol})});
+  $("btnExitTest").disabled=false;
+  if(r.error){ $("pvOut").innerHTML='<div class="banner bad"><b>Could not run.</b><span>'+
+    String(r.error).replace(/</g,"&lt;")+"</span></div>"; return; }
+  const x=r.result;
+  $("pvOut").innerHTML='<div class="banner '+(x.ok?"":"warn")+'" style="display:block"><b>'+
+    (x.ok?"The "+x.closedBy+" fired.":"Inconclusive — "+x.closedBy)+"</b>"+
+    '<div style="font-size:12px;margin-top:6px">'+
+    (x.exitPrice?"Filled at "+n(x.exitPrice)+", trigger was "+n(x.closedBy==="stop"?x.stopPrice:x.targetPrice)+
+      (x.slippageBps!==null?" — "+n(x.slippageBps,1)+"bp of slippage":""):"No fill recorded.")+
+    '</div><div class="muted" style="font-size:11px;margin-top:6px">'+
+    x.steps.map(st=>new Date(st.at).toLocaleTimeString()+"  "+String(st.text).replace(/</g,"&lt;")).join("<br>")+
+    "</div></div>";
+  render(r);
 };
 $("btnClose").onclick=async()=>{
   if(!confirm("Close the open "+(focusSymbol||"")+" position at market?"))return;
