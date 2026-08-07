@@ -148,6 +148,20 @@ interface Limits {
    * same position ties up, whereas this decides what a loss costs.
    */
   riskPerTradePct: number;
+  /**
+   * How hard the conditions are allowed to shrink a position, 0 to 1.
+   *
+   * The sizer derates for a thin session, for quotes being pulled, and for a
+   * projected event. Each is a real reading and none of them is measured — they
+   * are priors, and priors set to shrink every position are a decision about
+   * expected return dressed as a decision about risk.
+   *
+   * This scales all of them toward 1: at 1 they apply in full, at 0.5 at half
+   * strength, at 0 not at all. It does not touch the stop, the daily loss cap,
+   * the trade count or the reward-to-risk floor — those bound what a loss
+   * costs, which is a different question from how much conviction to size with.
+   */
+  sizeDerateStrength: number;
 }
 
 /*
@@ -178,11 +192,25 @@ interface Limits {
  *                   ROI because that is what a stop order takes, and because it
  *                   then stays correct when leverage changes.
  *
- * maxLeverage 5     20x turns a 2.75% move — ordinary for this contract — into
- *                   a 55% loss, which is what the single worst trade was. At 5x
- *                   the same move costs 14%, survivable and recoverable.
+ * maxLeverage 10    The original 5 came from the observation that 20x turned a
+ *                   2.75% move into a 55% loss. True, and it was the wrong
+ *                   lesson: that week had no enforced stop. With a 0.5% price
+ *                   stop resting on the exchange, 10x costs 5% of margin when
+ *                   it fires and 20x costs 10% — the stop bounds the loss, not
+ *                   the leverage. Under fixed-fractional sizing leverage is a
+ *                   consequence anyway; riskPerTradePct is the real dial, and
+ *                   a low ceiling here only truncates positions the risk budget
+ *                   had already sized correctly.
  *
- * riskPerTradePct 2 With a 0.5% stop this implies about 4x, inside the ceiling.
+ * riskPerTradePct 4 Quarter-Kelly at the *pessimistic* end of the measured
+ *                   edge. The filtered week won 23 of 33, a 70% hit rate whose
+ *                   95% interval runs 54–85%. Full Kelly at the 54% bound and
+ *                   1.2 reward-to-risk is 16%; a quarter of that is 3.9%.
+ *                   Sizing off the lower bound rather than the point estimate
+ *                   is the whole reason it lands at 4 and not at 11.
+ *                   Break-even hit rate at 1.2 reward-to-risk is 45%, so this
+ *                   has 9 points of hit-rate margin before it stops making
+ *                   money, and five consecutive losses cost 20% of the account.
  *
  * maxHoldMinutes 30 The clearest signal in the data. See enforceMaxHold.
  *
@@ -192,7 +220,7 @@ interface Limits {
  */
 const DEFAULT_LIMITS: Limits = {
   maxPositionUsd: 0,
-  maxLeverage: 5,
+  maxLeverage: 10,
   maxDailyLossUsd: 0,
   maxOpenPositions: 1,
   tradingEnabled: false,
@@ -202,7 +230,8 @@ const DEFAULT_LIMITS: Limits = {
   requireCashOpen: false,
   minRewardRisk: 1.2,
   maxHoldMinutes: 30,
-  riskPerTradePct: 2,
+  riskPerTradePct: 4,
+  sizeDerateStrength: 0.5,
 };
 
 /**
@@ -745,7 +774,7 @@ function armDesk(desk: Desk) {
         },
         costCurve: feed.getCostCurve(),
         clusters: feed.getClusters(),
-        config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
+        config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength },
       });
       if (!proposal.ok) {
         desk.lastRefusal = { at: Date.now(), reason: proposal.reasons.join("; ") };
@@ -868,7 +897,7 @@ function armDesk(desk: Desk) {
         },
         costCurve: feed.getCostCurve(),
         clusters: feed.getClusters(),
-        config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
+        config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength },
       });
       if (!proposal.ok) {
         // Otherwise this surfaces as "the strategy passed on this signal",
@@ -987,7 +1016,7 @@ function wouldTrade() {
       },
       costCurve: desk.feed?.getCostCurve() ?? [],
       clusters: desk.feed?.getClusters() ?? [],
-      config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
+      config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength },
     });
     return {
       direction,
@@ -1314,7 +1343,12 @@ const server = createServer(async (req, res) => {
           maxHoldMinutes: Math.max(0, Math.round(n("maxHoldMinutes", limits.maxHoldMinutes))),
           // Capped at 10%: past that a short losing run ends the account
           // regardless of how good the entries are.
-          riskPerTradePct: Math.min(10, Math.max(0.01, n("riskPerTradePct", limits.riskPerTradePct))),
+          // Ceiling raised from 10: at 1.2 reward-to-risk, full Kelly on the
+          // point estimate of the measured edge is 44%, so 10 was not a risk
+          // limit, it was a cap below what the edge supports. 25 is still far
+          // under full Kelly and far above anything sensible to run.
+          riskPerTradePct: Math.min(25, Math.max(0.01, n("riskPerTradePct", limits.riskPerTradePct))),
+          sizeDerateStrength: Math.min(1, Math.max(0, n("sizeDerateStrength", limits.sizeDerateStrength))),
         };
         writeLimits(limits);
         log(`limits updated: ${JSON.stringify(limits)}`);
@@ -1372,7 +1406,7 @@ const server = createServer(async (req, res) => {
           },
           costCurve: desk.feed?.getCostCurve() ?? [],
           clusters: desk.feed?.getClusters() ?? [],
-          config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
+          config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength },
         });
         send(res, 200, {
           symbol: desk.symbol,
@@ -2227,11 +2261,13 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
   <h2>Risk limits</h2>
   <div class="row" style="gap:12px;align-items:flex-end">
     <label style="width:170px">Max position (USD notional)<input id="maxPositionUsd" type="number" min="0" step="10"></label>
-    <label style="width:110px">Max leverage<input id="maxLeverage" type="number" min="1" max="10" step="1"></label>
+    <label style="width:110px">Max leverage<input id="maxLeverage" type="number" min="1" max="20" step="1"></label>
     <label style="width:150px">Max daily loss (USD)<input id="maxDailyLossUsd" type="number" min="0" step="10"></label>
     <label style="width:130px">Max open positions<input id="maxOpenPositions" type="number" min="0" step="1"></label>
     <label style="width:180px">Stop distance (% price move)<input id="stopLossPct" type="number" min="0.1" step="0.1"></label>
-    <label style="width:180px">Risk per trade (% of collateral)<input id="riskPerTradePct" type="number" min="0.01" max="10" step="0.1"></label>
+    <label style="width:180px">Risk per trade (% of collateral)<input id="riskPerTradePct" type="number" min="0.01" max="25" step="0.5"></label>
+    <label style="width:170px">Condition derates<select id="sizeDerateStrength" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
+      <option value="1">full — size down hard</option><option value="0.5">half — balanced</option><option value="0">off — size on the setup only</option></select></label>
     <label style="width:150px">Max hold (minutes)<input id="maxHoldMinutes" type="number" min="0" step="5"></label>
     <label style="width:150px">When Nasdaq is shut<select id="requireCashOpen" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
       <option value="false">trade, sized down</option><option value="true">do not trade</option></select></label>
@@ -2315,6 +2351,7 @@ for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositi
   $(id).addEventListener("input",()=>{limitsDirty=true; explainLimits(lastStatus);});
 $("tradingEnabled").addEventListener("change",()=>limitsDirty=true);
 $("requireCashOpen").addEventListener("change",()=>limitsDirty=true);
+$("sizeDerateStrength").addEventListener("change",()=>{limitsDirty=true; explainLimits(lastStatus);});
 
 function render(s){
   const armed=!!(s.limits&&s.limits.tradingEnabled);
@@ -2522,6 +2559,7 @@ function render(s){
     $("stopLossPct").value=s.limits.stopLossPct;
     $("riskPerTradePct").value=s.limits.riskPerTradePct;
     $("maxHoldMinutes").value=s.limits.maxHoldMinutes;
+    $("sizeDerateStrength").value=String(s.limits.sizeDerateStrength);
   }
 
   // After the fields are populated, never before: this reads the form rather
@@ -2541,6 +2579,38 @@ function render(s){
  * Reads from the live fields rather than the saved limits, so it updates as
  * the numbers are typed and before anything is committed.
  */
+/*
+ * What the risk-per-trade setting is worth at a range of hit rates.
+ *
+ * This exists so the aggression argument is settled by arithmetic rather than
+ * by adjectives. Everything downstream of the risk dial is determined once a
+ * hit rate and a reward-to-risk are assumed, and the only honest thing to do
+ * with an assumption that dominates the answer is to show the answer across a
+ * range of it.
+ *
+ * The reference points are the measured ones: the filtered week won 23 of 33,
+ * a 70% hit rate whose 95% interval runs 54–85%. The lower bound is the one
+ * worth sizing off, and it is the row in bold.
+ */
+function edgeTable(riskPct, s){
+  const rr=(s.limits&&s.limits.minRewardRisk)||1.2;
+  const trades=(s.limits&&s.limits.maxTradesPerDay)||8;
+  const R=riskPct/100;
+  const breakEven=1/(1+rr);
+  const rows=[0.45,0.54,0.6,0.7].map(p=>{
+    const ev=(p*rr-(1-p))*R;
+    return '<tr><td'+(Math.abs(p-0.54)<1e-9?' style="font-weight:600"':'')+'>'+(p*100).toFixed(0)+'%</td>'+
+      '<td>'+(ev*100).toFixed(2)+'%</td><td>'+(ev*trades*100).toFixed(1)+'%</td></tr>';
+  }).join("");
+  return '<div style="margin-top:6px">At <b>'+n(riskPct,2)+'% risk</b> and '+n(rr,2)+' reward-to-risk, '+
+    'break-even is a <b>'+(breakEven*100).toFixed(0)+'% hit rate</b>. Five losses in a row costs <b>'+
+    (5*R*100).toFixed(0)+'%</b> of the account.'+
+    '<table style="margin-top:4px;font-size:11px"><thead><tr><th>hit rate</th><th>per trade</th><th>per day ('+
+    trades+' trades)</th></tr></thead><tbody>'+rows+'</tbody></table>'+
+    '<span class="muted" style="font-size:10px">Your filtered week was 23 of 33 = 70%, 95% interval 54–85%. '+
+    'The bold row is the lower bound — the one worth sizing off.</span></div>';
+}
+
 function explainLimits(s){
   const box=$("limitsMean"); if(!box||!s) return;
   const num=id=>{const v=Number(($(id)||{}).value); return isFinite(v)?v:0;};
@@ -2573,6 +2643,7 @@ function explainLimits(s){
           "</b> if the stop fills, which sizes a <b>"+usd(notional)+" notional</b> position tying up <b>"+
           usd(margin)+"</b> of margin at "+lev+"x."
         : "Connect an account to see this in your own numbers.")+
+    "<br>"+edgeTable(riskPct, s)+
     "<br>A target must sit <b>"+n(need,2)+"% away</b> ("+n(stop,2)+"% × "+
       n(s.limits?s.limits.minRewardRisk:1.2,2)+" reward-to-risk). "+
       (impossible
@@ -2607,7 +2678,8 @@ $("btnLimits").onclick=async()=>{
     maxDailyLossUsd:+$("maxDailyLossUsd").value,maxOpenPositions:+$("maxOpenPositions").value,
     tradingEnabled:$("tradingEnabled").value==="true",stopLossPct:+$("stopLossPct").value,
     requireCashOpen:$("requireCashOpen").value==="true",
-    riskPerTradePct:+$("riskPerTradePct").value,maxHoldMinutes:+$("maxHoldMinutes").value};
+    riskPerTradePct:+$("riskPerTradePct").value,maxHoldMinutes:+$("maxHoldMinutes").value,
+    sizeDerateStrength:+$("sizeDerateStrength").value};
   limitsDirty=false; render(await api("/api/limits",{method:"POST",body:JSON.stringify(body)}));
 };
 
