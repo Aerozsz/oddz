@@ -2912,10 +2912,23 @@ function html(token: string): string {
 <html lang="en"><head><meta charset="utf-8"><title>Sweep agent control</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>
-:root{--plane:#0b0b0c;--surface:#141416;--surface2:#1c1c1f;--ink:#f2f2f0;--ink2:#b9b8b2;--muted:#807e79;
---hair:rgba(255,255,255,.09);--hair2:rgba(255,255,255,.16);--good:#3fb950;--warn:#e3a008;--bad:#e5534b;
---liq:#4f8ff7;--forced:#d95926;--r:8px;--accent:#4f8ff7}
-*{box-sizing:border-box}body{margin:0;background:var(--plane);color:var(--ink);
+:root{
+/* Navy rather than neutral grey. The hue is carried through the surfaces so the
+   page reads as one material with depth, instead of flat panels floating on
+   black — and it leaves green and red doing nothing but signalling money. */
+--plane:#0a0f1c;--surface:#101728;--surface2:#182136;--raised:#1e2942;
+--ink:#eef2fa;--ink2:#a9b6cf;--muted:#6f7d99;
+--hair:rgba(140,170,220,.14);--hair2:rgba(140,170,220,.26);
+/* Money colours, tuned against navy: the default greens go muddy on a blue
+   ground, so both are pushed toward the cyan/rose end to stay legible. */
+--good:#3ddc97;--good-dim:rgba(61,220,151,.13);
+--bad:#ff6b81;--bad-dim:rgba(255,107,129,.13);
+--warn:#ffc75a;--warn-dim:rgba(255,199,90,.12);
+--liq:#5b9dff;--forced:#ff8a5c;--accent:#5b9dff;--accent-ink:#04101f;--r:8px}
+*{box-sizing:border-box}body{margin:0;color:var(--ink);
+background:var(--plane);
+background-image:radial-gradient(1200px 600px at 50% -10%,rgba(91,157,255,.07),transparent 60%);
+background-attachment:fixed;
 font:13px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased}
 .wrap{max-width:1200px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:12px}
 .bar{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:var(--surface);
@@ -2993,6 +3006,27 @@ button.primary:hover:not(:disabled){background:#6ba1f8;border-color:#6ba1f8}
 .tile{transition:background .12s}
 .banner{line-height:1.5}
 .banner:not(.bad):not(.warn){background:rgba(255,255,255,.03);border-color:var(--hair)}
+
+/* --- money reads as money -------------------------------------------------
+   Green and red are reserved for profit and loss and for the two states that
+   are genuinely urgent. Everything else stays in the navy scale, so a red on
+   this page always means the same thing. */
+.pos{color:var(--good)}
+.neg{color:var(--bad)}
+.flat{color:var(--muted)}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:2px 8px;border-radius:999px;
+font-size:11px;font-weight:600;border:1px solid transparent}
+.chip.pos{background:var(--good-dim);border-color:rgba(61,220,151,.3)}
+.chip.neg{background:var(--bad-dim);border-color:rgba(255,107,129,.32)}
+.chip.warnc{background:var(--warn-dim);border-color:rgba(255,199,90,.3);color:var(--warn)}
+td.money{font-variant-numeric:tabular-nums;font-weight:600}
+.tile.hi{background:linear-gradient(180deg,var(--raised),var(--surface))}
+.panel{box-shadow:0 1px 0 rgba(255,255,255,.03) inset}
+.bar{background:linear-gradient(180deg,var(--surface2),var(--surface))}
+.dot.ok{box-shadow:0 0 0 3px var(--good-dim)}
+.dot.degraded{box-shadow:0 0 0 3px var(--warn-dim)}
+.dot.blind{box-shadow:0 0 0 3px var(--bad-dim)}
+.fieldset{background:rgba(10,15,28,.55)}
 </style></head><body><div class="wrap">
 
 <div class="bar">
@@ -3060,6 +3094,11 @@ button.primary:hover:not(:disabled){background:#6ba1f8;border-color:#6ba1f8}
     </div>
     <table style="margin-top:10px"><thead><tr><th>Symbol</th><th>Size</th><th>Entry</th><th>Liq.</th><th>PnL</th></tr></thead>
     <tbody id="positions"><tr><td colspan="5" class="muted">no account data</td></tr></tbody></table>
+    <!-- What the day has actually done. Absent until now, which is a strange
+         gap in a program whose whole purpose is to make money: every number on
+         the page described what might happen next and none described what had
+         already happened. -->
+    <div class="tiles" id="dayTiles" style="margin-top:10px"></div>
     <p class="note" id="acctNote"></p>
   </div>
 </div>
@@ -3227,6 +3266,11 @@ const TOKEN=${JSON.stringify(token)};
 const api=(p,o={})=>fetch(p,{...o,headers:{"x-control-token":TOKEN,"content-type":"application/json"}}).then(r=>r.json());
 const $=id=>document.getElementById(id);
 const n=(v,d=2)=>v===null||v===undefined||!isFinite(v)?"—":Number(v).toFixed(d);
+/* One rule for every figure that represents money: green ahead, red behind,
+   muted at zero. Applied through a class rather than an inline colour so the
+   palette stays in one place. */
+const sign=v=>v===null||v===undefined||!isFinite(v)?"flat":v>0?"pos":v<0?"neg":"flat";
+const money=(v,d)=>'<span class="'+sign(v)+'">'+usd(v)+"</span>";
 const usd=v=>v===null||v===undefined||!isFinite(v)?"—":(Math.abs(v)>=1e6?"$"+(v/1e6).toFixed(2)+"M":Math.abs(v)>=1e3?"$"+(v/1e3).toFixed(1)+"k":"$"+v.toFixed(2));
 /* Liquidation, with the distance that makes it readable.
    An unlevered position liquidates somewhere absurd — a BTC long at 1x shows a
@@ -3278,7 +3322,7 @@ function render(s){
   $("lSigD").textContent=(L.signalsSeen??0)>(L.seen??0)
     ? "by the loop · "+L.signalsSeen+" since the engine started"
     : "by the loop, since armed";
-  $("lAcc").textContent=L.accepted??"—";
+  $("lAcc").innerHTML=L.accepted?'<span class="pos">'+L.accepted+"</span>":"0";
   $("lRej").textContent=L.rejected??"—";
   $("lDec").textContent=L.declined??"—";
   // Silence is the expected state, so say which kind of silence it is.
@@ -3493,12 +3537,39 @@ function render(s){
 
   const a=s.account;
   $("avail").textContent=usd(a.availableBalance);
-  $("upnl").textContent=usd(a.unrealizedPnl);
-  $("mratio").textContent=a.marginRatio===null?"—":(a.marginRatio*100).toFixed(1)+"%";
+  $("upnl").innerHTML=money(a.unrealizedPnl);
+  // Margin ratio is the one non-PnL number that earns a colour: past 50% a
+  // adverse move starts threatening the whole account rather than the position.
+  $("mratio").innerHTML=a.marginRatio===null?"—"
+    :'<span class="'+(a.marginRatio>0.5?"neg":a.marginRatio>0.25?"warnc":"flat")+'">'+
+      (a.marginRatio*100).toFixed(1)+"%</span>";
   $("npos").textContent=a.positions.length;
   $("acctNote").textContent=a.error?("account: "+a.error):(a.at?"updated "+new Date(a.at).toLocaleTimeString():"");
+
+  /* Today, netted. The realised figure is gross of costs, so fees and funding
+     are shown beside it rather than folded in — a day that looks flat and paid
+     forty dollars in commission is not flat, and that distinction is the whole
+     reason the fee budget exists. */
+  const D=s.day;
+  if(D&&D.trades!==undefined){
+    const net=(D.realisedPnl||0)-(D.fees||0)-(D.funding||0);
+    const capLeft=s.limits.maxDailyLossUsd>0?s.limits.maxDailyLossUsd-(D.drawdown||0):null;
+    const tile=(k,inner,d)=>'<div class="tile"><span class="k">'+k+'</span><span class="v">'+inner+
+      '</span><span class="d">'+d+"</span></div>";
+    $("dayTiles").innerHTML=
+      tile("Today, net",money(net),"after "+usd(D.fees||0)+" fees"+((D.funding||0)?" and "+usd(D.funding)+" funding":""))+
+      tile("Trades",String(D.trades||0),
+        s.limits.maxTradesPerDay>0?"of "+s.limits.maxTradesPerDay+" allowed":"no cap set")+
+      tile("Loss budget left",capLeft===null?"—":'<span class="'+(capLeft<=0?"neg":capLeft<(s.limits.maxDailyLossUsd*0.34)?"warnc":"pos")+'">'+usd(Math.max(0,capLeft))+"</span>",
+        capLeft===null?"no cap set":"of "+usd(s.limits.maxDailyLossUsd))+
+      tile("Cooldown",D.cooldownLeftMin>0?'<span class="warnc">'+Math.ceil(D.cooldownLeftMin)+"m</span>":"none",
+        D.lastLossAt?"since the last loss":"no loss yet today");
+  } else {
+    $("dayTiles").innerHTML="";
+  }
   $("positions").innerHTML=a.positions.length?a.positions.map(p=>
-    "<tr><td>"+p.symbol+"</td><td>"+n(p.amt,3)+"</td><td>"+n(p.entry)+"</td><td>"+liqCell(p)+"</td><td>"+usd(p.pnl)+"</td></tr>").join("")
+    "<tr><td>"+p.symbol+'</td><td class="'+(p.amt>0?"pos":"neg")+'">'+n(p.amt,3)+"</td><td>"+n(p.entry)+
+    "</td><td>"+liqCell(p)+'</td><td class="money">'+money(p.pnl)+"</td></tr>").join("")
     :'<tr><td colspan="5" class="muted">'+(a.error?"unavailable":"flat")+"</td></tr>";
 
   lastStatus=s;
