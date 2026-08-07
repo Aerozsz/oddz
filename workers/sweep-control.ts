@@ -444,6 +444,12 @@ function startExecutionLoop() {
       lastRefusal = { at: Date.now(), reason };
       log(`intent rejected: ${reason}`);
     },
+    // The commonest outcome by far, and previously invisible: a signal fired,
+    // the bias looked at it and would not call a side, so nothing was proposed.
+    onDeclined: (_signal, state) => {
+      const bias = directionalBias(state);
+      lastRefusal = { at: Date.now(), reason: bias.summary };
+    },
     strategy: (signal, state) => {
       // Health signals describe the feed, not the market.
       if (signal.kind === "health") return null;
@@ -578,7 +584,7 @@ function status() {
     loop: {
       attached: runner !== null,
       signalsSeen,
-      ...(runner ? runner.stats() : { accepted: 0, rejected: 0, lastAcceptedAt: 0 }),
+      ...(runner ? runner.stats() : { accepted: 0, rejected: 0, declined: 0, lastAcceptedAt: 0 }),
       lastRefusal,
     },
     execution: {
@@ -1171,7 +1177,8 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
   <div class="tiles" style="margin-top:10px">
     <div class="tile"><span class="k">Signals seen</span><span class="v" id="lSig">—</span><span class="d">since the engine started</span></div>
     <div class="tile"><span class="k">Orders placed</span><span class="v" id="lAcc">—</span><span class="d">accepted by every check</span></div>
-    <div class="tile"><span class="k">Filtered out</span><span class="v" id="lRej">—</span><span class="d">signals that did not become a trade</span></div>
+    <div class="tile"><span class="k">No side called</span><span class="v" id="lDec">—</span><span class="d">bias saw no asymmetry worth trading</span></div>
+    <div class="tile"><span class="k">Refused</span><span class="v" id="lRej">—</span><span class="d">a setup that failed a check</span></div>
   </div>
   <p class="note" id="lWhy"></p>
   <p class="note">Nothing is sent while this is off — Suggest and Preview keep working. Arming needs a max
@@ -1254,6 +1261,7 @@ function render(s){
   $("lSig").textContent=L.signalsSeen??"—";
   $("lAcc").textContent=L.accepted??"—";
   $("lRej").textContent=L.rejected??"—";
+  $("lDec").textContent=L.declined??"—";
   // Silence is the expected state, so say which kind of silence it is.
   let why="";
   if(armed&&!L.attached){
@@ -1263,6 +1271,10 @@ function render(s){
     why="No signal has fired yet. That is the normal state — the detectors only fire on a real event "+
       "(depth pulled without trading, a wall vanishing, cascade risk crossing a band, a liquidation burst). "+
       "Quiet stretches of an hour are ordinary.";
+  } else if(armed&&L.accepted===0&&L.declined>0&&L.rejected===0&&L.lastRefusal){
+    why="Signals are firing and the loop is seeing them, but the bias has not called a side on any yet — "+
+      "so nothing was proposed to size. That is the normal quiet state, not a fault. Most recent read: <b>"+
+      String(L.lastRefusal.reason).replace(/</g,"&lt;")+"</b>";
   } else if(armed&&L.accepted===0&&L.lastRefusal){
     const mins=Math.round((Date.now()-L.lastRefusal.at)/60000);
     why="Signals are firing but none has become a trade. Most recent reason ("+mins+"m ago): <b>"+
