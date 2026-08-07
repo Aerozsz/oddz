@@ -14,12 +14,26 @@ export interface ExecutionOptions {
   maxPerHour?: number;
   /** Called whenever an intent is refused, with the reason. */
   onRejected?: (reason: string, signal: Signal, intent: TradeIntent | null) => void;
+  /** Called when the strategy looked at a signal and produced no intent. */
+  onDeclined?: (signal: Signal, state: AgentState) => void;
 }
 
 export interface ExecutionRunner {
   /** Stop consuming signals. Does not touch anything already submitted. */
   stop(): void;
-  stats(): { accepted: number; rejected: number; lastAcceptedAt: number };
+  stats(): {
+    accepted: number;
+    rejected: number;
+    /**
+     * Signals the strategy looked at and passed on — most often because the
+     * bias could not call a side. Counted separately from `rejected`, which
+     * means an intent was formed and then refused. Without the distinction the
+     * numbers do not add up, and "7 signals, 0 orders, 0 rejections" reads as a
+     * broken loop rather than as a strategy that declined seven times.
+     */
+    declined: number;
+    lastAcceptedAt: number;
+  };
 }
 
 /**
@@ -48,6 +62,7 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
   let lastAcceptedAt = 0;
   let accepted = 0;
   let rejected = 0;
+  let declined = 0;
 
   const reject = (reason: string, signal: Signal, intent: TradeIntent | null) => {
     rejected++;
@@ -69,7 +84,11 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
       reject(`strategy threw: ${err instanceof Error ? err.message : String(err)}`, signal, null);
       return;
     }
-    if (!intent) return;
+    if (!intent) {
+      declined++;
+      options.onDeclined?.(signal, state);
+      return;
+    }
 
     if (submitted.has(intent.id)) {
       reject(`duplicate intent ${intent.id}`, signal, intent);
@@ -104,7 +123,7 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
 
   return {
     stop: unsubscribe,
-    stats: () => ({ accepted, rejected, lastAcceptedAt }),
+    stats: () => ({ accepted, rejected, declined, lastAcceptedAt }),
   };
 }
 
