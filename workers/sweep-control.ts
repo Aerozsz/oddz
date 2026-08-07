@@ -1694,10 +1694,11 @@ function status() {
         accepted: acc.accepted + s.accepted,
         rejected: acc.rejected + s.rejected,
         declined: acc.declined + s.declined,
+        notReady: acc.notReady + s.notReady,
         lastAcceptedAt: Math.max(acc.lastAcceptedAt, s.lastAcceptedAt),
       };
     },
-    { seen: 0, accepted: 0, rejected: 0, declined: 0, lastAcceptedAt: 0 },
+    { seen: 0, accepted: 0, rejected: 0, declined: 0, notReady: 0, lastAcceptedAt: 0 },
   );
   const anyAttached = allDesks().some((d) => d.runner !== null);
   const anyRunning = allDesks().some((d) => d.feed !== null);
@@ -2647,15 +2648,17 @@ const server = createServer(async (req, res) => {
                   accepted: acc.accepted + s.accepted,
                   rejected: acc.rejected + s.rejected,
                   declined: acc.declined + s.declined,
+                  notReady: acc.notReady + s.notReady,
                 }
               : acc;
           },
-          { any: false, seen: 0, accepted: 0, rejected: 0, declined: 0 },
+          { any: false, seen: 0, accepted: 0, rejected: 0, declined: 0, notReady: 0 },
         );
         if (s2.any) {
-          const explained = s2.accepted + s2.rejected + s2.declined;
+          const explained = s2.accepted + s2.rejected + s2.declined + s2.notReady;
           add("loop accounting", explained === s2.seen,
-            `${s2.seen} seen = ${s2.accepted} placed + ${s2.declined} no side + ${s2.rejected} refused`,
+            `${s2.seen} seen = ${s2.accepted} placed + ${s2.declined} no side + ${s2.rejected} refused` +
+              (s2.notReady ? ` + ${s2.notReady} while the feed was warming` : ""),
             explained === s2.seen ? undefined : "Signals are going unaccounted — that is a bug, not a setting.",
             explained === s2.seen ? "ok" : "bad");
         }
