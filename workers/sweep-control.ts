@@ -998,6 +998,15 @@ function wouldTrade() {
       target: result.ok ? result.targetPrice : null,
       rewardRisk: result.ok ? result.rewardRisk : null,
       notionalUsd: result.ok ? result.notionalUsd : null,
+      // Notional is the headline number and margin is the money. Showing only
+      // the first is how a position reads as far larger than it is, and only
+      // the second is how it reads as far smaller.
+      marginUsd: result.ok ? result.marginUsd : null,
+      leverage: result.ok ? result.leverage : null,
+      riskUsd: result.ok ? result.riskUsd : null,
+      // How much of the intended risk budget survived the conditions. The one
+      // number that explains a position that looks inexplicably small.
+      sizeRetained: result.ok ? result.sizeRetained : null,
       reasons: result.ok ? [] : result.reasons,
     };
   });
@@ -2280,6 +2289,19 @@ const api=(p,o={})=>fetch(p,{...o,headers:{"x-control-token":TOKEN,"content-type
 const $=id=>document.getElementById(id);
 const n=(v,d=2)=>v===null||v===undefined||!isFinite(v)?"—":Number(v).toFixed(d);
 const usd=v=>v===null||v===undefined||!isFinite(v)?"—":(Math.abs(v)>=1e6?"$"+(v/1e6).toFixed(2)+"M":Math.abs(v)>=1e3?"$"+(v/1e3).toFixed(1)+"k":"$"+v.toFixed(2));
+/* Liquidation, with the distance that makes it readable.
+   An unlevered position liquidates somewhere absurd — a BTC long at 1x shows a
+   liquidation near zero — and that number looks alarming when it is the
+   opposite. Far is good: it means the stop on the exchange decides the outcome
+   rather than the liquidation engine. Near is the emergency. The bare price
+   says neither, so the distance is shown with it. */
+const liqCell=p=>{
+  if(!p.liquidation||!isFinite(p.liquidation)||!p.entry) return '<span class="muted">none</span>';
+  const away=Math.abs(p.liquidation-p.entry)/p.entry*100;
+  const col=away<10?"var(--bad)":away<25?"var(--warn)":"var(--good)";
+  return n(p.liquidation)+'<br><span style="font-size:10px;color:'+col+'">'+
+    (away>=95?"unreachable":n(away,1)+"% away")+"</span>";
+};
 
 let limitsDirty=false;
 /* The most recent status, so the settings explainer can redraw the instant a
@@ -2358,7 +2380,11 @@ function render(s){
       '<span style="color:'+(x.ok?"var(--good)":"var(--dim)")+';font-weight:600">'+(x.direction==="up"?"long":"short")+"</span>"+
       "<span>"+(x.ok
         ? '<span style="color:var(--good)">would trade</span> — target '+n(x.target)+", stop "+n(x.stopPct,2)+
-          "%, RR "+n(x.rewardRisk,2)+", "+usd(x.notionalUsd)
+          "%, RR "+n(x.rewardRisk,2)+'<br><span class="muted">'+usd(x.notionalUsd)+" notional at "+
+          x.leverage+"x = "+usd(x.marginUsd)+" of margin, risking "+usd(x.riskUsd)+" if the stop fills"+
+          (x.sizeRetained!==null&&x.sizeRetained<0.99
+            ? " · sized to "+n(x.sizeRetained*100,0)+"% of the budget by current conditions"
+            : "")+"</span>"
         : '<span class="muted">'+x.reasons.map(esc).join("<br>")+"</span>")+"</span></div>";
     $("wouldBox").innerHTML=
       '<div class="banner '+(W.tradeable?"":"warn")+'" style="display:block">'+
@@ -2481,7 +2507,7 @@ function render(s){
   $("npos").textContent=a.positions.length;
   $("acctNote").textContent=a.error?("account: "+a.error):(a.at?"updated "+new Date(a.at).toLocaleTimeString():"");
   $("positions").innerHTML=a.positions.length?a.positions.map(p=>
-    "<tr><td>"+p.symbol+"</td><td>"+n(p.amt,3)+"</td><td>"+n(p.entry)+"</td><td>"+n(p.liquidation)+"</td><td>"+usd(p.pnl)+"</td></tr>").join("")
+    "<tr><td>"+p.symbol+"</td><td>"+n(p.amt,3)+"</td><td>"+n(p.entry)+"</td><td>"+liqCell(p)+"</td><td>"+usd(p.pnl)+"</td></tr>").join("")
     :'<tr><td colspan="5" class="muted">'+(a.error?"unavailable":"flat")+"</td></tr>";
 
   lastStatus=s;

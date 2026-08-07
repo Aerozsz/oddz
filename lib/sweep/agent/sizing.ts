@@ -83,6 +83,23 @@ export interface SizingConfig {
   clusterReachMultiple: number;
   /** Entry may consume at most this share of depth inside the stop distance. */
   maxDepthShare: number;
+  /**
+   * Floor under the combined size derate.
+   *
+   * Not a fee argument — fees are proportional to notional on both sides of the
+   * reward-over-fees test, so shrinking a position never makes it fail that
+   * check, and an earlier version of this comment claiming otherwise was simply
+   * wrong. What the floor actually guards is the difference between sizing down
+   * and abstaining. Past some point they are the same decision, and it should
+   * be made explicitly by a refusal that names its reason rather than implicitly
+   * by a size asymptoting toward zero while every check still reports pass.
+   *
+   * Set low on purpose. The real fix for derates compounding into nothing is
+   * not to clamp the result, it is to stop multiplying readings that are
+   * measuring the same thing — see the aggregation below. This is the backstop
+   * for whatever that still misses.
+   */
+  minSizeScale: number;
   /** A target must be worth at least this multiple of the round-trip cost. */
   minRewardOverFees: number;
   /**
@@ -147,6 +164,7 @@ export const DEFAULT_SIZING: SizingConfig = {
   clusterBufferPct: 0.15,
   clusterReachMultiple: 1.5,
   maxDepthShare: 0.1,
+  minSizeScale: 0.05,
   minRewardOverFees: 3,
   minRewardRisk: 1.5,
   fees: DEFAULT_FEES,
@@ -435,8 +453,62 @@ export function proposePosition(input: SizingInput): SizingResult {
 
   reasoning.push(presence.note);
 
+  /*
+   * One combined derate, not three multiplied together.
+   *
+   * These were previously a product, and that was wrong for a reason that only
+   * shows up at the extremes: they are not independent risks, they are three
+   * views of one question — how far this book can be trusted right now.
+   * Overnight books are thin *and* more prone to having quotes pulled, so the
+   * session factor and the presence factor are largely reporting the same fact.
+   * Multiplying correlated readings counts that fact two or three times.
+   *
+   * The arithmetic got indefensible fast. Overnight (0.25) with quotes leaving
+   * (0.4) and a projected event (0.5) kept 3% of the intended risk — a 32-fold
+   * reduction, which does not produce a careful trade, it produces a position
+   * too small for the reward to clear its own fees. Every individual factor was
+   * defensible and the product was not.
+   *
+   * So the most binding view governs, with a floor under it. That still sizes
+   * down hard when any one reading is bad, still ranks conditions in the same
+   * order, and cannot compound into a position that is not worth having.
+   */
+  const book: { name: string; scale: number }[] = [
+    { name: presence.note, scale: presence.factor },
+    { name: `the ${state.session.intraday} session`, scale: sessionScale },
+  ];
+  const binding = book.reduce((worst, s) => (s.scale < worst.scale ? s : worst), book[0]);
+  const others = book.filter((s) => s !== binding).reduce((p, s) => p * s.scale, 1);
+  /*
+   * The most binding reading governs and the rest apply at half strength — in
+   * logs, half the weight. Full compounding assumes independence they do not
+   * have; the plain minimum assumes a correlation of one, which they also do
+   * not have. `worst × sqrt(others)` sits between, is the identity when only
+   * one reading is below full, and keeps the ordering intact.
+   */
+  const bookScale = binding.scale * Math.sqrt(others);
+
+  /*
+   * The event derate is orthogonal and does multiply.
+   *
+   * A scheduled release gapping price past every level in the model is not a
+   * statement about whether the book can be trusted — it is a different risk
+   * with a different mechanism, and it is the one case where stacking is the
+   * honest arithmetic rather than double-counting.
+   */
+  const combinedScale = Math.max(cfg.minSizeScale, bookScale * eventScale);
+  if (combinedScale < 1) {
+    reasoning.push(
+      `size at ${(combinedScale * 100).toFixed(0)}% of the risk budget — set by ${binding.name}` +
+        (eventScale < 1 ? `, and again by the event window` : "") +
+        (bookScale * eventScale < cfg.minSizeScale
+          ? `, floored at ${(cfg.minSizeScale * 100).toFixed(0)}% — below that, sizing down and not trading are the same decision`
+          : ""),
+    );
+  }
+
   const rawRisk = riskUsd;
-  riskUsd = riskUsd * presence.factor * sessionScale * eventScale;
+  riskUsd = riskUsd * combinedScale;
 
   /* -------------------------------------------------------------------- size */
 
