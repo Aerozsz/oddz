@@ -285,6 +285,31 @@ export async function openProtectedPosition(
   }
 }
 
+/**
+ * Set the leverage Binance will apply to the next position.
+ *
+ * Nothing did this before, which meant a position opened at whatever the
+ * account was last set to in the Binance UI — commonly the 20x maximum. The
+ * sizer derives a leverage, the preview shows a liquidation price computed
+ * from it, and the interlocks check it against a ceiling; none of that reaches
+ * the exchange unless it is sent. A position opened at 20x when the model said
+ * 2x has its liquidation price ten times nearer than the number on screen, and
+ * every margin figure in the GUI is wrong.
+ *
+ * Idempotent, and -4046 ("no need to change leverage") is a success rather than
+ * an error — it just means it was already set to this.
+ */
+export async function setLeverage(cfg: BinanceConfig, symbol: string, leverage: number): Promise<void> {
+  const value = Math.max(1, Math.round(leverage));
+  try {
+    await signedRequest(cfg, "POST", "/fapi/v1/leverage", { symbol, leverage: value });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (message.includes("-4046")) return;
+    throw new Error(`could not set leverage to ${value}x: ${message}`);
+  }
+}
+
 /* ---------------------------------------------------------- maker entries */
 
 export interface MakerEntryOptions {

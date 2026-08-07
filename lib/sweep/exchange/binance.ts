@@ -249,4 +249,61 @@ export async function ping(cfg: BinanceConfig): Promise<{ ok: true; live: boolea
   return { ok: true, live: cfg.live, balance: risk.availableBalance };
 }
 
+/* ------------------------------------------------------------- funding */
+
+/**
+ * Move USDT between the spot wallet and the futures wallet.
+ *
+ * Off by default and gated on BINANCE_ALLOW_TRANSFER=1, because it needs the
+ * "Permits Universal Transfer" permission on the API key and that is a real
+ * widening of what a leaked .env file can do. It cannot move money *out* of
+ * the account — only between your own wallets — so it is far short of
+ * withdrawal, but it is still more than a trading key needs in order to trade,
+ * and the default should be the smaller key.
+ *
+ * There is no equivalent on demo trading. Binance funds a demo account from a
+ * faucet on the testnet website, with no API behind it, so the GUI links there
+ * instead of offering a button that cannot work.
+ */
+export function transfersAllowed(env: NodeJS.ProcessEnv = process.env): boolean {
+  return env.BINANCE_ALLOW_TRANSFER === "1";
+}
+
+export type TransferDirection = "spot-to-futures" | "futures-to-spot";
+
+export async function transferUsdt(
+  cfg: BinanceConfig,
+  direction: TransferDirection,
+  amount: number,
+): Promise<{ tranId: number }> {
+  if (!transfersAllowed()) {
+    throw new Error(
+      "transfers are disabled — set BINANCE_ALLOW_TRANSFER=1 and give the API key the " +
+        "Universal Transfer permission. Leave it off unless you are actually moving funds.",
+    );
+  }
+  if (!cfg.live) {
+    throw new Error(
+      "demo trading has no transfer API — fund it from the faucet on testnet.binancefuture.com",
+    );
+  }
+  if (!(amount > 0)) throw new Error("amount must be greater than zero");
+
+  // 1 = spot to USDⓈ-M futures, 2 = the reverse.
+  const type = direction === "spot-to-futures" ? 1 : 2;
+  return signedRequest<{ tranId: number }>(cfg, "POST", "/sapi/v1/futures/transfer", {
+    asset: "USDT",
+    amount: amount.toFixed(2),
+    type,
+  });
+}
+
+/** USDT sitting in the spot wallet, i.e. what is available to transfer in. */
+export async function fetchSpotUsdt(cfg: BinanceConfig): Promise<number> {
+  const rows = await signedRequest<{ asset: string; free: string }[]>(cfg, "GET", "/sapi/v3/asset/getUserAsset", {
+    asset: "USDT",
+  });
+  return num(rows.find((r) => r.asset === "USDT")?.free);
+}
+
 export { sign as __signForTest };

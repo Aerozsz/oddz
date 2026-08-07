@@ -29,9 +29,12 @@ import { createSweepFeed, type SweepFeed } from "../lib/sweep/agent";
 import type { Signal } from "../lib/sweep/agent";
 import {
   fetchAccountRisk,
+  fetchSpotUsdt,
   hasCredentials,
   loadConfig,
   redact,
+  transferUsdt,
+  transfersAllowed,
   type AccountRisk,
 } from "../lib/sweep/exchange/binance";
 import { previewPosition } from "../lib/sweep/exchange/preview";
@@ -288,6 +291,50 @@ function startExecutionLoop() {
     limits: () => ({ ...limits }),
     quantityPrecision: 0,
     pricePrecision: 2,
+    /**
+     * The size that actually gets ordered.
+     *
+     * Runs the same sizer the Suggest panel runs, against the same limits and
+     * the same fee schedule, so what the operator is shown and what the loop
+     * would send are the same number rather than two calculations that agree by
+     * coincidence.
+     */
+    size: (_intent, state, availableBalance) => {
+      const direction = _intent.side === "buy" ? "up" : "down";
+      const proposal = proposePosition({
+        direction,
+        state,
+        equity: availableBalance,
+        realisedLossToday: day.activity ? dayDrawdown(day.activity) : 0,
+        tradesToday: day.activity?.trades ?? 0,
+        lastLossAt: day.activity?.lastLossAt ?? 0,
+        feesPaidToday: day.activity?.fees ?? 0,
+        grossProfitToday: day.activity?.realisedPnl ?? 0,
+        limits: {
+          maxPositionUsd: limits.maxPositionUsd,
+          maxLeverage: limits.maxLeverage,
+          maxDailyLossUsd: limits.maxDailyLossUsd,
+          stopLossPct: limits.stopLossPct,
+          maxTradesPerDay: limits.maxTradesPerDay,
+          lossCooldownMin: limits.lossCooldownMin,
+          requireCashOpen: limits.requireCashOpen,
+          minRewardRisk: limits.minRewardRisk,
+        },
+        costCurve: feed?.getCostCurve() ?? [],
+        clusters: feed?.getClusters() ?? [],
+        config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
+      });
+      if (!proposal.ok) {
+        log(`sizer declined: ${proposal.reasons.join("; ")}`);
+        return null;
+      }
+      return {
+        notionalUsd: proposal.notionalUsd,
+        stopPct: proposal.stopDistancePct,
+        leverage: proposal.leverage,
+        reason: proposal.reasoning.join(" · "),
+      };
+    },
     /**
      * Where to rest an entry, or null to cross.
      *
@@ -711,6 +758,64 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "GET /api/funds": {
+        if (!hasCredentials()) { send(res, 200, { error: "no credentials" }); return; }
+        const cfg2 = loadConfig();
+        let spot: number | null = null;
+        let spotError: string | null = null;
+        if (cfg2.live && transfersAllowed()) {
+          try { spot = await fetchSpotUsdt(cfg2); }
+          catch (err) { spotError = err instanceof Error ? redact(err.message) : String(err); }
+        }
+        send(res, 200, {
+          live: cfg2.live,
+          transfersAllowed: transfersAllowed(),
+          spotUsdt: spot,
+          spotError,
+          futuresUsdt: account.risk?.availableBalance ?? null,
+          // Demo has no transfer API at all; Binance funds it from a faucet on
+          // the website, so the GUI points there rather than showing a button
+          // that cannot do anything.
+          faucetUrl: cfg2.live ? null : "https://testnet.binancefuture.com",
+        });
+        return;
+      }
+
+      case "POST /api/transfer": {
+        const body = await readJson(req);
+        const amount = Number(body.amount);
+        const direction = body.direction === "futures-to-spot" ? "futures-to-spot" : "spot-to-futures";
+        try {
+          const cfg2 = loadConfig();
+          const r = await transferUsdt(cfg2, direction, amount);
+          log(`transfer ${direction} ${amount} USDT — tranId ${r.tranId}`);
+          await refreshAccount();
+          send(res, 200, { ok: true, ...r, ...status() });
+        } catch (err) {
+          send(res, 200, { error: err instanceof Error ? redact(err.message) : String(err) });
+        }
+        return;
+      }
+
+      case "POST /api/arm": {
+        // Arming is its own endpoint rather than a field on the limits form, so
+        // it cannot be flipped as a side effect of saving something else — which
+        // is exactly how requireCashOpen turned itself on.
+        const body = await readJson(req);
+        const want = body.armed === true;
+        if (want) {
+          if (!hasCredentials()) { send(res, 200, { error: "no API credentials — nothing can be placed" }); return; }
+          if (limits.maxPositionUsd <= 0) { send(res, 200, { error: "set a max position size first" }); return; }
+          if (limits.maxDailyLossUsd <= 0) { send(res, 200, { error: "set a max daily loss first" }); return; }
+        }
+        limits = { ...limits, tradingEnabled: want };
+        writeLimits(limits);
+        if (want) startExecutionLoop(); else stopExecutionLoop();
+        log(want ? "ARMED — orders will be placed when a setup passes every check" : "disarmed");
+        send(res, 200, status());
+        return;
+      }
+
       case "POST /api/kill": {
         // The stop-everything control. Today that means killing the feed and
         // disarming trading; once orders exist it also cancels and flattens.
@@ -870,6 +975,31 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
 </div>
 
 <div class="panel">
+  <h2>Funds</h2>
+  <div class="tiles">
+    <div class="tile"><span class="k">Futures wallet</span><span class="v" id="fFut">—</span><span class="d">what positions are sized against</span></div>
+    <div class="tile"><span class="k">Spot wallet</span><span class="v" id="fSpot">—</span><span class="d" id="fSpotD">available to move in</span></div>
+  </div>
+  <div class="row" id="fRow" style="gap:12px;align-items:flex-end;margin-top:10px">
+    <label style="width:150px">Amount (USDT)<input id="fAmount" type="number" min="1" step="10" value="100"></label>
+    <button id="btnFundIn">Move into futures</button>
+    <button id="btnFundOut">Move back to spot</button>
+  </div>
+  <p class="note" id="fNote"></p>
+</div>
+
+<div class="panel">
+  <h2>Trading</h2>
+  <div class="row" style="gap:12px;align-items:center">
+    <button id="btnArm" style="font-size:14px;padding:10px 20px">Start trading</button>
+    <span id="armState" class="muted"></span>
+  </div>
+  <p class="note">Nothing is sent while this is off — Suggest and Preview keep working. Arming needs a max
+  position and a max daily loss set below, because those are the only things bounding what it can do.
+  Every position gets a stop placed <b>on Binance</b>, so it survives this program being closed.</p>
+</div>
+
+<div class="panel">
   <h2>Risk limits</h2>
   <div class="row" style="gap:12px;align-items:flex-end">
     <label style="width:150px">Max position (USD)<input id="maxPositionUsd" type="number" min="0" step="10"></label>
@@ -928,6 +1058,16 @@ $("tradingEnabled").addEventListener("change",()=>limitsDirty=true);
 $("requireCashOpen").addEventListener("change",()=>limitsDirty=true);
 
 function render(s){
+  const armed=!!(s.limits&&s.limits.tradingEnabled);
+  const btn=$("btnArm");
+  btn.dataset.armed=String(armed);
+  btn.textContent=armed?"Stop trading":"Start trading";
+  btn.style.background=armed?"var(--bad)":"";
+  btn.style.borderColor=armed?"var(--bad)":"";
+  $("armState").style.color=armed?"var(--bad)":"var(--ink2)";
+  $("armState").textContent=armed
+    ?"ARMED — orders will be placed when a setup passes every check"
+    :"disarmed — nothing will be sent";
   $("mode").className="mode "+s.mode;
   $("mode").textContent=s.mode==="live"?"LIVE — real money":s.mode==="testnet"?"testnet":"no credentials";
   const h=s.health;
@@ -1105,6 +1245,52 @@ $("btnSuggest").onclick=async()=>{
   };
 };
 
-tick(); setInterval(tick,1000);
+async function funds(){
+  const f=await api("/api/funds");
+  if(f.error){ $("fNote").textContent=f.error; return; }
+  $("fFut").textContent=f.futuresUsdt===null?"—":usd(f.futuresUsdt);
+  const canMove=f.live&&f.transfersAllowed;
+  $("fRow").style.display=canMove?"":"none";
+  if(f.faucetUrl){
+    $("fSpot").textContent="demo";
+    $("fSpotD").textContent="funded from the faucet";
+    $("fNote").innerHTML='Demo trading has no transfer API. Get play funds from the faucet on '+
+      '<a href="'+f.faucetUrl+'" target="_blank" rel="noopener" style="color:var(--accent)">testnet.binancefuture.com</a>'+
+      ' — it is on the same page as the API keys. The balance above updates within a few seconds.';
+  } else if(!f.transfersAllowed){
+    $("fSpot").textContent="—";
+    $("fSpotD").textContent="transfers disabled";
+    $("fNote").innerHTML="Moving funds needs <code>BINANCE_ALLOW_TRANSFER=1</code> in .env and the "+
+      "<b>Universal Transfer</b> permission on the API key. Left off by default: a trading key does not need "+
+      "to be able to move money, and the smaller key is the one worth leaving in a file. "+
+      "Transfer in the Binance app instead — the balance above will pick it up.";
+  } else {
+    $("fSpot").textContent=f.spotUsdt===null?"—":usd(f.spotUsdt);
+    $("fSpotD").textContent=f.spotError?f.spotError:"available to move in";
+    $("fNote").textContent="Moves between your own wallets only. This cannot withdraw.";
+  }
+}
+async function move(direction){
+  const amount=+$("fAmount").value;
+  if(!(amount>0)){ $("fNote").textContent="enter an amount"; return; }
+  const r=await api("/api/transfer",{method:"POST",body:JSON.stringify({amount,direction})});
+  $("fNote").textContent=r.error?r.error:"moved "+amount+" USDT — balance updates in a moment";
+  funds();
+}
+$("btnFundIn").onclick=()=>move("spot-to-futures");
+$("btnFundOut").onclick=()=>move("futures-to-spot");
+
+async function arm(want){
+  const r=await api("/api/arm",{method:"POST",body:JSON.stringify({armed:want})});
+  if(r.error){ $("armState").textContent=r.error; $("armState").style.color="var(--bad)"; return; }
+  render(r);
+}
+$("btnArm").onclick=()=>{
+  const armed=$("btnArm").dataset.armed==="true";
+  if(!armed&&!confirm("Start trading? Orders will be placed automatically when a setup passes every check."))return;
+  arm(!armed);
+};
+
+tick(); setInterval(tick,1000); funds(); setInterval(funds,15000);
 </script></body></html>`;
 }
