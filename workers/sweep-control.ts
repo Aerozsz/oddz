@@ -196,12 +196,29 @@ function readFeeSchedule(): FeeSchedule {
 }
 
 function readLimits(): Limits {
-  if (!existsSync(LIMITS_PATH)) return { ...DEFAULT_LIMITS };
-  try {
-    return { ...DEFAULT_LIMITS, ...JSON.parse(readFileSync(LIMITS_PATH, "utf8")) };
-  } catch {
-    return { ...DEFAULT_LIMITS };
-  }
+  const stored = (() => {
+    if (!existsSync(LIMITS_PATH)) return { ...DEFAULT_LIMITS };
+    try {
+      return { ...DEFAULT_LIMITS, ...JSON.parse(readFileSync(LIMITS_PATH, "utf8")) };
+    } catch {
+      return { ...DEFAULT_LIMITS };
+    }
+  })();
+
+  /*
+   * Always boot disarmed, whatever the file says.
+   *
+   * Every other limit is a preference worth remembering. This one is a live
+   * instruction to place orders, and a process that resumes placing them on its
+   * own — after a crash, an OS update, a machine rebooting overnight — is doing
+   * something nobody was present to decide. The restart is precisely the moment
+   * to look at the account before continuing.
+   *
+   * Costs one click per session, which is the right price. Any position left
+   * open is untouched: its stop is on Binance and keeps working regardless of
+   * whether this program is armed, running, or installed.
+   */
+  return { ...stored, tradingEnabled: false };
 }
 
 function writeLimits(next: Limits) {
@@ -960,32 +977,13 @@ const server = createServer(async (req, res) => {
 });
 
 server.listen(PORT, HOST, () => {
+  // The file may still say armed from the last session; readLimits() has
+  // already overridden it, and writing it back keeps the two in step.
+  writeLimits(limits);
   startEngine();
   void (async () => {
     await reconcileOnStart();
     await refreshAccount();
-    /*
-     * Re-arm from the saved limits.
-     *
-     * tradingEnabled persists to disk, so after a restart the GUI read "ARMED"
-     * and the file agreed — while nothing was attached to the signal stream,
-     * because the loop was only ever started from the arm endpoint and the
-     * limits form. Claiming to be trading while listening to nothing is the
-     * worst of the available states, and it is the one a restart produced.
-     *
-     * After reconciliation and the account read, so it never attaches before
-     * an inherited position has been checked for its stop.
-     */
-    if (limits.tradingEnabled) {
-      if (hasCredentials()) {
-        startExecutionLoop();
-        log("re-armed from saved limits — orders will be placed when a setup passes every check");
-      } else {
-        limits = { ...limits, tradingEnabled: false };
-        writeLimits(limits);
-        log("was armed in the saved limits but there are no credentials — disarmed");
-      }
-    }
   })();
   const url = `http://${HOST}:${PORT}/?token=${TOKEN}`;
   console.log("");
@@ -1178,7 +1176,9 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
   <p class="note" id="lWhy"></p>
   <p class="note">Nothing is sent while this is off — Suggest and Preview keep working. Arming needs a max
   position and a max daily loss set below, because those are the only things bounding what it can do.
-  Every position gets a stop placed <b>on Binance</b>, so it survives this program being closed.</p>
+  <b>This always starts disarmed</b>, however it was left: a process that resumes placing orders on its own after
+  a crash or a reboot is acting on a decision nobody was there to make. Any open position is unaffected —
+  its stop lives <b>on Binance</b> and keeps working whether this is armed, running, or closed.</p>
 </div>
 
 <div class="panel">
