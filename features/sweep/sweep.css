@@ -861,3 +861,42 @@ th:first-child,
   height: 100%;
   transition: width 300ms ease-out, background 300ms linear;
 }
+
+/* Whether the projection above has ever been right. Sits between the heading
+   and the two directions because it qualifies both of them, and a qualifier
+   under the thing it qualifies is read after the damage is done. */
+.cascade-cal {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  align-items: baseline;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  border: 1px solid var(--hair);
+  border-radius: var(--r);
+  background: var(--plane);
+  font-size: 12px;
+}
+.cascade-cal.cold {
+  border-style: dashed;
+  opacity: 0.85;
+}
+.cascade-cal .cal-item {
+  white-space: nowrap;
+}
+.cascade-cal .cal-item b {
+  font-size: 15px;
+  margin-right: 4px;
+}
+
+/* The one panel not derived from market data, styled to read as commentary
+   rather than as a measurement — no tiles, no numerals in the accent slot. */
+.news-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.news-item { padding-bottom: 10px; border-bottom: 1px solid var(--hair); }
+.news-item:last-child { border-bottom: 0; padding-bottom: 0; }
+.news-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; margin-bottom: 3px; }
+.news-impact { font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; }
+.news-unsourced { font-style: italic; }
+.news-headline { font-size: 13px; line-height: 1.4; }
+.news-headline a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
+.news-summary { margin-top: 3px; line-height: 1.5; }

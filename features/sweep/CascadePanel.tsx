@@ -1,5 +1,6 @@
 "use client";
 
+import type { CascadeCalibration } from "@/lib/sweep/metrics/cascade-outcomes";
 import type { CascadePath, Snapshot } from "@/lib/sweep/types";
 import { pct, price as fmtPrice, riskStatus, STATUS_VAR, usd } from "./format";
 
@@ -27,11 +28,58 @@ export default function CascadePanel({ snap }: { snap: Snapshot }) {
         <span className="sub">what it would cost, and how far it could go</span>
       </header>
 
+      <Calibration cal={snap.cascadeCalibration} />
+
       <div className="cascade-pair">
         <CascadeSide label="Pushing price down" dir="down" path={snap.cascadeDown} precision={precision} mid={mid} flowMinute={snap.flowMinute.sell} />
         <CascadeSide label="Pushing price up" dir="up" path={snap.cascadeUp} precision={precision} mid={mid} flowMinute={snap.flowMinute.buy} />
       </div>
     </section>
+  );
+}
+
+/**
+ * Whether any of this has ever been right.
+ *
+ * The panel projects a chain and a terminal price, and until now said nothing
+ * about whether those projections were borne out. That is the difference
+ * between a model and a claim, and watching levels get crossed without the move
+ * following is precisely the case where the difference matters.
+ *
+ * Three numbers, because "it is not accurate" can mean three different things:
+ * whether price reaches the first level at all, how far it carries once it
+ * does, and whether liquidations actually printed there. Shown even while cold,
+ * because "not yet measured" is information and an unlabelled projection reads
+ * as a verified one.
+ */
+function Calibration({ cal }: { cal: CascadeCalibration }) {
+  if (!cal) return null;
+  const pctOf = (v: number | null) => (v === null ? "—" : `${(v * 100).toFixed(0)}%`);
+  return (
+    <div className={`cascade-cal${cal.warm ? "" : " cold"}`}>
+      {cal.warm ? (
+        <>
+          <span className="cal-item">
+            <b className="num">{pctOf(cal.reachRate)}</b> reached the first level
+          </span>
+          <span className="cal-item">
+            <b className="num">{pctOf(cal.travelFactor)}</b> of the projected distance, when they did
+          </span>
+          <span className="cal-item">
+            <b className="num">{pctOf(cal.dischargeRate)}</b> printed liquidations
+          </span>
+          <span className="sub">
+            over {cal.settled} outcomes · the projection below is scaled by the measured{" "}
+            {cal.factor.toFixed(2)}×
+          </span>
+        </>
+      ) : (
+        <span className="sub">
+          <b>Unverified.</b> {cal.note}. Everything below is a forward simulation on the
+          current book — it has not yet been checked against what price actually did.
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -169,7 +217,7 @@ function CascadeBody({
         </span>
         <div>
           <strong style={{ color: STATUS_VAR[status.key] }}>
-            {status.label} — {path.risk.toFixed(0)}/100 chance-of-a-sweep score
+            {status.label} — {path.risk.toFixed(0)}/100 fragility score
           </strong>
           <div className="sub" style={{ marginTop: 2 }}>
             Someone buying or selling {usd(path.seedNotional)} at market would push price

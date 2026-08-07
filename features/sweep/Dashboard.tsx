@@ -7,6 +7,7 @@ import "./sweep.css";
 import CascadePanel from "./CascadePanel";
 import ClusterMap from "./ClusterMap";
 import ContextPanel from "./ContextPanel";
+import NewsPanel from "./NewsPanel";
 import LiquidityPanel from "./LiquidityPanel";
 import Tapes from "./Tapes";
 import TopBar from "./TopBar";
@@ -59,6 +60,10 @@ export default function Dashboard() {
 
           <div className="stack">
             <ContextPanel snap={slow} />
+            {/* Directly under the context it qualifies: a withdrawal with a
+                headline behind it is a different situation from an identical
+                one without, and the two readings belong side by side. */}
+            <NewsPanel symbol={slow.meta?.symbol ?? "INTCUSDT"} />
             <LiquidityPanel snap={slow} />
           </div>
 
