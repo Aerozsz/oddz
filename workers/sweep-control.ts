@@ -44,6 +44,7 @@ import {
 import { previewPosition } from "../lib/sweep/exchange/preview";
 import { proposePosition } from "../lib/sweep/agent/sizing";
 import { holdDecision, type HoldDecision } from "../lib/sweep/agent/hold";
+import { profitDecision, type ProfitDecision } from "../lib/sweep/agent/profit";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import { DEFAULT_FEES, type FeeSchedule, canPostEntry, parseFeeTiers } from "../lib/sweep/metrics/fees";
 import { DislocationTracker, EMPTY_DISLOCATION } from "../lib/sweep/metrics/dislocation";
@@ -55,6 +56,7 @@ import {
   ensureProtected,
   openProtectedPosition,
   placeTakeProfit,
+  reducePosition,
   setLeverage,
   testExitPath,
   type ProtectionState,
@@ -248,6 +250,17 @@ interface Limits {
    */
   marginHeadroomPct: number;
   /**
+   * Multiples of risk before the trailing stop arms. 0 disables the trail.
+   *
+   * Below this the break-even ratchet governs alone. Trailing earlier would put
+   * the stop inside the noise band the original stop was widened to clear.
+   */
+  trailArmsAtR: number;
+  /** Multiples of risk at which part of the position is taken. 0 disables. */
+  scaleOutAtR: number;
+  /** How much of the original position that takes, in percent. */
+  scaleOutFraction: number;
+  /**
    * How many times the round trip a target must be worth.
    *
    * The dial that decides whether small, fast moves are tradeable at all. See
@@ -330,6 +343,9 @@ const DEFAULT_LIMITS: Limits = {
   // Enough to cover a taker commission on both legs plus the exchange's own
   // initial-margin rounding, which is what the boundary case was short of.
   marginHeadroomPct: 5,
+  trailArmsAtR: 1,
+  scaleOutAtR: 1.5,
+  scaleOutFraction: 40,
 };
 
 /**
@@ -464,6 +480,17 @@ interface Desk {
    */
   excursion: Excursion | null;
   /**
+   * Fraction of the original position already taken off at a profit.
+   *
+   * Held per desk rather than derived from the position size, because the
+   * exchange reports only what is left — a position reduced from 10 to 6 looks
+   * identical to one opened at 6, and without this the scale-out would fire
+   * again on every sweep until the position was gone.
+   */
+  scaledOut: number;
+  /** The most recent profit-management decision, for the page to show. */
+  profit: ProfitDecision | null;
+  /**
    * Whether that tracker has been running since the position was opened.
    *
    * False for a position inherited at startup, where it only covers the part
@@ -515,6 +542,8 @@ function newDesk(symbol: string): Desk {
     targetFailures: 0,
     hold: null,
     excursion: null,
+    scaledOut: 0,
+    profit: null,
     excursionFromOpen: false,
     exitIntent: null,
     pendingConditions: null,
@@ -903,23 +932,137 @@ async function maintainBrackets() {
      * exactly at entry still loses the fees both ways, which on this frequency
      * is most of what a scratch trade costs.
      */
-    if (!limits.breakEvenAtPct || desk.ratchetedAt) continue;
-    if (target === null) continue;
-
     const long = pos.positionAmt > 0;
     const entryPrice = pos.entryPrice;
-    const totalMove = Math.abs(target - entryPrice);
-    if (!(totalMove > 0)) continue;
-    const travelled = long ? pos.markPrice - entryPrice : entryPrice - pos.markPrice;
-    const progress = travelled / totalMove;
-    if (progress < limits.breakEvenAtPct / 100) continue;
-
-    // Round trip in price terms, so the scratch is genuinely flat after fees.
     const feePct = (fees.tiers[0]?.takerRate ?? 0.0005) * 2 * 100;
-    const beStop = long ? entryPrice * (1 + feePct / 100) : entryPrice * (1 - feePct / 100);
+
+    /*
+     * Break-even first, then the trail.
+     *
+     * The break-even ratchet stays as the first rung: it fires on progress
+     * toward the target and only once, which is the right rule while the trade
+     * is still short of a full R and the trail has not armed. Above that the
+     * profit engine governs, and the two never fight because both only ever
+     * move the stop toward the position — whichever asks for more protection
+     * wins, and neither can ask for less.
+     */
+    let wantStop: number | null = null;
+    let rolledTarget: number | null = null;
+    let wantScaleOut = 0;
+    let why = "";
+
+    const totalMove = target !== null ? Math.abs(target - entryPrice) : 0;
+    const travelled = long ? pos.markPrice - entryPrice : entryPrice - pos.markPrice;
+    if (limits.breakEvenAtPct && !desk.ratchetedAt && totalMove > 0 &&
+        travelled / totalMove >= limits.breakEvenAtPct / 100) {
+      // Entry plus the full round trip, not entry itself: a stop exactly at
+      // entry still loses the fees both ways, which on this frequency is most
+      // of what a scratch trade costs.
+      wantStop = long ? entryPrice * (1 + feePct / 100) : entryPrice * (1 - feePct / 100);
+      why = `${((travelled / totalMove) * 100).toFixed(0)}% of the way to target — stop to break-even plus fees`;
+    }
+
+    /*
+     * The profit side proper: trail, scale out, extend.
+     *
+     * Needs the live feed, because every one of its decisions reads the book —
+     * the high-water mark from the excursion tracker, the cluster beyond the
+     * target, and the thesis health that decides whether extending is analysis
+     * or hope. With no feed the break-even rung above is the whole of the
+     * profit management, which is where this was before.
+     */
+    const feedState = desk.feed?.getState();
+    if (feedState && desk.excursion) {
+      const remembered = journal[desk.symbol];
+      const hold = holdDecision({
+        state: feedState,
+        side: long ? "long" : "short",
+        entryPrice,
+        targetPrice: target,
+        heldMs: desk.positionOpenedAt ? Date.now() - desk.positionOpenedAt : 0,
+        entryLwi: remembered?.entryLwi ?? null,
+        config: { baseMinutes: limits.maxHoldMinutes },
+      });
+      const decision = profitDecision({
+        state: feedState,
+        side: long ? "long" : "short",
+        entryPrice,
+        stopPrice: state.stop?.stopPrice ?? null,
+        initialStopPct: remembered?.stopPct ?? limits.stopLossPct,
+        targetPrice: target,
+        highWaterPrice: desk.excursion.peakPrice(),
+        scaledOut: desk.scaledOut,
+        feePct,
+        thesisHealth: hold.thesisHealth,
+        config: {
+          trailArmsAtR: limits.trailArmsAtR,
+          scaleOutAtR: limits.scaleOutAtR,
+          scaleOutFraction: limits.scaleOutFraction / 100,
+        },
+      });
+      desk.profit = decision;
+
+      // Whichever protects more wins. Both are monotone toward the position, so
+      // taking the better of the two can never loosen anything.
+      if (decision.stopPrice !== null) {
+        const better = wantStop === null ||
+          (long ? decision.stopPrice > wantStop : decision.stopPrice < wantStop);
+        if (better) { wantStop = decision.stopPrice; why = decision.notes[0] ?? decision.reason; }
+      }
+      rolledTarget = decision.targetPrice;
+      wantScaleOut = decision.scaleOutFraction;
+    }
+
+    /* ------------------------------------------------------- scale out */
+
+    if (wantScaleOut > 0) {
+      try {
+        const taken = await reducePosition(
+          cfg, desk.symbol, wantScaleOut, metaFor(desk.symbol)?.quantityPrecision ?? 0,
+        );
+        if (taken.quantity > 0) {
+          // Recorded before anything else can fail, so a partial that filled is
+          // never taken twice by the next sweep.
+          desk.scaledOut = wantScaleOut;
+          log(`SCALE OUT ${desk.symbol}: ${taken.reason} — ${desk.profit?.notes[0] ?? ""}`);
+          await refreshAccount();
+        } else {
+          // Recorded as done anyway: the refusal is structural — the remainder
+          // would be untradeable — and retrying every twenty seconds would log
+          // the same impossibility for the life of the position.
+          desk.scaledOut = wantScaleOut;
+          log(`scale out ${desk.symbol} declined: ${taken.reason}`);
+        }
+      } catch (err) {
+        log(`scale out ${desk.symbol} FAILED: ${redact(err instanceof Error ? err.message : String(err))}`);
+      }
+      continue; // next sweep re-reads the smaller position before touching the bracket
+    }
+
+    /* ---------------------------------------------------- roll the target */
+
+    if (rolledTarget !== null && target !== null) {
+      try {
+        const moved = await placeTakeProfit(cfg, desk.symbol, pos, rolledTarget, precision);
+        if (state.takeProfit) {
+          await cancelOrder(cfg, desk.symbol, state.takeProfit.orderId, state.takeProfit.isAlgo)
+            .catch(() => { /* two targets is harmless: the nearer one fills first */ });
+        }
+        const j = journal[desk.symbol];
+        journalOpen(desk.symbol, { ...j, openedAt: j?.openedAt ?? desk.positionOpenedAt, targetPrice: rolledTarget } as Parameters<typeof journalOpen>[1]);
+        log(`TARGET ROLLED ${desk.symbol}: ${target} → ${moved.stopPrice} — ${desk.profit?.notes[0] ?? ""}`);
+      } catch (err) {
+        log(`target roll ${desk.symbol} declined: ${redact(err instanceof Error ? err.message : String(err))}`);
+      }
+    }
+
+    if (wantStop === null) continue;
+    const beStop = wantStop;
     const current = state.stop?.stopPrice ?? 0;
     const improves = long ? beStop > current : beStop < current;
     if (!improves) {
+      // The break-even rung is a one-shot, so mark it done. The trail is not —
+      // it re-evaluates every sweep and simply has nothing better to offer yet.
       desk.ratchetedAt = Date.now();
       continue;
     }
@@ -959,10 +1102,7 @@ async function maintainBrackets() {
           );
         }
       }
-      log(
-        `RATCHET ${desk.symbol}: ${(progress * 100).toFixed(0)}% of the way to target, ` +
-          `stop moved to break-even + fees at ${moved.stopPrice} — this can no longer be a losing trade`,
-      );
+      log(`STOP RAISED ${desk.symbol} to ${moved.stopPrice} — ${why || "protecting open profit"}`);
       await refreshAccount();
     } catch (err) {
       // The original stop was never touched, so the position is still covered
@@ -993,6 +1133,8 @@ async function enforceMaxHold() {
       desk.excursion = null;
       desk.excursionFromOpen = false;
       desk.exitIntent = null;
+      desk.scaledOut = 0;
+      desk.profit = null;
       continue;
     }
     if (!desk.positionOpenedAt) {
@@ -2022,6 +2164,8 @@ function armDesk(desk: Desk) {
         desk.excursion = entryPrice > 0 ? new Excursion(entryPrice, !!long) : null;
         desk.excursionFromOpen = !!desk.excursion;
         desk.exitIntent = null;
+        desk.scaledOut = 0;
+        desk.profit = null;
         acceptedSinceRejection++;
         relaxHeadroom(acceptedSinceRejection);
       }
@@ -2660,6 +2804,9 @@ const server = createServer(async (req, res) => {
           minRewardOverFees: Math.min(10, Math.max(1.2, n("minRewardOverFees", limits.minRewardOverFees))),
           autoTune: typeof body.autoTune === "boolean" ? body.autoTune : limits.autoTune,
           marginHeadroomPct: Math.min(50, Math.max(0, n("marginHeadroomPct", limits.marginHeadroomPct))),
+          trailArmsAtR: Math.min(10, Math.max(0, n("trailArmsAtR", limits.trailArmsAtR))),
+          scaleOutAtR: Math.min(10, Math.max(0, n("scaleOutAtR", limits.scaleOutAtR))),
+          scaleOutFraction: Math.min(90, Math.max(0, n("scaleOutFraction", limits.scaleOutFraction))),
         };
         writeLimits(limits);
         // Written to the tuning log so the tuner sees a human touched these and
@@ -4170,6 +4317,10 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
       <label>Minimum reward-to-risk <i>target ÷ stop</i><input id="minRewardRisk" type="number" min="0.1" max="10" step="0.1"></label>
       <label>Minimum reward vs fees <i>× the round trip</i><input id="minRewardOverFees" type="number" min="1.2" max="10" step="0.1"></label>
       <label>Move stop to break-even <i>% of the way to target · 0 = never</i><input id="breakEvenAtPct" type="number" min="0" max="100" step="5"></label>
+      <label>Trail arms at <i>multiples of risk · 0 = no trail</i><input id="trailArmsAtR" type="number" min="0" max="10" step="0.5"></label>
+      <label>Take part off at <i>multiples of risk · 0 = never</i><input id="scaleOutAtR" type="number" min="0" max="10" step="0.5"></label>
+      <label>...how much <i>% of the position</i><input id="scaleOutFraction" type="number" min="0" max="90" step="10"></label>
+      <label>Margin headroom <i>% of collateral kept free</i><input id="marginHeadroomPct" type="number" min="0" max="50" step="1"></label>
       <label>Max hold <i>minutes · 0 = no limit</i><input id="maxHoldMinutes" type="number" min="0" step="5"></label>
     </div>
   </div>
@@ -4284,6 +4435,7 @@ let liveDirty=false;
 let focusSymbol="";
 for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct",
   "riskPerTradePct","maxHoldMinutes","minRewardRisk","breakEvenAtPct","maxTradesPerDay","lossCooldownMin",
+  "trailArmsAtR","scaleOutAtR","scaleOutFraction","marginHeadroomPct",
   "minRewardOverFees"])
   $(id).addEventListener("input",()=>{limitsDirty=true; explainLimits(lastStatus);});
 $("tradingEnabled").addEventListener("change",()=>limitsDirty=true);
@@ -4615,6 +4767,10 @@ function render(s){
     $("minRewardRisk").value=s.limits.minRewardRisk;
     $("minRewardOverFees").value=s.limits.minRewardOverFees;
     $("breakEvenAtPct").value=s.limits.breakEvenAtPct;
+    $("trailArmsAtR").value=s.limits.trailArmsAtR;
+    $("scaleOutAtR").value=s.limits.scaleOutAtR;
+    $("scaleOutFraction").value=s.limits.scaleOutFraction;
+    $("marginHeadroomPct").value=s.limits.marginHeadroomPct;
     $("maxTradesPerDay").value=s.limits.maxTradesPerDay;
     $("lossCooldownMin").value=s.limits.lossCooldownMin;
   }
@@ -4748,6 +4904,8 @@ $("btnLimits").onclick=async()=>{
     riskPerTradePct:+$("riskPerTradePct").value,maxHoldMinutes:+$("maxHoldMinutes").value,
     sizeDerateStrength:+$("sizeDerateStrength").value,minRewardRisk:+$("minRewardRisk").value,minRewardOverFees:+$("minRewardOverFees").value,
     breakEvenAtPct:+$("breakEvenAtPct").value,maxTradesPerDay:+$("maxTradesPerDay").value,
+    trailArmsAtR:+$("trailArmsAtR").value,scaleOutAtR:+$("scaleOutAtR").value,
+    scaleOutFraction:+$("scaleOutFraction").value,marginHeadroomPct:+$("marginHeadroomPct").value,
     lossCooldownMin:+$("lossCooldownMin").value};
   limitsDirty=false; render(await api("/api/limits",{method:"POST",body:JSON.stringify(body)}));
 };

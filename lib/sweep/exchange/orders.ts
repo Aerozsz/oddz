@@ -780,6 +780,78 @@ export async function closePosition(cfg: BinanceConfig, symbol: string): Promise
   });
 }
 
+export interface PartialClose {
+  /** Contracts actually sent, after rounding to the contract's precision. */
+  quantity: number;
+  /** What is left open afterwards. */
+  remaining: number;
+  reason: string;
+}
+
+/**
+ * Take part of a position off at market, leaving the rest running.
+ *
+ * The mechanism the profit side had no way to express. Every existing exit here
+ * is `closePosition: true` — all or nothing — which forces the choice between
+ * banking the whole trade at the first target and holding all of it for a tail
+ * that may not arrive. Scaling out is the only way to do both, and it needs a
+ * sized reduce-only order rather than a position-level one.
+ *
+ * Two refusals matter more than the happy path:
+ *
+ * The remainder must stay tradeable. Reducing to a quantity below the
+ * contract's step size leaves a position that cannot be closed by a normal
+ * order, and the protective stop resting behind it is `closePosition`-based, so
+ * the position would sit there until something manual happened to it. Better to
+ * take nothing.
+ *
+ * And it never flips. `reduceOnly` is set on the exchange side as well as
+ * checked here, because a rounding error that sends more contracts than are
+ * open would otherwise open a fresh position in the opposite direction — a
+ * profit-taking routine that can accidentally reverse the trade is worse than
+ * no profit-taking routine.
+ */
+export async function reducePosition(
+  cfg: BinanceConfig,
+  symbol: string,
+  fraction: number,
+  quantityPrecision: number,
+): Promise<PartialClose> {
+  const rows = await signedRequest<{ positionAmt: string }[]>(cfg, "GET", "/fapi/v2/positionRisk", { symbol });
+  const raw = rows.find((r) => Number(r.positionAmt) !== 0);
+  if (!raw) return { quantity: 0, remaining: 0, reason: "flat — nothing to reduce" };
+
+  const amt = num(raw.positionAmt);
+  const open = Math.abs(amt);
+  const step = Math.pow(10, -quantityPrecision);
+
+  const wanted = open * Math.min(Math.max(fraction, 0), 0.9);
+  const quantity = Number((Math.floor(wanted / step) * step).toFixed(quantityPrecision));
+
+  if (!(quantity > 0)) {
+    return { quantity: 0, remaining: open, reason: `${(fraction * 100).toFixed(0)}% of ${open} rounds to nothing at this contract's precision` };
+  }
+  const remaining = Number((open - quantity).toFixed(quantityPrecision));
+  if (remaining < step) {
+    return {
+      quantity: 0,
+      remaining: open,
+      reason:
+        `taking ${quantity} of ${open} would leave ${remaining}, below the ${step} step — the remainder ` +
+        `could not be closed normally, so nothing was taken`,
+    };
+  }
+
+  await signedRequest(cfg, "POST", "/fapi/v1/order", {
+    symbol,
+    side: amt > 0 ? "SELL" : "BUY",
+    type: "MARKET",
+    quantity: quantity.toFixed(quantityPrecision),
+    reduceOnly: true,
+  });
+  return { quantity, remaining, reason: `took ${quantity} of ${open}, ${remaining} still running` };
+}
+
 /* ------------------------------------------------------------- exit proving */
 
 export interface ExitTestStep {

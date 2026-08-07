@@ -299,6 +299,21 @@ export class Excursion {
     if (move > this.best) this.best = move;
   }
 
+  /**
+   * The best price the position ever saw, for the trailing stop to follow.
+   *
+   * The excursion is stored as a percentage because that is what the
+   * post-mortem compares across trades, but a trail has to be placed at a
+   * price. Recomputing it from the entry keeps one source of truth for "the
+   * best this ever was" — a separately-tracked high-water mark would be a
+   * second copy able to disagree with the record written at the close.
+   */
+  peakPrice(): number {
+    if (!(this.entryPrice > 0)) return 0;
+    const move = this.entryPrice * (this.best / 100);
+    return this.long ? this.entryPrice + move : this.entryPrice - move;
+  }
+
   read(targetPrice: number | null) {
     const distance =
       targetPrice !== null && this.entryPrice > 0
