@@ -94,6 +94,13 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
   };
 
   const unsubscribe = feed.onSignal((signal, state) => {
+    /*
+     * Health signals describe the feed, not the market. Counting them makes
+     * the panel report signals seen and sides declined while also saying no
+     * signal has fired — two feed flaps and it claims four signals and two
+     * declines with nothing having happened in the market at all.
+     */
+    if (signal.kind === "health") return;
     seen++;
     // Checked before the strategy runs, so a strategy cannot be written in a
     // way that depends on being consulted during an outage.

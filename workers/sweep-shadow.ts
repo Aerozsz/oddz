@@ -208,7 +208,8 @@ process.on("unhandledRejection", (r) => console.error(`[shadow] unhandled reject
 // So the GUI can tell "running and waiting for a setup" from "not started".
 // The output file cannot answer that: nothing is written until a trade has
 // been open for the full fifteen minutes.
-const stopBeat = beat("sweep-shadow", () => {
+let stopBeat: () => void = () => {};
+stopBeat = beat("sweep-shadow", () => {
   const s = runner.stats();
   return {
     recorded: written,

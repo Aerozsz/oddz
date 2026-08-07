@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 /**
@@ -27,6 +27,14 @@ export interface Heartbeat {
   at: number;
   /** Whatever the worker wants to report, e.g. rows written, trades pending. */
   stats: Record<string, number | string | boolean | null>;
+  /**
+   * Set by the final beat on a clean shutdown.
+   *
+   * Without it the stop write re-stamps `at` with the current time, so a worker
+   * that has just been Ctrl-C'd reads as alive for the next ninety seconds —
+   * the exact confusion this file exists to remove, inverted.
+   */
+  stopped?: boolean;
 }
 
 /** A beat older than this means the process is gone or wedged. */
@@ -49,23 +57,44 @@ export function beat(
 ): () => void {
   const path = heartbeatPath(name);
   const startedAt = Date.now();
-  mkdirSync(dirname(path), { recursive: true });
 
-  const write = () => {
-    const hb: Heartbeat = { name, pid: process.pid, startedAt, at: Date.now(), stats: stats() };
+  const write = (stopped = false) => {
+    // Everything inside the guard, including collecting the stats. A monitor
+    // that can kill the process it monitors is worse than no monitor, and
+    // stats() reaches into live worker state that can throw during shutdown.
     try {
-      writeFileSync(path, `${JSON.stringify(hb)}\n`);
+      const hb: Heartbeat = {
+        name,
+        pid: process.pid,
+        startedAt,
+        at: Date.now(),
+        stats: stats(),
+        ...(stopped ? { stopped: true } : {}),
+      };
+      // Written to a temporary file and renamed, because rename is atomic and
+      // a plain write is not: a reader polling on its own cycle will sooner or
+      // later land mid-write, fail to parse, and conclude the worker was never
+      // started.
+      const tmp = `${path}.${process.pid}.tmp`;
+      writeFileSync(tmp, `${JSON.stringify(hb)}\n`);
+      renameSync(tmp, path);
     } catch {
       // A worker must not die because its status file could not be written.
     }
   };
+
+  try {
+    mkdirSync(dirname(path), { recursive: true });
+  } catch {
+    /* same reason: the heartbeat is never allowed to be fatal */
+  }
 
   write();
   const timer = setInterval(write, intervalMs);
   timer.unref?.();
   return () => {
     clearInterval(timer);
-    write();
+    write(true);
   };
 }
 
@@ -87,8 +116,10 @@ export function readHeartbeat(name: string): HeartbeatRead {
     const hb = JSON.parse(readFileSync(path, "utf8")) as Heartbeat;
     const ageMs = Date.now() - hb.at;
     return {
-      running: ageMs < STALE_MS,
-      stale: ageMs >= STALE_MS,
+      running: !hb.stopped && ageMs < STALE_MS,
+      // A clean stop is reported as such immediately rather than waiting out
+      // the staleness window.
+      stale: Boolean(hb.stopped) || ageMs >= STALE_MS,
       startedAt: hb.startedAt,
       at: hb.at,
       ageMs,

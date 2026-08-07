@@ -249,6 +249,23 @@ feed.onState((s) => {
   }
 });
 
+/*
+ * Started here, above every handler that can call it. Declared with `let` and a
+ * no-op default because shutdown() is reachable from the uncaughtException
+ * handler — and if beat() itself threw, a `const` declared further down would
+ * make that handler raise a ReferenceError and skip the pending-row flush,
+ * losing the rows a crash most needs saved.
+ */
+let stopBeat: () => void = () => {};
+try {
+  stopBeat = beat("sweep-paper", () => {
+    const s = feed.getState();
+    return { rows: written, pending: pending.size, feed: s.health.level, mid: s.mid, out: OUT };
+  });
+} catch (err) {
+  console.error(`[paper] heartbeat unavailable: ${err instanceof Error ? err.message : String(err)}`);
+}
+
 function shutdown(code = 0) {
   stopBeat();
   // Anything still waiting on a horizon is written with the outcomes it has,
@@ -305,10 +322,7 @@ setInterval(() => {
   );
 }, 15 * 60_000).unref?.();
 
-const stopBeat = beat("sweep-paper", () => {
-  const s = feed.getState();
-  return { rows: written, pending: pending.size, feed: s.health.level, mid: s.mid, out: OUT };
-});
+
 
 console.error(`[paper] recording to ${OUT}`);
 console.error(`[paper] sampling every ${SAMPLE_SEC}s — about ${Math.round(86400 / SAMPLE_SEC)} rows a day`);
