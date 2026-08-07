@@ -18,7 +18,10 @@ import { fetchPosition, signedRequest, type BinanceConfig, type Position } from 
 export type Side = "BUY" | "SELL";
 
 export interface Order {
+  /** orderId for an ordinary order; algoId for a conditional one. */
   orderId: number;
+  /** True when this lives in the Algo Order service and cancels by algoId. */
+  isAlgo?: boolean;
   symbol: string;
   side: Side;
   type: string;
@@ -73,12 +76,94 @@ function toOrder(o: RawOrder): Order {
   };
 }
 
-export async function listOpenOrders(cfg: BinanceConfig, symbol: string): Promise<Order[]> {
-  const rows = await signedRequest<RawOrder[]>(cfg, "GET", "/fapi/v1/openOrders", { symbol });
-  return rows.map(toOrder);
+/* --------------------------------------------------------- algo orders */
+
+/**
+ * Conditional orders moved. Binance migrated STOP_MARKET, TAKE_PROFIT_MARKET,
+ * STOP, TAKE_PROFIT and TRAILING_STOP_MARKET off /fapi/v1/order onto a separate
+ * Algo Order service on 2025-12-09, and the old endpoint now rejects them
+ * outright with -4120 rather than continuing to accept them.
+ *
+ * That is not a cosmetic change for this project. The protective stop is the
+ * single property everything else rests on — positions are deliberately left
+ * open on shutdown, and that is only safe because the stop lives on the
+ * exchange. Against the old endpoint every stop now fails, so every entry would
+ * be unwound by the fail-closed path and nothing could ever be held.
+ *
+ * The shape differs as well as the path:
+ *   - `triggerPrice`, not `stopPrice`
+ *   - `algoType: CONDITIONAL` alongside the order type
+ *   - identified by `algoId`, not `orderId`
+ *   - listed at /fapi/v1/openAlgoOrders, cancelled by algoId
+ */
+const ALGO_PATH = "/fapi/v1/algoOrder";
+
+interface RawAlgoOrder {
+  algoId: number;
+  clientAlgoId?: string;
+  algoType?: string;
+  orderType?: string;
+  symbol: string;
+  side: Side;
+  quantity?: string;
+  triggerPrice?: string;
+  price?: string;
+  closePosition?: boolean;
+  reduceOnly?: boolean;
+  algoStatus?: string;
+  workingType?: string;
 }
 
-export async function cancelOrder(cfg: BinanceConfig, symbol: string, orderId: number): Promise<void> {
+/**
+ * An algo order in the same shape as an ordinary one.
+ *
+ * `orderId` carries the algoId so a caller holding an Order can cancel it
+ * without knowing which service it came from — `isAlgo` is what routes that.
+ */
+function fromAlgo(o: RawAlgoOrder): Order {
+  return {
+    orderId: o.algoId,
+    isAlgo: true,
+    symbol: o.symbol,
+    side: o.side,
+    type: o.orderType ?? "STOP_MARKET",
+    stopPrice: num(o.triggerPrice),
+    closePosition: Boolean(o.closePosition),
+    reduceOnly: Boolean(o.reduceOnly),
+    quantity: num(o.quantity),
+    executedQty: 0,
+    avgPrice: 0,
+    price: num(o.price),
+    status: o.algoStatus ?? "NEW",
+  };
+}
+
+/**
+ * Every resting order, from both services.
+ *
+ * Both are queried because a position's protection now lives in the algo
+ * service while an unfilled entry still lives in the ordinary one, and
+ * checkProtection has to see the first while the maker path has to see the
+ * second. Querying only one is how a protected position reads as unprotected.
+ */
+export async function listOpenOrders(cfg: BinanceConfig, symbol: string): Promise<Order[]> {
+  const [plain, algo] = await Promise.all([
+    signedRequest<RawOrder[]>(cfg, "GET", "/fapi/v1/openOrders", { symbol }),
+    signedRequest<RawAlgoOrder[]>(cfg, "GET", "/fapi/v1/openAlgoOrders", { symbol }).catch(() => []),
+  ]);
+  return [...plain.map(toOrder), ...algo.map(fromAlgo)];
+}
+
+export async function cancelOrder(
+  cfg: BinanceConfig,
+  symbol: string,
+  orderId: number,
+  isAlgo = false,
+): Promise<void> {
+  if (isAlgo) {
+    await signedRequest(cfg, "DELETE", ALGO_PATH, { symbol, algoId: orderId });
+    return;
+  }
   await signedRequest(cfg, "DELETE", "/fapi/v1/order", { symbol, orderId });
 }
 
@@ -114,15 +199,17 @@ export async function placeProtectiveStop(
     throw new Error(`short stop ${stopPrice} must be above mark ${position.markPrice}`);
   }
 
-  const raw = await signedRequest<RawOrder>(cfg, "POST", "/fapi/v1/order", {
+  const raw = await signedRequest<RawAlgoOrder>(cfg, "POST", ALGO_PATH, {
     symbol,
     side: long ? "SELL" : "BUY",
+    algoType: "CONDITIONAL",
     type: "STOP_MARKET",
-    stopPrice: stopPrice.toFixed(pricePrecision),
+    // `triggerPrice` on this endpoint, not `stopPrice` as on the old one.
+    triggerPrice: stopPrice.toFixed(pricePrecision),
     closePosition: true,
     workingType: "MARK_PRICE",
   });
-  return toOrder(raw);
+  return fromAlgo(raw);
 }
 
 /** A resting order that would close this position if price runs against it. */
