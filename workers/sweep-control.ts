@@ -23,6 +23,8 @@ import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, resolve } from "node:path";
+import { attachCalendar } from "../lib/sweep/metrics/event-store";
+import { getEngine } from "../lib/sweep/engine";
 import { createSweepFeed, type SweepFeed } from "../lib/sweep/agent";
 import type { Signal } from "../lib/sweep/agent";
 import {
@@ -191,6 +193,7 @@ const fees = readFeeSchedule();
 function startEngine() {
   if (feed) return;
   feed = createSweepFeed();
+  attachCalendar(getEngine());
   startedAt = Date.now();
   log("engine started");
 }

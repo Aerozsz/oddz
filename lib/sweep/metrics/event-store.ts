@@ -169,3 +169,32 @@ export function activeEvents(path = storePath()): MarketEvent[] {
       afterH: e.afterH,
     }));
 }
+
+/**
+ * Keep a running engine's calendar in step with the file.
+ *
+ * Server-side only — this module reads `node:fs`, so importing it from anything
+ * that reaches the browser bundle breaks the build. That is why the engine
+ * takes the calendar through a setter instead of reading the file itself, and
+ * why this helper lives here rather than there.
+ *
+ * Polled rather than watched: fs.watch is unreliable across platforms and
+ * network drives, the file changes at most a few times a quarter, and a minute
+ * of staleness on an earnings date announced weeks ahead costs nothing.
+ */
+export function attachCalendar(
+  engine: { setCalendar(events: MarketEvent[]): void },
+  intervalMs = 60_000,
+): () => void {
+  const apply = () => {
+    try {
+      engine.setCalendar(activeEvents());
+    } catch {
+      /* a bad calendar file leaves the previous one in place */
+    }
+  };
+  apply();
+  const timer = setInterval(apply, intervalMs);
+  timer.unref?.();
+  return () => clearInterval(timer);
+}

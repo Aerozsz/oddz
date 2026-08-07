@@ -17,7 +17,6 @@ import { CONFIG, SYMBOL } from "./config";
 import { simulate } from "./metrics/cascade";
 import { buildClusters } from "./metrics/clusters";
 import { bandDepths, costCurve, findWalls } from "./metrics/depth";
-import { activeEvents } from "./metrics/event-store";
 import { NO_EVENT_RISK, eventRisk, parseEnvEvents, type MarketEvent } from "./metrics/events";
 import { EMPTY_FUNDING, type FundingSettlement, readFunding } from "./metrics/funding";
 import { EMPTY_MARKOUT, MarkoutTracker } from "./metrics/markout";
@@ -66,23 +65,23 @@ export class Engine {
   ).events;
 
   /**
-   * The file-backed calendar, re-read on a timer.
+   * Extra calendar entries, pushed in from outside.
    *
-   * A timer rather than a one-off read because the agent writes to this file
-   * while the engine is running — a date confirmed at 10am is no use if it
-   * takes a restart to be seen. Reading it in the browser is skipped: there is
-   * no filesystem there, and the projection plus its standing prompt is the
-   * right thing for a page anyone can open.
+   * A setter rather than the engine reading the file itself, because this
+   * module is bundled for the browser and a static `node:fs` import breaks that
+   * build outright — a `typeof window` guard does not help, since the import is
+   * resolved at bundle time regardless of whether the code runs. Inverting it
+   * is also the better shape: this is a market-data engine, and which file the
+   * calendar lives in is not its business.
+   *
+   * The headless workers call this on a timer, so a date the agent confirms at
+   * 10am is picked up without a restart. A browser session never calls it and
+   * correctly falls back to the projection with its standing prompt to confirm.
    */
   private storedEvents: MarketEvent[] = [];
 
-  private reloadEvents() {
-    if (typeof window !== "undefined") return;
-    try {
-      this.storedEvents = activeEvents();
-    } catch {
-      /* a bad calendar file falls back to the projection */
-    }
+  setCalendar(events: MarketEvent[]) {
+    this.storedEvents = events;
   }
 
   /** Fill-quality tracking for our own executions. */
@@ -178,8 +177,6 @@ export class Engine {
     this.timers.push(setInterval(() => void this.refreshOpenInterest(), 20_000));
     this.timers.push(setInterval(() => void this.refreshRatio(), 300_000));
     this.timers.push(setInterval(() => void this.refreshFundingHistory(), 1_800_000));
-    this.reloadEvents();
-    this.timers.push(setInterval(() => this.reloadEvents(), 60_000));
     this.timers.push(
       setInterval(() => {
         const now = Date.now();
