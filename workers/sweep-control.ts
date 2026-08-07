@@ -488,7 +488,13 @@ function startExecutionLoop() {
         clusters: feed!.getClusters(),
         config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
       });
-      if (!proposal.ok) return null;
+      if (!proposal.ok) {
+        // Otherwise this surfaces as "the strategy passed on this signal",
+        // above a GUI line asserting the bias called no side — which is the
+        // opposite of what happened: it called a side and the sizer refused it.
+        runner?.noteDecline(`sized out (${bias.direction}): ${proposal.reasons.join("; ")}`);
+        return null;
+      }
 
       return {
         id: intentId(signal),
@@ -849,6 +855,126 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "GET /api/diagnose": {
+        /*
+         * One place that answers "why is nothing happening".
+         *
+         * Every check here corresponds to something that has actually gone
+         * wrong in this project rather than to a category someone imagined:
+         * .env not being read, a saved flag quietly refusing every setup out of
+         * hours, the loop claiming to be armed while attached to nothing, a
+         * worker judged dead because its output file was empty. The point is to
+         * return the specific next action, not a status colour.
+         */
+        const checks: {
+          name: string;
+          ok: boolean;
+          severity: "ok" | "warn" | "bad";
+          detail: string;
+          fix?: string;
+        }[] = [];
+        const add = (
+          name: string,
+          ok: boolean,
+          detail: string,
+          fix?: string,
+          severity: "ok" | "warn" | "bad" = ok ? "ok" : "bad",
+        ) => checks.push({ name, ok, severity, detail, fix });
+
+        add(
+          ".env loaded",
+          dotenv.found && dotenv.count > 0,
+          dotenv.found ? `${dotenv.path} — ${dotenv.count} values` : `not found at ${dotenv.path}`,
+          dotenv.found ? "Check the key names are exactly BINANCE_API_KEY and BINANCE_API_SECRET."
+            : "On Windows, Notepad saves it as .env.txt unless you set Save as type to All Files.",
+        );
+
+        const creds = hasCredentials();
+        add("credentials present", creds,
+          creds ? (process.env.BINANCE_LIVE === "1" ? "LIVE — real money" : "demo trading") : "none",
+          creds ? undefined : "Run npm run sweep:check to test them on their own.");
+
+        const acctOk = account.risk !== null;
+        add("exchange reachable", acctOk,
+          acctOk ? `balance ${account.risk?.availableBalance.toFixed(2)} USDT`
+                 : (account.error ?? "no account read yet"),
+          acctOk ? undefined : "npm run sweep:check names the specific cause.");
+
+        const engineOn = feed !== null;
+        add("engine running", engineOn, engineOn ? `up ${Math.round((Date.now() - startedAt) / 1000)}s` : "stopped",
+          engineOn ? undefined : "Press Start at the top of this page.");
+
+        const st = feed?.getState();
+        const healthy = st?.health.tradeable === true;
+        add("feed tradeable", healthy,
+          st ? `${st.health.level}${st.health.tradeable ? "" : " — " + st.health.summary}` : "no state",
+          healthy ? undefined
+            : "Depth baselines need about a minute. If it stays blind, the WebSocket to Binance is blocked.",
+          healthy ? "ok" : st?.health.level === "degraded" ? "warn" : "bad");
+
+        add("max position set", limits.maxPositionUsd > 0,
+          limits.maxPositionUsd > 0 ? `${limits.maxPositionUsd} USD` : "not set — every setup is refused",
+          "Set it in Risk limits and save.");
+
+        add("max daily loss set", limits.maxDailyLossUsd > 0,
+          limits.maxDailyLossUsd > 0 ? `${limits.maxDailyLossUsd} USD` : "not set",
+          "Set it in Risk limits and save.");
+
+        // The specific trap: a flag that silently refuses everything out of hours.
+        const cashBlocking = limits.requireCashOpen && st?.session.cashOpen === false;
+        add("session rule", !cashBlocking,
+          limits.requireCashOpen
+            ? `set to "do not trade" while Nasdaq is shut — currently ${st?.session.phase ?? "?"}`
+            : "trades outside cash hours at reduced size",
+          cashBlocking ? 'Set "When Nasdaq is shut" to "trade, sized down".' : undefined,
+          cashBlocking ? "warn" : "ok");
+
+        add("armed", limits.tradingEnabled,
+          limits.tradingEnabled ? "orders will be placed when a setup passes" : "disarmed — nothing will be sent",
+          limits.tradingEnabled ? undefined : "Press Start trading. It always boots disarmed by design.",
+          limits.tradingEnabled ? "ok" : "warn");
+
+        add("execution loop attached", runner !== null,
+          runner ? "listening to the signal stream" : "not attached",
+          runner ? undefined : "Needs the engine running and credentials. Disarm and re-arm.",
+          runner ? "ok" : limits.tradingEnabled ? "bad" : "warn");
+
+        for (const [worker, label, cmd] of [
+          ["sweep-paper", "evidence sampler", "npm run sweep:paper"],
+          ["sweep-shadow", "shadow run", "npm run sweep:shadow"],
+        ] as const) {
+          const b = readHeartbeat(worker);
+          add(label, b.running,
+            b.running ? `${Math.round(b.ageMs / 1000)}s since its last beat`
+              : b.stale ? `last beat ${Math.round(b.ageMs / 60_000)} min ago — stopped or wedged`
+              : "never started",
+            b.running ? undefined : `Run ${cmd} in its own window.`,
+            b.running ? "ok" : "warn");
+        }
+
+        const s2 = runner?.stats();
+        if (s2) {
+          const explained = s2.accepted + s2.rejected + s2.declined;
+          add("loop accounting", explained === s2.seen,
+            `${s2.seen} seen = ${s2.accepted} placed + ${s2.declined} no side + ${s2.rejected} refused`,
+            explained === s2.seen ? undefined : "Signals are going unaccounted — that is a bug, not a setting.",
+            explained === s2.seen ? "ok" : "bad");
+        }
+
+        const bad = checks.filter((c) => c.severity === "bad");
+        const warn = checks.filter((c) => c.severity === "warn");
+        send(res, 200, {
+          checks,
+          verdict: bad.length
+            ? `${bad.length} thing${bad.length === 1 ? "" : "s"} broken`
+            : warn.length
+              ? `nothing broken; ${warn.length} thing${warn.length === 1 ? "" : "s"} would stop a trade`
+              : "everything checks out — quiet means no setup has qualified yet",
+          worst: bad.length ? "bad" : warn.length ? "warn" : "ok",
+        });
+        return;
+      }
+
       case "GET /api/log": {
         const since = Number(new URL(req.url ?? "", "http://x").searchParams.get("since") ?? 0);
         send(res, 200, { lines: logLines.filter((l) => l.t > since).slice(-200), now: Date.now() });
@@ -1149,6 +1275,17 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
 </div>
 
 <div class="panel">
+  <h2>Diagnostics</h2>
+  <div class="row" style="gap:12px;align-items:center">
+    <button id="btnDiag">Run diagnostics</button>
+    <span id="diagVerdict" class="muted"></span>
+  </div>
+  <div id="diagOut" style="margin-top:10px"></div>
+  <p class="note">Checks everything between a signal firing and an order going out, and names the specific
+  next action for anything in the way. Reads only — it places nothing and changes no setting.</p>
+</div>
+
+<div class="panel">
   <h2>Background runs</h2>
   <div class="tiles">
     <div class="tile"><span class="k">Evidence log</span><span class="v" id="rPaper">—</span><span class="d" id="rPaperD">npm run sweep:paper</span></div>
@@ -1291,8 +1428,15 @@ function render(s){
       "(depth pulled without trading, a wall vanishing, cascade risk crossing a band, a liquidation burst). "+
       "Quiet stretches of an hour are ordinary.";
   } else if(armed&&L.accepted===0&&L.declined>0&&L.rejected===0&&L.lastRefusal){
-    why="Signals are firing and the loop is seeing them, but the bias has not called a side on any yet — "+
-      "so nothing was proposed to size. That is the normal quiet state, not a fault. Most recent read: <b>"+
+    // The reason itself says which of the two happened, so let it: a sizer
+    // refusal and a bias with no direction are different states and were being
+    // described with the same sentence.
+    const sizedOut=String(L.lastRefusal.reason).startsWith("sized out");
+    why=(sizedOut
+      ?"Signals are firing and the bias is calling a side, but the sizer refuses every setup so far. That is the "+
+       "risk rules doing their job — the reason names which one. Most recent: <b>"
+      :"Signals are firing and the loop is seeing them, but the bias has not called a side on any yet, so nothing "+
+       "was proposed to size. That is the normal quiet state, not a fault. Most recent read: <b>")+
       String(L.lastRefusal.reason).replace(/</g,"&lt;")+"</b>";
   } else if(armed&&L.accepted===0&&L.lastRefusal){
     const mins=Math.round((Date.now()-L.lastRefusal.at)/60000);
@@ -1587,6 +1731,27 @@ async function runs(){
     ? "Shadow trades are recorded by a separate process against real prices, with no order placed. Fewer than 30 scored is not a result yet."
     : "Net is after the fees each trade would have paid. Run npm run sweep:shadow:report for the full breakdown.";
 }
+
+async function diagnose(){
+  $("btnDiag").disabled=true; $("diagVerdict").textContent="checking…";
+  const r=await api("/api/diagnose");
+  $("btnDiag").disabled=false;
+  if(!r.checks){ $("diagVerdict").textContent="diagnostics unavailable"; return; }
+  const col=r.worst==="bad"?"var(--bad)":r.worst==="warn"?"var(--warn)":"var(--good)";
+  $("diagVerdict").textContent=r.verdict; $("diagVerdict").style.color=col;
+  $("diagOut").innerHTML=r.checks.map(c=>{
+    const mark=c.severity==="ok"?"OK":c.severity==="warn"?"—":"!!";
+    const cc=c.severity==="ok"?"var(--good)":c.severity==="warn"?"var(--warn)":"var(--bad)";
+    return '<div style="display:grid;grid-template-columns:28px 190px 1fr;gap:8px;padding:5px 0;'+
+      'border-bottom:1px solid var(--hair);font-size:12px;align-items:baseline">'+
+      '<span style="color:'+cc+';font-weight:600">'+mark+'</span>'+
+      '<span>'+c.name+'</span>'+
+      '<span class="muted">'+String(c.detail).replace(/</g,"&lt;")+
+      (c.fix&&c.severity!=="ok"?'<br><b style="color:var(--ink)">→ '+String(c.fix).replace(/</g,"&lt;")+'</b>':'')+
+      '</span></div>';
+  }).join("");
+}
+$("btnDiag").onclick=diagnose;
 
 tick(); setInterval(tick,1000);
 funds(); setInterval(funds,15000);
