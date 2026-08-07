@@ -17,7 +17,8 @@ import { CONFIG, SYMBOL } from "./config";
 import { simulate } from "./metrics/cascade";
 import { buildClusters } from "./metrics/clusters";
 import { bandDepths, costCurve, findWalls } from "./metrics/depth";
-import { NO_EVENT_RISK, eventRisk, parseEnvEvents } from "./metrics/events";
+import { activeEvents } from "./metrics/event-store";
+import { NO_EVENT_RISK, eventRisk, parseEnvEvents, type MarketEvent } from "./metrics/events";
 import { EMPTY_FUNDING, type FundingSettlement, readFunding } from "./metrics/funding";
 import { EMPTY_MARKOUT, MarkoutTracker } from "./metrics/markout";
 import { PLACEHOLDER_SESSION, sessionState } from "./metrics/session";
@@ -63,6 +64,26 @@ export class Engine {
   private extraEvents = parseEnvEvents(
     typeof process !== "undefined" ? process.env?.SWEEP_EVENTS : undefined,
   ).events;
+
+  /**
+   * The file-backed calendar, re-read on a timer.
+   *
+   * A timer rather than a one-off read because the agent writes to this file
+   * while the engine is running — a date confirmed at 10am is no use if it
+   * takes a restart to be seen. Reading it in the browser is skipped: there is
+   * no filesystem there, and the projection plus its standing prompt is the
+   * right thing for a page anyone can open.
+   */
+  private storedEvents: MarketEvent[] = [];
+
+  private reloadEvents() {
+    if (typeof window !== "undefined") return;
+    try {
+      this.storedEvents = activeEvents();
+    } catch {
+      /* a bad calendar file falls back to the projection */
+    }
+  }
 
   /** Fill-quality tracking for our own executions. */
   recordOwnFill(fill: Parameters<MarkoutTracker["recordFill"]>[0]) {
@@ -157,6 +178,8 @@ export class Engine {
     this.timers.push(setInterval(() => void this.refreshOpenInterest(), 20_000));
     this.timers.push(setInterval(() => void this.refreshRatio(), 300_000));
     this.timers.push(setInterval(() => void this.refreshFundingHistory(), 1_800_000));
+    this.reloadEvents();
+    this.timers.push(setInterval(() => this.reloadEvents(), 60_000));
     this.timers.push(
       setInterval(() => {
         const now = Date.now();
@@ -583,7 +606,7 @@ export class Engine {
       participants: this.participants.read(),
       markout: this.markout.read(now),
       funding: readFunding(this.mark, this.fundingHistory, now),
-      events: eventRisk(now, this.extraEvents),
+      events: eventRisk(now, [...this.extraEvents, ...this.storedEvents]),
     };
 
     for (const cb of this.listeners) cb();
