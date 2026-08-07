@@ -64,6 +64,8 @@ import { dayDrawdown, fetchDayActivity, fetchSettlement, type DayActivity } from
 import { Excursion, captureConditions, type EntryConditions, type TradeRecord } from "../lib/sweep/agent/postmortem";
 import { appendTrade, loadTrades } from "../lib/sweep/metrics/trade-log";
 import { analyse, classifyLoss, recommendations } from "../lib/sweep/agent/learn";
+import { BOUNDS, proposeTuning, type TuneChange, type TuneEntry, type Tunable } from "../lib/sweep/agent/autotune";
+import { appendTune, appendTuneChecked, loadTuning } from "../lib/sweep/metrics/tune-log";
 import { newsFor } from "../lib/sweep/metrics/news-store";
 import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
 import { attachExecution, intentId, type ExecutionRunner } from "../lib/sweep/agent";
@@ -215,6 +217,18 @@ interface Limits {
    */
   breakEvenAtPct: number;
   /**
+   * Whether the learning loop may move the caps on its own.
+   *
+   * Off by default, because a fresh install has no trades to learn from and
+   * turning it on before there are any means the first handful of closes get to
+   * set the dials for everything after them.
+   *
+   * When on, it can only touch the five settings in TunableLimits, only inside
+   * hard bounds, only one at a time, and never the daily loss cap, the cooldown
+   * or the trade ceiling — those stay where the operator put them.
+   */
+  autoTune: boolean;
+  /**
    * How many times the round trip a target must be worth.
    *
    * The dial that decides whether small, fast moves are tradeable at all. See
@@ -293,6 +307,7 @@ const DEFAULT_LIMITS: Limits = {
   sizeDerateStrength: 0.5,
   breakEvenAtPct: 60,
   minRewardOverFees: 2,
+  autoTune: false,
 };
 
 /**
@@ -1111,6 +1126,12 @@ async function recordClosedTrade(desk: Desk) {
   };
 
   appendTrade(record);
+  // New evidence exists, so this is the moment to ask whether it changes
+  // anything. Awaited rather than fired off: it writes the limits file, and two
+  // closes landing together must not race each other into it.
+  await runAutoTune().catch((err) =>
+    log(`auto-tune pass failed: ${err instanceof Error ? err.message : String(err)}`),
+  );
   log(
     `POST-MORTEM ${desk.symbol} ${outcome} ${net === null ? "(settlement unavailable)" : usdShort(net)} · ` +
       `held ${Math.round(record.heldMs / 60_000)} min · best +${record.mfePct.toFixed(3)}% ` +
@@ -1120,6 +1141,118 @@ async function recordClosedTrade(desk: Desk) {
 }
 
 const usdShort = (x: number) => `${x < 0 ? "-" : "+"}$${Math.abs(x).toFixed(2)}`;
+
+/* --------------------------------------------------------- the tuning loop */
+
+/**
+ * The last pass's reasoning, so the page can show why nothing moved.
+ *
+ * "Nothing changed" is the tuner's normal state and the one an operator is most
+ * likely to misread as it being broken. The held-back reasons are the answer,
+ * and they are worth as much as the changes.
+ */
+let lastTuning: { at: number; changes: TuneChange[]; held: string[]; trades: number } = {
+  at: 0, changes: [], held: [], trades: 0,
+};
+
+/**
+ * Re-read the evidence and move at most one cap.
+ *
+ * Runs on a close rather than on a timer, because a close is the only event
+ * that adds evidence. A timer would re-examine the same trades and, with any
+ * threshold expressed in wall clock, eventually talk itself into acting on
+ * them twice.
+ */
+async function runAutoTune(apply = true) {
+  const { records } = loadTrades();
+  const report = analyse(records);
+  const { entries } = loadTuning();
+
+  const result = proposeTuning({
+    report,
+    trades: records,
+    limits: {
+      breakEvenAtPct: limits.breakEvenAtPct,
+      stopLossPct: limits.stopLossPct,
+      maxHoldMinutes: limits.maxHoldMinutes,
+      riskPerTradePct: limits.riskPerTradePct,
+      minRewardRisk: limits.minRewardRisk,
+    },
+    history: entries,
+  });
+  lastTuning = { at: Date.now(), changes: result.changes, held: result.held, trades: records.length };
+
+  /*
+   * A restart is not new evidence.
+   *
+   * Startup computes the analysis so the panel has something to show — without
+   * it the section is blank until the next close, which on a quiet day is
+   * hours — but it does not act. The trades behind any pending change were
+   * already on the books before the process went down, and a machine rebooting
+   * overnight is not a reason to move a cap that yesterday's evidence did not
+   * move. Applying only on a close keeps the rule simple: one change, one
+   * batch of new trades that justified it.
+   */
+  if (!apply || !limits.autoTune) {
+    if (result.changes.length > 0) {
+      const c = result.changes[0];
+      log(
+        `tuning would move ${c.setting} ${c.from} → ${c.to} — ` +
+          (limits.autoTune ? "held until the next close" : "auto-tune is off, so it is only a suggestion"),
+      );
+    }
+    return;
+  }
+
+  for (const change of result.changes) {
+    /*
+     * The audit entry is written before the value moves.
+     *
+     * If the log write fails and the change is applied anyway, the next pass
+     * sees no history for that setting — no spacing, no hysteresis, no record
+     * that a human had touched it — and is free to move it again immediately.
+     * A tuner that loses its memory does not become cautious, it becomes
+     * unbounded, so a failure to record is a reason not to act.
+     */
+    const entry: TuneEntry = {
+      ...change,
+      at: Date.now(),
+      by: "auto",
+      tradesAt: records.length,
+    };
+    if (!appendTuneChecked(entry)) {
+      log(`tuning declined: could not record the change to ${change.setting}, so it was not applied`);
+      continue;
+    }
+    limits = { ...limits, [change.setting]: change.to };
+    writeLimits(limits);
+    log(
+      `TUNED ${change.setting}: ${change.from} → ${change.to} (${change.direction}) — ${change.reason}`,
+    );
+  }
+}
+
+/**
+ * Record an operator edit so the tuner defers to it.
+ *
+ * Only the settings the tuner can reach are worth recording, and only when the
+ * value actually changed — writing an entry for every form submission would
+ * make an operator who saves the page without editing anything look like one
+ * who just overrode the tuner.
+ */
+function noteOperatorEdits(before: Limits, after: Limits, tradeCount: number) {
+  const watched: Tunable[] = ["breakEvenAtPct", "stopLossPct", "maxHoldMinutes", "riskPerTradePct", "minRewardRisk"];
+  for (const setting of watched) {
+    const from = before[setting];
+    const to = after[setting];
+    if (from === to) continue;
+    appendTune({
+      setting, from, to, at: Date.now(), by: "operator", tradesAt: tradeCount,
+      direction: "neutral",
+      reason: "set by hand from the control page",
+    });
+  }
+}
 
 /**
  * Sample every open position's excursion from the live feed.
@@ -2225,6 +2358,7 @@ const server = createServer(async (req, res) => {
           const v = Number(body[k]);
           return Number.isFinite(v) && v >= 0 ? v : fallback;
         };
+        const before = limits;
         limits = {
           maxPositionUsd: n("maxPositionUsd", limits.maxPositionUsd),
           maxLeverage: Math.max(1, n("maxLeverage", limits.maxLeverage)),
@@ -2256,8 +2390,17 @@ const server = createServer(async (req, res) => {
           // Floored at 1.2: below that the venue takes most of the move and the
           // break-even hit rate climbs past anything this has ever measured.
           minRewardOverFees: Math.min(10, Math.max(1.2, n("minRewardOverFees", limits.minRewardOverFees))),
+          autoTune: typeof body.autoTune === "boolean" ? body.autoTune : limits.autoTune,
         };
         writeLimits(limits);
+        // Written to the tuning log so the tuner sees a human touched these and
+        // leaves them alone for a while. Without it, a value set by hand can be
+        // overridden by the next close, which teaches an operator that changing
+        // anything here is pointless.
+        noteOperatorEdits(before, limits, loadTrades().records.length);
+        // Same reason as the revert: the pending change was computed against
+        // the old numbers and is stale the moment they move.
+        await runAutoTune(false).catch(() => {});
         log(`limits updated: ${JSON.stringify(limits)}`);
         // Arming and disarming take effect immediately rather than at restart.
         if (limits.tradingEnabled) startExecutionLoop();
@@ -3041,6 +3184,84 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "GET /api/tuning": {
+        const { entries, path } = loadTuning();
+        send(res, 200, {
+          enabled: limits.autoTune,
+          path,
+          at: lastTuning.at,
+          trades: lastTuning.trades,
+          // What it would do right now, whether or not it is allowed to.
+          pending: lastTuning.changes,
+          held: lastTuning.held,
+          bounds: BOUNDS,
+          history: entries.slice(-25).reverse(),
+        });
+        return;
+      }
+
+      case "POST /api/tuning/enable": {
+        /*
+         * Its own endpoint, for exactly the reason arming has one.
+         *
+         * POST /api/limits reads `tradingEnabled` as `body.tradingEnabled ===
+         * true`, so a partial body disarms trading as a side effect. Toggling
+         * auto-tune through that form would therefore stop the agent every time
+         * — a switch whose label says one thing and whose effect includes
+         * another. Same class of bug as the requireCashOpen one this codebase
+         * already carries a note about.
+         */
+        const body = await readJson(req);
+        limits = { ...limits, autoTune: body.enabled === true };
+        writeLimits(limits);
+        log(`auto-tune ${limits.autoTune ? "ON — the next close can move a cap" : "off — changes are only suggested"}`);
+        if (limits.autoTune) await runAutoTune().catch(() => {});
+        send(res, 200, status());
+        return;
+      }
+
+      case "POST /api/tuning/revert": {
+        /*
+         * Put one setting back where it was before the tuner last moved it.
+         *
+         * The undo has to exist for the automation to be acceptable at all: the
+         * operator needs a way to disagree that is as fast as the tuner's way of
+         * acting. Only auto changes are reverted — an operator entry in the log
+         * is a decision, not something to be rolled back by a button.
+         *
+         * Recorded as an operator change rather than silently, which also
+         * triggers the deference window: reverting says "not this", and the
+         * tuner immediately re-applying it would be the worst possible answer.
+         */
+        const body = await readJson(req);
+        const setting = String(body.setting ?? "") as Tunable;
+        if (!(setting in BOUNDS)) {
+          send(res, 400, { error: `${setting || "that setting"} is not one the tuner can change` });
+          return;
+        }
+        const { entries } = loadTuning();
+        const last = entries.filter((e) => e.setting === setting && e.by === "auto").pop();
+        if (!last) {
+          send(res, 400, { error: `the tuner has not changed ${setting}, so there is nothing to undo` });
+          return;
+        }
+        const current = (limits as unknown as Record<string, number>)[setting];
+        appendTune({
+          setting, from: current, to: last.from, at: Date.now(), by: "operator",
+          tradesAt: loadTrades().records.length, direction: "neutral",
+          reason: `reverted by hand — the tuner had moved it ${last.from} → ${last.to}`,
+        });
+        limits = { ...limits, [setting]: last.from };
+        writeLimits(limits);
+        log(`REVERTED ${setting}: ${current} → ${last.from} (undoing an auto-tune)`);
+        // Recompute, or the panel keeps showing the change that was just undone
+        // as still pending — which reads as the tuner announcing it will do the
+        // same thing again the moment you disagreed with it.
+        await runAutoTune(false).catch(() => {});
+        send(res, 200, status());
+        return;
+      }
+
       case "GET /api/runs": {
         /*
          * The paper sampler and the shadow run are separate processes, so their
@@ -3237,6 +3458,9 @@ server.listen(PORT, HOST, () => {
     await refreshAccount();
     // After the balance is known, because that is what they are derived from.
     await deriveUnsetCaps();
+    // Analysis only — see runAutoTune. This fills the panel at boot instead of
+    // leaving it blank until the next position closes.
+    await runAutoTune(false).catch(() => {});
     setInterval(() => {
       void (async () => {
         await refreshAccount();
@@ -3530,6 +3754,20 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
   <div id="lnAnatomy" style="margin-top:12px"></div>
   <div id="lnRecs" style="margin-top:12px"></div>
   <div id="lnSplits" style="margin-top:12px"></div>
+
+  <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--hair)">
+    <div class="row" style="gap:12px;align-items:center">
+      <label style="display:flex;gap:7px;align-items:center;font-size:12px;cursor:pointer">
+        <input type="checkbox" id="tuneOn" style="width:auto;margin:0"> Let it move the caps on its own
+      </label>
+      <span id="tuneState" class="muted" style="font-size:11px"></span>
+    </div>
+    <div id="tunePending" style="margin-top:10px"></div>
+    <div id="tuneHeld" style="margin-top:8px"></div>
+    <div id="tuneHistory" style="margin-top:10px"></div>
+    <p class="note">One setting at a time, inside hard bounds, and never the daily loss cap, the cooldown or the
+    trade ceiling — those stay where you put them. A setting you edit by hand is left alone for 12 closes.</p>
+  </div>
   <table style="margin-top:10px"><thead><tr><th style="text-align:left">Closed</th><th style="text-align:left">Trade</th><th>Net</th><th>Held</th><th style="text-align:left">Best / worst</th><th style="text-align:left">Book</th><th style="text-align:left">Why it ended</th></tr></thead>
   <tbody id="lnTrades"><tr><td colspan="7" class="muted">no closed trades recorded yet</td></tr></tbody></table>
   <p class="note" id="lnNote"></p>
@@ -4577,6 +4815,72 @@ async function learn(){
     "Every close is recorded to "+r.path+". Run npm run sweep:learn for the full breakdown.";
 }
 
+async function tuning(){
+  const t=await api("/api/tuning");
+  if(!t.bounds) return;
+  const esc=(s)=>String(s).replace(/</g,"&lt;");
+
+  $("tuneOn").checked=!!t.enabled;
+  $("tuneState").textContent=t.enabled
+    ?"on — the next close can move a cap"
+    :"off — changes are shown but not applied";
+  $("tuneState").style.color=t.enabled?"var(--warn)":"var(--muted)";
+
+  // What it would do next, shown whether or not it is allowed to. With the
+  // toggle off this is the whole point of the section; with it on it is the
+  // warning that something is about to move.
+  $("tunePending").innerHTML=(t.pending||[]).map(c=>{
+    const col=c.direction==="riskier"?"var(--bad)":c.direction==="safer"?"var(--good)":"var(--warn)";
+    return '<div style="border-left:3px solid '+col+';padding:8px 10px;margin-bottom:8px;border-radius:0 4px 4px 0;background:var(--surface2)">'+
+      '<div style="font-size:12px;font-weight:600">'+esc(c.setting)+
+        ' <span style="color:'+col+'">'+c.from+' → '+c.to+'</span>'+
+        ' <span class="muted" style="font-weight:400">'+c.direction+(t.enabled?"":" · not applied, auto-tune is off")+'</span></div>'+
+      '<div class="muted" style="font-size:11px;margin-top:4px;line-height:1.5">'+esc(c.reason)+'</div>'+
+    '</div>';
+  }).join("")||'<p class="note" style="margin:0">Nothing to change on the evidence so far.</p>';
+
+  // The reasons it declined. This is the tuner's usual output and the thing
+  // most likely to be misread as it being broken, so it is never hidden.
+  $("tuneHeld").innerHTML=(t.held||[]).length
+    ?'<div class="muted" style="font-size:11px;line-height:1.6">'+
+      t.held.map(h=>"· "+esc(h)).join("<br>")+'</div>'
+    :"";
+
+  const h=t.history||[];
+  $("tuneHistory").innerHTML=h.length
+    ?'<table style="margin-top:4px"><thead><tr><th style="text-align:left">When</th><th style="text-align:left">Setting</th>'+
+      '<th>Change</th><th style="text-align:left">By</th><th style="text-align:left">Why</th><th></th></tr></thead><tbody>'+
+      h.map(e=>{
+        const col=e.direction==="riskier"?"var(--bad)":e.direction==="safer"?"var(--good)":"var(--ink2)";
+        const undo=e.by==="auto"
+          ?'<button data-undo="'+esc(e.setting)+'" style="padding:2px 8px;font-size:11px">undo</button>':"";
+        return "<tr><td>"+new Date(e.at).toTimeString().slice(0,5)+"</td>"+
+          "<td>"+esc(e.setting)+"</td>"+
+          "<td style='text-align:right;color:"+col+"'>"+e.from+" → "+e.to+"</td>"+
+          "<td>"+e.by+"</td>"+
+          "<td class='muted'>"+esc(e.reason).slice(0,110)+"</td>"+
+          "<td>"+undo+"</td></tr>";
+      }).join("")+"</tbody></table>"
+    :'<p class="note" style="margin:0">No cap has been changed yet.</p>';
+
+  for(const b of document.querySelectorAll("[data-undo]")){
+    b.onclick=async()=>{
+      if(!confirm("Put "+b.dataset.undo+" back to what it was before the tuner moved it?")) return;
+      const r=await api("/api/tuning/revert",{method:"POST",body:JSON.stringify({setting:b.dataset.undo})});
+      if(r.error) alert(r.error); else render(r);
+      tuning();
+    };
+  }
+}
+
+$("tuneOn").onchange=async()=>{
+  /* Its own endpoint, not the limits form. Posting a partial body there reads
+     as tradingEnabled:false and would disarm the agent every time this box was
+     ticked — the switch would do something its label does not mention. */
+  render(await api("/api/tuning/enable",{method:"POST",body:JSON.stringify({enabled:$("tuneOn").checked})}));
+  tuning();
+};
+
 async function diagnose(){
   $("btnDiag").disabled=true; $("diagVerdict").textContent="checking…";
   const r=await api("/api/diagnose");
@@ -4605,5 +4909,6 @@ runs(); setInterval(runs,10000);
 // Slower than the rest: it re-reads the whole trade log, and nothing in it
 // changes between position closes.
 learn(); setInterval(learn,30000);
+tuning(); setInterval(tuning,30000);
 </script></body></html>`;
 }
