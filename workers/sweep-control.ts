@@ -19,6 +19,7 @@
  * the cost actually paid cannot disagree.
  */
 
+import { readHeartbeat } from "./heartbeat";
 import { loadEnv } from "./load-env";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -446,15 +447,18 @@ function startExecutionLoop() {
     },
     // The commonest outcome by far, and previously invisible: a signal fired,
     // the bias looked at it and would not call a side, so nothing was proposed.
-    onDeclined: (_signal, state) => {
-      const bias = directionalBias(state);
-      lastRefusal = { at: Date.now(), reason: bias.summary };
+    // The reason comes from the evaluation that caused it, not a later one.
+    onDeclined: (_signal, _state, reason) => {
+      lastRefusal = { at: Date.now(), reason: reason ?? "the strategy passed on this signal" };
     },
     strategy: (signal, state) => {
       // Health signals describe the feed, not the market.
       if (signal.kind === "health") return null;
       const bias = directionalBias(state);
-      if (!bias.direction) return null;
+      if (!bias.direction) {
+        runner?.noteDecline(bias.summary);
+        return null;
+      }
 
       const proposal = proposePosition({
         direction: bias.direction,
@@ -584,7 +588,9 @@ function status() {
     loop: {
       attached: runner !== null,
       signalsSeen,
-      ...(runner ? runner.stats() : { accepted: 0, rejected: 0, declined: 0, lastAcceptedAt: 0 }),
+      ...(runner
+        ? runner.stats()
+        : { seen: 0, accepted: 0, rejected: 0, declined: 0, lastAcceptedAt: 0 }),
       lastRefusal,
     },
     execution: {
@@ -870,6 +876,12 @@ const server = createServer(async (req, res) => {
 
         const paper = read(process.env.SWEEP_PAPER_OUT ?? "data/sweep-paper.jsonl");
         const shadowRaw = read(process.env.SWEEP_SHADOW_OUT ?? "data/sweep-shadow.jsonl");
+        // Liveness comes from the heartbeat, never from the output file: the
+        // shadow run writes nothing until its first trade has been open a full
+        // fifteen minutes, so an empty file is the normal state of a healthy
+        // process rather than evidence it is not running.
+        const paperBeat = readHeartbeat("sweep-paper");
+        const shadowBeat = readHeartbeat("sweep-shadow");
 
         interface ShadowRow {
           at: number; side: string; entryPrice: number; quantity: number; signalKind: string;
@@ -885,8 +897,9 @@ const server = createServer(async (req, res) => {
         const fees = scored.reduce((a, t) => a + t.feeUsd, 0);
 
         send(res, 200, {
-          paper: { ...paper, lines: undefined },
+          paper: { ...paper, lines: undefined, beat: paperBeat },
           shadow: {
+            beat: shadowBeat,
             path: shadowRaw.path,
             exists: shadowRaw.exists,
             rows: shadowRaw.rows,
@@ -1175,7 +1188,7 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
     <span id="armState" class="muted"></span>
   </div>
   <div class="tiles" style="margin-top:10px">
-    <div class="tile"><span class="k">Signals seen</span><span class="v" id="lSig">—</span><span class="d">since the engine started</span></div>
+    <div class="tile"><span class="k">Signals seen</span><span class="v" id="lSig">—</span><span class="d" id="lSigD">by the loop, since armed</span></div>
     <div class="tile"><span class="k">Orders placed</span><span class="v" id="lAcc">—</span><span class="d">accepted by every check</span></div>
     <div class="tile"><span class="k">No side called</span><span class="v" id="lDec">—</span><span class="d">bias saw no asymmetry worth trading</span></div>
     <div class="tile"><span class="k">Refused</span><span class="v" id="lRej">—</span><span class="d">a setup that failed a check</span></div>
@@ -1258,7 +1271,13 @@ function render(s){
     ?"ARMED — orders will be placed when a setup passes every check"
     :"disarmed — nothing will be sent";
   const L=s.loop||{};
-  $("lSig").textContent=L.signalsSeen??"—";
+  // The loop's own count, so seen = placed + no-side + refused exactly. The
+  // engine-wide figure includes everything that fired before arming, which is
+  // a different and less useful number.
+  $("lSig").textContent=L.seen??"—";
+  $("lSigD").textContent=(L.signalsSeen??0)>(L.seen??0)
+    ? "by the loop · "+L.signalsSeen+" since the engine started"
+    : "by the loop, since armed";
   $("lAcc").textContent=L.accepted??"—";
   $("lRej").textContent=L.rejected??"—";
   $("lDec").textContent=L.declined??"—";
@@ -1531,10 +1550,21 @@ const ago=(t)=>{ if(!t) return "never"; const m=Math.round((Date.now()-t)/60000)
 async function runs(){
   const r=await api("/api/runs");
   if(!r.paper) return;
-  $("rPaper").textContent=r.paper.exists?r.paper.rows.toLocaleString():"not running";
-  $("rPaperD").textContent=r.paper.exists?("rows · last "+ago(r.paper.lastAt)):"npm run sweep:paper";
-  $("rShadow").textContent=r.shadow.exists?r.shadow.rows:"not running";
-  $("rShadowD").textContent=r.shadow.exists?(r.shadow.scored+" scored · last "+ago(r.shadow.lastAt)):"npm run sweep:shadow";
+  // Liveness from the heartbeat; the counts from the file. A running process
+  // with an empty file is the normal early state and must not read as stopped.
+  const pb=r.paper.beat||{}, sb=r.shadow.beat||{};
+  const state=(b,cmd)=>b.running?null:(b.stale?"stopped "+ago(b.at):cmd);
+  const pOff=state(pb,"npm run sweep:paper"), sOff=state(sb,"npm run sweep:shadow");
+
+  $("rPaper").textContent=pOff?"not running":(pb.stats&&pb.stats.rows!=null?Number(pb.stats.rows).toLocaleString():r.paper.rows.toLocaleString());
+  $("rPaperD").textContent=pOff||("rows · feed "+(pb.stats?pb.stats.feed:"?")+" · "+(pb.stats?pb.stats.pending:0)+" pending");
+  $("rPaper").style.color=pOff?"var(--ink2)":"";
+
+  $("rShadow").textContent=sOff?"not running":(sb.stats?sb.stats.recorded:r.shadow.rows);
+  $("rShadowD").textContent=sOff||(
+    (sb.stats?sb.stats.open:0)+" open · "+(sb.stats?sb.stats.signalsSeen:0)+" signals · "+
+    (sb.stats?sb.stats.noSideCalled:0)+" no side called");
+  $("rShadow").style.color=sOff?"var(--ink2)":"";
   const n=r.shadow.netUsd;
   $("rNet").textContent=r.shadow.scored?((n>=0?"+":"")+n.toFixed(2)):"—";
   $("rNet").style.color=r.shadow.scored?(n>=0?"var(--good)":"var(--bad)"):"";

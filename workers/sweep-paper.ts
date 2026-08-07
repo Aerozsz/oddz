@@ -21,6 +21,7 @@
  * market data the dashboard does, and places nothing.
  */
 
+import { beat } from "./heartbeat";
 import { loadEnv } from "./load-env";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -249,6 +250,7 @@ feed.onState((s) => {
 });
 
 function shutdown(code = 0) {
+  stopBeat();
   // Anything still waiting on a horizon is written with the outcomes it has,
   // so a run that is stopped early still yields usable rows.
   for (const { record } of pending.values()) flush(record);
@@ -302,6 +304,11 @@ setInterval(() => {
       `feed ${s.health.level}${s.mid ? ` @ ${s.mid}` : ""}`,
   );
 }, 15 * 60_000).unref?.();
+
+const stopBeat = beat("sweep-paper", () => {
+  const s = feed.getState();
+  return { rows: written, pending: pending.size, feed: s.health.level, mid: s.mid, out: OUT };
+});
 
 console.error(`[paper] recording to ${OUT}`);
 console.error(`[paper] sampling every ${SAMPLE_SEC}s — about ${Math.round(86400 / SAMPLE_SEC)} rows a day`);
