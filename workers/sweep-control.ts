@@ -19,6 +19,7 @@
  * the cost actually paid cannot disagree.
  */
 
+import { loadEnv } from "./load-env";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
@@ -62,6 +63,9 @@ if (NODE_MAJOR < 22) {
   console.error("");
   process.exit(1);
 }
+
+// Before anything reads process.env. Nothing else loads .env for a worker.
+const dotenv = loadEnv();
 
 const PORT = Number(process.env.SWEEP_CONTROL_PORT ?? 7777);
 /*
@@ -856,6 +860,20 @@ server.listen(PORT, HOST, () => {
     console.log("     Only do this behind a tunnel that authenticates before traffic reaches here.");
   }
   console.log(`  limits file: ${LIMITS_PATH}`);
+  // Say plainly where credentials were looked for and what turned up. "No
+  // credentials" with a .env sitting right there is a confusing thing to be
+  // told, and the answer is almost always that the file was not found or the
+  // names are misspelt rather than that the keys are wrong.
+  console.log(
+    `  .env:        ${
+      dotenv.found ? `${dotenv.path} (${dotenv.count} values)` : `not found at ${dotenv.path}`
+    }`,
+  );
+  if (!hasCredentials()) {
+    console.log("");
+    console.log("  No BINANCE_API_KEY / BINANCE_API_SECRET, so this is monitor-only.");
+    console.log("  Run  npm run sweep:check  to test them on their own.");
+  }
   console.log("  ctrl-c to stop");
   console.log("");
 });

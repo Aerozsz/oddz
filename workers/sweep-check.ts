@@ -13,8 +13,8 @@
  * So this asks the one question and reports the specific answer.
  */
 
-import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
+import { loadEnv } from "./load-env";
 import {
   type BinanceConfig,
   MissingCredentials,
@@ -22,34 +22,7 @@ import {
   loadConfig,
 } from "../lib/sweep/exchange/binance";
 
-/*
- * .env is read here rather than assumed to be loaded. The workers run under
- * tsx with no framework around them, so nothing else puts .env into the
- * environment — and "the key is wrong" versus "the file was never read" are
- * indistinguishable from the error alone.
- */
-function loadDotEnv(path = resolve(".env")) {
-  if (!existsSync(path)) return { found: false, count: 0 };
-  let count = 0;
-  for (const raw of readFileSync(path, "utf8").split("\n")) {
-    const line = raw.trim();
-    if (!line || line.startsWith("#")) continue;
-    const eq = line.indexOf("=");
-    if (eq < 1) continue;
-    const key = line.slice(0, eq).trim();
-    // Quotes are stripped rather than rejected: pasting them in is the single
-    // most common way this file gets written wrong, and silently tolerating it
-    // is better than an authentication error that names nothing.
-    const value = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
-    if (!(key in process.env)) {
-      process.env[key] = value;
-      if (value) count++;
-    }
-  }
-  return { found: true, count };
-}
-
-const dotenv = loadDotEnv();
+const dotenv = loadEnv();
 
 console.log("");
 if (!dotenv.found) {

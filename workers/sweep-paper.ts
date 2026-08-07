@@ -21,6 +21,7 @@
  * market data the dashboard does, and places nothing.
  */
 
+import { loadEnv } from "./load-env";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { attachCalendar } from "../lib/sweep/metrics/event-store";
@@ -35,6 +36,8 @@ import type { AgentState, Signal } from "../lib/sweep/agent";
  * defined" deep inside a stream callback, which is a miserable first
  * experience for something that is really just a version mismatch.
  */
+loadEnv();
+
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 22) {
   console.error("");

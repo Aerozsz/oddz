@@ -18,6 +18,7 @@
  * code path to an order.
  */
 
+import { loadEnv } from "./load-env";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { attachCalendar } from "../lib/sweep/metrics/event-store";
@@ -33,6 +34,8 @@ import {
 } from "../lib/sweep/exchange/shadow";
 import type { AgentState, Signal, TradeIntent } from "../lib/sweep/agent";
 import { SYMBOL } from "../lib/sweep/config";
+
+loadEnv();
 
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 22) {
