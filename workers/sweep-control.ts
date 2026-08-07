@@ -558,7 +558,14 @@ const server = createServer(async (req, res) => {
           stopLossPct: Math.max(0.1, n("stopLossPct", limits.stopLossPct)),
           maxTradesPerDay: Math.max(0, Math.round(n("maxTradesPerDay", limits.maxTradesPerDay))),
           lossCooldownMin: Math.max(0, n("lossCooldownMin", limits.lossCooldownMin)),
-          requireCashOpen: body.requireCashOpen !== false,
+          // Absent means "unchanged", not "true". This previously read
+          // `body.requireCashOpen !== false`, and the save-limits form does not
+          // send the field — so undefined !== false turned cash-open-only ON
+          // the first time anyone clicked Save, then persisted it to disk. The
+          // default is false and the dial below is now the only thing that
+          // moves it.
+          requireCashOpen:
+            typeof body.requireCashOpen === "boolean" ? body.requireCashOpen : limits.requireCashOpen,
           minRewardRisk: Math.max(0, n("minRewardRisk", limits.minRewardRisk)),
           // Capped at 10%: past that a short losing run ends the account
           // regardless of how good the entries are.
@@ -859,6 +866,8 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
     <label style="width:130px">Max open positions<input id="maxOpenPositions" type="number" min="0" step="1"></label>
     <label style="width:140px">Stop-loss distance (%)<input id="stopLossPct" type="number" min="0.1" step="0.1"></label>
     <label style="width:140px">Risk per trade (%)<input id="riskPerTradePct" type="number" min="0.01" max="10" step="0.1"></label>
+    <label style="width:150px">When Nasdaq is shut<select id="requireCashOpen" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
+      <option value="false">trade, sized down</option><option value="true">do not trade</option></select></label>
     <label style="width:130px">Trading armed<select id="tradingEnabled" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
       <option value="false">disarmed</option><option value="true">armed</option></select></label>
     <button id="btnLimits">Save limits</button>
@@ -904,6 +913,7 @@ const usd=v=>v===null||v===undefined||!isFinite(v)?"—":(Math.abs(v)>=1e6?"$"+(
 let limitsDirty=false;
 for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct","riskPerTradePct"]) $(id).addEventListener("input",()=>limitsDirty=true);
 $("tradingEnabled").addEventListener("change",()=>limitsDirty=true);
+$("requireCashOpen").addEventListener("change",()=>limitsDirty=true);
 
 function render(s){
   $("mode").className="mode "+s.mode;
@@ -955,6 +965,7 @@ function render(s){
     $("maxDailyLossUsd").value=s.limits.maxDailyLossUsd;
     $("maxOpenPositions").value=s.limits.maxOpenPositions;
     $("tradingEnabled").value=String(s.limits.tradingEnabled);
+    $("requireCashOpen").value=String(s.limits.requireCashOpen);
     $("stopLossPct").value=s.limits.stopLossPct;
     $("riskPerTradePct").value=s.limits.riskPerTradePct;
   }
@@ -979,6 +990,7 @@ $("btnLimits").onclick=async()=>{
   const body={maxPositionUsd:+$("maxPositionUsd").value,maxLeverage:+$("maxLeverage").value,
     maxDailyLossUsd:+$("maxDailyLossUsd").value,maxOpenPositions:+$("maxOpenPositions").value,
     tradingEnabled:$("tradingEnabled").value==="true",stopLossPct:+$("stopLossPct").value,
+    requireCashOpen:$("requireCashOpen").value==="true",
     riskPerTradePct:+$("riskPerTradePct").value};
   limitsDirty=false; render(await api("/api/limits",{method:"POST",body:JSON.stringify(body)}));
 };
