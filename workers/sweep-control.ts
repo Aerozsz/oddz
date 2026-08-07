@@ -8,10 +8,15 @@
  * to be exposed to a network or deployed anywhere. It is a local operator
  * console, not a web service.
  *
- * What it can do today: run and stop the monitor, show feed health, market
- * state and live signals, read the exchange position and margin, and store the
- * risk limits that order execution will be bound by. Order placement is not
- * wired up yet and the GUI says so rather than offering a button that lies.
+ * What it does: runs and stops the monitor, shows feed health, market state and
+ * live signals, reads the exchange position and margin, holds the risk limits,
+ * suggests a setup with its full reasoning, previews a position before anything
+ * is sent, and — only while armed — places orders through the execution loop.
+ *
+ * Entries rest on the book as post-only orders when mark-out says the passive
+ * side is being paid to be there, and cross when it is not. That is the same
+ * test the sizer prices the trade with, so the cost quoted in a suggestion and
+ * the cost actually paid cannot disagree.
  */
 
 import { randomBytes } from "node:crypto";
@@ -30,7 +35,7 @@ import {
 import { previewPosition } from "../lib/sweep/exchange/preview";
 import { proposePosition } from "../lib/sweep/agent/sizing";
 import { directionalBias } from "../lib/sweep/agent/bias";
-import { DEFAULT_FEES, type FeeSchedule, parseFeeTiers } from "../lib/sweep/metrics/fees";
+import { DEFAULT_FEES, type FeeSchedule, canPostEntry, parseFeeTiers } from "../lib/sweep/metrics/fees";
 import { checkProtection, ensureProtected, type ProtectionState } from "../lib/sweep/exchange/orders";
 import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { dayDrawdown, fetchDayActivity, type DayActivity } from "../lib/sweep/exchange/activity";
@@ -280,6 +285,26 @@ function startExecutionLoop() {
     limits: () => ({ ...limits }),
     quantityPrecision: 0,
     pricePrecision: 2,
+    /**
+     * Where to rest an entry, or null to cross.
+     *
+     * Joining the queue at the touch rather than improving on it: a buy rests
+     * at the current best bid. Improving the price would fill faster but gives
+     * away part of the spread that resting was meant to earn, which defeats
+     * the exercise.
+     *
+     * Returns null when mark-out says the passive side is being picked off, so
+     * a toxic tape falls back to crossing rather than resting into it — the
+     * same test the sizer priced the trade with, so the quoted cost and the
+     * execution cannot disagree.
+     */
+    makerEntryPrice: (side) => {
+      const state = feed?.getState();
+      if (!state) return null;
+      if (!canPostEntry(state.markout).ok) return null;
+      const price = side === "BUY" ? state.bestBid : state.bestAsk;
+      return price && price > 0 ? price : null;
+    },
     onRecord: (r) => {
       execHistory = [r, ...execHistory].slice(0, 200);
       log(`execution ${r.outcome}: ${r.detail}`);
@@ -323,7 +348,7 @@ function startExecutionLoop() {
         },
         costCurve: feed!.getCostCurve(),
         clusters: feed!.getClusters(),
-        config: { riskFraction: limits.riskPerTradePct / 100, fees },
+        config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
       });
       if (!proposal.ok) return null;
 
@@ -593,7 +618,7 @@ const server = createServer(async (req, res) => {
           },
           costCurve: feed ? feed.getCostCurve() : [],
           clusters: feed ? feed.getClusters() : [],
-          config: { riskFraction: limits.riskPerTradePct / 100, fees },
+          config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
         });
         send(res, 200, {
           result,
@@ -838,7 +863,8 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
       <option value="false">disarmed</option><option value="true">armed</option></select></label>
     <button id="btnLimits">Save limits</button>
   </div>
-  <p class="note">Stored on this machine and enforced by the execution layer when it lands. Armed does nothing until then.
+  <p class="note">Stored on this machine and enforced on every order. <b>Armed means orders will be placed</b> when a setup
+  passes every check — leave it disarmed to use Suggest and Preview without anything being sent.
   Every position gets a stop-loss placed <b>on Binance</b> — it keeps working when this program is closed.</p>
 </div>
 

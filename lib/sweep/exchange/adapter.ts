@@ -1,7 +1,13 @@
 import type { AgentState, ExecutionAdapter, TradeIntent } from "../agent/types";
 import { fetchDayActivity, dayDrawdown } from "./activity";
 import { fetchAccountRisk, fetchPosition, type BinanceConfig } from "./binance";
-import { closePosition, openProtectedPosition, type Order } from "./orders";
+import {
+  closePosition,
+  openProtectedMakerPosition,
+  openProtectedPosition,
+  type MakerEntryOptions,
+  type Order,
+} from "./orders";
 
 /**
  * The adapter that actually sends an order.
@@ -45,6 +51,17 @@ export interface BinanceAdapterOptions {
   limits: () => AdapterLimits;
   quantityPrecision?: number;
   pricePrecision?: number;
+  /**
+   * Try to rest the entry on the book instead of crossing.
+   *
+   * Worth roughly 3bp of a 10bp round trip, which against a target 30-50bp
+   * away is a fifth to a third of net return. The cost is that it sometimes
+   * does not fill — which is not a loss, it is the trade not happening, and a
+   * missed entry is cheaper than a bad fill. Returns null to fall back to a
+   * market order; supply a price and the maker path is used.
+   */
+  makerEntryPrice?: (side: "BUY" | "SELL") => number | null;
+  makerEntry?: Partial<MakerEntryOptions>;
   onRecord?: (record: ExecutionRecord) => void;
 }
 
@@ -140,6 +157,48 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
         /* ------------------------------------------------------------ submit */
 
         const side = intent.side === "buy" ? "BUY" : "SELL";
+        const makerPrice = options.makerEntryPrice?.(side) ?? null;
+
+        if (makerPrice !== null && makerPrice > 0) {
+          const { entry, stop } = await openProtectedMakerPosition(
+            cfg,
+            symbol,
+            side,
+            quantity.toFixed(qtyPrecision),
+            makerPrice.toFixed(pricePrecision),
+            limits.stopLossPct,
+            pricePrecision,
+            options.makerEntry,
+          );
+
+          // Nothing filled is a normal outcome for a resting order and must not
+          // read as an error. It is the trade not happening, which is the price
+          // of not crossing the spread and is cheaper than a bad fill.
+          if (entry.filledQty <= 0) {
+            record({
+              at: Date.now(),
+              intentId: intent.id,
+              outcome: "refused",
+              detail: `no position opened — ${entry.reason}`,
+            });
+            return;
+          }
+
+          record({
+            at: Date.now(),
+            intentId: intent.id,
+            outcome: "submitted",
+            detail:
+              `${side} ${entry.filledQty} ${symbol} resting at ${makerPrice.toFixed(pricePrecision)} ` +
+              `(maker, filled at ${entry.avgPrice})` +
+              (entry.outcome === "partial" ? ` — PARTIAL, ${quantity} was intended` : "") +
+              `, protective stop resting at ${stop?.stopPrice ?? "—"}. Reason: ${intent.reason}`,
+            entry: entry.order ?? undefined,
+            stop: stop ?? undefined,
+          });
+          return;
+        }
+
         const { entry, stop } = await openProtectedPosition(
           cfg,
           symbol,
