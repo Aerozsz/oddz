@@ -1,4 +1,3 @@
-import { SYMBOL } from "../config";
 import { type Engine, getEngine } from "../engine";
 import type { CascadePath, Cluster, CostPoint, Snapshot } from "../types";
 import { assessHealth } from "./health";
@@ -15,7 +14,12 @@ export interface SweepFeedOptions {
    * the projection ten times a second is waste. Signals are never throttled.
    */
   stateIntervalMs?: number;
-  /** Injectable for tests. Defaults to the tab-level singleton. */
+  /**
+   * Which contract to read. Ignored when `engine` is given — the engine already
+   * knows its own symbol, and taking both would let them disagree.
+   */
+  symbol?: string;
+  /** Injectable for tests. Defaults to the per-symbol shared engine. */
   engine?: Engine;
 }
 
@@ -49,15 +53,16 @@ export function createSweepFeed(options: SweepFeedOptions = {}): SweepFeed {
   const historyLimit = options.historyLimit ?? 200;
   const stateIntervalMs = options.stateIntervalMs ?? 250;
 
-  const engine = options.engine ?? getEngine();
+  const engine = options.engine ?? getEngine(options.symbol);
   engine.start();
+  const symbol = engine.symbol;
 
   const detector = new SignalEngine(options.signals);
   const signalListeners = new Set<(s: Signal, st: AgentState) => void>();
   const stateListeners = new Set<(st: AgentState) => void>();
   const history: Signal[] = [];
 
-  let state = project(engine.getSnapshot());
+  let state = project(engine.getSnapshot(), symbol);
   let lastStateAt = 0;
   let closed = false;
 
@@ -73,7 +78,7 @@ export function createSweepFeed(options: SweepFeedOptions = {}): SweepFeed {
 
     const dueForState = now - lastStateAt >= stateIntervalMs;
     if (dueForState || signals.length > 0) {
-      state = project(snap, now);
+      state = project(snap, symbol, now);
       lastStateAt = now;
     }
 
@@ -128,7 +133,7 @@ export function createSweepFeed(options: SweepFeedOptions = {}): SweepFeed {
 
 /* ------------------------------------------------------------- projection */
 
-function project(snap: Snapshot, now = Date.now()): AgentState {
+function project(snap: Snapshot, symbol: string, now = Date.now()): AgentState {
   const health = assessHealth(snap, now);
   const liq = snap.liquidity;
   const mid = snap.mid;
@@ -148,7 +153,7 @@ function project(snap: Snapshot, now = Date.now()): AgentState {
 
   return {
     ts: snap.ts,
-    symbol: SYMBOL,
+    symbol,
     health,
     session: snap.session,
     mid,

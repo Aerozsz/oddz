@@ -47,6 +47,21 @@ const MIN_RESYNC_INTERVAL_MS = 1_000;
  * the withdrawn-versus-consumed split, see every update.
  */
 export class Engine {
+  /**
+   * The contract this engine watches.
+   *
+   * One engine per symbol rather than one engine handling several: the book,
+   * the withdrawal baselines, the participant tracker and the mark-out tracker
+   * are all per-contract state with no meaningful cross-symbol form, and
+   * interleaving them in one object would mean threading a symbol through every
+   * one of them to keep them apart again.
+   */
+  readonly symbol: string;
+
+  constructor(symbol: string = SYMBOL) {
+    this.symbol = symbol;
+  }
+
   private book = new OrderBook();
   private stream: StreamClient | null = null;
   private tracker = new WithdrawalTracker();
@@ -152,7 +167,7 @@ export class Engine {
         this.connection = { ...this.connection, socket: "error", error: err };
       },
       onMessage: (msg) => this.handle(msg),
-    });
+    }, this.symbol);
     this.stream.start();
 
     // Coming back to the tab must not show whatever the polls last managed
@@ -222,7 +237,7 @@ export class Engine {
 
   private async bootstrap() {
     try {
-      this.meta = await fetchMeta();
+      this.meta = await fetchMeta(this.symbol);
     } catch (err) {
       this.connection = {
         ...this.connection,
@@ -240,8 +255,8 @@ export class Engine {
 
   private async loadKlines() {
     const [minutes, daily] = await Promise.all([
-      fetchKlines("1m", 1000),
-      fetchKlines("1d", 60),
+      fetchKlines("1m", 1000, this.symbol),
+      fetchKlines("1d", 60, this.symbol),
     ]);
     // The socket opens independently of this fetch and may already have pushed
     // live bars into `minutes`. Assigning the REST result over the top would
@@ -269,7 +284,7 @@ export class Engine {
   private async refreshOpenInterest() {
     if (!this.pollable) return;
     try {
-      const oi = await fetchOpenInterest();
+      const oi = await fetchOpenInterest(this.symbol);
       const price = this.mark?.markPrice ?? this.book.mid() ?? this.last ?? 0;
       this.openInterest = {
         qty: oi.qty,
@@ -290,7 +305,7 @@ export class Engine {
    */
   private async refreshFundingHistory() {
     if (!this.pollable) return;
-    const rows = await fetchFundingHistory(200);
+    const rows = await fetchFundingHistory(200, this.symbol);
     if (rows.length) this.fundingHistory = rows;
   }
 
@@ -298,7 +313,7 @@ export class Engine {
     if (!this.pollable) return;
     // Only polled every five minutes, so a single failure would blank the
     // ladder's long/short split for that long. Keep the last good reading.
-    const ratio = await fetchLongShortRatio();
+    const ratio = await fetchLongShortRatio(this.symbol);
     if (ratio !== null) this.longShortRatio = ratio;
   }
 
@@ -332,7 +347,7 @@ export class Engine {
     this.lastResyncAt = Date.now();
     this.snapshotPending = true;
     try {
-      const snap = await fetchDepthSnapshot(1000);
+      const snap = await fetchDepthSnapshot(1000, this.symbol);
       this.book.applySnapshot(snap);
     } catch (err) {
       this.connection = {
@@ -651,12 +666,27 @@ export function emptySnapshot(): Snapshot {
   };
 }
 
-let singleton: Engine | null = null;
+const engines = new Map<string, Engine>();
 
-/** One engine per tab, shared by every component that reads from it. */
-export function getEngine(): Engine {
-  if (!singleton) singleton = new Engine();
-  return singleton;
+/**
+ * One engine per symbol, shared by everything that reads that symbol.
+ *
+ * Keyed rather than a single instance so a group of correlated contracts can be
+ * watched at once. Calling it with no argument keeps returning the same engine
+ * for the configured symbol, so every existing caller is unaffected.
+ */
+export function getEngine(symbol: string = SYMBOL): Engine {
+  let e = engines.get(symbol);
+  if (!e) {
+    e = new Engine(symbol);
+    engines.set(symbol, e);
+  }
+  return e;
+}
+
+/** Every engine currently constructed. */
+export function allEngines(): Engine[] {
+  return [...engines.values()];
 }
 
 export { SYMBOL };

@@ -33,8 +33,68 @@
 export const SYMBOL =
   (typeof process !== "undefined" ? process.env?.SWEEP_SYMBOL?.trim() : "") || "INTCUSDT";
 
+/**
+ * Every contract watched at once.
+ *
+ *     SWEEP_SYMBOLS=INTCUSDT,SNDKUSDT,MUUSDT npm run sweep:control
+ *
+ * Why more than one, given the strategy is unchanged: the binding constraint on
+ * this system is not how good each trade is, it is how often a setup appears.
+ * A week of real trading averaged under five entries a day on one contract, and
+ * every risk cap here is per-trade or per-day rather than per-symbol — so
+ * watching three contracts roughly triples the number of chances at unchanged
+ * risk per chance.
+ *
+ * That is only true while the caps stay account-wide. They do: the daily loss
+ * budget, the trade counter, the cooldown and the open-position ceiling are all
+ * counted across every desk, not per symbol. Three symbols is three times the
+ * opportunity, not three times the exposure.
+ *
+ * The one thing it is *not* is diversification. Correlated names — memory,
+ * semis — go down together, which is exactly why `maxOpenPositions` defaults to
+ * 1: holding three at once is one position in the sector wearing three tickers.
+ *
+ * `SWEEP_SYMBOL` still works and means a list of one.
+ */
+export const SYMBOLS: string[] = (() => {
+  const raw = typeof process !== "undefined" ? process.env?.SWEEP_SYMBOLS?.trim() : "";
+  if (!raw) return [SYMBOL];
+  const list = raw
+    .split(",")
+    .map((s) => s.trim().toUpperCase())
+    .filter(Boolean);
+  // Order is kept — the first is the default focus in the GUI — but duplicates
+  // would otherwise mean two engines on one contract, each with its own
+  // WebSocket, competing for the same rate limit.
+  return list.length > 0 ? [...new Set(list)] : [SYMBOL];
+})();
+
+/**
+ * Contracts the models below were built for.
+ *
+ * Everything in CONFIG describes an *equity* perpetual tracking a US-listed
+ * stock: the leverage ladder assumes the 20x cap those carry, the session module
+ * is the Nasdaq clock in US Eastern, and the earnings calendar is a US filing
+ * calendar. On a crypto pair none of it means anything, and on an equity perp
+ * listed elsewhere the session model — which is most of the edge here — is
+ * simply the wrong clock.
+ *
+ * The maintenance margin rate is the looser one: it was measured on INTCUSDT and
+ * is an approximation on any other contract, erring toward placing modelled
+ * liquidations slightly nearer than they are.
+ *
+ * A symbol outside this set still runs; it is reported as uncalibrated in the
+ * diagnostics rather than blocked, because proving the order path works is a
+ * legitimate reason to point it at BTCUSDT.
+ */
+export const CALIBRATED_SYMBOLS = new Set(["INTCUSDT", "SNDKUSDT"]);
+
+export function isCalibrated(symbol: string): boolean {
+  return CALIBRATED_SYMBOLS.has(symbol.toUpperCase());
+}
+
 /** True when running against something the models were not built for. */
-export const IS_CALIBRATED_SYMBOL = SYMBOL === "INTCUSDT";
+export const IS_CALIBRATED_SYMBOL = isCalibrated(SYMBOL);
 
 /** Binance USDⓈ-M futures endpoints. */
 export const FAPI_REST = "https://fapi.binance.com";

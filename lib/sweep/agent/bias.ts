@@ -1,3 +1,4 @@
+import type { DislocationRead } from "../metrics/dislocation";
 import { fundingSkew } from "../metrics/funding";
 import type { Direction } from "../types";
 import type { AgentState } from "./types";
@@ -51,7 +52,18 @@ const norm = (a: number, b: number): number => {
   return total > 0 ? (a - b) / total : 0;
 };
 
-export function directionalBias(state: AgentState): DirectionalBias {
+export interface BiasContext {
+  /**
+   * How this contract sits against the others being watched.
+   *
+   * Passed in rather than carried on AgentState because it is the one reading
+   * here that is not a property of this contract — it cannot be computed from
+   * one book, and a single-symbol run has no access to it and needs none.
+   */
+  dislocation?: DislocationRead;
+}
+
+export function directionalBias(state: AgentState, ctx: BiasContext = {}): DirectionalBias {
   const factors: BiasFactor[] = [];
   const liq = state.liquidity;
 
@@ -149,6 +161,22 @@ export function directionalBias(state: AgentState): DirectionalBias {
       detail:
         `${(Math.abs(score) * 100).toFixed(0)}% ${score > 0 ? "buy" : "sell"}-sided` +
         (persistence > 0.6 ? `, and sustained — consistent with a worked order` : `, but not sustained`),
+    });
+  }
+
+  /* Where this name sits against the ones it usually moves with. Weighted
+   * below the book-derived factors and above the resting imbalance: it is a
+   * real measurement over a real window, but it says something about the
+   * *character* of a move rather than about the cost of the next one, and the
+   * situation it fires hardest in is also the one most likely to be news. It is
+   * silent entirely unless the group has actually been correlated. */
+  const dis = ctx.dislocation;
+  if (dis?.warm && dis.coupled && dis.score !== 0) {
+    factors.push({
+      name: "against its peers",
+      score: dis.score,
+      weight: 0.12,
+      detail: dis.note,
     });
   }
 
