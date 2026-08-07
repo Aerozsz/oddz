@@ -99,7 +99,14 @@ async function main() {
   console.log(`    ${message}`);
   console.log("");
 
-  if (message.includes("-2015") || message.includes("-2014")) {
+  if (message.includes("-4411")) {
+    console.log("  The key works — this is a policy rejection, not an authentication one.");
+    console.log("");
+    console.log("  INTCUSDT is a TradFi perpetual: it tracks a stock rather than a token, and");
+    console.log("  Binance requires a separate agreement for those on top of the futures one.");
+    console.log("  Open the INTCUSDT page in the Binance interface for this environment, accept");
+    console.log("  the prompt, and retry. One-off per account; there is no API for it.");
+  } else if (message.includes("-2015") || message.includes("-2014")) {
     console.log("  That code means the key was not accepted at all. In order of likelihood:");
     console.log("");
     if (!cfg.live) {
