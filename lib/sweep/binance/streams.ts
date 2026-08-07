@@ -1,14 +1,24 @@
 import { FAPI_WS, SYMBOL } from "../config";
 
-const lower = SYMBOL.toLowerCase();
+/**
+ * The five streams one contract needs, as a function of the contract.
+ *
+ * Built per instance rather than once at module load, so several engines can
+ * run against different symbols in the same process — which is what watching a
+ * group of correlated names requires.
+ */
+export function streamsFor(symbol: string): string[] {
+  const lower = symbol.toLowerCase();
+  return [
+    `${lower}@depth@100ms`,
+    `${lower}@aggTrade`,
+    `${lower}@forceOrder`,
+    `${lower}@markPrice@1s`,
+    `${lower}@kline_1m`,
+  ];
+}
 
-export const STREAMS = [
-  `${lower}@depth@100ms`,
-  `${lower}@aggTrade`,
-  `${lower}@forceOrder`,
-  `${lower}@markPrice@1s`,
-  `${lower}@kline_1m`,
-] as const;
+export const STREAMS = streamsFor(SYMBOL);
 
 export interface StreamMessage {
   stream: string;
@@ -40,7 +50,14 @@ export class StreamClient {
   private staleCheck: ReturnType<typeof setInterval> | null = null;
   private lastMessageAt = 0;
 
-  constructor(private handlers: Handlers) {}
+  private readonly streams: string[];
+
+  constructor(
+    private handlers: Handlers,
+    symbol: string = SYMBOL,
+  ) {
+    this.streams = streamsFor(symbol);
+  }
 
   start() {
     this.stopped = false;
@@ -78,7 +95,7 @@ export class StreamClient {
 
   private connect() {
     if (this.stopped) return;
-    const url = `${FAPI_WS}?streams=${STREAMS.join("/")}`;
+    const url = `${FAPI_WS}?streams=${this.streams.join("/")}`;
     let ws: WebSocket;
     try {
       ws = new WebSocket(url);

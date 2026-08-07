@@ -43,6 +43,7 @@ import { previewPosition } from "../lib/sweep/exchange/preview";
 import { proposePosition } from "../lib/sweep/agent/sizing";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import { DEFAULT_FEES, type FeeSchedule, canPostEntry, parseFeeTiers } from "../lib/sweep/metrics/fees";
+import { DislocationTracker, EMPTY_DISLOCATION } from "../lib/sweep/metrics/dislocation";
 import {
   checkProtection,
   closePosition,
@@ -55,7 +56,7 @@ import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { dayDrawdown, fetchDayActivity, type DayActivity } from "../lib/sweep/exchange/activity";
 import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
 import { attachExecution, intentId, type ExecutionRunner } from "../lib/sweep/agent";
-import { CONFIG, IS_CALIBRATED_SYMBOL, SYMBOL } from "../lib/sweep/config";
+import { CONFIG, SYMBOLS, isCalibrated } from "../lib/sweep/config";
 
 /*
  * Node 22 or newer. The engine uses the global WebSocket, which older releases
@@ -268,11 +269,92 @@ function writeLimits(next: Limits) {
   writeFileSync(LIMITS_PATH, `${JSON.stringify(next, null, 2)}\n`);
 }
 
-let feed: SweepFeed | null = null;
+/**
+ * One desk per contract.
+ *
+ * Everything here is per-symbol because it has no cross-symbol meaning: a book,
+ * a signal stream, a position and the stop resting against it all belong to one
+ * contract. What is deliberately *not* in here is the risk budget — the daily
+ * loss cap, the trade counter, the cooldown and the open-position ceiling live
+ * at account level below, counted across every desk at once.
+ *
+ * That split is the whole point of running several. Three desks give three times
+ * as many chances to find a setup while spending one budget between them, so the
+ * frequency goes up and the exposure does not. If the caps were per-desk this
+ * would just be three times the risk wearing a different name.
+ */
+interface Desk {
+  readonly symbol: string;
+  feed: SweepFeed | null;
+  runner: ExecutionRunner | null;
+  startedAt: number;
+  signalsSeen: number;
+  execHistory: ExecutionRecord[];
+  lastRefusal: { at: number; reason: string } | null;
+  refusalCounts: Map<string, number>;
+  day: { activity: DayActivity | null; error: string | null; at: number };
+  protection: { state: ProtectionState | null; error: string | null; at: number };
+  /**
+   * When this desk's position was first seen open.
+   *
+   * There is no open-time on a Binance position, so it is recorded the first
+   * time one is observed and cleared when it goes flat. After a restart an
+   * inherited position starts its clock again rather than being closed
+   * immediately — the wrong direction to be wrong in is closing something the
+   * moment the program comes back, not holding it a little longer.
+   */
+  positionOpenedAt: number;
+}
 
-/** Contract metadata from the exchange, once the engine has fetched it. */
-const meta = () => getEngine().getSnapshot().meta;
-let startedAt = 0;
+function newDesk(symbol: string): Desk {
+  return {
+    symbol,
+    feed: null,
+    runner: null,
+    startedAt: 0,
+    signalsSeen: 0,
+    execHistory: [],
+    lastRefusal: null,
+    refusalCounts: new Map(),
+    day: { activity: null, error: null, at: 0 },
+    protection: { state: null, error: null, at: 0 },
+    positionOpenedAt: 0,
+  };
+}
+
+const desks = new Map<string, Desk>(SYMBOLS.map((s) => [s, newDesk(s)]));
+const allDesks = () => [...desks.values()];
+
+/**
+ * How each contract is moving relative to the others.
+ *
+ * The one reading that only exists because there is more than one desk, and the
+ * measurable form of "find the discrepancies between these names". It is fed
+ * from every desk's published mid and read back into the bias as one modestly
+ * weighted factor — see lib/sweep/metrics/dislocation.ts for why it is weighted
+ * that way and what it is careful not to claim.
+ */
+const dislocation = new DislocationTracker();
+
+/** The read for a desk, or the empty one when only a single contract is watched. */
+const dislocationFor = (symbol: string) =>
+  desks.size > 1 ? dislocation.read(symbol) : EMPTY_DISLOCATION;
+
+/**
+ * The desk the detail panels describe.
+ *
+ * The summary strip shows every contract at once, but the suggestion panel, the
+ * preview and the manual order buttons all act on exactly one — and which one
+ * has to be an explicit choice rather than something inferred from whichever
+ * desk last did something, because these are the controls that send orders.
+ */
+let focus = SYMBOLS[0];
+const focused = () => desks.get(focus) ?? allDesks()[0];
+
+/** Contract metadata from the exchange, once that desk's engine has fetched it. */
+const metaFor = (symbol: string) => getEngine(symbol).getSnapshot().meta;
+const meta = () => metaFor(focus);
+
 let account: { risk: AccountRisk | null; error: string | null; at: number } = {
   risk: null,
   error: null,
@@ -282,44 +364,90 @@ let limits = readLimits();
 const fees = readFeeSchedule();
 
 function startEngine() {
-  if (feed) return;
-  feed = createSweepFeed();
-  attachCalendar(getEngine());
-  feed.onSignal((s) => {
-    if (s.kind !== "health") signalsSeen++;
-  });
-  startedAt = Date.now();
-  log("engine started");
+  for (const desk of allDesks()) {
+    if (desk.feed) continue;
+    desk.feed = createSweepFeed({ symbol: desk.symbol });
+    attachCalendar(getEngine(desk.symbol));
+    desk.feed.onSignal((s) => {
+      if (s.kind !== "health") desk.signalsSeen++;
+    });
+    // Every published state feeds the cross-contract comparison. Bucketed
+    // inside the tracker, so the four-a-second publish rate costs one sample
+    // per five seconds and a slow desk is not drowned out by a fast one.
+    desk.feed.onState((st) => {
+      if (st.mid !== null) dislocation.record(desk.symbol, st.mid);
+    });
+    desk.startedAt = Date.now();
+    log(`engine started — ${desk.symbol}`);
+  }
 }
 
 function stopEngine() {
-  if (!feed) return;
-  feed.close();
-  feed = null;
-  startedAt = 0;
-  log("engine stopped");
+  for (const desk of allDesks()) {
+    if (!desk.feed) continue;
+    desk.feed.close();
+    desk.feed = null;
+    desk.startedAt = 0;
+    // Otherwise a stopped desk keeps contributing a frozen price to the group
+    // return, which reads as the whole sector standing still.
+    dislocation.forget(desk.symbol);
+    log(`engine stopped — ${desk.symbol}`);
+  }
 }
 
-let day: { activity: DayActivity | null; error: string | null; at: number } = { activity: null, error: null, at: 0 };
-let execHistory: ExecutionRecord[] = [];
-let runner: ExecutionRunner | null = null;
-
-let protection: { state: ProtectionState | null; error: string | null; at: number } = {
-  state: null,
-  error: null,
-  at: 0,
-};
+/* -------------------------------------------------- account-wide day counters */
 
 /**
- * When the current position was first seen open.
+ * The day's activity summed across every desk.
  *
- * There is no open-time on a Binance position, so it is recorded here the
- * first time a position is observed and cleared when it goes flat. After a
- * restart an inherited position starts its clock again rather than being closed
- * immediately — the wrong direction to be wrong in is closing something the
- * moment the program comes back, not holding it a little longer.
+ * A loss on one contract has to count against the budget that governs the
+ * others, or three desks quietly grant three daily loss caps. Summed rather
+ * than fetched once because Binance's income ledger is queried per symbol.
  */
-let positionOpenedAt = 0;
+function dayTotals() {
+  let realisedPnl = 0;
+  let drawdown = 0;
+  let trades = 0;
+  let feesPaid = 0;
+  let funding = 0;
+  let lastLossAt = 0;
+  let known = false;
+  for (const d of allDesks()) {
+    const a = d.day.activity;
+    if (!a) continue;
+    known = true;
+    realisedPnl += a.realisedPnl;
+    drawdown += dayDrawdown(a);
+    trades += a.trades;
+    feesPaid += a.fees;
+    funding += a.funding;
+    lastLossAt = Math.max(lastLossAt, a.lastLossAt);
+  }
+  return { realisedPnl, drawdown, trades, fees: feesPaid, funding, lastLossAt, known };
+}
+
+/** How many contracts the account is currently holding, from the exchange. */
+function openPositionCount(): number {
+  return account.risk?.openPositions.filter((p) => p.positionAmt !== 0).length ?? 0;
+}
+
+/**
+ * Whether this desk may open something right now.
+ *
+ * Separate from the sizer because it is a portfolio question rather than a
+ * per-trade one, and because the answer has to be the same for the automatic
+ * loop and the manual button. Correlated names are the reason it exists: three
+ * memory contracts held at once is one sector bet wearing three tickers, and
+ * the stop on each would fire on the same tick.
+ */
+function concurrencyBlock(symbol: string): string | null {
+  const open = account.risk?.openPositions.filter((p) => p.positionAmt !== 0) ?? [];
+  if (open.some((p) => p.symbol === symbol)) return null; // already ours to manage
+  if (limits.maxOpenPositions > 0 && open.length >= limits.maxOpenPositions) {
+    return `already holding ${open.map((p) => p.symbol).join(", ")} — the account cap is ${limits.maxOpenPositions} position${limits.maxOpenPositions === 1 ? "" : "s"} at a time`;
+  }
+  return null;
+}
 
 /**
  * Close a position that has been open too long.
@@ -339,47 +467,73 @@ let positionOpenedAt = 0;
  */
 async function enforceMaxHold() {
   if (!limits.maxHoldMinutes || !hasCredentials()) return;
-  const pos = protection.state?.position;
-  if (!pos || pos.positionAmt === 0) {
-    positionOpenedAt = 0;
-    return;
-  }
-  if (!positionOpenedAt) {
-    positionOpenedAt = Date.now();
-    return;
-  }
-  const heldMin = (Date.now() - positionOpenedAt) / 60_000;
-  if (heldMin < limits.maxHoldMinutes) return;
+  for (const desk of allDesks()) {
+    const pos = desk.protection.state?.position;
+    if (!pos || pos.positionAmt === 0) {
+      desk.positionOpenedAt = 0;
+      continue;
+    }
+    if (!desk.positionOpenedAt) {
+      desk.positionOpenedAt = Date.now();
+      continue;
+    }
+    const heldMin = (Date.now() - desk.positionOpenedAt) / 60_000;
+    if (heldMin < limits.maxHoldMinutes) continue;
 
-  try {
-    await closePosition(loadConfig(), SYMBOL);
-    log(
-      `TIME STOP: closed after ${Math.round(heldMin)} min (limit ${limits.maxHoldMinutes}). ` +
-        `Held past the point where the book reading it was based on still means anything.`,
-    );
-    positionOpenedAt = 0;
-    await refreshAccount();
-  } catch (err) {
-    log(`time stop FAILED: ${redact(err instanceof Error ? err.message : String(err))}`);
+    try {
+      await closePosition(loadConfig(), desk.symbol);
+      log(
+        `TIME STOP ${desk.symbol}: closed after ${Math.round(heldMin)} min (limit ${limits.maxHoldMinutes}). ` +
+          `Held past the point where the book reading it was based on still means anything.`,
+      );
+      desk.positionOpenedAt = 0;
+      await refreshAccount();
+    } catch (err) {
+      log(`time stop FAILED (${desk.symbol}): ${redact(err instanceof Error ? err.message : String(err))}`);
+    }
   }
 }
 
 async function refreshAccount() {
   if (!hasCredentials()) {
     account = { risk: null, error: "no credentials configured", at: Date.now() };
-    protection = { state: null, error: null, at: Date.now() };
+    for (const desk of allDesks()) desk.protection = { state: null, error: null, at: Date.now() };
     return;
   }
+  const cfg = loadConfig();
   try {
-    const cfg = loadConfig();
     account = { risk: await fetchAccountRisk(cfg), error: null, at: Date.now() };
-    const position = await fetchPosition(cfg, SYMBOL);
-    protection = { state: await checkProtection(cfg, SYMBOL, position), error: null, at: Date.now() };
-    day = { activity: await fetchDayActivity(cfg, SYMBOL), error: null, at: Date.now() };
   } catch (err) {
     const message = redact(err instanceof Error ? err.message : String(err));
     account = { risk: null, error: message, at: Date.now() };
-    protection = { state: null, error: message, at: Date.now() };
+    for (const desk of allDesks()) desk.protection = { state: null, error: message, at: Date.now() };
+    return;
+  }
+
+  /*
+   * Per-desk reads are sequential and each is caught on its own.
+   *
+   * Sequential because this is three or four signed calls per desk against a
+   * shared IP weight budget, and firing them all at once is how a 429 — and then
+   * an IP ban — happens. Caught individually because one symbol erroring must
+   * not blank the protection state of a desk that is holding something: a stop
+   * reported as "unknown" reads like an unprotected position and invites a
+   * manual flatten that was never needed.
+   */
+  for (const desk of allDesks()) {
+    try {
+      const position = await fetchPosition(cfg, desk.symbol);
+      desk.protection = {
+        state: await checkProtection(cfg, desk.symbol, position),
+        error: null,
+        at: Date.now(),
+      };
+      desk.day = { activity: await fetchDayActivity(cfg, desk.symbol), error: null, at: Date.now() };
+    } catch (err) {
+      const message = redact(err instanceof Error ? err.message : String(err));
+      desk.protection = { state: null, error: message, at: Date.now() };
+      desk.day = { ...desk.day, error: message, at: Date.now() };
+    }
   }
 }
 
@@ -394,28 +548,30 @@ async function refreshAccount() {
  */
 async function reconcileOnStart() {
   if (!hasCredentials()) return;
-  try {
-    const cfg = loadConfig();
-    const position = await fetchPosition(cfg, SYMBOL);
-    if (!position) {
-      log("startup: flat, nothing to reconcile");
-      return;
+  const cfg = loadConfig();
+  for (const desk of allDesks()) {
+    try {
+      const position = await fetchPosition(cfg, desk.symbol);
+      if (!position) {
+        log(`startup: flat on ${desk.symbol}, nothing to reconcile`);
+        continue;
+      }
+      log(`startup: found an open position of ${position.positionAmt} ${desk.symbol}`);
+      const before = await checkProtection(cfg, desk.symbol, position);
+      if (before.protected) {
+        log(`startup: ${before.reason}`);
+        desk.protection = { state: before, error: null, at: Date.now() };
+        continue;
+      }
+      log(`startup: ${before.reason} — placing one now`);
+      const after = await ensureProtected(cfg, desk.symbol, position, limits.stopLossPct, 2);
+      log(`startup: ${after.reason}`);
+      desk.protection = { state: after, error: null, at: Date.now() };
+    } catch (err) {
+      const message = redact(err instanceof Error ? err.message : String(err));
+      log(`startup reconciliation FAILED (${desk.symbol}): ${message}`);
+      desk.protection = { state: null, error: message, at: Date.now() };
     }
-    log(`startup: found an open position of ${position.positionAmt} ${SYMBOL}`);
-    const before = await checkProtection(cfg, SYMBOL, position);
-    if (before.protected) {
-      log(`startup: ${before.reason}`);
-      protection = { state: before, error: null, at: Date.now() };
-      return;
-    }
-    log(`startup: ${before.reason} — placing one now`);
-    const after = await ensureProtected(cfg, SYMBOL, position, limits.stopLossPct, 2);
-    log(`startup: ${after.reason}`);
-    protection = { state: after, error: null, at: Date.now() };
-  } catch (err) {
-    const message = redact(err instanceof Error ? err.message : String(err));
-    log(`startup reconciliation FAILED: ${message}`);
-    protection = { state: null, error: message, at: Date.now() };
   }
 }
 
@@ -435,23 +591,23 @@ async function reconcileOnStart() {
  * is the expected state here — signals are rare on purpose — which is exactly
  * why it has to be legible rather than inferred.
  */
-let lastRefusal: { at: number; reason: string } | null = null;
-let signalsSeen = 0;
-
 /**
- * How often each check turned a setup away.
+ * How often each check turned a setup away, per desk.
  *
  * "Thousands of signals, no orders" is not a diagnosis, and chasing it took
  * several rounds each time. A tally by cause turns it into one: if every
  * refusal says reward-to-risk, the target rule is wrong; if they say fees, the
  * frequency is; if they say daily cap, nothing is wrong at all.
  *
+ * Per desk rather than pooled because the answer is often symbol-specific — a
+ * contract whose clusters sit inside the round-trip cost refuses everything for
+ * a reason that says nothing about the others, and pooling them would hide that
+ * one of three contracts is doing all the work.
+ *
  * Keyed on the leading clause of the reason, which is stable enough to group on
  * and specific enough to act on.
  */
-const refusalCounts = new Map<string, number>();
-
-function tallyRefusal(reason: string) {
+function tallyRefusal(desk: Desk, reason: string) {
   // Everything before the first number or bracket, which is the rule's name
   // rather than the particular figures it refused with.
   const key = reason
@@ -460,29 +616,54 @@ function tallyRefusal(reason: string) {
     .replace(/[0-9.,]+/g, "")
     .trim()
     .slice(0, 48) || "other";
-  refusalCounts.set(key, (refusalCounts.get(key) ?? 0) + 1);
+  desk.refusalCounts.set(key, (desk.refusalCounts.get(key) ?? 0) + 1);
 }
 
-function startExecutionLoop() {
-  if (runner) return;
-  if (!feed) {
-    log("cannot arm: the engine is not running — start it first");
+/** Refusal counts pooled across desks, for the headline list. */
+function pooledRefusals() {
+  const total = new Map<string, number>();
+  for (const d of allDesks()) {
+    for (const [k, v] of d.refusalCounts) total.set(k, (total.get(k) ?? 0) + v);
+  }
+  return [...total.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([reason, count]) => ({ reason, count }));
+}
+
+/**
+ * The last entry the account accepted, on any desk.
+ *
+ * The per-runner minimum interval only paces one desk. Three desks each pacing
+ * themselves is three times the pace, which would take the frequency gained
+ * from watching more contracts and spend it on trading the same setup three
+ * times over rather than on finding better ones. The gap is therefore enforced
+ * across all of them, exactly as it was when there was one.
+ */
+let lastEntryAt = 0;
+
+function armDesk(desk: Desk) {
+  if (desk.runner) return;
+  if (!desk.feed) {
+    log(`cannot arm ${desk.symbol}: the engine is not running — start it first`);
     return;
   }
   if (!hasCredentials()) {
     log("cannot arm: no API credentials");
     return;
   }
+  const feed = desk.feed;
   const cfg = loadConfig();
   const adapter = createBinanceAdapter({
     cfg,
-    symbol: SYMBOL,
+    symbol: desk.symbol,
     limits: () => ({ ...limits }),
     // From the exchange, not hardcoded: 0/2 is right for INTCUSDT and wrong for
     // anything else — BTCUSDT quantities carry three decimals, and a quantity
-    // rounded to the wrong precision is rejected outright.
-    quantityPrecision: meta()?.quantityPrecision ?? 0,
-    pricePrecision: meta()?.pricePrecision ?? 2,
+    // rounded to the wrong precision is rejected outright. Read per desk, since
+    // two equity perps at different prices do not share a precision either.
+    quantityPrecision: metaFor(desk.symbol)?.quantityPrecision ?? 0,
+    pricePrecision: metaFor(desk.symbol)?.pricePrecision ?? 2,
     /**
      * The size that actually gets ordered.
      *
@@ -493,15 +674,16 @@ function startExecutionLoop() {
      */
     size: (_intent, state, availableBalance) => {
       const direction = _intent.side === "buy" ? "up" : "down";
+      const totals = dayTotals();
       const proposal = proposePosition({
         direction,
         state,
         equity: availableBalance,
-        realisedLossToday: day.activity ? dayDrawdown(day.activity) : 0,
-        tradesToday: day.activity?.trades ?? 0,
-        lastLossAt: day.activity?.lastLossAt ?? 0,
-        feesPaidToday: day.activity?.fees ?? 0,
-        grossProfitToday: day.activity?.realisedPnl ?? 0,
+        realisedLossToday: totals.drawdown,
+        tradesToday: totals.trades,
+        lastLossAt: totals.lastLossAt,
+        feesPaidToday: totals.fees,
+        grossProfitToday: totals.realisedPnl,
         limits: {
           maxPositionUsd: limits.maxPositionUsd,
           maxLeverage: limits.maxLeverage,
@@ -512,14 +694,14 @@ function startExecutionLoop() {
           requireCashOpen: limits.requireCashOpen,
           minRewardRisk: limits.minRewardRisk,
         },
-        costCurve: feed?.getCostCurve() ?? [],
-        clusters: feed?.getClusters() ?? [],
+        costCurve: feed.getCostCurve(),
+        clusters: feed.getClusters(),
         config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
       });
       if (!proposal.ok) {
-        lastRefusal = { at: Date.now(), reason: proposal.reasons.join("; ") };
-        for (const one of proposal.reasons) tallyRefusal(one);
-        log(`sizer declined: ${proposal.reasons.join("; ")}`);
+        desk.lastRefusal = { at: Date.now(), reason: proposal.reasons.join("; ") };
+        for (const one of proposal.reasons) tallyRefusal(desk, one);
+        log(`sizer declined (${desk.symbol}): ${proposal.reasons.join("; ")}`);
         return null;
       }
       return {
@@ -543,8 +725,7 @@ function startExecutionLoop() {
      * execution cannot disagree.
      */
     makerEntryPrice: (side) => {
-      const state = feed?.getState();
-      if (!state) return null;
+      const state = feed.getState();
       if (!canPostEntry(state.markout).ok) return null;
       const price = side === "BUY" ? state.bestBid : state.bestAsk;
       return price && price > 0 ? price : null;
@@ -555,55 +736,77 @@ function startExecutionLoop() {
     // 30s later. A maker fill that consistently marks out badly is being
     // adversely selected, and that is worth more than the 3bp it saved.
     onFill: (f) => {
-      getEngine().recordOwnFill(f);
-      log(`fill ${f.tag} ${f.side} ${f.notional.toFixed(0)} at ${f.price}`);
+      getEngine(desk.symbol).recordOwnFill(f);
+      log(`fill ${desk.symbol} ${f.tag} ${f.side} ${f.notional.toFixed(0)} at ${f.price}`);
     },
     onRecord: (r) => {
-      execHistory = [r, ...execHistory].slice(0, 200);
-      log(`execution ${r.outcome}: ${r.detail}`);
+      desk.execHistory = [r, ...desk.execHistory].slice(0, 200);
+      // The account-wide clock starts when an entry actually reached the
+      // exchange, not when one was proposed — a refused or failed submission
+      // has not spent anything and must not pace the other desks.
+      if (r.outcome === "submitted") lastEntryAt = Date.now();
+      log(`execution ${desk.symbol} ${r.outcome}: ${r.detail}`);
     },
   });
 
-  runner = attachExecution(feed, {
+  desk.runner = attachExecution(feed, {
     adapter,
     minIntervalMs: Math.max(60_000, limits.lossCooldownMin * 60_000),
     maxPerHour: Math.max(1, limits.maxTradesPerDay),
     onRejected: (reason) => {
-      lastRefusal = { at: Date.now(), reason };
-      tallyRefusal(reason);
-      log(`intent rejected: ${reason}`);
+      desk.lastRefusal = { at: Date.now(), reason };
+      tallyRefusal(desk, reason);
+      log(`intent rejected (${desk.symbol}): ${reason}`);
     },
     // The commonest outcome by far, and previously invisible: a signal fired,
     // the bias looked at it and would not call a side, so nothing was proposed.
     // The reason comes from the evaluation that caused it, not a later one.
     onDeclined: (_signal, _state, reason) => {
       const r = reason ?? "the strategy passed on this signal";
-      lastRefusal = { at: Date.now(), reason: r };
-      tallyRefusal(r.startsWith("sized out") ? r : "bias called no side");
+      desk.lastRefusal = { at: Date.now(), reason: r };
+      tallyRefusal(desk, r.startsWith("sized out") ? r : "bias called no side");
     },
     strategy: (signal, state) => {
       // Health signals describe the feed, not the market.
       if (signal.kind === "health") return null;
-      const bias = directionalBias(state);
-      if (!bias.direction) {
-        runner?.noteDecline(bias.summary);
+
+      // Portfolio gates first: both are account-wide, both are cheap, and both
+      // would otherwise be re-derived by every desk independently.
+      const blocked = concurrencyBlock(desk.symbol);
+      if (blocked) {
+        desk.runner?.noteDecline(blocked);
+        return null;
+      }
+      const gapMs = Math.max(60_000, limits.lossCooldownMin * 60_000);
+      const sinceEntry = Date.now() - lastEntryAt;
+      if (lastEntryAt > 0 && sinceEntry < gapMs) {
+        desk.runner?.noteDecline(
+          `account-wide spacing: ${Math.ceil((gapMs - sinceEntry) / 60_000)} min until the next entry on any contract`,
+        );
         return null;
       }
 
+      const bias = directionalBias(state, { dislocation: dislocationFor(desk.symbol) });
+      if (!bias.direction) {
+        desk.runner?.noteDecline(bias.summary);
+        return null;
+      }
+
+      const totals = dayTotals();
       const proposal = proposePosition({
         direction: bias.direction,
         state,
         equity: account.risk?.availableBalance ?? 0,
-        realisedLossToday: day.activity ? dayDrawdown(day.activity) : 0,
-        tradesToday: day.activity?.trades ?? 0,
-        lastLossAt: day.activity?.lastLossAt ?? 0,
-        // Both from Binance's income ledger rather than from anything this
-        // process remembers: a restart is exactly when a costly run has just
-        // happened, and in-memory counters would clear the budget at the moment
-        // it matters. REALIZED_PNL is booked before commission, so it is the
-        // gross figure the fee share is measured against.
-        feesPaidToday: day.activity?.fees ?? 0,
-        grossProfitToday: day.activity?.realisedPnl ?? 0,
+        // Summed across desks. From Binance's income ledger rather than from
+        // anything this process remembers: a restart is exactly when a costly
+        // run has just happened, and in-memory counters would clear the budget
+        // at the moment it matters. REALIZED_PNL is booked before commission,
+        // so it is the gross figure the fee share is measured against.
+        realisedLossToday: totals.drawdown,
+        tradesToday: totals.trades,
+        lastLossAt: totals.lastLossAt,
+        feesPaidToday: totals.fees,
+        grossProfitToday: totals.realisedPnl,
         limits: {
           maxPositionUsd: limits.maxPositionUsd,
           maxLeverage: limits.maxLeverage,
@@ -614,15 +817,15 @@ function startExecutionLoop() {
           requireCashOpen: limits.requireCashOpen,
           minRewardRisk: limits.minRewardRisk,
         },
-        costCurve: feed!.getCostCurve(),
-        clusters: feed!.getClusters(),
+        costCurve: feed.getCostCurve(),
+        clusters: feed.getClusters(),
         config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
       });
       if (!proposal.ok) {
         // Otherwise this surfaces as "the strategy passed on this signal",
         // above a GUI line asserting the bias called no side — which is the
         // opposite of what happened: it called a side and the sizer refused it.
-        runner?.noteDecline(`sized out (${bias.direction}): ${proposal.reasons.join("; ")}`);
+        desk.runner?.noteDecline(`sized out (${bias.direction}): ${proposal.reasons.join("; ")}`);
         return null;
       }
 
@@ -642,25 +845,97 @@ function startExecutionLoop() {
       };
     },
   });
-  log(`execution loop attached (${adapter.name})`);
+  log(`execution loop attached — ${desk.symbol} (${adapter.name})`);
+}
+
+function startExecutionLoop() {
+  for (const desk of allDesks()) armDesk(desk);
 }
 
 function stopExecutionLoop() {
-  runner?.stop();
-  runner = null;
+  for (const desk of allDesks()) {
+    desk.runner?.stop();
+    desk.runner = null;
+  }
+}
+
+/**
+ * One line per contract, for the strip along the top of the page.
+ *
+ * Kept small on purpose: with several desks the interesting question is which
+ * one is doing something, and that is answered by price, risk, whether it is
+ * holding, and how many signals it has produced. Everything else is a click
+ * away on whichever desk turns out to be the interesting one.
+ */
+function deskSummaries() {
+  return allDesks().map((d) => {
+    const st = d.feed?.getState() ?? null;
+    const pos = d.protection.state?.position ?? null;
+    const stats = d.runner?.stats();
+    return {
+      symbol: d.symbol,
+      focused: d.symbol === focus,
+      calibrated: isCalibrated(d.symbol),
+      running: d.feed !== null,
+      attached: d.runner !== null,
+      tradeable: st?.health.tradeable ?? null,
+      warm: st?.liquidity?.warm ?? null,
+      mid: st?.mid ?? null,
+      spreadBps: st?.liquidity?.spreadBps ?? null,
+      riskUp: st?.cascadeUp?.risk ?? null,
+      riskDown: st?.cascadeDown?.risk ?? null,
+      signalsSeen: d.signalsSeen,
+      accepted: stats?.accepted ?? 0,
+      holding: pos ? pos.positionAmt : 0,
+      pnl: pos?.unrealizedPnl ?? null,
+      protected: d.protection.state?.protected ?? null,
+      heldMin: d.positionOpenedAt ? Math.round((Date.now() - d.positionOpenedAt) / 60_000) : 0,
+      lastRefusal: d.lastRefusal?.reason ?? null,
+      dislocation: dislocationFor(d.symbol),
+    };
+  });
 }
 
 function status() {
-  const state = feed?.getState() ?? null;
+  const desk = focused();
+  const state = desk.feed?.getState() ?? null;
   const creds = hasCredentials();
   let mode: "none" | "testnet" | "live" = "none";
   if (creds) mode = process.env.BINANCE_LIVE === "1" ? "live" : "testnet";
 
+  // Aggregated across desks: the loop is one loop from the operator's side even
+  // though it is several runners underneath, and a per-desk breakdown that
+  // disagreed with the headline would be worse than either alone.
+  const loopTotals = allDesks().reduce(
+    (acc, d) => {
+      const s = d.runner?.stats();
+      if (!s) return acc;
+      return {
+        seen: acc.seen + s.seen,
+        accepted: acc.accepted + s.accepted,
+        rejected: acc.rejected + s.rejected,
+        declined: acc.declined + s.declined,
+        lastAcceptedAt: Math.max(acc.lastAcceptedAt, s.lastAcceptedAt),
+      };
+    },
+    { seen: 0, accepted: 0, rejected: 0, declined: 0, lastAcceptedAt: 0 },
+  );
+  const anyAttached = allDesks().some((d) => d.runner !== null);
+  const anyRunning = allDesks().some((d) => d.feed !== null);
+  const newestRefusal = allDesks()
+    .map((d) => d.lastRefusal)
+    .filter((r): r is { at: number; reason: string } => r !== null)
+    .sort((a, b) => b.at - a.at)[0] ?? null;
+  const totals = dayTotals();
+
   return {
+    desks: deskSummaries(),
+    focus,
     engine: {
-      running: feed !== null,
-      uptimeSec: startedAt ? Math.round((Date.now() - startedAt) / 1000) : 0,
-      symbol: SYMBOL,
+      running: anyRunning,
+      uptimeSec: desk.startedAt ? Math.round((Date.now() - desk.startedAt) / 1000) : 0,
+      symbol: desk.symbol,
+      symbols: SYMBOLS,
     },
     mode,
     hasCredentials: creds,
@@ -702,58 +977,60 @@ function status() {
         })) ?? [],
     },
     limits,
-    day: day.activity
+    // Summed across desks, because every cap it is checked against is.
+    day: totals.known
       ? {
-          at: day.at,
-          realisedPnl: day.activity.realisedPnl,
-          drawdown: dayDrawdown(day.activity),
-          trades: day.activity.trades,
-          fees: day.activity.fees,
-          funding: day.activity.funding,
-          lastLossAt: day.activity.lastLossAt,
+          at: Math.max(...allDesks().map((d) => d.day.at)),
+          realisedPnl: totals.realisedPnl,
+          drawdown: totals.drawdown,
+          trades: totals.trades,
+          fees: totals.fees,
+          funding: totals.funding,
+          lastLossAt: totals.lastLossAt,
           cooldownLeftMin:
-            limits.lossCooldownMin > 0 && day.activity.lastLossAt > 0
-              ? Math.max(0, limits.lossCooldownMin - (Date.now() - day.activity.lastLossAt) / 60_000)
+            limits.lossCooldownMin > 0 && totals.lastLossAt > 0
+              ? Math.max(0, limits.lossCooldownMin - (Date.now() - totals.lastLossAt) / 60_000)
               : 0,
         }
-      : { at: day.at, error: day.error },
+      : { at: desk.day.at, error: desk.day.error },
     // Top-level rather than nested under `execution`, which is where the GUI
     // reads it from. Nested, every tile rendered "—" and the "loop is not
     // attached" warning fired permanently — a false alarm about the one thing
     // it exists to report truthfully.
     loop: {
-      attached: runner !== null,
-      signalsSeen,
-      ...(runner
-        ? runner.stats()
-        : { seen: 0, accepted: 0, rejected: 0, declined: 0, lastAcceptedAt: 0 }),
-      lastRefusal,
+      attached: anyAttached,
+      signalsSeen: allDesks().reduce((n, d) => n + d.signalsSeen, 0),
+      ...loopTotals,
+      lastRefusal: newestRefusal,
       // Sorted by how often each check bit, which is the order worth reading.
-      refusals: [...refusalCounts.entries()]
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 8)
-        .map(([reason, count]) => ({ reason, count })),
+      refusals: pooledRefusals(),
     },
     execution: {
       available: hasCredentials() && limits.tradingEnabled,
       armed: limits.tradingEnabled,
-      running: runner !== null,
+      running: anyAttached,
       reason: !hasCredentials()
         ? "no exchange credentials configured — monitor only"
         : !limits.tradingEnabled
           ? "trading is disarmed; set your caps and arm it to allow orders"
           : "armed — orders will be placed when a setup passes every check",
-      history: execHistory.slice(0, 20),
-      stats: runner?.stats() ?? null,
+      // Interleaved newest-first across desks: an execution is an account event
+      // and reading three separate lists in parallel to reconstruct the order
+      // they happened in is exactly the work this should be doing.
+      history: allDesks()
+        .flatMap((d) => d.execHistory.map((r) => ({ ...r, symbol: d.symbol })))
+        .sort((a, b) => b.at - a.at)
+        .slice(0, 20),
+      stats: loopTotals,
     },
     protection: {
-      at: protection.at,
-      error: protection.error,
-      flat: protection.state ? protection.state.position === null : null,
-      protected: protection.state?.protected ?? null,
-      stopPrice: protection.state?.stop?.stopPrice ?? null,
-      stopDistancePct: protection.state?.stopDistancePct ?? null,
-      reason: protection.state?.reason ?? null,
+      at: desk.protection.at,
+      error: desk.protection.error,
+      flat: desk.protection.state ? desk.protection.state.position === null : null,
+      protected: desk.protection.state?.protected ?? null,
+      stopPrice: desk.protection.state?.stop?.stopPrice ?? null,
+      stopDistancePct: desk.protection.state?.stopDistancePct ?? null,
+      reason: desk.protection.state?.reason ?? null,
     },
   };
 }
@@ -794,6 +1071,19 @@ async function readJson(req: IncomingMessage): Promise<Record<string, unknown>> 
   }
 }
 
+/**
+ * Which desk a request is about.
+ *
+ * An explicit `symbol` wins; otherwise the focused desk. Unknown symbols fall
+ * back to the focus rather than erroring, because the only way to get one is a
+ * stale page open across a config change, and the honest recovery there is to
+ * answer about a real contract rather than to break.
+ */
+function deskFor(value: unknown): Desk {
+  const name = typeof value === "string" ? value.trim().toUpperCase() : "";
+  return desks.get(name) ?? focused();
+}
+
 const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? "/", `http://${HOST}:${PORT}`);
 
@@ -815,7 +1105,33 @@ const server = createServer(async (req, res) => {
 
       case "GET /api/signals": {
         const limit = Number(url.searchParams.get("limit") ?? 40);
-        send(res, 200, { signals: feed?.recentSignals(limit) ?? [] });
+        const which = url.searchParams.get("symbol");
+        // "all" interleaves every desk, which is what the signal panel wants by
+        // default: the question is what just happened anywhere, not what
+        // happened on the contract the order buttons are currently pointed at.
+        if (which === "all") {
+          const merged = allDesks()
+            .flatMap((d) => (d.feed?.recentSignals(limit) ?? []).map((s) => ({ ...s, symbol: d.symbol })))
+            .sort((a, b) => b.t - a.t)
+            .slice(0, limit);
+          send(res, 200, { signals: merged });
+          return;
+        }
+        const d = deskFor(which);
+        send(res, 200, { signals: (d.feed?.recentSignals(limit) ?? []).map((s) => ({ ...s, symbol: d.symbol })) });
+        return;
+      }
+
+      case "POST /api/focus": {
+        const body = await readJson(req);
+        const next = typeof body.symbol === "string" ? body.symbol.trim().toUpperCase() : "";
+        if (!desks.has(next)) {
+          send(res, 200, { error: `${next || "(none)"} is not one of ${SYMBOLS.join(", ")}` });
+          return;
+        }
+        focus = next;
+        log(`focus: ${focus}`);
+        send(res, 200, status());
         return;
       }
 
@@ -877,9 +1193,11 @@ const server = createServer(async (req, res) => {
         // not touch the stored limits, and cannot place an order — the operator
         // reads the reasoning and decides what the caps should be.
         const body = await readJson(req);
-        const state = feed?.getState() ?? null;
+        const desk = deskFor(body.symbol);
+        const state = desk.feed?.getState() ?? null;
         if (!state) { send(res, 200, { error: "engine is not running" }); return; }
-        const bias = directionalBias(state);
+        const totals = dayTotals();
+        const bias = directionalBias(state, { dislocation: dislocationFor(desk.symbol) });
         // "auto" hands the choice to the bias read; an explicit side overrides it.
         const chosen =
           body.direction === "auto" || body.direction === undefined
@@ -902,9 +1220,9 @@ const server = createServer(async (req, res) => {
           // suppressed by the caps. The fee tier is not zeroed, because a
           // suggestion priced at a rate that is no longer in force is worse
           // than no suggestion.
-          feeTierTradeCount: day.activity?.trades ?? 0,
-          feesPaidToday: day.activity?.fees ?? 0,
-          grossProfitToday: day.activity?.realisedPnl ?? 0,
+          feeTierTradeCount: totals.trades,
+          feesPaidToday: totals.fees,
+          grossProfitToday: totals.realisedPnl,
           limits: {
             maxPositionUsd: limits.maxPositionUsd > 0 ? limits.maxPositionUsd : Number(body.assumeMaxPositionUsd) || 0,
             maxLeverage: limits.maxLeverage,
@@ -915,11 +1233,12 @@ const server = createServer(async (req, res) => {
             requireCashOpen: limits.requireCashOpen,
             minRewardRisk: limits.minRewardRisk,
           },
-          costCurve: feed ? feed.getCostCurve() : [],
-          clusters: feed ? feed.getClusters() : [],
+          costCurve: desk.feed?.getCostCurve() ?? [],
+          clusters: desk.feed?.getClusters() ?? [],
           config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
         });
         send(res, 200, {
+          symbol: desk.symbol,
           result,
           bias,
           participants: state.participants,
@@ -927,6 +1246,7 @@ const server = createServer(async (req, res) => {
           markout: state.markout,
           funding: state.funding,
           events: state.events,
+          dislocation: dislocationFor(desk.symbol),
           session: state.session,
           appliedNothing: true,
         });
@@ -952,6 +1272,8 @@ const server = createServer(async (req, res) => {
          */
         const body = await readJson(req);
         if (!hasCredentials()) { send(res, 200, { error: "no API credentials" }); return; }
+        const desk = deskFor(body.symbol);
+        const symbol = desk.symbol;
 
         const side = body.side === "short" ? "short" : "long";
         const notional = Math.max(0, Number(body.notionalUsd) || 0);
@@ -964,16 +1286,21 @@ const server = createServer(async (req, res) => {
           send(res, 200, { error: `${notional} exceeds the ${limits.maxPositionUsd} max position` });
           return;
         }
+        // The same portfolio gate the automatic loop obeys. A manual order that
+        // ignored it would be the one way to end up holding three correlated
+        // contracts at once, which is precisely what the cap exists to stop.
+        const blocked = concurrencyBlock(symbol);
+        if (blocked) { send(res, 200, { error: blocked }); return; }
 
-        const state = feed?.getState() ?? null;
+        const state = desk.feed?.getState() ?? null;
         const price = state?.mark ?? state?.mid ?? 0;
         if (!price) { send(res, 200, { error: "no price yet — start the engine and wait for the book" }); return; }
 
         try {
           const cfg2 = loadConfig();
-          const existing = await fetchPosition(cfg2, SYMBOL);
+          const existing = await fetchPosition(cfg2, symbol);
           if (existing) {
-            send(res, 200, { error: `already holding ${existing.positionAmt} — close it first` });
+            send(res, 200, { error: `already holding ${existing.positionAmt} ${symbol} — close it first` });
             return;
           }
           const risk2 = await fetchAccountRisk(cfg2);
@@ -981,7 +1308,7 @@ const server = createServer(async (req, res) => {
 
           // Rounded to the contract's own step, not to whole units: BTCUSDT
           // trades in thousandths and 1 BTC is not a test order.
-          const qtyPrecision = meta()?.quantityPrecision ?? 0;
+          const qtyPrecision = metaFor(symbol)?.quantityPrecision ?? 0;
           const qty = Number((notional / price).toFixed(qtyPrecision));
           if (!(qty > 0)) {
             const min = Number((10 ** -qtyPrecision * price).toFixed(2));
@@ -991,22 +1318,22 @@ const server = createServer(async (req, res) => {
             return;
           }
 
-          await setLeverage(cfg2, SYMBOL, leverage);
-          log(`MANUAL ORDER: ${side} ${qty} ${SYMBOL} at market, ${leverage}x, stop ${stopPct}%`);
+          await setLeverage(cfg2, symbol, leverage);
+          log(`MANUAL ORDER: ${side} ${qty} ${symbol} at market, ${leverage}x, stop ${stopPct}%`);
           const { entry, stop } = await openProtectedPosition(
             cfg2,
-            SYMBOL,
+            symbol,
             side === "long" ? "BUY" : "SELL",
             String(qty),
             stopPct,
-            meta()?.pricePrecision ?? 2,
+            metaFor(symbol)?.pricePrecision ?? 2,
           );
           log(`MANUAL ORDER filled — stop resting at ${stop.stopPrice}`);
           await refreshAccount();
-          send(res, 200, { ok: true, entry, stop, leverage, quantity: qty, ...status() });
+          send(res, 200, { ok: true, symbol, entry, stop, leverage, quantity: qty, ...status() });
         } catch (err) {
           const message = err instanceof Error ? redact(err.message) : String(err);
-          log(`MANUAL ORDER failed: ${message}`);
+          log(`MANUAL ORDER failed (${symbol}): ${message}`);
           send(res, 200, { error: message });
         }
         return;
@@ -1015,15 +1342,17 @@ const server = createServer(async (req, res) => {
       case "POST /api/close": {
         // Flatten without stopping the engine, which is what Kill does.
         if (!hasCredentials()) { send(res, 200, { error: "no API credentials" }); return; }
+        const body = await readJson(req);
+        const symbol = deskFor(body.symbol).symbol;
         try {
           const cfg2 = loadConfig();
-          await closePosition(cfg2, SYMBOL);
-          log("MANUAL CLOSE: position flattened at market");
+          await closePosition(cfg2, symbol);
+          log(`MANUAL CLOSE: ${symbol} flattened at market`);
           await refreshAccount();
           send(res, 200, { ok: true, ...status() });
         } catch (err) {
           const message = err instanceof Error ? redact(err.message) : String(err);
-          log(`manual close failed: ${message}`);
+          log(`manual close failed (${symbol}): ${message}`);
           send(res, 200, { error: message });
         }
         return;
@@ -1031,13 +1360,14 @@ const server = createServer(async (req, res) => {
 
       case "POST /api/preview": {
         const body = await readJson(req);
-        const state = feed?.getState() ?? null;
+        const desk = deskFor(body.symbol);
+        const state = desk.feed?.getState() ?? null;
         const entry = Number(body.entryPrice) || state?.mark || state?.mid || 0;
         if (!entry) {
           send(res, 200, { error: "no price available yet — start the engine and wait for the book" });
           return;
         }
-        const raw = feed ? feed.getClusters() : [];
+        const raw = desk.feed?.getClusters() ?? [];
         const preview = previewPosition({
           side: body.side === "short" ? "short" : "long",
           notionalUsd: Math.max(0, Number(body.notionalUsd) || 0),
@@ -1047,8 +1377,8 @@ const server = createServer(async (req, res) => {
           maintMarginRate: Number(body.maintMarginRate) || CONFIG.maintenanceMarginRate,
           takerFeeRate: Number(body.takerFeeRate) || 0.0005,
           makerFeeRate: Number(body.makerFeeRate) || 0.0002,
-          stepSize: meta()?.stepSize ?? 0.001,
-          pricePrecision: meta()?.pricePrecision ?? 2,
+          stepSize: metaFor(desk.symbol)?.stepSize ?? 0.001,
+          pricePrecision: metaFor(desk.symbol)?.pricePrecision ?? 2,
           clusters: raw,
         });
         // Checked against the limits already stored, so the preview says
@@ -1069,21 +1399,43 @@ const server = createServer(async (req, res) => {
 
       case "POST /api/protect": {
         if (!hasCredentials()) { send(res, 200, { error: "no credentials configured" }); return; }
+        const body = await readJson(req);
         const cfg = loadConfig();
-        const position = await fetchPosition(cfg, SYMBOL);
-        const state = await ensureProtected(cfg, SYMBOL, position, limits.stopLossPct, 2);
-        protection = { state, error: null, at: Date.now() };
-        log(`manual protect: ${state.reason}`);
+        // Every desk, not just the focused one: an unprotected position is an
+        // emergency wherever it is, and making the operator find the right tab
+        // first is the wrong thing to ask at that moment.
+        const targets = body.symbol === "all" || body.symbol === undefined ? allDesks() : [deskFor(body.symbol)];
+        for (const d of targets) {
+          const position = await fetchPosition(cfg, d.symbol);
+          if (!position && targets.length > 1) continue; // nothing to cover
+          const state = await ensureProtected(cfg, d.symbol, position, limits.stopLossPct, 2);
+          d.protection = { state, error: null, at: Date.now() };
+          log(`manual protect ${d.symbol}: ${state.reason}`);
+        }
         send(res, 200, status());
         return;
       }
 
       case "POST /api/flatten": {
+        // The kill switch. Always every desk — a panic button that only
+        // flattened one of three contracts would be worse than none, because it
+        // would report success while leaving the account exposed.
         if (!hasCredentials()) { send(res, 200, { error: "no credentials configured" }); return; }
-        const result = await flatten(loadConfig(), SYMBOL);
-        log(`FLATTEN: ${result}`);
+        const cfg = loadConfig();
+        const results: string[] = [];
+        for (const d of allDesks()) {
+          try {
+            const r = await flatten(cfg, d.symbol);
+            results.push(`${d.symbol}: ${r}`);
+            log(`FLATTEN ${d.symbol}: ${r}`);
+          } catch (err) {
+            const message = err instanceof Error ? redact(err.message) : String(err);
+            results.push(`${d.symbol}: FAILED — ${message}`);
+            log(`FLATTEN ${d.symbol} FAILED: ${message}`);
+          }
+        }
         await refreshAccount();
-        send(res, 200, { ...status(), flattened: result });
+        send(res, 200, { ...status(), flattened: results.join(" · ") });
         return;
       }
 
@@ -1132,17 +1484,33 @@ const server = createServer(async (req, res) => {
                  : (account.error ?? "no account read yet"),
           acctOk ? undefined : "npm run sweep:check names the specific cause.");
 
-        const engineOn = feed !== null;
-        add("engine running", engineOn, engineOn ? `up ${Math.round((Date.now() - startedAt) / 1000)}s` : "stopped",
-          engineOn ? undefined : "Press Start at the top of this page.");
+        const live = allDesks().filter((d) => d.feed !== null);
+        add("engines running", live.length === desks.size,
+          live.length === 0
+            ? "all stopped"
+            : `${live.length}/${desks.size} — ${live.map((d) => `${d.symbol} up ${Math.round((Date.now() - d.startedAt) / 1000)}s`).join(", ")}`,
+          live.length === desks.size ? undefined : "Press Start at the top of this page.",
+          live.length === 0 ? "bad" : live.length === desks.size ? "ok" : "warn");
 
-        const st = feed?.getState();
-        const healthy = st?.health.tradeable === true;
-        add("feed tradeable", healthy,
-          st ? `${st.health.level}${st.health.tradeable ? "" : " — " + st.health.summary}` : "no state",
-          healthy ? undefined
-            : "Depth baselines need about a minute. If it stays blind, the WebSocket to Binance is blocked.",
-          healthy ? "ok" : st?.health.level === "degraded" ? "warn" : "bad");
+        /*
+         * Per contract, because "the feed is fine" is not one fact when there
+         * are three of them. A contract that never warms up — the usual cause
+         * being a ticker that does not exist, so the stream carries nothing —
+         * looks identical to a quiet market from a pooled reading, and that was
+         * exactly the failure this was added to catch.
+         */
+        for (const d of allDesks()) {
+          const s = d.feed?.getState();
+          const healthy = s?.health.tradeable === true;
+          add(`feed: ${d.symbol}`, healthy,
+            s ? `${s.health.level}${s.health.tradeable ? "" : " — " + s.health.summary}` : "no state",
+            healthy ? undefined
+              : "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance " +
+                `is blocked or ${d.symbol} is not a listed contract — npm run sweep:symbols says which.`,
+            healthy ? "ok" : s?.health.level === "degraded" ? "warn" : "bad");
+        }
+
+        const st = focused().feed?.getState();
 
         add("max position set", limits.maxPositionUsd > 0,
           limits.maxPositionUsd > 0 ? `${limits.maxPositionUsd} USD` : "not set — every setup is refused",
@@ -1166,10 +1534,13 @@ const server = createServer(async (req, res) => {
           limits.tradingEnabled ? undefined : "Press Start trading. It always boots disarmed by design.",
           limits.tradingEnabled ? "ok" : "warn");
 
-        add("execution loop attached", runner !== null,
-          runner ? "listening to the signal stream" : "not attached",
-          runner ? undefined : "Needs the engine running and credentials. Disarm and re-arm.",
-          runner ? "ok" : limits.tradingEnabled ? "bad" : "warn");
+        const attached = allDesks().filter((d) => d.runner !== null);
+        add("execution loop attached", attached.length === desks.size,
+          attached.length === 0
+            ? "not attached"
+            : `${attached.length}/${desks.size} listening — ${attached.map((d) => d.symbol).join(", ")}`,
+          attached.length === desks.size ? undefined : "Needs the engine running and credentials. Disarm and re-arm.",
+          attached.length === desks.size ? "ok" : limits.tradingEnabled ? "bad" : "warn");
 
         for (const [worker, label, cmd] of [
           ["sweep-paper", "evidence sampler", "npm run sweep:paper"],
@@ -1184,8 +1555,22 @@ const server = createServer(async (req, res) => {
             b.running ? "ok" : "warn");
         }
 
-        const s2 = runner?.stats();
-        if (s2) {
+        const s2 = allDesks().reduce(
+          (acc, d) => {
+            const s = d.runner?.stats();
+            return s
+              ? {
+                  any: true,
+                  seen: acc.seen + s.seen,
+                  accepted: acc.accepted + s.accepted,
+                  rejected: acc.rejected + s.rejected,
+                  declined: acc.declined + s.declined,
+                }
+              : acc;
+          },
+          { any: false, seen: 0, accepted: 0, rejected: 0, declined: 0 },
+        );
+        if (s2.any) {
           const explained = s2.accepted + s2.rejected + s2.declined;
           add("loop accounting", explained === s2.seen,
             `${s2.seen} seen = ${s2.accepted} placed + ${s2.declined} no side + ${s2.rejected} refused`,
@@ -1193,16 +1578,39 @@ const server = createServer(async (req, res) => {
             explained === s2.seen ? "ok" : "bad");
         }
 
-        add("symbol", IS_CALIBRATED_SYMBOL,
-          IS_CALIBRATED_SYMBOL
-            ? `${SYMBOL} — what every model here is calibrated to`
-            : `${SYMBOL} — NOT the calibrated contract`,
-          IS_CALIBRATED_SYMBOL
+        const uncalibrated = SYMBOLS.filter((s) => !isCalibrated(s));
+        add("symbols", uncalibrated.length === 0,
+          uncalibrated.length === 0
+            ? `${SYMBOLS.join(", ")} — all equity perps the models are built for`
+            : `${uncalibrated.join(", ")} — NOT calibrated (of ${SYMBOLS.join(", ")})`,
+          uncalibrated.length === 0
             ? undefined
             : "Fine for testing that orders place. The leverage ladder, maintenance rate, session " +
               "weights and earnings calendar are all built for an equity perp on Nasdaq and mean " +
-              "nothing here — do not read a strategy result off this.",
-          IS_CALIBRATED_SYMBOL ? "ok" : "warn");
+              "nothing on a crypto pair or a contract on another exchange's clock — do not read a " +
+              "strategy result off those.",
+          uncalibrated.length === 0 ? "ok" : "warn");
+
+        /*
+         * The multi-desk trap: every cap is account-wide, so adding contracts
+         * raises how often a setup is *found* and not how much is at risk. That
+         * is only true while the caps are actually set — with maxTradesPerDay at
+         * zero or maxOpenPositions above one, more desks does mean more risk,
+         * and that is worth saying out loud rather than leaving implied.
+         */
+        if (desks.size > 1) {
+          const capped = limits.maxTradesPerDay > 0 && limits.maxOpenPositions <= 1;
+          add("multi-contract risk", capped,
+            capped
+              ? `${desks.size} desks sharing one budget: ${limits.maxTradesPerDay} trades/day, ${limits.maxOpenPositions} position at a time`
+              : `${desks.size} desks with ${limits.maxOpenPositions} concurrent positions allowed` +
+                (limits.maxTradesPerDay > 0 ? "" : " and no daily trade cap"),
+            capped
+              ? undefined
+              : "These are correlated names — holding several at once is one sector bet in three tickers, " +
+                "and their stops fire on the same tick. Set max open positions to 1 and a daily trade cap.",
+            capped ? "ok" : "warn");
+        }
 
         const bad = checks.filter((c) => c.severity === "bad");
         const warn = checks.filter((c) => c.severity === "warn");
@@ -1390,7 +1798,13 @@ server.listen(PORT, HOST, () => {
     console.log(`  !! bound to ${HOST}, not loopback — this port can move money.`);
     console.log("     Only do this behind a tunnel that authenticates before traffic reaches here.");
   }
-  console.log(`  symbol:      ${SYMBOL}${IS_CALIBRATED_SYMBOL ? "" : "  (NOT the calibrated contract — plumbing tests only)"}`);
+  console.log(
+    `  contracts:   ${SYMBOLS.map((s) => (isCalibrated(s) ? s : `${s} (uncalibrated)`)).join(", ")}`,
+  );
+  if (SYMBOLS.some((s) => !isCalibrated(s))) {
+    console.log("               uncalibrated = the order path works, the models do not apply.");
+  }
+  console.log("               npm run sweep:symbols lists what Binance actually has.");
   console.log(`  limits file: ${LIMITS_PATH}`);
   // Say plainly where credentials were looked for and what turned up. "No
   // credentials" with a .env sitting right there is a confusing thing to be
@@ -1481,6 +1895,15 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
 .banner{display:flex;gap:10px;padding:10px 12px;border-radius:var(--r);border:1px solid;align-items:flex-start}
 .banner.bad{background:rgba(208,59,59,.1);border-color:rgba(208,59,59,.5)}
 .banner.warn{background:rgba(250,178,25,.08);border-color:rgba(250,178,25,.45)}
+.deskstrip{display:flex;gap:8px;flex-wrap:wrap}
+.desk{flex:1 1 200px;min-width:180px;text-align:left;padding:9px 11px;border-radius:var(--r);
+border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit;color:var(--ink)}
+.desk:hover{border-color:var(--ink)}
+.desk.on{border-color:var(--good);background:rgba(46,160,67,.07)}
+.desk .sym{display:flex;align-items:center;gap:6px;font-weight:600;font-size:13px}
+.desk .px{font-size:19px;font-variant-numeric:tabular-nums;margin:3px 0 1px}
+.desk .sub{font-size:11px;color:var(--dim)}
+.desk .hold{font-size:11px;margin-top:3px}
 </style></head><body><div class="wrap">
 
 <div class="bar">
@@ -1498,9 +1921,19 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
 <div id="protNote"></div>
 <div id="execNote"></div>
 
+<div class="panel" id="deskPanel" style="display:none">
+  <h2>Contracts</h2>
+  <div id="desks" class="deskstrip"></div>
+  <p class="note" id="disNote"></p>
+  <p class="note">Every contract is watched at once and they share one risk budget — the daily loss cap,
+  the trade count, the cooldown and the one-position-at-a-time rule are counted across all of them.
+  More contracts means more chances to find a setup, not more money at risk. Click one to point the
+  suggestion, preview and manual order controls below at it.</p>
+</div>
+
 <div class="grid">
   <div class="panel">
-    <h2>Market</h2>
+    <h2>Market <span id="mktSym" class="muted" style="font-weight:400;font-size:11px"></span></h2>
     <div class="tiles">
       <div class="tile"><span class="k">Mid</span><span class="v" id="mid">—</span><span class="d" id="session">—</span></div>
       <div class="tile"><span class="k">Depth index</span><span class="v" id="lwi">—</span><span class="d" id="lwiSides">bid / ask</span></div>
@@ -1656,6 +2089,10 @@ const n=(v,d=2)=>v===null||v===undefined||!isFinite(v)?"—":Number(v).toFixed(d
 const usd=v=>v===null||v===undefined||!isFinite(v)?"—":(Math.abs(v)>=1e6?"$"+(v/1e6).toFixed(2)+"M":Math.abs(v)>=1e3?"$"+(v/1e3).toFixed(1)+"k":"$"+v.toFixed(2));
 
 let limitsDirty=false;
+/* Which contract the order controls point at; the server is the authority and
+   this mirrors it so a request can name it explicitly rather than relying on
+   server-side state that another tab may have changed. */
+let focusSymbol="";
 for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct","riskPerTradePct","maxHoldMinutes"]) $(id).addEventListener("input",()=>limitsDirty=true);
 $("tradingEnabled").addEventListener("change",()=>limitsDirty=true);
 $("requireCashOpen").addEventListener("change",()=>limitsDirty=true);
@@ -1724,8 +2161,52 @@ function render(s){
   $("hdot").className="dot "+(h?h.level:"blind");
   $("health").textContent=h?(h.tradeable?"tradeable":h.level):"stopped";
   $("healthNote").textContent=h?h.summary:"";
-  $("uptime").textContent=s.engine.running?s.engine.uptimeSec+"s up · "+s.engine.symbol:"stopped";
+  $("uptime").textContent=s.engine.running?s.engine.uptimeSec+"s up · "+(s.engine.symbols||[]).length+" contract"+((s.engine.symbols||[]).length===1?"":"s"):"stopped";
   $("btnStart").disabled=s.engine.running; $("btnStop").disabled=!s.engine.running;
+
+  // The contract strip. Shown only when there is more than one, so a
+  // single-symbol run looks exactly as it did.
+  const ds=s.desks||[];
+  focusSymbol=s.focus||focusSymbol;
+  $("deskPanel").style.display=ds.length>1?"":"none";
+  $("mktSym").textContent=ds.length>1?("— "+s.focus):"";
+  if(ds.length>1){
+    $("desks").innerHTML=ds.map(d=>{
+      const dot=d.holding?"good":d.tradeable?"ok":d.running?"degraded":"blind";
+      const risk=(d.riskDown!==null&&d.riskUp!==null)?("cascade "+n(d.riskDown,0)+"↓ / "+n(d.riskUp,0)+"↑"):"warming up";
+      // A position is the one thing that must be readable without clicking in.
+      const hold=d.holding
+        ? '<div class="hold" style="color:'+(d.pnl>=0?"var(--good)":"var(--bad)")+'">holding '+n(d.holding,3)+
+          " · "+usd(d.pnl)+" · "+d.heldMin+"m"+(d.protected===false?' · <b style="color:var(--bad)">NO STOP</b>':"")+"</div>"
+        : '<div class="hold muted">flat · '+d.signalsSeen+" signal"+(d.signalsSeen===1?"":"s")+
+          (d.accepted?" · "+d.accepted+" placed":"")+"</div>";
+      return '<button class="desk'+(d.focused?" on":"")+'" data-sym="'+d.symbol+'">'+
+        '<div class="sym"><i class="dot '+dot+'"></i>'+d.symbol+
+        (d.calibrated?"":'<span class="muted" style="font-weight:400">uncal.</span>')+"</div>"+
+        '<div class="px">'+n(d.mid)+"</div>"+
+        '<div class="sub">'+risk+"</div>"+hold+"</button>";
+    }).join("");
+    for(const b of document.querySelectorAll(".desk")){
+      b.onclick=async()=>{ render(await api("/api/focus",{method:"POST",body:JSON.stringify({symbol:b.dataset.sym})})); };
+    }
+
+    // How the group is behaving as a group. Stated plainly because the number
+    // that matters is the correlation: below the threshold the divergence
+    // reading is switched off entirely, and it is better to see that than to
+    // wonder why a factor never appears.
+    const warm=ds.filter(d=>d.dislocation&&d.dislocation.warm);
+    if(warm.length===0){
+      $("disNote").textContent="Cross-contract comparison warming up — it needs about 20 minutes of history on each.";
+    } else {
+      const corr=warm[0].dislocation.correlation;
+      const apart=warm.filter(d=>d.dislocation.coupled&&Math.abs(d.dislocation.z)>1)
+        .sort((a,b)=>Math.abs(b.dislocation.z)-Math.abs(a.dislocation.z));
+      $("disNote").innerHTML=(warm[0].dislocation.coupled
+        ? "These names have been "+(corr*100).toFixed(0)+"% correlated over the last 20 minutes. "
+        : "These names have only been "+(corr*100).toFixed(0)+"% correlated — too loose to read a divergence, so that factor is off. ")+
+        (apart.length?"<b>"+String(apart[0].dislocation.note).replace(/</g,"&lt;")+"</b>":"Nothing is meaningfully out of line.");
+    }
+  }
 
   const pr=s.protection;
   $("protNote").innerHTML =
@@ -1736,7 +2217,7 @@ function render(s){
     : pr.protected===true && pr.flat===false ? '<div class="banner warn"><span>Position protected — '+pr.reason+'</span></div>'
     : "";
   const bp=document.getElementById("btnProtect");
-  if(bp) bp.onclick=async()=>render(await api("/api/protect",{method:"POST"}));
+  if(bp) bp.onclick=async()=>render(await api("/api/protect",{method:"POST",body:JSON.stringify({symbol:"all"})}));
 
   $("execNote").innerHTML=s.execution.available?"":
     '<div class="banner warn"><b>Read-only.</b><span>'+s.execution.reason+'</span></div>';
@@ -1777,10 +2258,14 @@ function render(s){
 async function tick(){
   try{
     render(await api("/api/status"));
-    const {signals}=await api("/api/signals?limit=40");
+    const {signals}=await api("/api/signals?limit=40&symbol=all");
+    // The ticker column only appears with more than one desk. With one it is a
+    // constant repeated forty times, which is noise.
+    const multi=(signals||[]).some(x=>x.symbol&&x.symbol!==(signals[0]||{}).symbol);
     $("signals").innerHTML=signals.length?signals.map(x=>
       '<div class="item"><span class="sev '+x.severity+'">'+x.severity+'</span>'+
       '<span class="muted" style="flex:none;width:64px">'+new Date(x.t).toLocaleTimeString()+'</span>'+
+      (multi?'<span style="flex:none;width:78px;font-weight:600">'+(x.symbol||"")+'</span>':"")+
       "<span>"+x.detail.replace(/</g,"&lt;")+"</span></div>").join(""):'<div class="muted">none yet</div>';
   }catch(e){ $("health").textContent="control server unreachable"; }
 }
@@ -1806,10 +2291,10 @@ $("btnPlace").onclick=async()=>{
   // page and breaks the JS string it sits in — which takes the entire script
   // down, not just this line.
   if(!confirm((live?"REAL MONEY.\\n\\n":"Demo trading.\\n\\n")+
-    "Place a "+side+" of "+notionalUsd+" USDT now, with a "+stopPct+"% protective stop?\\n\\n"+
+    "Place a "+side+" of "+notionalUsd+" USDT on "+(focusSymbol||"the current contract")+" now, with a "+stopPct+"% protective stop?\\n\\n"+
     "This bypasses the strategy and the sizer. Every safety interlock still applies."))return;
   $("btnPlace").disabled=true;
-  const r=await api("/api/place",{method:"POST",body:JSON.stringify({side,notionalUsd,stopPct})});
+  const r=await api("/api/place",{method:"POST",body:JSON.stringify({side,notionalUsd,stopPct,symbol:focusSymbol})});
   $("btnPlace").disabled=false;
   $("pvOut").innerHTML=r.error
     ?'<div class="banner bad"><b>Order refused.</b><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
@@ -1819,8 +2304,8 @@ $("btnPlace").onclick=async()=>{
   if(!r.error) render(r);
 };
 $("btnClose").onclick=async()=>{
-  if(!confirm("Close the open position at market?"))return;
-  const r=await api("/api/close",{method:"POST"});
+  if(!confirm("Close the open "+(focusSymbol||"")+" position at market?"))return;
+  const r=await api("/api/close",{method:"POST",body:JSON.stringify({symbol:focusSymbol})});
   $("pvOut").innerHTML=r.error
     ?'<div class="banner bad"><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
     :'<div class="banner"><span>Position closed at market.</span></div>';
@@ -1829,7 +2314,7 @@ $("btnClose").onclick=async()=>{
 
 $("btnPreview").onclick=async()=>{
   const body={side:$("pvSide").value,notionalUsd:+$("pvNotional").value,
-    leverage:+$("pvLeverage").value,entryPrice:$("pvEntry").value?+$("pvEntry").value:undefined};
+    leverage:+$("pvLeverage").value,entryPrice:$("pvEntry").value?+$("pvEntry").value:undefined,symbol:focusSymbol};
   const r=await api("/api/preview",{method:"POST",body:JSON.stringify(body)});
   if(r.error){ $("pvOut").innerHTML='<div class="banner warn"><span>'+r.error+"</span></div>"; return; }
   const p=r.preview, sev={info:"warn",warning:"warn",critical:"bad"};
@@ -1853,7 +2338,7 @@ $("btnPreview").onclick=async()=>{
 };
 
 $("btnSuggest").onclick=async()=>{
-  const r=await api("/api/suggest",{method:"POST",body:JSON.stringify({direction:$("sgDir").value})});
+  const r=await api("/api/suggest",{method:"POST",body:JSON.stringify({direction:$("sgDir").value,symbol:focusSymbol})});
   if(r.error){ $("sgOut").innerHTML='<div class="banner warn"><span>'+r.error+"</span></div>"; return; }
   const res=r.result;
   const b=r.bias;

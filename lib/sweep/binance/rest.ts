@@ -2,6 +2,15 @@ import { FAPI_REST, REST_PROXY, SYMBOL } from "../config";
 import type { Kline, SymbolMeta } from "../types";
 
 /**
+ * The contract a call is about.
+ *
+ * Every function here takes an optional symbol and falls back to the configured
+ * one, so a single-symbol caller is unchanged while several engines can run
+ * side by side against different contracts.
+ */
+const sym = (s?: string) => s ?? SYMBOL;
+
+/**
  * REST is used only for things that have no stream: the initial book snapshot
  * required to sync the diff feed, contract metadata, historical klines, and
  * open interest. Price, book updates, trades and liquidations all arrive over
@@ -173,10 +182,10 @@ interface RawSymbol {
   filters: RawFilter[];
 }
 
-export async function fetchMeta(): Promise<SymbolMeta> {
+export async function fetchMeta(symbol?: string): Promise<SymbolMeta> {
   const data = await api<{ symbols: RawSymbol[] }>("/fapi/v1/exchangeInfo");
-  const s = data.symbols.find((x) => x.symbol === SYMBOL);
-  if (!s) throw new Error(`${SYMBOL} is not listed on USDⓈ-M futures`);
+  const s = data.symbols.find((x) => x.symbol === sym(symbol));
+  if (!s) throw new Error(`${sym(symbol)} is not listed on USDⓈ-M futures`);
   const price = s.filters.find((f) => f.filterType === "PRICE_FILTER");
   const lot = s.filters.find((f) => f.filterType === "LOT_SIZE");
   return {
@@ -196,14 +205,14 @@ export interface DepthSnapshot {
   asks: [string, string][];
 }
 
-export function fetchDepthSnapshot(limit = 1000) {
-  return api<DepthSnapshot>("/fapi/v1/depth", { symbol: SYMBOL, limit });
+export function fetchDepthSnapshot(limit = 1000, symbol?: string) {
+  return api<DepthSnapshot>("/fapi/v1/depth", { symbol: sym(symbol), limit });
 }
 
 type RawKline = [number, string, string, string, string, string, number, string, ...unknown[]];
 
-export async function fetchKlines(interval: string, limit: number): Promise<Kline[]> {
-  const rows = await api<RawKline[]>("/fapi/v1/klines", { symbol: SYMBOL, interval, limit });
+export async function fetchKlines(interval: string, limit: number, symbol?: string): Promise<Kline[]> {
+  const rows = await api<RawKline[]>("/fapi/v1/klines", { symbol: sym(symbol), interval, limit });
   return rows.map((r) => ({
     openTime: r[0],
     open: Number(r[1]),
@@ -216,9 +225,9 @@ export async function fetchKlines(interval: string, limit: number): Promise<Klin
   }));
 }
 
-export async function fetchOpenInterest(): Promise<{ qty: number; t: number }> {
+export async function fetchOpenInterest(symbol?: string): Promise<{ qty: number; t: number }> {
   const d = await api<{ openInterest: string; time: number }>("/fapi/v1/openInterest", {
-    symbol: SYMBOL,
+    symbol: sym(symbol),
   });
   return { qty: Number(d.openInterest), t: d.time };
 }
@@ -232,10 +241,10 @@ export async function fetchOpenInterest(): Promise<{ qty: number; t: number }> {
  * for the contract — and so the settlement interval can be inferred from
  * consecutive timestamps rather than assumed to be eight hours.
  */
-export async function fetchFundingHistory(limit = 200): Promise<{ time: number; rate: number }[]> {
+export async function fetchFundingHistory(limit = 200, symbol?: string): Promise<{ time: number; rate: number }[]> {
   try {
     const rows = await api<{ fundingTime: number; fundingRate: string }[]>("/fapi/v1/fundingRate", {
-      symbol: SYMBOL,
+      symbol: sym(symbol),
       limit,
     });
     return rows
@@ -253,11 +262,11 @@ export async function fetchFundingHistory(limit = 200): Promise<{ time: number; 
  * Account-level long/short skew. Used only to split the modelled liquidation
  * ladder between the two sides; absent, the ladder assumes an even book.
  */
-export async function fetchLongShortRatio(): Promise<number | null> {
+export async function fetchLongShortRatio(symbol?: string): Promise<number | null> {
   try {
     const rows = await api<{ longShortRatio: string }[]>(
       "/futures/data/globalLongShortAccountRatio",
-      { symbol: SYMBOL, period: "5m", limit: 1 },
+      { symbol: sym(symbol), period: "5m", limit: 1 },
     );
     const v = Number(rows.at(-1)?.longShortRatio);
     return Number.isFinite(v) && v > 0 ? v : null;
