@@ -21,6 +21,8 @@
  */
 
 import { createInterface } from "node:readline";
+import { attachCalendar } from "../lib/sweep/metrics/event-store";
+import { getEngine } from "../lib/sweep/engine";
 import { createSweepFeed, type SweepFeed } from "../lib/sweep/agent";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import { proposePosition } from "../lib/sweep/agent/sizing";
@@ -57,6 +59,9 @@ const startedAt = Date.now();
 function getFeed(): SweepFeed {
   if (!feed) {
     feed = createSweepFeed();
+    // The agent writes confirmed earnings dates through sweep_record_event;
+    // this is what makes them visible to the running engine without a restart.
+    attachCalendar(getEngine());
     feed.onSignal((s) => log(`signal ${s.kind} [${s.severity}] ${s.detail}`));
     log("engine started; warming up");
   }

@@ -23,6 +23,8 @@
 
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { attachCalendar } from "../lib/sweep/metrics/event-store";
+import { getEngine } from "../lib/sweep/engine";
 import { createSweepFeed } from "../lib/sweep/agent";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import type { AgentState, Signal } from "../lib/sweep/agent";
@@ -115,6 +117,7 @@ interface Record {
 type Record_Outcomes = { [K in `t${(typeof HORIZONS)[number]}`]: { mid: number | null; pct: number | null } };
 
 const feed = createSweepFeed();
+attachCalendar(getEngine());
 const pending = new Map<string, { record: Record; remaining: number }>();
 let written = 0;
 
