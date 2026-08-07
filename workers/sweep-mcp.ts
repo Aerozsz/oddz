@@ -28,7 +28,9 @@ import { createSweepFeed, type SweepFeed } from "../lib/sweep/agent";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import { proposePosition } from "../lib/sweep/agent/sizing";
 import { recordEvent, storePath } from "../lib/sweep/metrics/event-store";
+import { newsFor, newsPath, recordNews } from "../lib/sweep/metrics/news-store";
 import type { Signal } from "../lib/sweep/agent";
+import { SYMBOL } from "../lib/sweep/config";
 
 /*
  * Node 22 or newer. The engine uses the global WebSocket, which older releases
@@ -287,6 +289,68 @@ const TOOLS: Tool[] = [
         appliesWithin: "up to 60s — the engine re-reads the calendar on a timer",
       };
     },
+  },
+  {
+    name: "sweep_record_news",
+    description:
+      "Record a headline so it appears on the monitor page beside the order-book readings. This is " +
+      "context for a human, NOT an input to any model — nothing here reaches the sizer, the bias or " +
+      "any signal, because prose has no timestamp you can trust and no magnitude you can measure. " +
+      "It exists because an identical depth withdrawal means different things with and without a " +
+      "story behind it, and no amount of market data distinguishes them. Record what you actually " +
+      "found with the link you found it at; an item without a sourceUrl is shown as a rumour and " +
+      "cannot be marked high impact.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        headline: { type: "string", description: "One line, as it would be read on a wire." },
+        summary: { type: "string", description: "One or two sentences at most. Anything longer belongs behind the link." },
+        sourceUrl: { type: "string", description: "Where you read it. Required before an item can be high impact." },
+        source: { type: "string", description: "Publication or outlet name." },
+        at: { type: "string", description: "When the news is about, ISO 8601. Defaults to now — set it when reporting something older." },
+        symbols: {
+          type: "array",
+          items: { type: "string" },
+          description: "Contracts this bears on, e.g. [\"INTCUSDT\"]. Leave empty for macro or market-wide items, which are shown on every symbol.",
+        },
+        impact: { type: "string", enum: ["high", "medium", "low"] },
+        direction: { type: "string", enum: ["up", "down"], description: "Only when it plainly reads one way." },
+      },
+      required: ["headline"],
+      additionalProperties: false,
+    },
+    run: (args) => {
+      const result = recordNews({
+        headline: String(args.headline ?? ""),
+        summary: typeof args.summary === "string" ? args.summary : null,
+        sourceUrl: typeof args.sourceUrl === "string" ? args.sourceUrl : null,
+        source: typeof args.source === "string" ? args.source : null,
+        at: typeof args.at === "string" ? args.at : undefined,
+        symbols: Array.isArray(args.symbols) ? args.symbols.map(String) : [],
+        impact: args.impact === "high" || args.impact === "low" ? args.impact : "medium",
+        direction: args.direction === "up" || args.direction === "down" ? args.direction : null,
+        recordedBy: "hermes",
+      });
+      return { ...result, storedAt: newsPath(), appearsOn: "/sweep within a minute" };
+    },
+  },
+  {
+    name: "sweep_news",
+    description:
+      "What has already been recorded for a contract, newest first. Check this before recording so " +
+      "the same story is not filed twice from two outlets — a feed showing one event five times is " +
+      "worst during exactly the fast market where it gets read.",
+    inputSchema: {
+      type: "object",
+      properties: { symbol: { type: "string" }, limit: { type: "number" } },
+      additionalProperties: false,
+    },
+    run: (args) => ({
+      items: newsFor(
+        typeof args.symbol === "string" && args.symbol ? args.symbol : SYMBOL,
+        Math.min(50, Math.max(1, Number(args.limit) || 25)),
+      ),
+    }),
   },
   {
     name: "sweep_bias",
