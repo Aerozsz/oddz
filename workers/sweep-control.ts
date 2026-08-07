@@ -43,7 +43,14 @@ import { previewPosition } from "../lib/sweep/exchange/preview";
 import { proposePosition } from "../lib/sweep/agent/sizing";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import { DEFAULT_FEES, type FeeSchedule, canPostEntry, parseFeeTiers } from "../lib/sweep/metrics/fees";
-import { checkProtection, ensureProtected, type ProtectionState } from "../lib/sweep/exchange/orders";
+import {
+  checkProtection,
+  closePosition,
+  ensureProtected,
+  openProtectedPosition,
+  setLeverage,
+  type ProtectionState,
+} from "../lib/sweep/exchange/orders";
 import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { dayDrawdown, fetchDayActivity, type DayActivity } from "../lib/sweep/exchange/activity";
 import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
@@ -797,6 +804,98 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "POST /api/place": {
+        /*
+         * A manual order, for testing the order path.
+         *
+         * The automatic loop refuses almost everything on a quiet book, and
+         * correctly so: on an overnight INTC the nearest cluster is a few basis
+         * points away against a 7bp round trip, which is a guaranteed loss. But
+         * that leaves the entry, the protective stop and the flatten path
+         * exercised only against a stubbed exchange, and those are precisely
+         * the things worth proving against a real one before real money.
+         *
+         * So this bypasses the strategy, the bias and the sizer — the parts
+         * that decide *whether* — and keeps every interlock that decides
+         * *whether it is safe*: the position cap, the leverage ceiling, one
+         * position at a time, and a protective stop that is placed or the
+         * entry is unwound.
+         */
+        const body = await readJson(req);
+        if (!hasCredentials()) { send(res, 200, { error: "no API credentials" }); return; }
+
+        const side = body.side === "short" ? "short" : "long";
+        const notional = Math.max(0, Number(body.notionalUsd) || 0);
+        const stopPct = Math.max(0.1, Number(body.stopPct) || limits.stopLossPct);
+
+        // Local checks first. "Enter a size" is a more useful answer to an
+        // empty field than "no price yet", and neither needs the network.
+        if (notional <= 0) { send(res, 200, { error: "enter a size" }); return; }
+        if (limits.maxPositionUsd > 0 && notional > limits.maxPositionUsd) {
+          send(res, 200, { error: `${notional} exceeds the ${limits.maxPositionUsd} max position` });
+          return;
+        }
+
+        const state = feed?.getState() ?? null;
+        const price = state?.mark ?? state?.mid ?? 0;
+        if (!price) { send(res, 200, { error: "no price yet — start the engine and wait for the book" }); return; }
+
+        try {
+          const cfg2 = loadConfig();
+          const existing = await fetchPosition(cfg2, SYMBOL);
+          if (existing) {
+            send(res, 200, { error: `already holding ${existing.positionAmt} — close it first` });
+            return;
+          }
+          const risk2 = await fetchAccountRisk(cfg2);
+          const leverage = Math.min(limits.maxLeverage, Math.max(1, Math.ceil(notional / Math.max(risk2.availableBalance, 1e-9))));
+
+          const qty = Math.round(notional / price);
+          if (qty < 1) {
+            send(res, 200, {
+              error: `${notional} is less than one contract at ${price.toFixed(2)} — raise the size`,
+            });
+            return;
+          }
+
+          await setLeverage(cfg2, SYMBOL, leverage);
+          log(`MANUAL ORDER: ${side} ${qty} ${SYMBOL} at market, ${leverage}x, stop ${stopPct}%`);
+          const { entry, stop } = await openProtectedPosition(
+            cfg2,
+            SYMBOL,
+            side === "long" ? "BUY" : "SELL",
+            String(qty),
+            stopPct,
+            2,
+          );
+          log(`MANUAL ORDER filled — stop resting at ${stop.stopPrice}`);
+          await refreshAccount();
+          send(res, 200, { ok: true, entry, stop, leverage, quantity: qty, ...status() });
+        } catch (err) {
+          const message = err instanceof Error ? redact(err.message) : String(err);
+          log(`MANUAL ORDER failed: ${message}`);
+          send(res, 200, { error: message });
+        }
+        return;
+      }
+
+      case "POST /api/close": {
+        // Flatten without stopping the engine, which is what Kill does.
+        if (!hasCredentials()) { send(res, 200, { error: "no API credentials" }); return; }
+        try {
+          const cfg2 = loadConfig();
+          await closePosition(cfg2, SYMBOL);
+          log("MANUAL CLOSE: position flattened at market");
+          await refreshAccount();
+          send(res, 200, { ok: true, ...status() });
+        } catch (err) {
+          const message = err instanceof Error ? redact(err.message) : String(err);
+          log(`manual close failed: ${message}`);
+          send(res, 200, { error: message });
+        }
+        return;
+      }
+
       case "POST /api/preview": {
         const body = await readJson(req);
         const state = feed?.getState() ?? null;
@@ -1367,8 +1466,16 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
     <label style="width:110px">Leverage<input id="pvLeverage" type="number" min="1" max="10" step="1" value="2"></label>
     <label style="width:150px">Entry (blank = mark)<input id="pvEntry" type="number" step="0.01" placeholder="mark"></label>
     <button id="btnPreview">Preview</button>
+    <label style="width:120px">Stop (%)<input id="pvStopPct" type="number" min="0.1" step="0.1" value="3"></label>
+    <button id="btnPlace" style="border-color:var(--warn);color:var(--warn)">Place this order</button>
+    <button id="btnClose">Close position</button>
   </div>
   <div id="pvOut" style="margin-top:12px"><span class="muted">Enter a size and press Preview.</span></div>
+  <p class="note"><b>Place this order</b> sends a real order now, bypassing the strategy, the bias and the sizer —
+  it exists to exercise the order path, which the automatic loop rarely reaches on a quiet book because the
+  nearest target is usually worth less than the round trip. Every safety interlock still applies: the position
+  cap, the leverage ceiling, one position at a time, and a protective stop that is placed on Binance or the
+  entry is unwound. Use it once on demo to confirm the stop appears, then close it.</p>
   <div class="row" style="margin-top:12px;gap:8px;align-items:center;border-top:1px solid var(--hair);padding-top:12px">
     <b style="font-size:12px">Suggest numbers</b>
     <select id="sgDir" style="background:var(--plane);border:1px solid var(--hair);border-radius:4px;color:var(--ink);padding:6px 8px;font:inherit">
@@ -1521,6 +1628,31 @@ $("btnLimits").onclick=async()=>{
     requireCashOpen:$("requireCashOpen").value==="true",
     riskPerTradePct:+$("riskPerTradePct").value};
   limitsDirty=false; render(await api("/api/limits",{method:"POST",body:JSON.stringify(body)}));
+};
+
+$("btnPlace").onclick=async()=>{
+  const side=$("pvSide").value, notionalUsd=+$("pvNotional").value, stopPct=+$("pvStopPct").value;
+  const live=$("mode").textContent.indexOf("LIVE")===0;
+  if(!confirm((live?"REAL MONEY.\n\n":"Demo trading.\n\n")+
+    "Place a "+side+" of "+notionalUsd+" USDT now, with a "+stopPct+"% protective stop?\n\n"+
+    "This bypasses the strategy and the sizer. Every safety interlock still applies."))return;
+  $("btnPlace").disabled=true;
+  const r=await api("/api/place",{method:"POST",body:JSON.stringify({side,notionalUsd,stopPct})});
+  $("btnPlace").disabled=false;
+  $("pvOut").innerHTML=r.error
+    ?'<div class="banner bad"><b>Order refused.</b><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
+    :'<div class="banner"><b>Filled.</b><span>'+r.quantity+" contracts at "+r.leverage+
+      "x · protective stop resting on Binance at "+(r.stop&&r.stop.stopPrice)+
+      ". Check it on the exchange, then use Close position.</span></div>";
+  if(!r.error) render(r);
+};
+$("btnClose").onclick=async()=>{
+  if(!confirm("Close the open position at market?"))return;
+  const r=await api("/api/close",{method:"POST"});
+  $("pvOut").innerHTML=r.error
+    ?'<div class="banner bad"><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
+    :'<div class="banner"><span>Position closed at market.</span></div>';
+  if(!r.error) render(r);
 };
 
 $("btnPreview").onclick=async()=>{
