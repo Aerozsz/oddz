@@ -896,6 +896,76 @@ function deskSummaries() {
   });
 }
 
+/**
+ * Whether the focused desk would trade this instant, and what is stopping it.
+ *
+ * The refusal tally answers this too, but only after a signal has fired and
+ * only for the signals that did. Silence is the normal state here, so "nothing
+ * has happened" and "everything is being refused for a reason you could fix in
+ * ten seconds" looked identical, and telling them apart has cost several rounds
+ * of watch-change-watch every time.
+ *
+ * This runs the same sizer the loop runs, against the live book, on both sides,
+ * every time the page polls. The day counters are zeroed — it is answering "is
+ * the setup there", not "are you allowed another trade today", and the caps
+ * have their own readouts. Pure computation, no network, no side effects.
+ */
+function wouldTrade() {
+  const desk = focused();
+  const state = desk.feed?.getState() ?? null;
+  if (!state) return { known: false as const, reason: "the engine is not running" };
+
+  const sides = (["up", "down"] as const).map((direction) => {
+    const result = proposePosition({
+      direction,
+      state,
+      equity: account.risk?.availableBalance ?? 0,
+      realisedLossToday: 0,
+      tradesToday: 0,
+      lastLossAt: 0,
+      feeTierTradeCount: dayTotals().trades,
+      feesPaidToday: dayTotals().fees,
+      grossProfitToday: dayTotals().realisedPnl,
+      limits: {
+        maxPositionUsd: limits.maxPositionUsd,
+        maxLeverage: limits.maxLeverage,
+        maxDailyLossUsd: limits.maxDailyLossUsd,
+        stopLossPct: limits.stopLossPct,
+        maxTradesPerDay: limits.maxTradesPerDay,
+        lossCooldownMin: limits.lossCooldownMin,
+        requireCashOpen: limits.requireCashOpen,
+        minRewardRisk: limits.minRewardRisk,
+      },
+      costCurve: desk.feed?.getCostCurve() ?? [],
+      clusters: desk.feed?.getClusters() ?? [],
+      config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true },
+    });
+    return {
+      direction,
+      ok: result.ok,
+      // The stop geometry, which is what the refusals are usually about: how
+      // wide the stop ended up, and therefore how far a target has to be.
+      stopPct: result.ok ? result.stopDistancePct : null,
+      target: result.ok ? result.targetPrice : null,
+      rewardRisk: result.ok ? result.rewardRisk : null,
+      notionalUsd: result.ok ? result.notionalUsd : null,
+      reasons: result.ok ? [] : result.reasons,
+    };
+  });
+
+  const bias = directionalBias(state, { dislocation: dislocationFor(desk.symbol) });
+  return {
+    known: true as const,
+    symbol: desk.symbol,
+    biasDirection: bias.direction,
+    biasSummary: bias.summary,
+    sides,
+    // The side the loop would actually act on, so this and the loop cannot
+    // disagree: no side called means no trade regardless of what the sizer says.
+    tradeable: bias.direction !== null && (sides.find((s) => s.direction === bias.direction)?.ok ?? false),
+  };
+}
+
 function status() {
   const desk = focused();
   const state = desk.feed?.getState() ?? null;
@@ -931,6 +1001,7 @@ function status() {
   return {
     desks: deskSummaries(),
     focus,
+    wouldTrade: wouldTrade(),
     engine: {
       running: anyRunning,
       uptimeSec: desk.startedAt ? Math.round((Date.now() - desk.startedAt) / 1000) : 0,
@@ -2013,6 +2084,7 @@ border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit
     <div class="tile"><span class="k">No side called</span><span class="v" id="lDec">—</span><span class="d">bias saw no asymmetry worth trading</span></div>
     <div class="tile"><span class="k">Refused</span><span class="v" id="lRej">—</span><span class="d">a setup that failed a check</span></div>
   </div>
+  <div id="wouldBox" style="margin-top:12px"></div>
   <div id="lRefusals" style="margin-top:10px"></div>
   <p class="note" id="lWhy"></p>
   <p class="note">Nothing is sent while this is off — Suggest and Preview keep working. Arming needs a max
@@ -2145,6 +2217,36 @@ function render(s){
       String(L.lastRefusal.reason).replace(/</g,"&lt;")+"</b>";
   }
   $("lWhy").innerHTML=why;
+
+  /* Would it trade right now, on the contract in focus.
+     The tally below only fills once signals have fired; this answers the same
+     question against the live book without waiting for one, which is the
+     difference between "nothing is happening" and "one setting is refusing
+     everything". */
+  const W=s.wouldTrade;
+  if(!W||!W.known){
+    $("wouldBox").innerHTML=W?'<div class="banner warn"><span>'+W.reason+"</span></div>":"";
+  } else {
+    const side=W.sides.find(x=>x.direction===W.biasDirection)||null;
+    const esc=t=>String(t).replace(/</g,"&lt;");
+    const line=x=>'<div style="display:grid;grid-template-columns:56px 1fr;gap:8px;font-size:12px;padding:3px 0">'+
+      '<span style="color:'+(x.ok?"var(--good)":"var(--dim)")+';font-weight:600">'+(x.direction==="up"?"long":"short")+"</span>"+
+      "<span>"+(x.ok
+        ? '<span style="color:var(--good)">would trade</span> — target '+n(x.target)+", stop "+n(x.stopPct,2)+
+          "%, RR "+n(x.rewardRisk,2)+", "+usd(x.notionalUsd)
+        : '<span class="muted">'+x.reasons.map(esc).join("<br>")+"</span>")+"</span></div>";
+    $("wouldBox").innerHTML=
+      '<div class="banner '+(W.tradeable?"":"warn")+'" style="display:block">'+
+      "<b>"+(W.tradeable
+        ? "A setup is live on "+W.symbol+" right now."
+        : W.biasDirection===null
+          ? "Nothing would trade on "+W.symbol+" right now — the bias is not calling a side."
+          : "Nothing would trade on "+W.symbol+" right now.")+"</b>"+
+      '<div class="muted" style="font-size:11px;margin:4px 0 6px">'+esc(W.biasSummary)+"</div>"+
+      W.sides.map(line).join("")+
+      '<div class="muted" style="font-size:11px;margin-top:6px">Live against the current book, with the daily '+
+      "caps ignored — it answers whether the setup is there, not whether you have trades left.</div></div>";
+  }
 
   // Which rule is actually doing the blocking. Without this, "no orders" takes
   // a round trip to diagnose every time.

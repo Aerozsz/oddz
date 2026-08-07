@@ -63,11 +63,38 @@ export interface SizingConfig {
   volatilityMultiple: number;
   /** Stop is placed this much beyond a cluster, in percent, to avoid the crowd. */
   clusterBufferPct: number;
+  /**
+   * How far past the intended stop an adverse cluster may sit and still drag
+   * the stop out beyond it.
+   *
+   * The risk this guards is real but local: a stop resting *just short* of
+   * where the crowd's stops sit is the one a sweep collects on its way to them,
+   * and it gets collected right before the reversal. That argument holds while
+   * the cluster is near. It does not hold at any distance, and treating it as
+   * though it did was a bug with teeth — a cluster 1.8% below a wanted 0.5%
+   * stop pushed the stop to 1.95%, which is not the same trade. Four times the
+   * loss on a stop-out, and every level ahead now has to be three times further
+   * away to justify it, so most setups were refused for a reward that was never
+   * the problem.
+   *
+   * Past this multiple, price reaching the cluster does not mean the stop was
+   * badly placed — it means the trade was wrong, which is what a stop is for.
+   */
+  clusterReachMultiple: number;
   /** Entry may consume at most this share of depth inside the stop distance. */
   maxDepthShare: number;
   /** A target must be worth at least this multiple of the round-trip cost. */
   minRewardOverFees: number;
-  /** Minimum acceptable reward-to-risk before a trade is worth taking. */
+  /**
+   * Fallback reward-to-risk floor, used only when the limits do not set one.
+   *
+   * Deliberately a fallback rather than a floor. This was previously combined
+   * with the configured limit by taking the larger of the two, which made the
+   * operator's dial one-way: it could tighten the requirement and could not
+   * loosen it, so moving it from 1.5 to 1.2 — or to 1.0 — changed nothing at
+   * all and the setting silently lied. A control that only moves one way is
+   * worse than no control, because it is debugged as though it worked.
+   */
   minRewardRisk: number;
   /** Maker/taker rates, discounts, any escalating tier, and the day's budget. */
   fees: FeeSchedule;
@@ -118,6 +145,7 @@ export const DEFAULT_SIZING: SizingConfig = {
   riskFraction: 0.005,
   volatilityMultiple: 2.5,
   clusterBufferPct: 0.15,
+  clusterReachMultiple: 1.5,
   maxDepthShare: 0.1,
   minRewardOverFees: 3,
   minRewardRisk: 1.5,
@@ -332,24 +360,46 @@ export function proposePosition(input: SizingInput): SizingResult {
   }
   const volFloor = volPct * cfg.volatilityMultiple;
 
-  // Cluster-aware: the level a sweep would actually reach is just past where
-  // everyone else's stops sit, so a stop resting short of that is the one the
-  // sweep collects. Place beyond it instead.
+  // Where the stop wants to be before the crowd is considered: the operator's
+  // configured distance, widened only if recent movement would put it inside
+  // the noise.
+  const baseStop = Math.max(limits.stopLossPct, volFloor);
+  if (volFloor > limits.stopLossPct) {
+    reasoning.push(
+      `widened to ${baseStop.toFixed(2)}% — recent movement is ${volPct.toFixed(2)}% and a tighter stop sits inside the noise`,
+    );
+  }
+
+  /*
+   * Cluster-aware, but only within reach.
+   *
+   * A stop resting just short of where the crowd's stops sit is the one a sweep
+   * collects on its way to them. That is worth stepping around — when the
+   * cluster is near. When it sits far past where the stop was going anyway,
+   * there is nothing to step around: price getting there means the trade was
+   * wrong, and dragging the stop out to meet it multiplies the loss without
+   * buying any protection. See clusterReachMultiple.
+   */
   const adverse = long ? state.nearestBelow : state.nearestAbove;
   let clusterFloor = 0;
   if (adverse) {
     const distPct = Math.abs((adverse.price - entry) / entry) * 100;
-    clusterFloor = distPct + cfg.clusterBufferPct;
-    reasoning.push(
-      `stop-loss build-up at ${adverse.price} sits ${distPct.toFixed(2)}% away; ` +
-        `placing beyond it rather than in front of it`,
-    );
+    const withinReach = distPct <= baseStop * cfg.clusterReachMultiple;
+    if (withinReach) {
+      clusterFloor = distPct + cfg.clusterBufferPct;
+      reasoning.push(
+        `stop-loss build-up at ${adverse.price} sits ${distPct.toFixed(2)}% away, inside the ` +
+          `${baseStop.toFixed(2)}% stop's reach; placing beyond it rather than in front of it`,
+      );
+    } else {
+      reasoning.push(
+        `stop-loss build-up at ${adverse.price} is ${distPct.toFixed(2)}% away — far past the ` +
+          `${baseStop.toFixed(2)}% stop, so there is nothing to step around and the stop stays where it belongs`,
+      );
+    }
   }
 
-  const stopPct = Math.max(limits.stopLossPct, volFloor, clusterFloor);
-  if (volFloor > limits.stopLossPct) {
-    reasoning.push(`widened to ${stopPct.toFixed(2)}% — recent movement is ${volPct.toFixed(2)}% and a tighter stop sits inside the noise`);
-  }
+  const stopPct = Math.max(baseStop, clusterFloor);
   const stopPrice = long ? entry * (1 - stopPct / 100) : entry * (1 + stopPct / 100);
 
   /* ------------------------------------------------------------- risk budget */
@@ -469,7 +519,23 @@ export function proposePosition(input: SizingInput): SizingResult {
    * floor and the fees is chosen, and only if none exists is the trade refused
    * for having nothing to aim at.
    */
-  const requiredDistPct = stopPct * Math.max(cfg.minRewardRisk, limits.minRewardRisk || 0);
+  /*
+   * The operator's floor when they have set one; the config value only fills in
+   * when they have not. Taking the larger of the two made the dial one-way.
+   *
+   * A floor below 1 is allowed rather than clamped, because whether it is sane
+   * depends on a hit rate this code does not know and the operator might. The
+   * break-even hit rate it implies is reported instead, so the choice is made
+   * with the arithmetic visible rather than blocked on principle.
+   */
+  const requiredRR = limits.minRewardRisk > 0 ? limits.minRewardRisk : cfg.minRewardRisk;
+  if (requiredRR < 1) {
+    reasoning.push(
+      `reward-to-risk floor is ${requiredRR.toFixed(2)}, which needs a ` +
+        `${((1 / (1 + requiredRR)) * 100).toFixed(0)}% hit rate before fees just to break even`,
+    );
+  }
+  const requiredDistPct = stopPct * requiredRR;
   const ahead = input.clusters
     .filter((c) => c.effect === "amplifying" && (long ? c.price > entry : c.price < entry))
     .map((c) => ({ c, distPct: Math.abs((c.price - entry) / entry) * 100 }))
@@ -508,45 +574,54 @@ export function proposePosition(input: SizingInput): SizingResult {
 
   /* -------------------------------------------------------- viability checks */
 
-  if (notional <= 0) return { ok: false, reasons: ["size worked out to zero after the caps"] };
+  /*
+   * Every failing check, not the first one.
+   *
+   * These used to return early, one at a time, so a setup blocked by three
+   * things took three rounds of watching-and-changing to understand — and each
+   * round looked like a fresh problem rather than the same one. The refusal is
+   * more useful as a list than as a headline, and the tally that groups them
+   * only groups what it is given.
+   */
+  const failures: string[] = [];
+
+  if (notional <= 0) failures.push("size worked out to zero after the caps");
 
   // Fees and funding are both costs of holding the position and are checked
   // against the same reward. Funding is the one that gets forgotten, because it
   // is invisible until the settlement instant and then arrives in full.
   const totalCost = roundTripFee + Math.max(0, carry.costUsd);
   if (rewardUsd !== null && rewardUsd < totalCost * cfg.minRewardOverFees) {
-    return {
-      ok: false,
-      reasons: [
-        `the move to ${targetPrice} is worth ${rewardUsd.toFixed(2)} against ${totalCost.toFixed(2)} of costs ` +
-          `(${roundTripFee.toFixed(2)} fees${carry.costUsd > 0 ? ` + ${carry.costUsd.toFixed(2)} funding` : ""}) — ` +
-          `not enough to be worth the round trip`,
-      ],
-    };
+    failures.push(
+      `the move to ${targetPrice} is worth ${rewardUsd.toFixed(2)} against ${totalCost.toFixed(2)} of costs ` +
+        `(${roundTripFee.toFixed(2)} fees${carry.costUsd > 0 ? ` + ${carry.costUsd.toFixed(2)} funding` : ""}) — ` +
+        `not enough to be worth the round trip`,
+    );
   }
   if (rewardUsd !== null && carry.costUsd > 0 && carry.costUsd > rewardUsd * cfg.maxFundingShareOfReward) {
-    return {
-      ok: false,
-      reasons: [
-        `funding would take ${carry.costUsd.toFixed(2)} of a ${rewardUsd.toFixed(2)} target ` +
-          `(${((carry.costUsd / rewardUsd) * 100).toFixed(0)}% of it) — ${carry.note}. ` +
-          `Either the target is too near or this is the wrong side of the carry.`,
-      ],
-    };
+    failures.push(
+      `funding would take ${carry.costUsd.toFixed(2)} of a ${rewardUsd.toFixed(2)} target ` +
+        `(${((carry.costUsd / rewardUsd) * 100).toFixed(0)}% of it) — ${carry.note}. ` +
+        `Either the target is too near or this is the wrong side of the carry.`,
+    );
   }
-  const requiredRR = Math.max(cfg.minRewardRisk, limits.minRewardRisk || 0);
   if (rewardRisk !== null && rewardRisk < requiredRR) {
-    return {
-      ok: false,
-      reasons: [`reward-to-risk is ${rewardRisk.toFixed(2)}, below the ${requiredRR} minimum`],
-    };
+    failures.push(`reward-to-risk is ${rewardRisk.toFixed(2)}, below the ${requiredRR} minimum`);
   }
   if (rewardRisk === null) {
-    return { ok: false, reasons: ["no level ahead to target — nothing to size a reward against"] };
+    // The geometry, not just the verdict. "Nothing to target" is unactionable;
+    // knowing the stop is 1.95% wide because of where the crowd sits, and that
+    // this is what pushed the requirement out to 2.93%, is the whole answer.
+    failures.push(
+      `no level ahead is ${requiredDistPct.toFixed(2)}% away — that is what a ${stopPct.toFixed(2)}% stop ` +
+        `at ${requiredRR} reward-to-risk needs, and the furthest amplifying cluster ahead is ` +
+        (nearestPct !== null ? `${nearestPct.toFixed(2)}% out` : "not mapped yet"),
+    );
   }
   if (margin > input.equity) {
-    return { ok: false, reasons: [`needs ${margin.toFixed(2)} margin, only ${input.equity.toFixed(2)} free`] };
+    failures.push(`needs ${margin.toFixed(2)} margin, only ${input.equity.toFixed(2)} free`);
   }
+  if (failures.length) return { ok: false, reasons: failures };
 
   return {
     ok: true,
