@@ -16,7 +16,19 @@ import { createHmac } from "node:crypto";
  */
 
 const LIVE_BASE = "https://fapi.binance.com";
-const TESTNET_BASE = "https://testnet.binancefuture.com";
+/**
+ * Demo trading (formerly "testnet").
+ *
+ * Binance migrated this: the old https://testnet.binancefuture.com is the
+ * legacy host and the current REST base is demo-fapi.binance.com. The old one
+ * still serves the sign-up and API-key *website*, which is the confusing part —
+ * you create the key at testnet.binancefuture.com and then call a different
+ * host with it. Pointing the client at the website host produces authentication
+ * failures that look like a bad key rather than a wrong endpoint.
+ *
+ * Overridable, because this has now moved once and may move again.
+ */
+const TESTNET_BASE = "https://demo-fapi.binance.com";
 
 export interface BinanceConfig {
   apiKey: string;
@@ -45,11 +57,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): BinanceConfig 
   if (missing.length) throw new MissingCredentials(missing);
 
   const live = env.BINANCE_LIVE === "1";
+  const override = env.BINANCE_BASE_URL?.trim();
   return {
     apiKey,
     apiSecret,
     live,
-    baseUrl: live ? LIVE_BASE : TESTNET_BASE,
+    baseUrl: override || (live ? LIVE_BASE : TESTNET_BASE),
     // Binance rejects a request whose timestamp is outside this window. Five
     // seconds is their default; a laptop with drifting clock needs the margin.
     recvWindowMs: Number(env.BINANCE_RECV_WINDOW ?? 5_000),
@@ -109,8 +122,11 @@ export async function signedRequest<T>(
     // naming it saves a long detour into signature debugging.
     const hint = body.includes("-1021")
       ? " (system clock is out of sync with Binance — resync NTP)"
-      : body.includes("-2015")
-        ? " (key rejected: check it has Futures enabled and this IP is allowlisted)"
+      : body.includes("-2015") || body.includes("-2014")
+        ? cfg.live
+          ? " (key rejected: check it has Futures enabled and this IP is allowlisted)"
+          : ` (key rejected against ${cfg.baseUrl} — demo keys are created at testnet.binancefuture.com` +
+            ` but must be used against demo-fapi.binance.com, and a live key will not work here at all)`
         : "";
     throw new Error(`${res.status} ${redact(body)}${hint}`);
   }
