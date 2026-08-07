@@ -13,7 +13,28 @@
  *     precondition that makes the first trigger cluster cheap to reach.
  */
 
-export const SYMBOL = "INTCUSDT";
+/**
+ * The contract everything reads and trades.
+ *
+ * Overridable so the order path can be exercised on a symbol the demo
+ * environment actually supports. INTCUSDT is a TradFi perpetual, and Binance
+ * requires a separate agreement for those which the demo site does not reliably
+ * let you sign — so proving that an entry places, a stop attaches and a close
+ * flattens has to happen on something like BTCUSDT:
+ *
+ *     SWEEP_SYMBOL=BTCUSDT npm run sweep:control
+ *
+ * Only the plumbing transfers. Every model here — the leverage ladder, the
+ * maintenance rate, the session weights, the earnings calendar — is calibrated
+ * to an equity perp tracking a stock on Nasdaq, and none of it means anything
+ * on a crypto pair. Use another symbol to test that orders work, not to decide
+ * whether the strategy does.
+ */
+export const SYMBOL =
+  (typeof process !== "undefined" ? process.env?.SWEEP_SYMBOL?.trim() : "") || "INTCUSDT";
+
+/** True when running against something the models were not built for. */
+export const IS_CALIBRATED_SYMBOL = SYMBOL === "INTCUSDT";
 
 /** Binance USDⓈ-M futures endpoints. */
 export const FAPI_REST = "https://fapi.binance.com";
