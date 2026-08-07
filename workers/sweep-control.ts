@@ -554,15 +554,19 @@ function status() {
               : 0,
         }
       : { at: day.at, error: day.error },
+    // Top-level rather than nested under `execution`, which is where the GUI
+    // reads it from. Nested, every tile rendered "—" and the "loop is not
+    // attached" warning fired permanently — a false alarm about the one thing
+    // it exists to report truthfully.
+    loop: {
+      attached: runner !== null,
+      signalsSeen,
+      ...(runner ? runner.stats() : { accepted: 0, rejected: 0, lastAcceptedAt: 0 }),
+      lastRefusal,
+    },
     execution: {
       available: hasCredentials() && limits.tradingEnabled,
       armed: limits.tradingEnabled,
-      loop: {
-        attached: runner !== null,
-        signalsSeen,
-        ...(runner ? runner.stats() : { accepted: 0, rejected: 0, lastAcceptedAt: 0 }),
-        lastRefusal,
-      },
       running: runner !== null,
       reason: !hasCredentials()
         ? "no exchange credentials configured — monitor only"
@@ -960,6 +964,28 @@ server.listen(PORT, HOST, () => {
   void (async () => {
     await reconcileOnStart();
     await refreshAccount();
+    /*
+     * Re-arm from the saved limits.
+     *
+     * tradingEnabled persists to disk, so after a restart the GUI read "ARMED"
+     * and the file agreed — while nothing was attached to the signal stream,
+     * because the loop was only ever started from the arm endpoint and the
+     * limits form. Claiming to be trading while listening to nothing is the
+     * worst of the available states, and it is the one a restart produced.
+     *
+     * After reconciliation and the account read, so it never attaches before
+     * an inherited position has been checked for its stop.
+     */
+    if (limits.tradingEnabled) {
+      if (hasCredentials()) {
+        startExecutionLoop();
+        log("re-armed from saved limits — orders will be placed when a setup passes every check");
+      } else {
+        limits = { ...limits, tradingEnabled: false };
+        writeLimits(limits);
+        log("was armed in the saved limits but there are no credentials — disarmed");
+      }
+    }
   })();
   const url = `http://${HOST}:${PORT}/?token=${TOKEN}`;
   console.log("");
