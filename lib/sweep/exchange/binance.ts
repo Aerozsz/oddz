@@ -254,6 +254,40 @@ export async function ping(cfg: BinanceConfig): Promise<{ ok: true; live: boolea
   return { ok: true, live: cfg.live, balance: risk.availableBalance };
 }
 
+/**
+ * Which contracts the venue that receives orders will actually accept.
+ *
+ * This exists because market data and orders do not go to the same place.
+ * Prices, the book and every stream come from production fapi.binance.com in
+ * all modes — demo trading has no meaningful order book of its own, and reading
+ * one would mean calibrating against a market that does not exist. Orders go to
+ * demo-fapi.binance.com unless BINANCE_LIVE=1.
+ *
+ * The gap that opens up is silent and expensive: demo lists far fewer contracts
+ * than production. A symbol present in one and absent from the other produces a
+ * perfectly healthy engine — real book, real signals, sizer approving setups —
+ * and then every single order is rejected as an unknown symbol. Nothing about
+ * the monitor looks wrong, because nothing about the monitor is wrong.
+ *
+ * So the order venue is asked directly, at startup, and a symbol it does not
+ * list is reported as untradeable before anything is armed rather than after a
+ * night of watching nothing happen.
+ *
+ * Unsigned: exchangeInfo needs no credentials, so this works before the keys
+ * have been checked and cannot fail for a reason belonging to them.
+ */
+export async function fetchTradableSymbols(cfg: BinanceConfig): Promise<Set<string>> {
+  const res = await fetch(`${cfg.baseUrl}/fapi/v1/exchangeInfo`, {
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText} from ${cfg.baseUrl}`);
+  const data = (await res.json()) as { symbols?: { symbol: string; status: string }[] };
+  const rows = data.symbols ?? [];
+  if (rows.length === 0) throw new Error(`${cfg.baseUrl} returned no contracts`);
+  return new Set(rows.filter((s) => s.status === "TRADING").map((s) => s.symbol));
+}
+
 /* ------------------------------------------------------------- funding */
 
 /**

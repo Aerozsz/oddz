@@ -24,6 +24,7 @@
 
 import { loadEnv } from "./load-env";
 import { api } from "../lib/sweep/binance/rest";
+import { fetchTradableSymbols, hasCredentials, loadConfig } from "../lib/sweep/exchange/binance";
 
 loadEnv();
 
@@ -79,6 +80,26 @@ async function main() {
   const tickers = await api<RawTicker[]>("/fapi/v1/ticker/24hr").catch(() => [] as RawTicker[]);
   const byTicker = new Map(tickers.map((t) => [t.symbol, t]));
 
+  /*
+   * What the venue that receives orders will accept, which is not the same
+   * list. Everything above comes from production, because that is where the
+   * book and the streams come from in every mode. Orders go to demo unless
+   * BINANCE_LIVE=1, and demo lists far fewer contracts — so a symbol can be
+   * perfectly real, perfectly liquid, and completely untradeable by this
+   * account. That distinction is the whole reason this column exists.
+   */
+  let orderable: Set<string> | null = null;
+  let venue = "";
+  if (hasCredentials()) {
+    try {
+      const cfg = loadConfig();
+      venue = cfg.baseUrl;
+      orderable = await fetchTradableSymbols(cfg);
+    } catch {
+      orderable = null;
+    }
+  }
+
   const perps = info.symbols.filter((s) => s.contractType === "PERPETUAL" && s.status === "TRADING");
   const equity = perps.filter(equityLike);
 
@@ -93,14 +114,21 @@ async function main() {
 
   console.log("");
   console.log(
-    `  ${perps.length} perpetuals listed, ${equity.length} of them tagged as equity` +
+    `  ${perps.length} perpetuals listed on production, ${equity.length} of them tagged as equity` +
       (filters.length > 0 ? ` — showing matches for ${filters.join(", ")}` : ""),
   );
+  if (orderable) {
+    console.log(`  your orders go to ${venue}, which lists ${orderable.size} of them.`);
+  } else if (hasCredentials()) {
+    console.log("  could not reach your order venue, so the last column is unknown.");
+  } else {
+    console.log("  no credentials, so whether you can trade these is unchecked.");
+  }
   console.log("");
   console.log(
-    `  ${pad("symbol", 14)}${padLeft("last", 12)}${padLeft("24h %", 9)}${padLeft("24h volume", 14)}  ${pad("qty step", 10)}type`,
+    `  ${pad("symbol", 14)}${padLeft("last", 12)}${padLeft("24h %", 9)}${padLeft("24h volume", 14)}  ${pad("qty step", 10)}${pad("orders?", 9)}type`,
   );
-  console.log(`  ${"-".repeat(74)}`);
+  console.log(`  ${"-".repeat(83)}`);
 
   if (rows.length === 0) {
     console.log("  nothing matched.");
@@ -111,10 +139,11 @@ async function main() {
     const vol = Number(t?.quoteVolume ?? 0);
     const volText = vol >= 1e9 ? `$${(vol / 1e9).toFixed(2)}B` : vol >= 1e6 ? `$${(vol / 1e6).toFixed(1)}M` : `$${Math.round(vol / 1e3)}k`;
     const kind = [s.underlyingType, ...(s.underlyingSubType ?? [])].filter(Boolean).join("/") || "—";
+    const canOrder = orderable === null ? "?" : orderable.has(s.symbol) ? "yes" : "NO";
     console.log(
       `  ${pad(s.symbol, 14)}${padLeft(t ? Number(t.lastPrice).toFixed(s.pricePrecision) : "—", 12)}` +
         `${padLeft(t ? `${Number(t.priceChangePercent).toFixed(2)}%` : "—", 9)}` +
-        `${padLeft(t ? volText : "—", 14)}  ${pad(`1e-${s.quantityPrecision}`, 10)}${kind}`,
+        `${padLeft(t ? volText : "—", 14)}  ${pad(`1e-${s.quantityPrecision}`, 10)}${pad(canOrder, 9)}${kind}`,
     );
   }
 
@@ -123,11 +152,29 @@ async function main() {
     console.log("  No contract exists for that. It cannot be traded here at any size.");
     console.log("  Run without arguments to see the full equity list and pick the nearest peer.");
     console.log("");
+    return;
+  }
+
+  if (orderable) {
+    // The whole point of the column: prices come from production and orders do
+    // not, so a "NO" row produces a monitor that looks perfect and an order
+    // path that rejects everything.
+    const tradable = rows.filter((s) => orderable!.has(s.symbol));
+    const blocked = rows.filter((s) => !orderable!.has(s.symbol));
+    if (blocked.length > 0) {
+      console.log(`  orders? NO means ${venue} does not list it. You will still get a live book,`);
+      console.log("  live signals and sized proposals for it — and every order will be rejected.");
+      console.log("");
+    }
+    console.log("  Use them together:");
+    console.log(
+      `    SWEEP_SYMBOLS=${(tradable.length ? tradable : rows).slice(0, 3).map((s) => s.symbol).join(",")} npm run sweep:control`,
+    );
   } else {
     console.log("  Use them together:");
     console.log(`    SWEEP_SYMBOLS=${rows.slice(0, 3).map((s) => s.symbol).join(",")} npm run sweep:control`);
-    console.log("");
   }
+  console.log("");
 }
 
 main().catch((err) => {
