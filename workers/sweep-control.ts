@@ -438,6 +438,31 @@ async function reconcileOnStart() {
 let lastRefusal: { at: number; reason: string } | null = null;
 let signalsSeen = 0;
 
+/**
+ * How often each check turned a setup away.
+ *
+ * "Thousands of signals, no orders" is not a diagnosis, and chasing it took
+ * several rounds each time. A tally by cause turns it into one: if every
+ * refusal says reward-to-risk, the target rule is wrong; if they say fees, the
+ * frequency is; if they say daily cap, nothing is wrong at all.
+ *
+ * Keyed on the leading clause of the reason, which is stable enough to group on
+ * and specific enough to act on.
+ */
+const refusalCounts = new Map<string, number>();
+
+function tallyRefusal(reason: string) {
+  // Everything before the first number or bracket, which is the rule's name
+  // rather than the particular figures it refused with.
+  const key = reason
+    .replace(/^sized out \([a-z]+\): /, "")
+    .split(/[:—(]/)[0]
+    .replace(/[0-9.,]+/g, "")
+    .trim()
+    .slice(0, 48) || "other";
+  refusalCounts.set(key, (refusalCounts.get(key) ?? 0) + 1);
+}
+
 function startExecutionLoop() {
   if (runner) return;
   if (!feed) {
@@ -493,6 +518,7 @@ function startExecutionLoop() {
       });
       if (!proposal.ok) {
         lastRefusal = { at: Date.now(), reason: proposal.reasons.join("; ") };
+        for (const one of proposal.reasons) tallyRefusal(one);
         log(`sizer declined: ${proposal.reasons.join("; ")}`);
         return null;
       }
@@ -544,13 +570,16 @@ function startExecutionLoop() {
     maxPerHour: Math.max(1, limits.maxTradesPerDay),
     onRejected: (reason) => {
       lastRefusal = { at: Date.now(), reason };
+      tallyRefusal(reason);
       log(`intent rejected: ${reason}`);
     },
     // The commonest outcome by far, and previously invisible: a signal fired,
     // the bias looked at it and would not call a side, so nothing was proposed.
     // The reason comes from the evaluation that caused it, not a later one.
     onDeclined: (_signal, _state, reason) => {
-      lastRefusal = { at: Date.now(), reason: reason ?? "the strategy passed on this signal" };
+      const r = reason ?? "the strategy passed on this signal";
+      lastRefusal = { at: Date.now(), reason: r };
+      tallyRefusal(r.startsWith("sized out") ? r : "bias called no side");
     },
     strategy: (signal, state) => {
       // Health signals describe the feed, not the market.
@@ -699,6 +728,11 @@ function status() {
         ? runner.stats()
         : { seen: 0, accepted: 0, rejected: 0, declined: 0, lastAcceptedAt: 0 }),
       lastRefusal,
+      // Sorted by how often each check bit, which is the order worth reading.
+      refusals: [...refusalCounts.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 8)
+        .map(([reason, count]) => ({ reason, count })),
     },
     execution: {
       available: hasCredentials() && limits.tradingEnabled,
@@ -1546,6 +1580,7 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
     <div class="tile"><span class="k">No side called</span><span class="v" id="lDec">—</span><span class="d">bias saw no asymmetry worth trading</span></div>
     <div class="tile"><span class="k">Refused</span><span class="v" id="lRej">—</span><span class="d">a setup that failed a check</span></div>
   </div>
+  <div id="lRefusals" style="margin-top:10px"></div>
   <p class="note" id="lWhy"></p>
   <p class="note">Nothing is sent while this is off — Suggest and Preview keep working. Arming needs a max
   position and a max daily loss set below, because those are the only things bounding what it can do.
@@ -1673,6 +1708,16 @@ function render(s){
       String(L.lastRefusal.reason).replace(/</g,"&lt;")+"</b>";
   }
   $("lWhy").innerHTML=why;
+
+  // Which rule is actually doing the blocking. Without this, "no orders" takes
+  // a round trip to diagnose every time.
+  const rs=L.refusals||[];
+  $("lRefusals").innerHTML=rs.length
+    ? '<div class="muted" style="font-size:11px;margin-bottom:4px">WHAT TURNED THEM AWAY</div>'+
+      rs.map(r=>'<div style="display:grid;grid-template-columns:52px 1fr;gap:8px;font-size:12px;padding:2px 0">'+
+        '<span class="num" style="text-align:right">'+r.count+'</span>'+
+        '<span class="muted">'+String(r.reason).replace(/</g,"&lt;")+"</span></div>").join("")
+    : "";
   $("mode").className="mode "+s.mode;
   $("mode").textContent=s.mode==="live"?"LIVE — real money":s.mode==="testnet"?"testnet":"no credentials";
   const h=s.health;

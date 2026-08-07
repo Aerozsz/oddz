@@ -453,7 +453,43 @@ export function proposePosition(input: SizingInput): SizingResult {
 
   /* ------------------------------------------------------------------ target */
 
-  const favourable = long ? state.nearestAbove : state.nearestBelow;
+  /*
+   * The nearest level that is actually worth reaching, not simply the nearest.
+   *
+   * Targeting the closest cluster made the sizer structurally unsatisfiable.
+   * With a 0.5% stop and a 1.2 reward-to-risk floor a target has to be at least
+   * 0.6% away, and the nearest cluster is routinely a tenth of that — so every
+   * setup was refused for a reward that was never in question, and thousands of
+   * signals produced no trades at all. "0.11 against 0.21 of costs" was not a
+   * quiet market, it was the model aiming at something too close to be worth
+   * hitting.
+   *
+   * A level nearer than the round trip is not a target, it is noise between
+   * here and one. So the first level far enough to clear both the reward-to-risk
+   * floor and the fees is chosen, and only if none exists is the trade refused
+   * for having nothing to aim at.
+   */
+  const requiredDistPct = stopPct * Math.max(cfg.minRewardRisk, limits.minRewardRisk || 0);
+  const ahead = input.clusters
+    .filter((c) => c.effect === "amplifying" && (long ? c.price > entry : c.price < entry))
+    .map((c) => ({ c, distPct: Math.abs((c.price - entry) / entry) * 100 }))
+    .filter((x) => x.distPct >= requiredDistPct)
+    .sort((a, b) => a.distPct - b.distPct);
+
+  const favourable = ahead[0]?.c ?? null;
+
+  // Whether or not a target was found, say when a nearer level was passed over.
+  // Skipping one silently is how the sizer's arithmetic became unreadable: the
+  // refusal named a reward figure without saying which level it came from.
+  const nearest = long ? state.nearestAbove : state.nearestBelow;
+  const nearestPct = nearest ? Math.abs((nearest.price - entry) / entry) * 100 : null;
+  if (nearestPct !== null && nearestPct < requiredDistPct) {
+    reasoning.push(
+      `nearest level ahead is only ${nearestPct.toFixed(2)}% away and ${requiredDistPct.toFixed(2)}% is needed ` +
+        `to justify a ${stopPct.toFixed(2)}% stop — looking further out` +
+        (favourable ? ` and targeting ${favourable.price} instead` : ", and there is nothing further out"),
+    );
+  }
   const targetPrice = favourable ? favourable.price : null;
   const rewardUsd = targetPrice ? Math.abs((targetPrice - entry) / entry) * notional : null;
   const rewardRisk = rewardUsd !== null && actualRisk > 0 ? rewardUsd / actualRisk : null;
