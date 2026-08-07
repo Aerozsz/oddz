@@ -55,7 +55,7 @@ import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { dayDrawdown, fetchDayActivity, type DayActivity } from "../lib/sweep/exchange/activity";
 import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
 import { attachExecution, intentId, type ExecutionRunner } from "../lib/sweep/agent";
-import { CONFIG, SYMBOL } from "../lib/sweep/config";
+import { CONFIG, IS_CALIBRATED_SYMBOL, SYMBOL } from "../lib/sweep/config";
 
 /*
  * Node 22 or newer. The engine uses the global WebSocket, which older releases
@@ -235,6 +235,9 @@ function writeLimits(next: Limits) {
 }
 
 let feed: SweepFeed | null = null;
+
+/** Contract metadata from the exchange, once the engine has fetched it. */
+const meta = () => getEngine().getSnapshot().meta;
 let startedAt = 0;
 let account: { risk: AccountRisk | null; error: string | null; at: number } = {
   risk: null,
@@ -362,8 +365,11 @@ function startExecutionLoop() {
     cfg,
     symbol: SYMBOL,
     limits: () => ({ ...limits }),
-    quantityPrecision: 0,
-    pricePrecision: 2,
+    // From the exchange, not hardcoded: 0/2 is right for INTCUSDT and wrong for
+    // anything else — BTCUSDT quantities carry three decimals, and a quantity
+    // rounded to the wrong precision is rejected outright.
+    quantityPrecision: meta()?.quantityPrecision ?? 0,
+    pricePrecision: meta()?.pricePrecision ?? 2,
     /**
      * The size that actually gets ordered.
      *
@@ -850,10 +856,14 @@ const server = createServer(async (req, res) => {
           const risk2 = await fetchAccountRisk(cfg2);
           const leverage = Math.min(limits.maxLeverage, Math.max(1, Math.ceil(notional / Math.max(risk2.availableBalance, 1e-9))));
 
-          const qty = Math.round(notional / price);
-          if (qty < 1) {
+          // Rounded to the contract's own step, not to whole units: BTCUSDT
+          // trades in thousandths and 1 BTC is not a test order.
+          const qtyPrecision = meta()?.quantityPrecision ?? 0;
+          const qty = Number((notional / price).toFixed(qtyPrecision));
+          if (!(qty > 0)) {
+            const min = Number((10 ** -qtyPrecision * price).toFixed(2));
             send(res, 200, {
-              error: `${notional} is less than one contract at ${price.toFixed(2)} — raise the size`,
+              error: `${notional} is below the smallest tradable size at ${price.toFixed(2)} — the minimum is about ${min}`,
             });
             return;
           }
@@ -866,7 +876,7 @@ const server = createServer(async (req, res) => {
             side === "long" ? "BUY" : "SELL",
             String(qty),
             stopPct,
-            2,
+            meta()?.pricePrecision ?? 2,
           );
           log(`MANUAL ORDER filled — stop resting at ${stop.stopPrice}`);
           await refreshAccount();
@@ -914,8 +924,8 @@ const server = createServer(async (req, res) => {
           maintMarginRate: Number(body.maintMarginRate) || CONFIG.maintenanceMarginRate,
           takerFeeRate: Number(body.takerFeeRate) || 0.0005,
           makerFeeRate: Number(body.makerFeeRate) || 0.0002,
-          stepSize: 0.001,
-          pricePrecision: 2,
+          stepSize: meta()?.stepSize ?? 0.001,
+          pricePrecision: meta()?.pricePrecision ?? 2,
           clusters: raw,
         });
         // Checked against the limits already stored, so the preview says
@@ -1059,6 +1069,17 @@ const server = createServer(async (req, res) => {
             explained === s2.seen ? undefined : "Signals are going unaccounted — that is a bug, not a setting.",
             explained === s2.seen ? "ok" : "bad");
         }
+
+        add("symbol", IS_CALIBRATED_SYMBOL,
+          IS_CALIBRATED_SYMBOL
+            ? `${SYMBOL} — what every model here is calibrated to`
+            : `${SYMBOL} — NOT the calibrated contract`,
+          IS_CALIBRATED_SYMBOL
+            ? undefined
+            : "Fine for testing that orders place. The leverage ladder, maintenance rate, session " +
+              "weights and earnings calendar are all built for an equity perp on Nasdaq and mean " +
+              "nothing here — do not read a strategy result off this.",
+          IS_CALIBRATED_SYMBOL ? "ok" : "warn");
 
         const bad = checks.filter((c) => c.severity === "bad");
         const warn = checks.filter((c) => c.severity === "warn");
@@ -1240,6 +1261,7 @@ server.listen(PORT, HOST, () => {
     console.log(`  !! bound to ${HOST}, not loopback — this port can move money.`);
     console.log("     Only do this behind a tunnel that authenticates before traffic reaches here.");
   }
+  console.log(`  symbol:      ${SYMBOL}${IS_CALIBRATED_SYMBOL ? "" : "  (NOT the calibrated contract — plumbing tests only)"}`);
   console.log(`  limits file: ${LIMITS_PATH}`);
   // Say plainly where credentials were looked for and what turned up. "No
   // credentials" with a .env sitting right there is a confusing thing to be
