@@ -60,7 +60,11 @@ import {
   type ProtectionState,
 } from "../lib/sweep/exchange/orders";
 import { fetchPosition } from "../lib/sweep/exchange/binance";
-import { dayDrawdown, fetchDayActivity, type DayActivity } from "../lib/sweep/exchange/activity";
+import { dayDrawdown, fetchDayActivity, fetchSettlement, type DayActivity } from "../lib/sweep/exchange/activity";
+import { Excursion, captureConditions, type EntryConditions, type TradeRecord } from "../lib/sweep/agent/postmortem";
+import { appendTrade, loadTrades } from "../lib/sweep/metrics/trade-log";
+import { analyse, classifyLoss, recommendations } from "../lib/sweep/agent/learn";
+import { newsFor } from "../lib/sweep/metrics/news-store";
 import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
 import { attachExecution, intentId, type ExecutionRunner } from "../lib/sweep/agent";
 import { CONFIG, SYMBOLS, isCalibrated } from "../lib/sweep/config";
@@ -413,6 +417,46 @@ interface Desk {
    * rate that hides everything else including itself.
    */
   targetFailures: number;
+  /**
+   * How far the open position has run in each direction.
+   *
+   * Kept live rather than reconstructed after the fact. The exchange will
+   * happily report a one-minute kline afterwards, and a one-minute bar hides an
+   * excursion that lasted eight seconds — which on a strategy whose whole
+   * premise is that the move happens in seconds is the only excursion there is.
+   */
+  excursion: Excursion | null;
+  /**
+   * Whether that tracker has been running since the position was opened.
+   *
+   * False for a position inherited at startup, where it only covers the part
+   * after the process came back. The distinction is load-bearing: "it never
+   * moved in favour" and "nobody was watching while it moved" produce identical
+   * numbers and opposite conclusions, so the analyser is told which it has.
+   */
+  excursionFromOpen: boolean;
+  /**
+   * The reason the loop closed this position, held until the close is observed.
+   *
+   * Written when the exit is sent and read when the position is next seen flat,
+   * because those are two different sweeps. Without it the post-mortem cannot
+   * tell an exit this program chose from one the exchange's stop delivered, and
+   * those two have opposite fixes.
+   */
+  exitIntent: { reason: string; at: number } | null;
+  /** Conditions captured at sizing, held until the execution record arrives. */
+  pendingConditions: EntryConditions | null;
+  /**
+   * The rest of what the sizer chose, held for the same window.
+   *
+   * The exchange reports the position but not the intent behind it, and the
+   * post-mortem needs the intent: the result has to be expressed as a multiple
+   * of the risk that was actually taken, or a $300 winner on a small position
+   * and a $300 winner on a large one get averaged together as the same event.
+   */
+  pendingStopPrice: number | null;
+  pendingNotional: number | null;
+  pendingLeverage: number | null;
 }
 
 function newDesk(symbol: string): Desk {
@@ -433,6 +477,13 @@ function newDesk(symbol: string): Desk {
     ratchetedAt: 0,
     targetFailures: 0,
     hold: null,
+    excursion: null,
+    excursionFromOpen: false,
+    exitIntent: null,
+    pendingConditions: null,
+    pendingStopPrice: null,
+    pendingNotional: null,
+    pendingLeverage: null,
   };
 }
 
@@ -594,6 +645,21 @@ interface JournalEntry {
    * exits, so losing it costs more than losing the target would.
    */
   entryLwi: number | null;
+  /**
+   * Everything the entry was justified by, frozen at the moment it was taken.
+   *
+   * On disk rather than in memory only, because the post-mortem is written when
+   * the position closes and a position can outlive the process that opened it.
+   * A trade whose record survives but whose conditions do not is worse than no
+   * record: it still counts in every total while contributing nothing to the
+   * question of what separates the losers.
+   */
+  conditions?: EntryConditions | null;
+  /** What was actually committed, so the result can be expressed in R. */
+  notionalUsd?: number;
+  leverage?: number;
+  /** Where the stop rested, for the same reason. */
+  stopPrice?: number | null;
   updatedAt: number;
 }
 
@@ -877,11 +943,19 @@ async function enforceMaxHold() {
   for (const desk of allDesks()) {
     const pos = desk.protection.state?.position;
     if (!pos || pos.positionAmt === 0) {
-      if (desk.positionOpenedAt) journalClose(desk.symbol);
+      // The post-mortem is written before the journal entry is dropped, because
+      // the journal holds the only copy of what the entry was justified by.
+      if (desk.positionOpenedAt) {
+        await recordClosedTrade(desk);
+        journalClose(desk.symbol);
+      }
       desk.positionOpenedAt = 0;
       desk.ratchetedAt = 0;
       desk.targetFailures = 0;
       desk.hold = null;
+      desk.excursion = null;
+      desk.excursionFromOpen = false;
+      desk.exitIntent = null;
       continue;
     }
     if (!desk.positionOpenedAt) {
@@ -926,14 +1000,159 @@ async function enforceMaxHold() {
 /** Close a desk's position and say why, in one place. */
 async function closeFor(desk: Desk, reason: string) {
   try {
+    // Recorded before the call, not after: if the request succeeds and the
+    // response is lost, the position is closed and this process never learns it
+    // chose to close it — and the post-mortem then files a deliberate exit as
+    // one the exchange delivered.
+    desk.exitIntent = { reason, at: Date.now() };
     await closePosition(loadConfig(), desk.symbol);
     log(`EXIT ${desk.symbol}: ${reason}`);
-    desk.positionOpenedAt = 0;
+    // Deliberately not cleared here. The flat position is observed on the next
+    // sweep, and that is where the post-mortem is written from — clearing the
+    // open time now would make it look like there was never a position.
     desk.hold = null;
     await refreshAccount();
   } catch (err) {
+    desk.exitIntent = null;
     log(`exit FAILED (${desk.symbol}): ${redact(err instanceof Error ? err.message : String(err))}`);
   }
+}
+
+/* ----------------------------------------------------------- the post-mortem */
+
+/**
+ * Write down what just happened, in full, while the context still exists.
+ *
+ * Called the first sweep after a position is seen flat and before the journal
+ * entry is dropped, because the journal holds the only copy of the readings the
+ * entry was justified by. Miss this window and the trade is still in Binance's
+ * ledger as a number, which is exactly the record that cannot answer why.
+ *
+ * Everything here is best-effort and nothing throws. A failure to record is a
+ * gap in the analysis; a throw would propagate into the sweep that keeps stops
+ * resting, and trading a position without a stop in order to protect a log
+ * entry has the priorities backwards.
+ */
+async function recordClosedTrade(desk: Desk) {
+  const remembered = journal[desk.symbol];
+  if (!remembered || !remembered.conditions) {
+    // Opened by hand, or by a build that predates this. Recording it with
+    // invented conditions would put a row in the evidence file that the
+    // analyser cannot distinguish from a real one.
+    if (remembered) log(`no post-mortem for ${desk.symbol}: it was opened without a recorded set of conditions`);
+    return;
+  }
+
+  const closedAt = Date.now();
+  const openedAt = remembered.openedAt || desk.positionOpenedAt || closedAt;
+
+  let settled: Awaited<ReturnType<typeof fetchSettlement>> | null = null;
+  try {
+    // A small tail past the close: the fill and the ledger row it produces are
+    // not written in the same instant, and a window that ends exactly at the
+    // observation misses the row that settled the trade.
+    settled = await fetchSettlement(loadConfig(), desk.symbol, openedAt - 1_000, closedAt + 30_000);
+  } catch (err) {
+    log(`post-mortem ${desk.symbol}: could not read the settlement — ${redact(err instanceof Error ? err.message : String(err))}`);
+  }
+
+  const entryPrice = remembered.entryPrice;
+  const exitPrice = settled?.exitPrice ?? desk.feed?.getState().mark ?? 0;
+  const excursion = desk.excursion?.read(remembered.targetPrice) ?? null;
+
+  const net = settled ? settled.realisedPnl - settled.fees - settled.funding : null;
+  const marginUsd =
+    remembered.notionalUsd && remembered.leverage ? remembered.notionalUsd / remembered.leverage : null;
+
+  /*
+   * Win, loss, or scratch — net of everything.
+   *
+   * A trade that made $4 gross and paid $6 in commission is a loss, and calling
+   * it a win because the price went the right way is how a strategy convinces
+   * itself it has an edge while the balance falls. The scratch band is the
+   * round trip itself: inside it the result is fees, not skill in either
+   * direction, and counting those as wins inflates the hit rate that every
+   * sizing decision downstream is derived from.
+   */
+  const scratchBand = (remembered.notionalUsd ?? 0) * (fees.tiers[0]?.takerRate ?? 0.0005) * 2;
+  const outcome: TradeRecord["outcome"] =
+    net === null || Math.abs(net) <= scratchBand ? "scratch" : net > 0 ? "win" : "loss";
+
+  const record: TradeRecord = {
+    id: `${desk.symbol}-${openedAt}`,
+    symbol: desk.symbol,
+    side: remembered.side,
+    openedAt,
+    closedAt,
+    heldMs: closedAt - openedAt,
+    entryPrice,
+    exitPrice,
+    stopPrice: remembered.stopPrice ?? null,
+    targetPrice: remembered.targetPrice,
+    notionalUsd: remembered.notionalUsd ?? 0,
+    leverage: remembered.leverage ?? 0,
+    realisedPnlUsd: net,
+    feesUsd: settled ? settled.fees + settled.funding : null,
+    roiPct: net !== null && marginUsd ? (net / marginUsd) * 100 : null,
+    outcome,
+    maePct: excursion?.maePct ?? 0,
+    mfePct: excursion?.mfePct ?? 0,
+    peakProgress: excursion?.peakProgress ?? 0,
+    excursionComplete: !!desk.excursion && desk.excursionFromOpen,
+    exitReason:
+      desk.exitIntent?.reason ??
+      inferExit(remembered, exitPrice) ??
+      "closed without this process asking for it",
+    entryConditions: remembered.conditions,
+    // Context for a human reading the record, never an input to any inference.
+    news: newsFor(desk.symbol, 5)
+      .filter((n) => n.at >= openedAt - 6 * 3_600_000 && n.at <= closedAt)
+      .map((n) => ({ headline: n.headline, impact: n.impact, at: n.at })),
+  };
+
+  appendTrade(record);
+  log(
+    `POST-MORTEM ${desk.symbol} ${outcome} ${net === null ? "(settlement unavailable)" : usdShort(net)} · ` +
+      `held ${Math.round(record.heldMs / 60_000)} min · best +${record.mfePct.toFixed(3)}% ` +
+      `(${(record.peakProgress * 100).toFixed(0)}% of target) · worst ${record.maePct.toFixed(3)}% · ` +
+      `${record.exitReason}`,
+  );
+}
+
+const usdShort = (x: number) => `${x < 0 ? "-" : "+"}$${Math.abs(x).toFixed(2)}`;
+
+/**
+ * Sample every open position's excursion from the live feed.
+ *
+ * Reads the feed's mark rather than the account sweep's, which is a twenty-
+ * second-old copy of the same number. Nothing here can throw or block: it is on
+ * a one-second timer and a failure would repeat every second forever.
+ */
+function markExcursions() {
+  for (const desk of allDesks()) {
+    if (!desk.excursion || !desk.positionOpenedAt) continue;
+    const state = desk.feed?.getState();
+    const price = state?.mark ?? state?.mid ?? null;
+    if (price !== null) desk.excursion.mark(price);
+  }
+}
+
+/**
+ * Which resting order took the position out, from where it ended up.
+ *
+ * Only used when this process did not ask for the close, which means the
+ * bracket did — and the two arms of a bracket need opposite responses, so
+ * "closed by something" is not a usable answer. Compared with a tolerance
+ * because the trigger price and the fill price are different numbers.
+ */
+function inferExit(entry: JournalEntry, exitPrice: number): string | null {
+  if (!(exitPrice > 0)) return null;
+  const near = (a: number, b: number) => Math.abs(a - b) / b < 0.0015;
+  if (entry.targetPrice !== null && near(exitPrice, entry.targetPrice)) return "the target filled";
+  if (entry.stopPrice != null && near(exitPrice, entry.stopPrice)) return "the stop filled";
+  const long = entry.side === "long";
+  const moved = long ? exitPrice - entry.entryPrice : entry.entryPrice - exitPrice;
+  return moved >= 0 ? "closed in profit by a resting order" : "closed at a loss by a resting order";
 }
 
 async function refreshAccount() {
@@ -1149,7 +1368,26 @@ async function reconcileOnStart() {
           stopPct: limits.stopLossPct,
           entryLwi: remembered?.entryLwi ?? null,
           reason: remembered?.reason ?? "recovered at startup",
+          // Carried forward, never re-derived. The conditions belong to the
+          // moment of entry, and the book now is a different book — filling
+          // these in from the current state would produce a record that reads
+          // as evidence and is fabrication.
+          conditions: remembered?.conditions ?? null,
+          notionalUsd: remembered?.notionalUsd,
+          leverage: remembered?.leverage,
+          stopPrice: remembered?.stopPrice ?? state.stop?.stopPrice ?? null,
         });
+        /*
+         * Resume the excursion from here, flagged as partial.
+         *
+         * Measured against the original entry so the numbers stay comparable,
+         * but marked incomplete: what happened while this process was down is
+         * unobserved, and an unobserved stretch is indistinguishable from a
+         * motionless one. The analyser is told which it has rather than left to
+         * assume.
+         */
+        desk.excursion = position.entryPrice > 0 ? new Excursion(position.entryPrice, position.positionAmt > 0) : null;
+        desk.excursionFromOpen = false;
       }
     } catch (err) {
       const message = redact(err instanceof Error ? err.message : String(err));
@@ -1312,6 +1550,25 @@ function armDesk(desk: Desk) {
       // can be answered later against the reading that actually mattered.
       desk.pendingEntryLwi =
         _intent.side === "buy" ? (state.liquidity?.lwiAskAdj ?? null) : (state.liquidity?.lwiBidAdj ?? null);
+      /*
+       * Freeze the whole reading, not just the two fields the exits need.
+       *
+       * Captured here rather than when the fill lands because this is the state
+       * the decision was made against, and by the time the order is
+       * acknowledged the book has already moved on. Recording the post-fill
+       * state would be recording the consequence of the trade and filing it as
+       * the reason for it — an error that gets more convincing the faster the
+       * strategy is, which is exactly backwards.
+       */
+      desk.pendingConditions = captureConditions(state, proposal.side, {
+        targetPrice: proposal.targetPrice,
+        biasConviction: _intent.confidence,
+        signalKind: _intent.signalKind,
+        sizeRetained: proposal.sizeRetained,
+      });
+      desk.pendingStopPrice = proposal.stopPrice;
+      desk.pendingNotional = proposal.notionalUsd;
+      desk.pendingLeverage = proposal.leverage;
       return {
         notionalUsd: proposal.notionalUsd,
         stopPct: proposal.stopDistancePct,
@@ -1353,16 +1610,28 @@ function armDesk(desk: Desk) {
       // it is not derivable from the position, so if this is not written down
       // now a restart loses it and the position runs to the time stop instead.
       if (r.outcome === "submitted" && desk.pendingTarget !== null) {
+        const long = r.entry?.side === "BUY";
+        const entryPrice = r.entry?.avgPrice ?? 0;
         journalOpen(desk.symbol, {
           openedAt: Date.now(),
-          side: r.entry?.side === "BUY" ? "long" : "short",
-          entryPrice: r.entry?.avgPrice ?? 0,
+          side: long ? "long" : "short",
+          entryPrice,
           targetPrice: desk.pendingTarget,
           stopPct: limits.stopLossPct,
           entryLwi: desk.pendingEntryLwi,
           reason: r.detail.slice(0, 200),
+          conditions: desk.pendingConditions,
+          notionalUsd: desk.pendingNotional ?? undefined,
+          leverage: desk.pendingLeverage ?? undefined,
+          stopPrice: desk.pendingStopPrice,
         });
         desk.positionOpenedAt = Date.now();
+        // From the fill, not from the sizer's assumed entry: the excursion has
+        // to be measured against the price actually paid or a slipped entry
+        // shows up as a move that never happened.
+        desk.excursion = entryPrice > 0 ? new Excursion(entryPrice, !!long) : null;
+        desk.excursionFromOpen = !!desk.excursion;
+        desk.exitIntent = null;
       }
       log(`execution ${desk.symbol} ${r.outcome}: ${explainError(r.detail, desk.symbol)}`);
     },
@@ -2717,6 +2986,61 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "GET /api/learn": {
+        /*
+         * The post-mortem, computed on demand rather than kept in memory.
+         *
+         * Reading the whole log every poll is deliberate: it is a few hundred
+         * lines, the alternative is a cached summary that can silently disagree
+         * with the file, and a learning surface that shows something other than
+         * what is on disk is worse than no learning surface.
+         */
+        const { records, skipped, path } = loadTrades();
+        const only = url.searchParams.get("symbol");
+        const trades = only && only !== "all" ? records.filter((t) => t.symbol === only) : records;
+        const report = analyse(trades);
+        send(res, 200, {
+          path,
+          skipped,
+          total: records.length,
+          report: {
+            n: report.n,
+            wins: report.wins,
+            winRate: report.winRate,
+            winLo: report.winLo,
+            winHi: report.winHi,
+            expectancyR: report.expectancyR,
+            netUsd: report.netUsd,
+            anatomy: report.anatomy,
+            // Only the ones with something to show; the full list is on the CLI.
+            splits: report.splits.slice(0, 10),
+            caveats: report.caveats,
+          },
+          recommendations: recommendations(report, {
+            breakEvenAtPct: limits.breakEvenAtPct,
+            stopLossPct: limits.stopLossPct,
+            maxHoldMinutes: limits.maxHoldMinutes,
+            riskPerTradePct: limits.riskPerTradePct,
+          }),
+          recent: trades.slice(-12).reverse().map((t) => ({
+            at: t.closedAt,
+            symbol: t.symbol,
+            side: t.side,
+            outcome: t.outcome,
+            pnl: t.realisedPnlUsd,
+            heldMin: Math.round(t.heldMs / 60_000),
+            mfePct: t.mfePct,
+            maePct: t.maePct,
+            peakProgress: t.peakProgress,
+            regime: t.entryConditions.participantRegime,
+            sweepShare: t.entryConditions.sweepShare,
+            exitReason: t.exitReason,
+            kind: t.outcome === "loss" ? classifyLoss(t).kind : null,
+          })),
+        });
+        return;
+      }
+
       case "GET /api/runs": {
         /*
          * The paper sampler and the shadow run are separate processes, so their
@@ -2920,6 +3244,17 @@ server.listen(PORT, HOST, () => {
         await enforceMaxHold();
       })();
     }, 20_000).unref?.();
+    /*
+     * The excursion, sampled far faster than the account sweep.
+     *
+     * At twenty seconds this would miss the thing it exists to measure. The
+     * whole thesis is that the move happens in seconds — a spike that reaches
+     * the target and comes back inside one sweep would be recorded as a
+     * position that never moved, and the post-mortem would file a bad exit as a
+     * bad entry. Costs nothing: it reads state this process already holds in
+     * memory and sends no requests.
+     */
+    setInterval(markExcursions, 1_000).unref?.();
   })();
   const url = `http://${HOST}:${PORT}/?token=${TOKEN}`;
   console.log("");
@@ -3182,6 +3517,22 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
   <div id="diagOut" style="margin-top:10px"></div>
   <p class="note">Checks everything between a signal firing and an order going out, and names the specific
   next action for anything in the way. Reads only — it places nothing and changes no setting.</p>
+</div>
+
+<div class="panel">
+  <h2>What the losses have in common</h2>
+  <div class="tiles">
+    <div class="tile"><span class="k">Closed trades</span><span class="v" id="lnN">—</span><span class="d" id="lnND">recorded with full conditions</span></div>
+    <div class="tile"><span class="k">Win rate</span><span class="v" id="lnWin">—</span><span class="d" id="lnWinD">95% interval</span></div>
+    <div class="tile"><span class="k">Expectancy</span><span class="v" id="lnExp">—</span><span class="d" id="lnExpD">per trade, in multiples of risk</span></div>
+    <div class="tile"><span class="k">Net</span><span class="v" id="lnNet">—</span><span class="d">after fees and funding</span></div>
+  </div>
+  <div id="lnAnatomy" style="margin-top:12px"></div>
+  <div id="lnRecs" style="margin-top:12px"></div>
+  <div id="lnSplits" style="margin-top:12px"></div>
+  <table style="margin-top:10px"><thead><tr><th style="text-align:left">Closed</th><th style="text-align:left">Trade</th><th>Net</th><th>Held</th><th style="text-align:left">Best / worst</th><th style="text-align:left">Book</th><th style="text-align:left">Why it ended</th></tr></thead>
+  <tbody id="lnTrades"><tr><td colspan="7" class="muted">no closed trades recorded yet</td></tr></tbody></table>
+  <p class="note" id="lnNote"></p>
 </div>
 
 <div class="panel">
@@ -4109,6 +4460,102 @@ async function runs(){
     : "Net is after the fees each trade would have paid. Run npm run sweep:shadow:report for the full breakdown.";
 }
 
+const LOSS_LABEL={
+  "never-worked":"never worked",
+  "gave-it-back":"gave it back",
+  "stopped-mid-move":"stopped mid-move",
+  "cut-on-time":"cut by the hold engine",
+  "unclassified":"unclassified"
+};
+
+async function learn(){
+  const r=await api("/api/learn?symbol=all");
+  if(!r.report) return;
+  const rp=r.report, esc=(s)=>String(s).replace(/</g,"&lt;");
+
+  $("lnN").textContent=rp.n;
+  $("lnND").textContent=r.total===rp.n?"recorded with full conditions":rp.n+" of "+r.total+" shown";
+
+  if(rp.n===0){
+    // Cleared rather than left alone. This is reachable after trades exist —
+    // filtering to a symbol that has none — and a stale win rate sitting above
+    // an empty table reads as that symbol's record.
+    $("lnWin").textContent="—"; $("lnWin").style.color="";
+    $("lnWinD").textContent="95% interval";
+    $("lnExp").textContent="—"; $("lnExp").style.color="";
+    $("lnExpD").textContent="per trade, in multiples of risk";
+  } else {
+    $("lnWin").textContent=(rp.winRate*100).toFixed(0)+"%";
+    // Coloured by the interval, not the point estimate. A 60% win rate whose
+    // interval runs from 30% to 85% is not a good win rate, it is an unknown
+    // one, and painting it green is the single easiest way for this panel to
+    // mislead the person reading it.
+    $("lnWin").style.color=rp.winLo>0.5?"var(--good)":rp.winHi<0.5?"var(--bad)":"var(--ink)";
+    $("lnWinD").textContent=(rp.winLo*100).toFixed(0)+"–"+(rp.winHi*100).toFixed(0)+"% at 95%";
+  }
+
+  if(rp.n>0&&rp.expectancyR&&rp.expectancyR.n>=2){
+    const e=rp.expectancyR;
+    $("lnExp").textContent=(e.mean>=0?"+":"")+e.mean.toFixed(2)+"R";
+    const spansZero=e.lo<0&&e.hi>0;
+    $("lnExp").style.color=spansZero?"var(--warn)":e.mean>0?"var(--good)":"var(--bad)";
+    $("lnExpD").textContent=spansZero
+      ?"interval spans zero — not yet distinguishable from flat"
+      :e.lo.toFixed(2)+" to "+e.hi.toFixed(2)+" per trade";
+  }
+
+  $("lnNet").textContent=(rp.netUsd>=0?"+":"")+"$"+Math.abs(rp.netUsd).toFixed(2);
+  $("lnNet").style.color=rp.netUsd>=0?"var(--good)":"var(--bad)";
+
+  $("lnAnatomy").innerHTML=rp.anatomy.length?rp.anatomy.map(a=>
+    '<div style="border-left:3px solid var(--bad);background:var(--bad-dim);padding:8px 10px;margin-bottom:8px;border-radius:0 4px 4px 0">'+
+      '<div style="font-size:12px;font-weight:600">'+(LOSS_LABEL[a.kind]||a.kind)+
+        ' <span class="muted" style="font-weight:400">· '+a.count+' trade'+(a.count===1?"":"s")+
+        ' · '+(a.share*100).toFixed(0)+'% of losses · -$'+a.costUsd.toFixed(2)+'</span></div>'+
+      '<div class="muted" style="font-size:11px;margin-top:4px;line-height:1.5">'+esc(a.prescription)+'</div>'+
+    '</div>').join(""):'<p class="note">No losing trades recorded yet.</p>';
+
+  $("lnRecs").innerHTML=r.recommendations.length?r.recommendations.map(x=>
+    '<div style="border-left:3px solid var(--warn);background:var(--warn-dim);padding:8px 10px;margin-bottom:8px;border-radius:0 4px 4px 0">'+
+      '<div style="font-size:12px;font-weight:600">'+esc(x.setting)+
+        (x.suggested!==null&&x.current!==null?' <span style="color:var(--warn)">'+x.current+' → '+x.suggested+'</span>':'')+
+        ' <span class="muted" style="font-weight:400">['+x.support+']</span></div>'+
+      '<div class="muted" style="font-size:11px;margin-top:4px;line-height:1.5">'+esc(x.why)+'</div>'+
+    '</div>').join(""):"";
+
+  // Only the splits the counts support get the accent. The rest are shown flat
+  // and labelled undecided, because a ranked list with no visual difference
+  // between "measured" and "suggestive" gets read top-down as findings.
+  $("lnSplits").innerHTML=rp.splits.length?rp.splits.slice(0,6).map(s=>{
+    const on=s.decisive;
+    return '<div style="border-left:3px solid '+(on?"var(--good)":"var(--hair2)")+';padding:6px 10px;margin-bottom:6px;'+
+      (on?'background:var(--good-dim);':'')+'border-radius:0 4px 4px 0">'+
+      '<div style="font-size:12px">'+esc(s.label)+(on?' <span style="color:var(--good)">← worth acting on</span>':'')+'</div>'+
+      '<div style="font-size:11px;margin-top:3px">'+s.arms.map(a=>
+        '<span class="muted" style="margin-right:14px">'+esc(a.label)+' <b style="color:var(--ink)">n='+a.n+'</b> '+
+        (a.n?(a.winRate*100).toFixed(0)+'% won':'')+
+        (a.r&&a.r.n>=2?' · '+(a.r.mean>=0?"+":"")+a.r.mean.toFixed(2)+'R':'')+'</span>').join("")+'</div>'+
+      '<div class="muted" style="font-size:11px;margin-top:3px;line-height:1.5">'+esc(s.note)+'</div>'+
+    '</div>';
+  }).join(""):'<p class="note">Not enough trades on both sides of any condition to compare yet.</p>';
+
+  const rows=r.recent||[];
+  $("lnTrades").innerHTML=rows.length?rows.map(t=>{
+    const col=t.pnl===null?"var(--ink2)":t.pnl>=0?"var(--good)":"var(--bad)";
+    return "<tr><td>"+new Date(t.at).toTimeString().slice(0,5)+"</td>"+
+      "<td>"+t.symbol+" "+t.side+(t.kind?" <span class='muted'>("+(LOSS_LABEL[t.kind]||t.kind)+")</span>":"")+"</td>"+
+      "<td style='text-align:right;color:"+col+"'>"+(t.pnl===null?"—":(t.pnl>=0?"+":"")+t.pnl.toFixed(2))+"</td>"+
+      "<td style='text-align:right'>"+t.heldMin+"m</td>"+
+      "<td><span style='color:var(--good)'>+"+t.mfePct.toFixed(2)+"%</span> / <span style='color:var(--bad)'>"+t.maePct.toFixed(2)+"%</span>"+
+        " <span class='muted'>("+(t.peakProgress*100).toFixed(0)+"% of target)</span></td>"+
+      "<td class='muted'>"+(t.regime||"—")+(t.sweepShare!==null&&t.sweepShare!==undefined?" · "+(t.sweepShare*100).toFixed(0)+"% swept":"")+"</td>"+
+      "<td class='muted'>"+esc(t.exitReason)+"</td></tr>";
+  }).join(""):"<tr><td colspan='7' class='muted'>no closed trades recorded yet</td></tr>";
+
+  $("lnNote").textContent=(rp.caveats&&rp.caveats[0]?rp.caveats[0]+" ":"")+
+    "Every close is recorded to "+r.path+". Run npm run sweep:learn for the full breakdown.";
+}
+
 async function diagnose(){
   $("btnDiag").disabled=true; $("diagVerdict").textContent="checking…";
   const r=await api("/api/diagnose");
@@ -4134,5 +4581,8 @@ tick(); setInterval(tick,1000);
 funds(); setInterval(funds,15000);
 pullLog(); setInterval(pullLog,2000);
 runs(); setInterval(runs,10000);
+// Slower than the rest: it re-reads the whole trade log, and nothing in it
+// changes between position closes.
+learn(); setInterval(learn,30000);
 </script></body></html>`;
 }

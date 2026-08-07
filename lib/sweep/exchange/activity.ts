@@ -90,6 +90,117 @@ export async function fetchDayActivity(
 }
 
 /**
+ * What one closed position actually settled for.
+ *
+ * The post-mortem needs the exit price, the realised PnL and the fees for a
+ * single trade, and none of the three is derivable from anything this process
+ * saw. The mark price at the moment the position was noticed flat is not the
+ * exit price — the stop that closed it triggered at a level and filled at
+ * another, and on this strategy the difference between those two is a
+ * meaningful share of the trade. Asking the exchange what it settled is the
+ * only answer that is not a guess.
+ *
+ * Attribution is by time window, which is exact here for one reason worth
+ * stating: the concurrency guard allows one position per symbol at a time, so
+ * everything the ledger reports for this symbol between the open and the close
+ * belongs to this trade. Remove that guard and this becomes a sum over
+ * overlapping trades that still returns a plausible number, which is the
+ * dangerous kind of wrong.
+ *
+ * Commission is summed over the whole window rather than the closing fills, so
+ * it covers the round trip — the entry fee is part of what the trade cost even
+ * though it was paid before the trade was over.
+ */
+export interface Settlement {
+  /** Gross realised PnL, before commission and funding. */
+  realisedPnl: number;
+  /** Commission on both legs. Positive is a cost. */
+  fees: number;
+  /** Funding paid or received while the position was held. Positive is a cost. */
+  funding: number;
+  /** Quantity-weighted average price of the fills that reduced the position. */
+  exitPrice: number | null;
+  /** How many fills the window covered, so a thin answer is recognisable. */
+  fills: number;
+  /** True when the exchange returned nothing — the caller should retry, not record. */
+  empty: boolean;
+}
+
+interface RawUserTrade {
+  symbol: string;
+  price: string;
+  qty: string;
+  realizedPnl: string;
+  commission: string;
+  commissionAsset: string;
+  time: number;
+}
+
+export async function fetchSettlement(
+  cfg: BinanceConfig,
+  symbol: string,
+  since: number,
+  until = Date.now(),
+): Promise<Settlement> {
+  const [trades, income] = await Promise.all([
+    signedRequest<RawUserTrade[]>(cfg, "GET", "/fapi/v1/userTrades", {
+      symbol,
+      startTime: since,
+      endTime: until,
+      limit: 1000,
+    }),
+    signedRequest<RawIncome[]>(cfg, "GET", "/fapi/v1/income", {
+      symbol,
+      incomeType: "FUNDING_FEE",
+      startTime: since,
+      endTime: until,
+      limit: 200,
+    }),
+  ]);
+
+  let realisedPnl = 0;
+  let fees = 0;
+  let exitNotional = 0;
+  let exitQty = 0;
+
+  for (const row of trades) {
+    const pnl = Number(row.realizedPnl);
+    const commission = Number(row.commission);
+    const price = Number(row.price);
+    const qty = Number(row.qty);
+    if (Number.isFinite(commission)) {
+      // Only USDT commission is comparable with USDT PnL. A fee paid in BNB is
+      // a real cost but not one that can be added to this figure honestly, so
+      // it is left out rather than converted at an assumed rate.
+      if (row.commissionAsset === "USDT" || row.commissionAsset === "USDC") fees += commission;
+    }
+    if (!Number.isFinite(pnl) || pnl === 0) continue;
+    realisedPnl += pnl;
+    // A non-zero realised PnL marks a fill that reduced the position, which is
+    // exactly the set whose average price is the exit.
+    if (Number.isFinite(price) && Number.isFinite(qty) && qty > 0) {
+      exitNotional += price * qty;
+      exitQty += qty;
+    }
+  }
+
+  let funding = 0;
+  for (const row of income) {
+    const amount = Number(row.income);
+    if (Number.isFinite(amount)) funding += -amount;
+  }
+
+  return {
+    realisedPnl,
+    fees,
+    funding,
+    exitPrice: exitQty > 0 ? exitNotional / exitQty : null,
+    fills: trades.length,
+    empty: trades.length === 0,
+  };
+}
+
+/**
  * What the daily cap should actually be measured against.
  *
  * Gross losing trades understate the day: a position closed at break-even

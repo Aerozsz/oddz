@@ -56,6 +56,53 @@ export interface FlowCharacter {
   notes: string[];
 }
 
+/**
+ * The other half of the book: orders that never rest.
+ *
+ * Everything above characterises participants by what they leave sitting. That
+ * misses the ones who never leave anything — the marketable order that arrives,
+ * eats three levels and is gone before the next book update. Those are not a
+ * detail of this strategy, they are its subject: a cluster is reached because
+ * somebody crossed the spread hard enough to reach it, and the question at
+ * entry is always whether the flow doing that is a drip or a sweep.
+ *
+ * The two are distinguishable without any private data. A marketable order
+ * large enough to clear the touch prints as several trades in the same few
+ * milliseconds, all on the same aggressive side, at successively worse prices —
+ * because it is one order walking the book, reported piece by piece. A stream
+ * of separate small takers has the same total volume and none of that
+ * structure. Grouping prints into bursts recovers the original orders, and the
+ * size distribution of those is the thing worth knowing: a hundred lots
+ * arriving as one instant order moves price, and the same hundred arriving as
+ * forty prints over a minute does not.
+ *
+ * What it deliberately does not claim: which of two adjacent bursts came from
+ * the same desk. Bursts are orders, not senders.
+ */
+export interface AggressorRead {
+  /** Marketable orders per minute, after grouping prints back into orders. */
+  burstsPerMin: number;
+  /** The largest single instant order in the window, in notional. */
+  largestBurstUsd: number;
+  /** How many distinct prices that order ate through. 1 = it fit at the touch. */
+  largestBurstLevels: number;
+  /**
+   * Share of aggressive notional that arrived in orders big enough to walk more
+   * than one level. High means price is being taken; low means it is drifting.
+   */
+  sweepShare: number;
+  /** Signed −1..1 — aggressive buying against aggressive selling. */
+  aggressorImbalance: number;
+  /** Aggressive notional per second, for scale on everything above. */
+  takerIntensity: number;
+  /**
+   * 0..1 — how much of the aggression is concentrated in its largest orders.
+   * A single participant taking size, versus a crowd all crossing at once.
+   */
+  concentration: number;
+  notes: string[];
+}
+
 export interface ParticipantRead {
   /**
    * Median seconds for consumed top-of-book depth to be restored. Sub-second
@@ -84,6 +131,8 @@ export interface ParticipantRead {
 
   /** Whether this flow looks computed or decided. */
   character: FlowCharacter;
+  /** The orders that executed on arrival rather than resting. */
+  aggressor: AggressorRead;
   regime: ParticipantRegime;
   /** 0..1 — how much data the regime call rests on. */
   confidence: number;
@@ -238,6 +287,14 @@ export class ParticipantTracker {
       notes.push(`depth returns in ${replenishSec.toFixed(2)}s — ordinary two-sided quoting`);
     }
 
+    const aggressor = readAggressors(this.trades, windowSec);
+    if (aggressor.sweepShare > 0.5 && aggressor.largestBurstLevels > 1) {
+      notes.push(
+        `${(aggressor.sweepShare * 100).toFixed(0)}% of aggressive volume arrived as orders that walked the ` +
+          `book — the largest took ${aggressor.largestBurstLevels} levels for $${Math.round(aggressor.largestBurstUsd).toLocaleString()}`,
+      );
+    }
+
     const character = flowCharacter(this.trades, this.tradeTimes, sliceUniformity, replenishSec);
     if (character.label !== "unclear") {
       notes.push(`flow looks ${character.label}${character.notes[0] ? ` — ${character.notes[0]}` : ""}`);
@@ -245,6 +302,7 @@ export class ParticipantTracker {
 
     return {
       character,
+      aggressor,
       replenishSec,
       refillLevels,
       flickerPerSec,
@@ -335,6 +393,84 @@ function flowCharacter(trades: Trade[], times: number[], sliceUniformity: number
   if (label === "mixed") notes.push("both signatures present — machines quoting into human order flow");
 
   return { mechanical, human, label, priceRoundnessRatio, quantityRoundness, timingRegularity, notes };
+}
+
+/**
+ * How long apart two prints can be and still belong to one arriving order.
+ *
+ * An order walking three levels is matched by the engine in one pass and the
+ * prints leave together; the gap between them is the exchange's own reporting
+ * jitter, not a decision by anybody. Fifty milliseconds is comfortably above
+ * that jitter and comfortably below human reaction time, so it splits "one
+ * order, several fills" from "two people who happened to cross at once"
+ * without needing either to be rare.
+ *
+ * Too tight and a single sweep is counted as three small orders, which
+ * understates exactly the events that matter. Too loose and an active second of
+ * ordinary trading merges into one fictional monster order — the error that
+ * would make this metric look most impressive and be least true.
+ */
+const BURST_GAP_MS = 50;
+
+function readAggressors(trades: Trade[], windowSec: number): AggressorRead {
+  const empty: AggressorRead = {
+    burstsPerMin: 0, largestBurstUsd: 0, largestBurstLevels: 0, sweepShare: 0,
+    aggressorImbalance: 0, takerIntensity: 0, concentration: 0,
+    notes: ["no aggressive flow in the window"],
+  };
+  if (trades.length === 0) return empty;
+
+  // Sorted defensively: the feed delivers in order, and one out-of-order print
+  // would otherwise split a burst in half and halve the size it reports.
+  const rows = [...trades].sort((a, b) => a.t - b.t);
+
+  interface Burst { buy: boolean; usd: number; prices: Set<number>; lastAt: number; }
+  const bursts: Burst[] = [];
+  for (const t of rows) {
+    const buy = !t.buyerIsMaker;
+    const last = bursts[bursts.length - 1];
+    if (last && last.buy === buy && t.t - last.lastAt <= BURST_GAP_MS) {
+      last.usd += t.notional;
+      last.prices.add(t.price);
+      last.lastAt = t.t;
+    } else {
+      bursts.push({ buy, usd: t.notional, prices: new Set([t.price]), lastAt: t.t });
+    }
+  }
+
+  const totalUsd = bursts.reduce((a, b) => a + b.usd, 0);
+  if (totalUsd <= 0) return empty;
+
+  const buyUsd = bursts.filter((b) => b.buy).reduce((a, b) => a + b.usd, 0);
+  const sweeping = bursts.filter((b) => b.prices.size > 1);
+  const largest = bursts.reduce((a, b) => (b.usd > a.usd ? b : a), bursts[0]);
+  const bySize = [...bursts].sort((a, b) => b.usd - a.usd);
+  const topDecile = Math.max(1, Math.round(bursts.length * 0.1));
+  const concentration = bySize.slice(0, topDecile).reduce((a, b) => a + b.usd, 0) / totalUsd;
+
+  const notes: string[] = [];
+  if (sweeping.length > 0) {
+    notes.push(
+      `${sweeping.length} of ${bursts.length} marketable orders walked more than one level`,
+    );
+  }
+  if (concentration > 0.5 && bursts.length >= 10) {
+    notes.push(
+      `${(concentration * 100).toFixed(0)}% of the aggression came from the largest tenth of orders — ` +
+        `size is being taken by few participants, not many`,
+    );
+  }
+
+  return {
+    burstsPerMin: (bursts.length / windowSec) * 60,
+    largestBurstUsd: largest.usd,
+    largestBurstLevels: largest.prices.size,
+    sweepShare: sweeping.reduce((a, b) => a + b.usd, 0) / totalUsd,
+    aggressorImbalance: (buyUsd - (totalUsd - buyUsd)) / totalUsd,
+    takerIntensity: totalUsd / windowSec,
+    concentration,
+    notes: notes.length > 0 ? notes : ["aggressive flow is arriving in small, unremarkable pieces"],
+  };
 }
 
 function median(xs: number[]): number | null {
