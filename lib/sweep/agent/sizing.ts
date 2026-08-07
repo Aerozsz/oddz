@@ -100,6 +100,21 @@ export interface SizingConfig {
    * for whatever that still misses.
    */
   minSizeScale: number;
+  /**
+   * How much of each condition derate to actually apply, 0 to 1.
+   *
+   * The derates below are priors, not measurements — nobody has shown that an
+   * overnight setup on this contract wins less often, only that the book is
+   * thinner. Priors that shrink every position are a decision about expected
+   * return wearing the clothes of a decision about risk, and the honest thing
+   * is to make their strength a setting rather than a constant.
+   *
+   * This scales every one of them toward 1. What it deliberately does not touch
+   * is the stop distance, the daily loss cap, the trade ceiling, the cooldown or
+   * the reward-to-risk floor: those bound what a mistake costs, which is a
+   * different question from how much conviction to size a good setup with.
+   */
+  derateStrength: number;
   /** A target must be worth at least this multiple of the round-trip cost. */
   minRewardOverFees: number;
   /**
@@ -165,6 +180,7 @@ export const DEFAULT_SIZING: SizingConfig = {
   clusterReachMultiple: 1.5,
   maxDepthShare: 0.1,
   minSizeScale: 0.05,
+  derateStrength: 1,
   minRewardOverFees: 3,
   minRewardRisk: 1.5,
   fees: DEFAULT_FEES,
@@ -486,7 +502,11 @@ export function proposePosition(input: SizingInput): SizingResult {
    * not have. `worst × sqrt(others)` sits between, is the identity when only
    * one reading is below full, and keeps the ordering intact.
    */
-  const bookScale = binding.scale * Math.sqrt(others);
+  const rawBookScale = binding.scale * Math.sqrt(others);
+
+  // Toward 1 by however much the operator has dialled the priors down.
+  const soften = (x: number) => 1 - cfg.derateStrength * (1 - x);
+  const bookScale = soften(rawBookScale);
 
   /*
    * The event derate is orthogonal and does multiply.
@@ -496,10 +516,13 @@ export function proposePosition(input: SizingInput): SizingResult {
    * with a different mechanism, and it is the one case where stacking is the
    * honest arithmetic rather than double-counting.
    */
-  const combinedScale = Math.max(cfg.minSizeScale, bookScale * eventScale);
+  const combinedScale = Math.max(cfg.minSizeScale, bookScale * soften(eventScale));
   if (combinedScale < 1) {
     reasoning.push(
       `size at ${(combinedScale * 100).toFixed(0)}% of the risk budget — set by ${binding.name}` +
+        (cfg.derateStrength < 1
+          ? ` (condition derates at ${(cfg.derateStrength * 100).toFixed(0)}% strength, so ${(rawBookScale * 100).toFixed(0)}% became ${(bookScale * 100).toFixed(0)}%)`
+          : "") +
         (eventScale < 1 ? `, and again by the event window` : "") +
         (bookScale * eventScale < cfg.minSizeScale
           ? `, floored at ${(cfg.minSizeScale * 100).toFixed(0)}% — below that, sizing down and not trading are the same decision`
