@@ -3977,6 +3977,27 @@ function render(s){
   $("below").textContent=m&&m.nearestBelow?"→ "+n(m.nearestBelow):"no level below";
   $("above").textContent=m&&m.nearestAbove?"→ "+n(m.nearestAbove):"no level above";
 
+  /*
+   * The focused contract's price, in the browser tab.
+   *
+   * Price first because tabs truncate from the right, and the four characters
+   * of "USDT" dropped because they never change and characters are scarcer
+   * here than anywhere else on the page.
+   *
+   * When the feed is not tradeable the price is dropped rather than frozen. A
+   * number in a tab is read as current — that is the whole reason to put one
+   * there — and this tab belongs to the window that places orders, so a stale
+   * price glanced at here is the one that gets acted on. The page itself can
+   * afford to show a last-known value beside a red health dot; the tab has no
+   * room for the dot.
+   *
+   * An armed session says so, because "is it running" is the question this tab
+   * gets glanced at to answer more than any other.
+   */
+  const tick_=s.focus?String(s.focus).replace(/USDT$|USDC$/,""):"sweep";
+  const liveMid=s.health&&s.health.tradeable&&m&&m.mid?n(m.mid):null;
+  document.title=(armed?"● ":"")+(liveMid?liveMid+" "+tick_:tick_+" — no data");
+
   const a=s.account;
   $("avail").textContent=usd(a.availableBalance);
   $("upnl").innerHTML=money(a.unrealizedPnl);

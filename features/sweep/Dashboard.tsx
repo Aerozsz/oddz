@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { exposeSweepFeed } from "@/lib/sweep/agent/browser";
-import { CONFIG } from "@/lib/sweep/config";
+import { CONFIG, SYMBOL } from "@/lib/sweep/config";
 import "./sweep.css";
 import CascadePanel from "./CascadePanel";
 import ClusterMap from "./ClusterMap";
@@ -12,11 +12,17 @@ import LiquidityPanel from "./LiquidityPanel";
 import Tapes from "./Tapes";
 import TopBar from "./TopBar";
 import { useSnapshot, useSnapshotThrottled } from "./useEngine";
+import { useTabTitle } from "./useTabTitle";
 
 export default function Dashboard() {
   // Full rate for the canvas, throttled for everything made of text.
   const snap = useSnapshot();
   const slow = useSnapshotThrottled();
+
+  // From the throttled snapshot, not the full-rate one: the tab is glanced at,
+  // and rewriting document.title sixty times a second to show digits nobody can
+  // read is work spent on flicker.
+  useTabTitle(slow, SYMBOL, "Liquidity sweep monitor");
 
   // Hand the same running engine to anything automating this page, so an agent
   // and the display below can never disagree about what the book said.
