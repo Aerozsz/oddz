@@ -18,6 +18,7 @@
  * code path to an order.
  */
 
+import { beat } from "./heartbeat";
 import { loadEnv } from "./load-env";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -204,7 +205,24 @@ setInterval(() => {
 
 process.on("unhandledRejection", (r) => console.error(`[shadow] unhandled rejection: ${r}`));
 
+// So the GUI can tell "running and waiting for a setup" from "not started".
+// The output file cannot answer that: nothing is written until a trade has
+// been open for the full fifteen minutes.
+const stopBeat = beat("sweep-shadow", () => {
+  const s = runner.stats();
+  return {
+    recorded: written,
+    open: pending.size,
+    sizedOut: refused,
+    signalsSeen: s.seen,
+    noSideCalled: s.declined,
+    feed: feed.getState().health.level,
+    out: OUT,
+  };
+});
+
 function shutdown() {
+  stopBeat();
   for (const { trade } of pending.values()) flush(trade);
   pending.clear();
   runner.stop();

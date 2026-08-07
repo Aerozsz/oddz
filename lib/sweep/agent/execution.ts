@@ -15,13 +15,29 @@ export interface ExecutionOptions {
   /** Called whenever an intent is refused, with the reason. */
   onRejected?: (reason: string, signal: Signal, intent: TradeIntent | null) => void;
   /** Called when the strategy looked at a signal and produced no intent. */
-  onDeclined?: (signal: Signal, state: AgentState) => void;
+  onDeclined?: (signal: Signal, state: AgentState, reason: string | null) => void;
 }
 
 export interface ExecutionRunner {
   /** Stop consuming signals. Does not touch anything already submitted. */
   stop(): void;
+  /**
+   * Called by a strategy immediately before it returns null, to say why.
+   *
+   * Passing the reason back through the runner rather than having the caller
+   * recompute it is the point: a bias evaluated a moment later can disagree
+   * with the one that produced the decision, and reporting the later one
+   * describes a state that arrived after the fact.
+   */
+  noteDecline(reason: string): void;
   stats(): {
+    /**
+     * Signals this runner received. Counted here rather than at the feed so
+     * the columns add up: a counter attached when the engine starts includes
+     * everything that fired before the loop was armed, which leaves a
+     * permanent unexplained gap in the panel.
+     */
+    seen: number;
     accepted: number;
     rejected: number;
     /**
@@ -60,9 +76,17 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
   const submitted = new Set<string>();
   let acceptedAt: number[] = [];
   let lastAcceptedAt = 0;
+  let seen = 0;
   let accepted = 0;
   let rejected = 0;
   let declined = 0;
+
+  /**
+   * Set by a strategy through `noteDecline` to explain the null it is about to
+   * return. Read once and cleared, so a stale reason cannot be attached to a
+   * later decline that had a different cause.
+   */
+  let lastDeclineReason: string | null = null;
 
   const reject = (reason: string, signal: Signal, intent: TradeIntent | null) => {
     rejected++;
@@ -70,6 +94,7 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
   };
 
   const unsubscribe = feed.onSignal((signal, state) => {
+    seen++;
     // Checked before the strategy runs, so a strategy cannot be written in a
     // way that depends on being consulted during an outage.
     if (!state.health.tradeable) {
@@ -86,7 +111,13 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
     }
     if (!intent) {
       declined++;
-      options.onDeclined?.(signal, state);
+      // The strategy's own explanation, when it left one. Recomputing the bias
+      // here instead would report a read taken a moment later, which can
+      // disagree with the one that actually caused the decline — and did:
+      // the panel showed "least resistance is upward" beside a declined
+      // signal, describing a state that arrived after the decision.
+      options.onDeclined?.(signal, state, lastDeclineReason);
+      lastDeclineReason = null;
       return;
     }
 
@@ -123,7 +154,10 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
 
   return {
     stop: unsubscribe,
-    stats: () => ({ accepted, rejected, declined, lastAcceptedAt }),
+    noteDecline(reason: string) {
+      lastDeclineReason = reason;
+    },
+    stats: () => ({ seen, accepted, rejected, declined, lastAcceptedAt }),
   };
 }
 
