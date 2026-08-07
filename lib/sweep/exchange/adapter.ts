@@ -5,6 +5,7 @@ import {
   closePosition,
   openProtectedMakerPosition,
   openProtectedPosition,
+  setLeverage,
   type MakerEntryOptions,
   type Order,
 } from "./orders";
@@ -49,6 +50,26 @@ export interface BinanceAdapterOptions {
   symbol: string;
   /** Read fresh on every submit rather than captured, so edits take effect at once. */
   limits: () => AdapterLimits;
+  /**
+   * How big, and where the stop goes.
+   *
+   * This exists because the adapter previously derived size as
+   * `limits.maxPositionUsd` — every order was the maximum allowed, and all of
+   * the sizer's work (risk-based sizing, stop placement beyond the crowd,
+   * session scaling, the depth-share cap, the fee and funding checks) informed
+   * only *whether* to trade, never *how much*. At a 100 position cap that is
+   * invisible; at a real one it means the careful arithmetic upstream was
+   * decoration and every trade was maximum exposure.
+   *
+   * TradeIntent deliberately carries no quantity — sizing needs account state
+   * the strategy layer has no business seeing — so it arrives here instead.
+   * Return null to refuse.
+   */
+  size: (
+    intent: TradeIntent,
+    state: AgentState,
+    availableBalance: number,
+  ) => { notionalUsd: number; stopPct: number; leverage: number; reason: string } | null;
   quantityPrecision?: number;
   pricePrecision?: number;
   /**
@@ -156,21 +177,42 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
         const mid = state.mid;
         if (!mid || mid <= 0) throw new Refused("no price to size against");
 
-        const notional = Math.min(intent.reference.mid > 0 ? limits.maxPositionUsd : 0, limits.maxPositionUsd);
+        const sized = options.size(intent, state, risk.availableBalance);
+        if (!sized) throw new Refused("sizing declined this setup");
+
+        // The cap is a ceiling on the sizer, not the size itself.
+        const notional = Math.min(sized.notionalUsd, limits.maxPositionUsd);
         if (notional <= 0) throw new Refused("max position size is not set");
 
         const rawQty = notional / mid;
         const quantity = Number(rawQty.toFixed(qtyPrecision));
         if (!(quantity > 0)) {
-          throw new Refused(`size rounds to zero at ${qtyPrecision} decimals`);
-        }
-
-        const impliedLeverage = notional / Math.max(risk.availableBalance, 1e-9);
-        if (impliedLeverage > limits.maxLeverage) {
+          // The common case on a small account: one contract of this symbol is
+          // worth more than the whole sized position. Naming both numbers saves
+          // a long hunt through the sizer for a refusal that is really about
+          // the contract, not the strategy.
           throw new Refused(
-            `would need ${impliedLeverage.toFixed(1)}x against a ${limits.maxLeverage}x ceiling`,
+            `sized position is ${notional.toFixed(2)} but one contract costs about ${mid.toFixed(2)} — ` +
+              `rounds to zero at ${qtyPrecision} decimals. The account is too small for this symbol at this risk setting.`,
           );
         }
+
+        // Re-derive from what will actually be traded, since rounding to whole
+        // contracts can push the notional above what was sized.
+        const actualNotional = quantity * mid;
+        const impliedLeverage = actualNotional / Math.max(risk.availableBalance, 1e-9);
+        if (impliedLeverage > limits.maxLeverage) {
+          throw new Refused(
+            `${quantity} contract${quantity === 1 ? "" : "s"} is ${actualNotional.toFixed(2)} of notional, ` +
+              `which needs ${impliedLeverage.toFixed(1)}x against a ${limits.maxLeverage}x ceiling`,
+          );
+        }
+
+        // Send the leverage before the order. Without this the position opens at
+        // whatever the account was last set to in the Binance UI, and every
+        // margin and liquidation figure shown upstream is wrong.
+        const leverage = Math.min(limits.maxLeverage, Math.max(1, Math.ceil(impliedLeverage)));
+        await setLeverage(cfg, symbol, leverage);
 
         /* ------------------------------------------------------------ submit */
 
@@ -231,7 +273,7 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
           symbol,
           side,
           quantity.toFixed(qtyPrecision),
-          limits.stopLossPct,
+          sized.stopPct,
           pricePrecision,
         );
 
