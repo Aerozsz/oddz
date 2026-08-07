@@ -115,7 +115,21 @@ export interface SizingConfig {
    * different question from how much conviction to size a good setup with.
    */
   derateStrength: number;
-  /** A target must be worth at least this multiple of the round-trip cost. */
+  /**
+   * A target must be worth at least this multiple of the round-trip cost.
+   *
+   * Was 3, which was a prior rather than a measurement and turned out to be
+   * wrong for the trades this is meant to take. Four real INTC winners moved
+   * 0.165% to 0.287% against a round trip near 0.10% — a reward/cost between
+   * 1.7x and 2.9x — and every one of them made money. A 3x floor refuses all
+   * four, which is not conservatism, it is a threshold set above the edge it
+   * was supposed to protect.
+   *
+   * 2 is still a real filter: it refuses anything where the venue takes more
+   * than half of what the move is worth, which is where a strategy stops being
+   * a strategy and becomes a rebate scheme for Binance. Below about 1.5 the
+   * hit rate required to break even climbs past anything observed here.
+   */
   minRewardOverFees: number;
   /**
    * Fallback reward-to-risk floor, used only when the limits do not set one.
@@ -181,7 +195,7 @@ export const DEFAULT_SIZING: SizingConfig = {
   maxDepthShare: 0.1,
   minSizeScale: 0.05,
   derateStrength: 1,
-  minRewardOverFees: 3,
+  minRewardOverFees: 2,
   minRewardRisk: 1.5,
   fees: DEFAULT_FEES,
   exitStyle: "taker",

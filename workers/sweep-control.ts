@@ -43,6 +43,7 @@ import {
 } from "../lib/sweep/exchange/binance";
 import { previewPosition } from "../lib/sweep/exchange/preview";
 import { proposePosition } from "../lib/sweep/agent/sizing";
+import { holdDecision, type HoldDecision } from "../lib/sweep/agent/hold";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import { DEFAULT_FEES, type FeeSchedule, canPostEntry, parseFeeTiers } from "../lib/sweep/metrics/fees";
 import { DislocationTracker, EMPTY_DISLOCATION } from "../lib/sweep/metrics/dislocation";
@@ -209,6 +210,13 @@ interface Limits {
    * it, which is the same as not having it.
    */
   breakEvenAtPct: number;
+  /**
+   * How many times the round trip a target must be worth.
+   *
+   * The dial that decides whether small, fast moves are tradeable at all. See
+   * the note in sizing.ts: set to 3 it refused four consecutive real winners.
+   */
+  minRewardOverFees: number;
 }
 
 /*
@@ -280,6 +288,7 @@ const DEFAULT_LIMITS: Limits = {
   riskPerTradePct: 4,
   sizeDerateStrength: 0.5,
   breakEvenAtPct: 60,
+  minRewardOverFees: 2,
 };
 
 /**
@@ -388,8 +397,12 @@ interface Desk {
    * intended, and the take-profit needs the second.
    */
   pendingTarget: number | null;
+  /** Side-specific depth at the moment of sizing, for the same reason. */
+  pendingEntryLwi: number | null;
   /** When the stop was moved to break-even, so it happens at most once. */
   ratchetedAt: number;
+  /** The most recent hold decision, so the page can show why it is still open. */
+  hold: HoldDecision | null;
   /**
    * Consecutive failures placing the take-profit for the current position.
    *
@@ -416,8 +429,10 @@ function newDesk(symbol: string): Desk {
     protection: { state: null, error: null, at: 0 },
     positionOpenedAt: 0,
     pendingTarget: null,
+    pendingEntryLwi: null,
     ratchetedAt: 0,
     targetFailures: 0,
+    hold: null,
   };
 }
 
@@ -571,6 +586,14 @@ interface JournalEntry {
   targetPrice: number | null;
   stopPct: number;
   reason: string;
+  /**
+   * Depth on the side that mattered, at the moment of entry.
+   *
+   * The trade was justified by this being low. Without it, "the book has
+   * refilled" is unanswerable after a restart — and that is the fastest of the
+   * exits, so losing it costs more than losing the target would.
+   */
+  entryLwi: number | null;
   updatedAt: number;
 }
 
@@ -858,26 +881,58 @@ async function enforceMaxHold() {
       desk.positionOpenedAt = 0;
       desk.ratchetedAt = 0;
       desk.targetFailures = 0;
+      desk.hold = null;
       continue;
     }
     if (!desk.positionOpenedAt) {
       desk.positionOpenedAt = Date.now();
       continue;
     }
-    const heldMin = (Date.now() - desk.positionOpenedAt) / 60_000;
-    if (heldMin < limits.maxHoldMinutes) continue;
 
-    try {
-      await closePosition(loadConfig(), desk.symbol);
-      log(
-        `TIME STOP ${desk.symbol}: closed after ${Math.round(heldMin)} min (limit ${limits.maxHoldMinutes}). ` +
-          `Held past the point where the book reading it was based on still means anything.`,
-      );
-      desk.positionOpenedAt = 0;
-      await refreshAccount();
-    } catch (err) {
-      log(`time stop FAILED (${desk.symbol}): ${redact(err instanceof Error ? err.message : String(err))}`);
+    const state = desk.feed?.getState();
+    const remembered = journal[desk.symbol];
+    const heldMs = Date.now() - desk.positionOpenedAt;
+
+    /*
+     * The adaptive decision when there is enough to make one, the flat limit
+     * when there is not.
+     *
+     * The fallback matters as much as the logic: with no state the exits that
+     * read the book cannot fire, and a position with no supervision at all is
+     * worse than one supervised by a clock. So the clock stays underneath.
+     */
+    if (!state) {
+      if (heldMs < limits.maxHoldMinutes * 60_000) continue;
+      await closeFor(desk, `held ${Math.round(heldMs / 60_000)} min with no live reading to judge it by`);
+      continue;
     }
+
+    const decision = holdDecision({
+      state,
+      side: pos.positionAmt > 0 ? "long" : "short",
+      entryPrice: pos.entryPrice,
+      targetPrice: remembered?.targetPrice ?? null,
+      heldMs,
+      entryLwi: remembered?.entryLwi ?? null,
+      config: { baseMinutes: limits.maxHoldMinutes },
+    });
+    desk.hold = decision;
+
+    if (!decision.close) continue;
+    await closeFor(desk, decision.reason);
+  }
+}
+
+/** Close a desk's position and say why, in one place. */
+async function closeFor(desk: Desk, reason: string) {
+  try {
+    await closePosition(loadConfig(), desk.symbol);
+    log(`EXIT ${desk.symbol}: ${reason}`);
+    desk.positionOpenedAt = 0;
+    desk.hold = null;
+    await refreshAccount();
+  } catch (err) {
+    log(`exit FAILED (${desk.symbol}): ${redact(err instanceof Error ? err.message : String(err))}`);
   }
 }
 
@@ -1092,6 +1147,7 @@ async function reconcileOnStart() {
           entryPrice: position.entryPrice,
           targetPrice: target,
           stopPct: limits.stopLossPct,
+          entryLwi: remembered?.entryLwi ?? null,
           reason: remembered?.reason ?? "recovered at startup",
         });
       }
@@ -1243,7 +1299,7 @@ function armDesk(desk: Desk) {
         },
         costCurve: feed.getCostCurve(),
         clusters: feed.getClusters(),
-        config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength },
+        config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength, minRewardOverFees: limits.minRewardOverFees },
       });
       if (!proposal.ok) {
         desk.lastRefusal = { at: Date.now(), reason: proposal.reasons.join("; ") };
@@ -1252,6 +1308,10 @@ function armDesk(desk: Desk) {
         return null;
       }
       desk.pendingTarget = proposal.targetPrice;
+      // The depth that justified the entry, kept so "has the book refilled"
+      // can be answered later against the reading that actually mattered.
+      desk.pendingEntryLwi =
+        _intent.side === "buy" ? (state.liquidity?.lwiAskAdj ?? null) : (state.liquidity?.lwiBidAdj ?? null);
       return {
         notionalUsd: proposal.notionalUsd,
         stopPct: proposal.stopDistancePct,
@@ -1299,6 +1359,7 @@ function armDesk(desk: Desk) {
           entryPrice: r.entry?.avgPrice ?? 0,
           targetPrice: desk.pendingTarget,
           stopPct: limits.stopLossPct,
+          entryLwi: desk.pendingEntryLwi,
           reason: r.detail.slice(0, 200),
         });
         desk.positionOpenedAt = Date.now();
@@ -1386,7 +1447,7 @@ function armDesk(desk: Desk) {
         },
         costCurve: feed.getCostCurve(),
         clusters: feed.getClusters(),
-        config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength },
+        config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength, minRewardOverFees: limits.minRewardOverFees },
       });
       if (!proposal.ok) {
         // Otherwise this surfaces as "the strategy passed on this signal",
@@ -1505,7 +1566,7 @@ function wouldTrade() {
       },
       costCurve: desk.feed?.getCostCurve() ?? [],
       clusters: desk.feed?.getClusters() ?? [],
-      config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength },
+      config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength, minRewardOverFees: limits.minRewardOverFees },
     });
     return {
       direction,
@@ -1582,11 +1643,11 @@ function readiness() {
     );
   } else {
     const roundTripPct = (fees.tiers[0]?.takerRate ?? 0.0005) * 2 * 100;
-    if (need < roundTripPct * 3) {
+    if (need < roundTripPct * limits.minRewardOverFees) {
       blockers.push(
         `a ${limits.stopLossPct}% stop asks for a ${need.toFixed(2)}% move, but the round trip costs about ` +
           `${roundTripPct.toFixed(2)}% — the reward cannot clear the fees, so every setup is refused. ` +
-          `The stop needs to be at least ${((roundTripPct * 3) / Math.max(limits.minRewardRisk, 0.1)).toFixed(2)}%.`,
+          `The stop needs to be at least ${((roundTripPct * limits.minRewardOverFees) / Math.max(limits.minRewardRisk, 0.1)).toFixed(2)}%.`,
       );
     }
   }
@@ -1767,6 +1828,7 @@ function status() {
         : null,
       heldMin: desk.positionOpenedAt ? Math.round((Date.now() - desk.positionOpenedAt) / 60_000) : 0,
       ratcheted: desk.ratchetedAt > 0,
+      hold: desk.hold,
       reason: desk.protection.state?.reason ?? null,
     },
   };
@@ -1921,6 +1983,9 @@ const server = createServer(async (req, res) => {
           riskPerTradePct: Math.min(25, Math.max(0.01, n("riskPerTradePct", limits.riskPerTradePct))),
           sizeDerateStrength: Math.min(1, Math.max(0, n("sizeDerateStrength", limits.sizeDerateStrength))),
           breakEvenAtPct: Math.min(100, Math.max(0, n("breakEvenAtPct", limits.breakEvenAtPct))),
+          // Floored at 1.2: below that the venue takes most of the move and the
+          // break-even hit rate climbs past anything this has ever measured.
+          minRewardOverFees: Math.min(10, Math.max(1.2, n("minRewardOverFees", limits.minRewardOverFees))),
         };
         writeLimits(limits);
         log(`limits updated: ${JSON.stringify(limits)}`);
@@ -2004,6 +2069,7 @@ const server = createServer(async (req, res) => {
               entryPrice: pos.entryPrice,
               targetPrice: wantTarget,
               stopPct: limits.stopLossPct,
+              entryLwi: j?.entryLwi ?? null,
               reason: `${j?.reason ?? "manual"} · target moved by hand`,
             });
             desk.targetFailures = 0;
@@ -2100,7 +2166,7 @@ const server = createServer(async (req, res) => {
           },
           costCurve: desk.feed?.getCostCurve() ?? [],
           clusters: desk.feed?.getClusters() ?? [],
-          config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength },
+          config: { riskFraction: limits.riskPerTradePct / 100, fees, canPostEntries: true, derateStrength: limits.sizeDerateStrength, minRewardOverFees: limits.minRewardOverFees },
         });
         send(res, 200, {
           symbol: desk.symbol,
@@ -2507,7 +2573,7 @@ const server = createServer(async (req, res) => {
            * presents as a quiet market rather than as a setting.
            */
           const roundTripPct = (fees.tiers[0]?.takerRate ?? 0.0005) * 2 * 100;
-          const feeFloor = roundTripPct * 3;
+          const feeFloor = roundTripPct * limits.minRewardOverFees;
           const tooTight = !impossible && need < feeFloor;
           // A stop this wide is also almost certainly a unit mix-up rather than
           // a deliberate choice, so the two are worth separating.
@@ -3047,6 +3113,7 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
 <div class="panel" id="livePanel" style="display:none">
   <h2>Open position <span id="liveSym" class="muted" style="font-weight:400;font-size:11px"></span></h2>
   <div id="liveTiles" class="tiles"></div>
+  <div id="holdNote" style="margin-top:10px"></div>
   <div class="fieldset" style="margin-top:12px">
     <div class="legend">Move a bracket</div>
     <div class="fields" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
@@ -3183,6 +3250,7 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
       <label>Stop distance <i>% price move</i><input id="stopLossPct" type="number" min="0.05" step="0.05"></label>
       <label>Risk per trade <i>% of collateral</i><input id="riskPerTradePct" type="number" min="0.01" max="25" step="0.5"></label>
       <label>Minimum reward-to-risk <i>target ÷ stop</i><input id="minRewardRisk" type="number" min="0.1" max="10" step="0.1"></label>
+      <label>Minimum reward vs fees <i>× the round trip</i><input id="minRewardOverFees" type="number" min="1.2" max="10" step="0.1"></label>
       <label>Move stop to break-even <i>% of the way to target · 0 = never</i><input id="breakEvenAtPct" type="number" min="0" max="100" step="5"></label>
       <label>Max hold <i>minutes · 0 = no limit</i><input id="maxHoldMinutes" type="number" min="0" step="5"></label>
     </div>
@@ -3297,7 +3365,8 @@ let liveDirty=false;
    server-side state that another tab may have changed. */
 let focusSymbol="";
 for(const id of ["maxPositionUsd","maxLeverage","maxDailyLossUsd","maxOpenPositions","stopLossPct",
-  "riskPerTradePct","maxHoldMinutes","minRewardRisk","breakEvenAtPct","maxTradesPerDay","lossCooldownMin"])
+  "riskPerTradePct","maxHoldMinutes","minRewardRisk","breakEvenAtPct","maxTradesPerDay","lossCooldownMin",
+  "minRewardOverFees"])
   $(id).addEventListener("input",()=>{limitsDirty=true; explainLimits(lastStatus);});
 $("tradingEnabled").addEventListener("change",()=>limitsDirty=true);
 $("requireCashOpen").addEventListener("change",()=>limitsDirty=true);
@@ -3506,6 +3575,25 @@ function render(s){
       tile("Target",pr.targetPrice?n(pr.targetPrice):"none",
         pr.targetPrice?n(pr.targetDistancePct,2)+"% away":"closes on the stop or the time limit",
         pr.targetPrice?null:"var(--warn)");
+
+    /* Why it is still open, and how long it has earned.
+       The deadline moves with the trade rather than the trade being moved by
+       the deadline, so a static "30 min" would be actively misleading here. */
+    const H=pr.hold;
+    $("holdNote").innerHTML = H
+      ? '<div class="banner" style="display:block"><b>'+
+        (H.progress>=0.55?"Working — the limit has been extended.":
+         H.thesisHealth<0.5?"The reasoning behind this is fading.":"Holding.")+"</b>"+
+        '<div style="font-size:12px;margin-top:5px">'+
+        '<span class="'+(H.progress>0?"pos":H.progress<0?"neg":"flat")+'">'+n(H.progress*100,0)+
+        "% to target</span> · thesis "+n(H.thesisHealth*100,0)+"% intact · limit now "+
+        n(H.deadlineMs/60000,0)+" min"+
+        (H.notes&&H.notes.length
+          ? '<div class="muted" style="font-size:11px;margin-top:4px">'+
+            H.notes.map(x=>"· "+String(x).replace(/</g,"&lt;")).join("<br>")+"</div>"
+          : "")+
+        "</div></div>"
+      : "";
     if(document.activeElement!==$("liveStop")&&!liveDirty) $("liveStop").value=pr.stopPrice??"";
     if(document.activeElement!==$("liveTarget")&&!liveDirty) $("liveTarget").value=pr.targetPrice??"";
     $("liveStopHint").textContent=pr.side==="long"?"must be below "+n(pr.markPrice):"must be above "+n(pr.markPrice);
@@ -3586,6 +3674,7 @@ function render(s){
     $("maxHoldMinutes").value=s.limits.maxHoldMinutes;
     $("sizeDerateStrength").value=String(s.limits.sizeDerateStrength);
     $("minRewardRisk").value=s.limits.minRewardRisk;
+    $("minRewardOverFees").value=s.limits.minRewardOverFees;
     $("breakEvenAtPct").value=s.limits.breakEvenAtPct;
     $("maxTradesPerDay").value=s.limits.maxTradesPerDay;
     $("lossCooldownMin").value=s.limits.lossCooldownMin;
@@ -3660,7 +3749,8 @@ function explainLimits(s){
   // worth taking. Both present as a quiet market rather than as a setting.
   const impossible=need>12;
   const roundTripPct=0.10;              // VIP-0 taker in and out
-  const tooTight=!impossible&&need<roundTripPct*3;
+  const overFees=(s.limits&&s.limits.minRewardOverFees)||2;
+  const tooTight=!impossible&&need<roundTripPct*overFees;
 
   box.innerHTML='<div class="banner '+(impossible||tooTight?"bad":"")+'" style="display:block">'+
     "<b>"+(impossible||tooTight
@@ -3687,7 +3777,7 @@ function explainLimits(s){
         ? '<b style="color:var(--bad)">The round trip costs about '+n(roundTripPct,2)+
           "%, so a "+n(need,2)+"% target is worth less than the fees needed to reach it — every setup "+
           "will be refused for a reward that could never clear its own costs. Set the stop to at least "+
-          n(roundTripPct*3/Math.max(s.limits?s.limits.minRewardRisk:1.2,0.1),2)+"%.</b>"
+          n(roundTripPct*overFees/Math.max(s.limits?s.limits.minRewardRisk:1.2,0.1),2)+"%.</b>"
         : "Levels are mapped to ±12%, so that is reachable.")+
     "</div></div>";
 }
@@ -3717,7 +3807,7 @@ $("btnLimits").onclick=async()=>{
     tradingEnabled:$("tradingEnabled").value==="true",stopLossPct:+$("stopLossPct").value,
     requireCashOpen:$("requireCashOpen").value==="true",
     riskPerTradePct:+$("riskPerTradePct").value,maxHoldMinutes:+$("maxHoldMinutes").value,
-    sizeDerateStrength:+$("sizeDerateStrength").value,minRewardRisk:+$("minRewardRisk").value,
+    sizeDerateStrength:+$("sizeDerateStrength").value,minRewardRisk:+$("minRewardRisk").value,minRewardOverFees:+$("minRewardOverFees").value,
     breakEvenAtPct:+$("breakEvenAtPct").value,maxTradesPerDay:+$("maxTradesPerDay").value,
     lossCooldownMin:+$("lossCooldownMin").value};
   limitsDirty=false; render(await api("/api/limits",{method:"POST",body:JSON.stringify(body)}));
