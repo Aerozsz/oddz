@@ -729,19 +729,50 @@ async function maintainBrackets() {
     // at market, closing the position at whatever the book offers.
     if (long ? beStop >= pos.markPrice : beStop <= pos.markPrice) continue;
 
+    /*
+     * New stop first, old stop second.
+     *
+     * The obvious order is cancel-then-place, and it is wrong: if the placement
+     * fails — a rejected trigger, a rate limit, a dropped connection — the
+     * position is naked until the next sweep repairs it twenty seconds later.
+     * That is precisely the state this whole module exists to prevent, created
+     * deliberately, in pursuit of an improvement the position did not need.
+     *
+     * Placing first fails the safe way instead. If the exchange refuses a
+     * second protective order the original is still resting and nothing has
+     * been lost; if it accepts, there are briefly two, and since both are
+     * closePosition orders whichever triggers first closes the position and
+     * Binance cancels the other. The transient cost of two stops is nothing;
+     * the transient cost of zero is the account.
+     */
     try {
-      if (state.stop) await cancelOrder(cfg, desk.symbol, state.stop.orderId, state.stop.isAlgo);
       const moved = await placeProtectiveStop(cfg, desk.symbol, pos, beStop, precision);
       desk.ratchetedAt = Date.now();
+      if (state.stop) {
+        try {
+          await cancelOrder(cfg, desk.symbol, state.stop.orderId, state.stop.isAlgo);
+        } catch (err) {
+          // Two stops resting is survivable and self-correcting: the wider one
+          // is now unreachable without the nearer one firing first. Worth
+          // saying, not worth unwinding.
+          log(
+            `ratchet ${desk.symbol}: the old stop at ${state.stop.stopPrice} could not be cancelled ` +
+              `(${redact(err instanceof Error ? err.message : String(err))}) — both are resting, the nearer one governs`,
+          );
+        }
+      }
       log(
         `RATCHET ${desk.symbol}: ${(progress * 100).toFixed(0)}% of the way to target, ` +
           `stop moved to break-even + fees at ${moved.stopPrice} — this can no longer be a losing trade`,
       );
       await refreshAccount();
     } catch (err) {
-      // The old stop may already be cancelled, so the next sweep's repair pass
-      // is what covers this rather than a retry here.
-      log(`ratchet ${desk.symbol} FAILED: ${redact(err instanceof Error ? err.message : String(err))}`);
+      // The original stop was never touched, so the position is still covered
+      // and the next sweep will try again.
+      log(
+        `ratchet ${desk.symbol} declined, original stop still resting: ` +
+          `${redact(err instanceof Error ? err.message : String(err))}`,
+      );
     }
   }
 }
