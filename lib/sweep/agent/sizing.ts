@@ -381,7 +381,7 @@ export function proposePosition(input: SizingInput): SizingResult {
   // with the venue taking most of what the edge produced. That is a winning
   // strategy being farmed rather than a losing one being found, so it needs a
   // cap of its own rather than being caught by the loss limit.
-  const budget = feeBudget(cfg.fees, input.feesPaidToday ?? 0, input.grossProfitToday ?? 0);
+  const budget = feeBudget(cfg.fees, input.feesPaidToday ?? 0, input.grossProfitToday ?? 0, cfg.minRewardOverFees);
   if (budget.exhausted) reasons.push(budget.reason ?? "daily fee budget spent");
   if (reasons.length) return { ok: false, reasons };
 
