@@ -3,6 +3,14 @@
  *
  *   npm run sweep:shadow
  *   npm run sweep:shadow -- --equity 5000 --out data/sweep-shadow.jsonl
+ *   SWEEP_SYMBOLS=BTCUSDT,ETHUSDT,SOLUSDT npm run sweep:shadow
+ *
+ * Watches every contract in SWEEP_SYMBOLS at once, in one process. That is not
+ * a convenience: evidence is the binding constraint on this whole project, it
+ * scales linearly with the number of contracts watched, and running one process
+ * per symbol would mean N sets of streams, N heartbeats writing over each
+ * other, and N output files to reconcile. Rows carry their symbol, so one file
+ * stays correct.
  *
  * Real feed, real book, real signals, real sizing, real fee arithmetic. Every
  * intent is recorded with exactly what would have been sent, then scored later
@@ -34,7 +42,7 @@ import {
   type ShadowTrade,
 } from "../lib/sweep/exchange/shadow";
 import type { AgentState, Signal, TradeIntent } from "../lib/sweep/agent";
-import { SYMBOL } from "../lib/sweep/config";
+import { SYMBOLS } from "../lib/sweep/config";
 
 loadEnv();
 
@@ -62,145 +70,176 @@ const fees: FeeSchedule = {
   tiers: parseFeeTiers(process.env.SWEEP_FEE_TIERS).tiers,
 };
 
-const feed = createSweepFeed();
-attachCalendar(getEngine());
-
-let written = 0;
-let refused = 0;
-const pending = new Map<string, { trade: ShadowTrade; remaining: number; high: number; low: number }>();
-
-const adapter = createShadowAdapter({
-  symbol: SYMBOL,
-  equity: EQUITY,
-  fees,
-  limits: () => ({
-    // Deliberately permissive on the money caps and strict on the discipline
-    // ones. A shadow run is asking what the signals are worth, and a position
-    // cap that refuses most of them answers a different question — but a run
-    // that ignores cooldowns and reward-to-risk would be measuring a strategy
-    // nobody would actually run.
-    maxPositionUsd: EQUITY,
-    maxLeverage: 8,
-    maxDailyLossUsd: 0,
-    stopLossPct: 3,
-    maxTradesPerDay: 0,
-    lossCooldownMin: 0,
-    requireCashOpen: false,
-    minRewardRisk: 1.2,
-  }),
-  sizingConfig: () => ({ riskFraction: 0.02, canPostEntries: true }),
-  getCostCurve: () => feed.getCostCurve(),
-  getClusters: () => feed.getClusters(),
-  // The same test the live path uses, so a shadow fill is priced the way a real
-  // one would have been rather than optimistically.
-  entryStyle: (state) => ({
-    entry: canPostEntry(state.markout).ok ? "maker" : "taker",
-    exit: "taker",
-  }),
-  onRefused: () => {
-    refused++;
-  },
-  onTrade: (trade) => {
-    console.error(
-      `[shadow] ${trade.side} ${trade.quantity} @ ${trade.entryPrice.toFixed(2)} ` +
-        `(${trade.style.entry} in) stop ${trade.stopPrice.toFixed(2)} ` +
-        `target ${trade.targetPrice?.toFixed(2) ?? "—"} · ` +
-        `fees ${trade.feeUsd.toFixed(2)} (${trade.feeBps.toFixed(1)}bp) · ${trade.signalKind}`,
-    );
-
-    const key = trade.intentId;
-    pending.set(key, { trade, remaining: HORIZONS.length, high: trade.entryPrice, low: trade.entryPrice });
-
-    for (const horizon of HORIZONS) {
-      const takenAt = Date.now();
-      setTimeout(() => {
-        const entry = pending.get(key);
-        if (!entry) return;
-        const state = feed.getState();
-        // Same wall-clock guard as the paper log: a timer that fired late
-        // because the machine slept measures the wrong interval.
-        const late = (Date.now() - takenAt) / 1000 > horizon + Math.max(10, horizon * 0.1);
-        scoreShadow(entry.trade, `t${horizon}`, !late && state.health.tradeable ? state.mid : null);
-        entry.remaining--;
-        if (entry.remaining === 0) {
-          entry.trade.resolved = resolveShadow(entry.trade, entry.high, entry.low);
-          pending.delete(key);
-          flush(entry.trade);
-        }
-      }, horizon * 1000).unref?.();
-    }
-  },
-});
-
 /*
- * The running high and low since each entry, so a stop or target that would
- * have been hit *inside* the window is detected. Scoring only on the price at
- * the horizon would count a trade that went 3% against and came back as flat,
- * when in reality the stop would have closed it at a loss.
+ * One desk per contract, each with its own feed, adapter and execution loop.
+ *
+ * Deliberately mirrors the control server's shape rather than inventing a
+ * second one: the whole value of a shadow run is that it exercises the code
+ * that would really trade, and a runner structured differently from the live
+ * path would be measuring something else.
  */
-feed.onState((state) => {
-  const mid = state.mid;
-  if (mid === null) return;
-  for (const entry of pending.values()) {
-    if (mid > entry.high) entry.high = mid;
-    if (mid < entry.low) entry.low = mid;
-  }
-});
+interface Desk {
+  readonly symbol: string;
+  feed: ReturnType<typeof createSweepFeed>;
+  runner: ReturnType<typeof attachExecution>;
+  pending: Map<string, { trade: ShadowTrade; remaining: number; high: number; low: number }>;
+  written: number;
+  refused: number;
+}
 
-function flush(trade: ShadowTrade) {
+const desks: Desk[] = [];
+const totalWritten = () => desks.reduce((a, d) => a + d.written, 0);
+const totalPending = () => desks.reduce((a, d) => a + d.pending.size, 0);
+const totalRefused = () => desks.reduce((a, d) => a + d.refused, 0);
+
+function startDesk(symbol: string): Desk {
+  const feed = createSweepFeed({ symbol });
+  attachCalendar(getEngine(symbol));
+
+  const pending = new Map<string, { trade: ShadowTrade; remaining: number; high: number; low: number }>();
+  const desk = { symbol, feed, pending, written: 0, refused: 0 } as Desk;
+
+  const adapter = createShadowAdapter({
+    symbol,
+    equity: EQUITY,
+    fees,
+    limits: () => ({
+      // Deliberately permissive on the money caps and strict on the discipline
+      // ones. A shadow run is asking what the signals are worth, and a position
+      // cap that refuses most of them answers a different question — but a run
+      // that ignores cooldowns and reward-to-risk would be measuring a strategy
+      // nobody would actually run.
+      maxPositionUsd: EQUITY,
+      maxLeverage: 8,
+      maxDailyLossUsd: 0,
+      stopLossPct: 3,
+      maxTradesPerDay: 0,
+      lossCooldownMin: 0,
+      requireCashOpen: false,
+      minRewardRisk: 1.2,
+    }),
+    sizingConfig: () => ({ riskFraction: 0.02, canPostEntries: true }),
+    getCostCurve: () => feed.getCostCurve(),
+    getClusters: () => feed.getClusters(),
+    // The same test the live path uses, so a shadow fill is priced the way a
+    // real one would have been rather than optimistically.
+    entryStyle: (state) => ({
+      entry: canPostEntry(state.markout).ok ? "maker" : "taker",
+      exit: "taker",
+    }),
+    onRefused: () => { desk.refused++; },
+    onTrade: (trade) => {
+      console.error(
+        `[shadow] ${symbol} ${trade.side} ${trade.quantity} @ ${trade.entryPrice.toFixed(2)} ` +
+          `(${trade.style.entry} in) stop ${trade.stopPrice.toFixed(2)} ` +
+          `target ${trade.targetPrice?.toFixed(2) ?? "—"} · ` +
+          `fees ${trade.feeUsd.toFixed(2)} (${trade.feeBps.toFixed(1)}bp) · ${trade.signalKind}`,
+      );
+
+      const key = trade.intentId;
+      pending.set(key, { trade, remaining: HORIZONS.length, high: trade.entryPrice, low: trade.entryPrice });
+
+      for (const horizon of HORIZONS) {
+        const takenAt = Date.now();
+        setTimeout(() => {
+          const entry = pending.get(key);
+          if (!entry) return;
+          const state = feed.getState();
+          // Same wall-clock guard as the paper log: a timer that fired late
+          // because the machine slept measures the wrong interval.
+          const late = (Date.now() - takenAt) / 1000 > horizon + Math.max(10, horizon * 0.1);
+          scoreShadow(entry.trade, `t${horizon}`, !late && state.health.tradeable ? state.mid : null);
+          entry.remaining--;
+          if (entry.remaining === 0) {
+            entry.trade.resolved = resolveShadow(entry.trade, entry.high, entry.low);
+            pending.delete(key);
+            flush(desk, entry.trade);
+          }
+        }, horizon * 1000).unref?.();
+      }
+    },
+  });
+
+  /*
+   * The running high and low since each entry, so a stop or target that would
+   * have been hit *inside* the window is detected. Scoring only on the price at
+   * the horizon would count a trade that went 3% against and came back as flat,
+   * when in reality the stop would have closed it at a loss.
+   */
+  feed.onState((state) => {
+    const mid = state.mid;
+    if (mid === null) return;
+    for (const entry of pending.values()) {
+      if (mid > entry.high) entry.high = mid;
+      if (mid < entry.low) entry.low = mid;
+    }
+  });
+
+  let lastLevel = "";
+  feed.onState((st) => {
+    if (st.health.level !== lastLevel) {
+      lastLevel = st.health.level;
+      console.error(`[shadow] ${symbol} feed ${st.health.level}${st.health.tradeable ? "" : ` — ${st.health.summary}`}`);
+    }
+  });
+
+  desk.runner = attachExecution(feed, {
+    adapter,
+    // The same strategy the control server runs, so this measures the thing
+    // that would actually trade rather than a simplified stand-in.
+    strategy: (signal: Signal, state: AgentState): TradeIntent | null => {
+      if (signal.kind === "health") return null;
+      const bias = directionalBias(state);
+      if (!bias.direction) return null;
+      return {
+        id: intentId(signal),
+        t: Date.now(),
+        side: bias.direction === "up" ? "buy" : "sell",
+        signalId: signal.id,
+        signalKind: signal.kind,
+        reason: `${signal.detail} · ${bias.summary}`,
+        confidence: bias.conviction,
+        reference: { mid: state.mid ?? 0, trigger: signal.price, invalidation: null },
+      };
+    },
+    /*
+     * Per-desk pacing, unlike the live path's account-wide guard.
+     *
+     * Nothing is at risk here, so the reason to space trades is that a burst of
+     * near-identical entries on one contract is one observation recorded twelve
+     * times — which would inflate every count the analysis rests on without
+     * adding any evidence. Across contracts there is no such duplication, so
+     * the desks do not throttle each other.
+     */
+    minIntervalMs: 60_000,
+    maxPerHour: 12,
+  });
+
+  desks.push(desk);
+  return desk;
+}
+
+function flush(desk: Desk, trade: ShadowTrade) {
   appendFileSync(OUT, `${JSON.stringify(trade)}\n`);
-  written++;
+  desk.written++;
   const net = trade.outcomes.t900?.netUsd;
   console.error(
-    `[shadow] closed ${trade.intentId} — would have ${trade.resolved} · ` +
+    `[shadow] ${desk.symbol} closed ${trade.intentId} — would have ${trade.resolved} · ` +
       `net at 15m ${net === null || net === undefined ? "?" : `${net >= 0 ? "+" : ""}${net.toFixed(2)}`} · ` +
-      `${written} recorded`,
+      `${totalWritten()} recorded`,
   );
 }
 
 /* ------------------------------------------------------------------ runner */
 
-const runner = attachExecution(feed, {
-  adapter,
-  // The same strategy the control server runs, so this measures the thing that
-  // would actually trade rather than a simplified stand-in.
-  strategy: (signal: Signal, state: AgentState): TradeIntent | null => {
-    if (signal.kind === "health") return null;
-    const bias = directionalBias(state);
-    if (!bias.direction) return null;
-    return {
-      id: intentId(signal),
-      t: Date.now(),
-      side: bias.direction === "up" ? "buy" : "sell",
-      signalId: signal.id,
-      signalKind: signal.kind,
-      reason: `${signal.detail} · ${bias.summary}`,
-      confidence: bias.conviction,
-      reference: {
-        mid: state.mid ?? 0,
-        trigger: signal.price,
-        invalidation: null,
-      },
-    };
-  },
-  minIntervalMs: 60_000,
-  maxPerHour: 12,
-});
-
-let lastLevel = "";
-feed.onState((s) => {
-  if (s.health.level !== lastLevel) {
-    lastLevel = s.health.level;
-    console.error(`[shadow] feed ${s.health.level}${s.health.tradeable ? "" : ` — ${s.health.summary}`}`);
-  }
-});
+for (const symbol of SYMBOLS) startDesk(symbol);
 
 setInterval(() => {
-  const stats = runner.stats();
-  console.error(
-    `[shadow] alive — ${written} recorded, ${pending.size} open, ` +
-      `${refused} sized-out, ${stats.rejected} filtered before sizing`,
-  );
+  const lines = desks.map((d) => {
+    const st = d.runner.stats();
+    return `${d.symbol} ${d.written}rec/${d.pending.size}open/${d.refused}sized-out/${st.rejected}filtered`;
+  });
+  console.error(`[shadow] alive — ${lines.join(" · ")}`);
 }, 15 * 60_000).unref?.();
 
 process.on("unhandledRejection", (r) => console.error(`[shadow] unhandled rejection: ${r}`));
@@ -210,30 +249,43 @@ process.on("unhandledRejection", (r) => console.error(`[shadow] unhandled reject
 // been open for the full fifteen minutes.
 let stopBeat: () => void = () => {};
 stopBeat = beat("sweep-shadow", () => {
-  const s = runner.stats();
+  const stats = desks.map((d) => d.runner.stats());
+  const worst = desks
+    .map((d) => d.feed.getState().health.level)
+    .sort((a, b) => (a === "blind" ? -1 : b === "blind" ? 1 : a === "degraded" ? -1 : 1))[0];
   return {
-    recorded: written,
-    open: pending.size,
-    sizedOut: refused,
-    signalsSeen: s.seen,
-    noSideCalled: s.declined,
-    feed: feed.getState().health.level,
+    recorded: totalWritten(),
+    open: totalPending(),
+    sizedOut: totalRefused(),
+    signalsSeen: stats.reduce((a, x) => a + x.seen, 0),
+    noSideCalled: stats.reduce((a, x) => a + x.declined, 0),
+    // The worst feed across the desks, so one blind contract cannot hide behind
+    // the others reporting healthy.
+    feed: worst ?? "unknown",
+    symbols: desks.map((d) => d.symbol).join(","),
     out: OUT,
   };
 });
 
 function shutdown() {
   stopBeat();
-  for (const { trade } of pending.values()) flush(trade);
-  pending.clear();
-  runner.stop();
-  feed.close();
-  console.error(`[shadow] stopped — ${written} trades recorded in ${OUT}`);
+  // Open trades are flushed with whatever horizons have scored so far. A
+  // partially-scored row is still evidence; discarding it would silently drop
+  // the most recent trades every time the process is restarted, which is
+  // exactly the set most likely to reflect a change just made.
+  for (const desk of desks) {
+    for (const { trade } of desk.pending.values()) flush(desk, trade);
+    desk.pending.clear();
+    desk.runner.stop();
+    desk.feed.close();
+  }
+  console.error(`[shadow] stopped — ${totalWritten()} trades recorded in ${OUT}`);
   process.exit(0);
 }
 for (const sig of ["SIGINT", "SIGTERM"] as const) process.on(sig, shutdown);
 
 console.error("");
+console.error(`[shadow] watching ${SYMBOLS.join(", ")}`);
 console.error(`[shadow] recording to ${OUT}`);
 console.error(`[shadow] sizing against ${EQUITY} USDT at 2% risk per trade`);
 console.error("[shadow] no credentials are read and no order can be placed — the adapter has no path to one");
