@@ -2714,6 +2714,19 @@ const server = createServer(async (req, res) => {
     return;
   }
 
+  /*
+   * The command reference, on its own page.
+   *
+   * Separate rather than another panel because it is the one thing here that is
+   * read when nothing is running — a panel on the dashboard is invisible
+   * exactly when it is needed, since the dashboard is what you have open only
+   * once the server is already up.
+   */
+  if (url.pathname === "/commands") {
+    send(res, 200, commandsPage(TOKEN), "text/html; charset=utf-8");
+    return;
+  }
+
   try {
     switch (`${req.method} ${url.pathname}`) {
       case "GET /api/status":
@@ -3996,6 +4009,216 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
 
 /* -------------------------------------------------------------------- gui */
 
+/**
+ * Every command this project has, on one page.
+ *
+ * Written as data rather than markup so the two things that matter about a
+ * command list stay true: each entry carries whether it can place an order,
+ * and nothing can appear here without answering that question. A reference
+ * that lists `sweep:pairs` next to `sweep:learn` without saying which one
+ * spends money is worse than no reference.
+ *
+ * Deliberately static. It describes what to type in a terminal, so nothing on
+ * it needs polling, and a page that cannot go stale cannot mislead.
+ */
+interface Cmd {
+  cmd: string;
+  what: string;
+  /** "safe" reads only. "orders" can send. "arm" needs an explicit switch first. */
+  risk: "safe" | "arm" | "orders";
+  note?: string;
+}
+
+const COMMAND_GROUPS: { title: string; blurb: string; items: Cmd[] }[] = [
+  {
+    title: "Running",
+    blurb: "Long-lived processes. Leave them up.",
+    items: [
+      { cmd: "npm run sweep:control", risk: "arm",
+        what: "This server and its dashboard. Places orders only once armed here.",
+        note: "The token is printed at startup." },
+      { cmd: "SWEEP_SYMBOLS=BTCUSDT,ETHUSDT,SOLUSDT,BNBUSDT,XRPUSDT npm run sweep:shadow", risk: "safe",
+        what: "Real feed, real book, real sizing, real fees — and no order. Scores every intent against what price actually did.",
+        note: "The fastest way to collect evidence: unthrottled by trade caps, so it gathers 5-20x faster than live trading. Needs no credentials." },
+      { cmd: "npm run sweep:paper", risk: "safe",
+        what: "Evidence log. Samples market state on a clock and comes back later to record what price did.",
+        note: "This is the 'Evidence log' tile on the dashboard." },
+      { cmd: "npm run sweep:pairs", risk: "safe",
+        what: "Market-neutral pairs across correlated perpetuals. Paper by default — prints what it would do." },
+      { cmd: "SWEEP_PAIRS_ARM=1 npm run sweep:pairs", risk: "orders",
+        what: "The same loop, sending real orders." },
+      { cmd: "npm run sweep:mcp", risk: "safe",
+        what: "MCP server so an agent can read live market state and record news or events.",
+        note: "Still single-symbol — it only sees the first contract." },
+    ],
+  },
+  {
+    title: "Reading",
+    blurb: "Analysis. These start nothing and change nothing.",
+    items: [
+      { cmd: "npm run sweep:learn", risk: "safe",
+        what: "The post-mortem: how the losses failed, which entry conditions separate winners, what to change." },
+      { cmd: "npm run sweep:learn -- --trades", risk: "safe", what: "...plus every trade, one line each." },
+      { cmd: "npm run sweep:learn -- --symbol=INTCUSDT", risk: "safe", what: "...for one contract." },
+      { cmd: "npm run sweep:shadow:report", risk: "safe",
+        what: "What the shadow run would have made, net of the fees it would have paid." },
+      { cmd: "npm run sweep:analyse", risk: "safe",
+        what: "Reads the paper log and says which readings actually predict anything." },
+      { cmd: "npm run sweep:analyse -- --in data/sweep-paper.jsonl --horizon 300", risk: "safe",
+        what: "...at a chosen horizon." },
+    ],
+  },
+  {
+    title: "When something is wrong",
+    blurb: "Diagnostics.",
+    items: [
+      { cmd: "npm run sweep:check", risk: "safe",
+        what: "Is the key valid, pointed at the right venue, and is this IP allowed? One round trip, no orders.",
+        note: "Run this first for any authentication error — it tells the three apart." },
+      { cmd: "npm run sweep:symbols", risk: "safe", what: "What Binance actually lists, and what it costs to trade." },
+      { cmd: "npm run sweep:symbols --all", risk: "safe", what: "...the whole contract list, crypto included." },
+      { cmd: "npm run sweep:equity", risk: "safe", what: "How much capital this needs to trade a symbol at all." },
+      { cmd: "npm run sweep:equity -- --price 100 --risk 2 --stop 3", risk: "safe", what: "...for given numbers." },
+      { cmd: "npm run sweep:guicheck", risk: "safe", what: "Checks the dashboard script parses. Run after any GUI edit." },
+      { cmd: "npx tsc --noEmit", risk: "safe", what: "Typecheck the whole project." },
+    ],
+  },
+];
+
+const ENV_VARS: { name: string; what: string; danger?: boolean }[] = [
+  { name: "SWEEP_SYMBOLS=BTCUSDT,ETHUSDT", what: "Contracts to watch. Used by control and shadow." },
+  { name: "SWEEP_SYMBOL=BTCUSDT", what: "Single contract, for mcp and paper." },
+  { name: "BINANCE_LIVE=1", what: "Orders go to production instead of demo. Real money.", danger: true },
+  { name: "SWEEP_CONTROL_PORT=8899", what: "Port for this server." },
+  { name: "SWEEP_TRADE_LOG=data/sweep-trades.jsonl", what: "Where post-mortems are written." },
+  { name: "SWEEP_TUNE_LOG=data/sweep-tuning.jsonl", what: "Audit trail of every cap change." },
+  { name: "SWEEP_LIMITS=data/sweep-limits.json", what: "The risk limits file." },
+  { name: "SWEEP_JOURNAL=data/sweep-positions.json", what: "What this process remembers about open positions." },
+  { name: "SWEEP_FEE_DISCOUNT=0.9", what: "Set if BNB fee payment is enabled on the account." },
+];
+
+function commandsPage(token: string): string {
+  const esc = (t: string) => t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const badge = (r: Cmd["risk"]) =>
+    r === "orders"
+      ? `<span class="tag bad">sends orders</span>`
+      : r === "arm"
+        ? `<span class="tag warn">can send once armed</span>`
+        : `<span class="tag ok">read only</span>`;
+
+  const groups = COMMAND_GROUPS.map((g) => `
+    <div class="panel">
+      <h2>${esc(g.title)}</h2>
+      <p class="note" style="margin-top:0">${esc(g.blurb)}</p>
+      ${g.items.map((c) => `
+        <div class="cmd">
+          <div class="cmdline">
+            <code>${esc(c.cmd)}</code>
+            <button class="copy" data-cmd="${esc(c.cmd)}">copy</button>
+            ${badge(c.risk)}
+          </div>
+          <div class="muted what">${esc(c.what)}</div>
+          ${c.note ? `<div class="muted hint">${esc(c.note)}</div>` : ""}
+        </div>`).join("")}
+    </div>`).join("");
+
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Commands — Sweep agent</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--plane:#0a0f1c;--surface:#101728;--surface2:#182136;
+--ink:#eef2fa;--ink2:#a9b6cf;--muted:#6f7d99;
+--hair:rgba(140,170,220,.14);--hair2:rgba(140,170,220,.26);
+--good:#3ddc97;--good-dim:rgba(61,220,151,.13);
+--bad:#ff6b81;--bad-dim:rgba(255,107,129,.13);
+--warn:#ffc75a;--warn-dim:rgba(255,199,90,.12);--r:8px}
+*{box-sizing:border-box}
+body{margin:0;background:var(--plane);color:var(--ink);
+font:13px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif}
+.bar{display:flex;gap:12px;align-items:center;background:var(--surface);
+border-bottom:1px solid var(--hair);padding:12px 16px;position:sticky;top:0;z-index:5}
+.wrap{max-width:860px;margin:0 auto;padding:16px}
+.panel{background:var(--surface);border:1px solid var(--hair);border-radius:var(--r);
+padding:12px 14px 14px;margin-bottom:14px}
+.panel h2{margin:0 0 8px;font-size:12px;font-weight:600;letter-spacing:.04em;
+text-transform:uppercase;color:var(--ink2)}
+.note{font-size:11px;color:var(--muted);line-height:1.6}
+.cmd{padding:9px 0;border-bottom:1px solid var(--hair)}
+.cmd:last-child{border-bottom:0}
+.cmdline{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+code{background:var(--plane);border:1px solid var(--hair2);border-radius:5px;
+padding:4px 8px;font:12px/1.4 ui-monospace,SFMono-Regular,Menlo,monospace;
+color:var(--ink);word-break:break-all}
+.what{font-size:12px;margin-top:5px;line-height:1.55}
+.hint{font-size:11px;margin-top:3px;font-style:italic}
+.muted{color:var(--muted)}
+.tag{font-size:10px;text-transform:uppercase;letter-spacing:.05em;
+padding:2px 7px;border-radius:999px;white-space:nowrap}
+.tag.ok{background:var(--good-dim);color:var(--good)}
+.tag.warn{background:var(--warn-dim);color:var(--warn)}
+.tag.bad{background:var(--bad-dim);color:var(--bad);font-weight:600}
+button{background:var(--surface2);color:var(--ink);border:1px solid var(--hair);
+border-radius:5px;padding:3px 9px;font-size:11px;cursor:pointer}
+button:hover{border-color:var(--hair2)}
+a{color:var(--ink2)}
+table{width:100%;border-collapse:collapse;margin-top:6px}
+td{padding:5px 6px;font-size:12px;border-bottom:1px solid var(--hair);vertical-align:top}
+td:first-child{white-space:nowrap;width:1%}
+</style></head><body>
+<div class="bar">
+  <b>Sweep agent</b><span class="muted">commands</span>
+  <span style="flex:1"></span>
+  <a href="/?token=${token}" style="font-size:12px;text-decoration:none;padding:5px 10px;border:1px solid var(--hair);border-radius:6px">Back to dashboard</a>
+</div>
+<div class="wrap">
+  <div class="panel" style="border-color:var(--hair2)">
+    <h2>Start here</h2>
+    <p class="note" style="margin-top:0">Two processes cover normal use: <code>sweep:control</code> for the
+    dashboard, and <code>sweep:shadow</code> alongside it to collect evidence against the real market. Then
+    <code>sweep:learn</code> to read what it found. Everything else is diagnostics.</p>
+    <p class="note">Only two commands on this page can spend money, and both are marked. Shadow reads no
+    credentials and has no code path to an order.</p>
+  </div>
+  ${groups}
+  <div class="panel">
+    <h2>Environment</h2>
+    <table><tbody>
+      ${ENV_VARS.map((v) => `<tr><td><code>${esc(v.name)}</code></td><td class="muted">${esc(v.what)}${
+        v.danger ? ` <span class="tag bad">real money</span>` : ""}</td></tr>`).join("")}
+    </tbody></table>
+  </div>
+  <div class="panel">
+    <h2>Where the data lives</h2>
+    <table><tbody>
+      <tr><td><code>data/sweep-trades.jsonl</code></td><td class="muted">Post-mortem of every closed trade.</td></tr>
+      <tr><td><code>data/sweep-shadow.jsonl</code></td><td class="muted">Shadow trades, scored at 60s / 300s / 900s.</td></tr>
+      <tr><td><code>data/sweep-paper.jsonl</code></td><td class="muted">The evidence log's samples.</td></tr>
+      <tr><td><code>data/sweep-tuning.jsonl</code></td><td class="muted">Every cap change, who made it and why. Append-only.</td></tr>
+      <tr><td><code>data/sweep-positions.json</code></td><td class="muted">What this process remembers about open positions.</td></tr>
+      <tr><td><code>data/sweep-limits.json</code></td><td class="muted">The risk limits, as edited on the dashboard.</td></tr>
+    </tbody></table>
+  </div>
+</div>
+<script>
+for (const b of document.querySelectorAll(".copy")) {
+  b.onclick = async () => {
+    // navigator.clipboard needs a secure context, which http://127.0.0.1 is —
+    // but a tunnelled or LAN-bound origin is not, so fall back rather than
+    // leaving a button that silently does nothing.
+    const text = b.dataset.cmd;
+    try { await navigator.clipboard.writeText(text); }
+    catch {
+      const ta = document.createElement("textarea");
+      ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); } finally { ta.remove(); }
+    }
+    b.textContent = "copied"; setTimeout(() => { b.textContent = "copy"; }, 1200);
+  };
+}
+</script>
+</body></html>`;
+}
+
 function html(token: string): string {
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>Sweep agent control</title>
@@ -4124,6 +4347,7 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
   <span class="row" style="gap:6px"><i id="hdot" class="dot blind"></i><span id="health" class="muted">connecting…</span></span>
   <span class="muted" id="uptime"></span>
   <span style="flex:1"></span>
+  <a href="/commands?token=${token}" style="color:var(--ink2);font-size:12px;text-decoration:none;padding:5px 10px;border:1px solid var(--hair);border-radius:6px">Commands</a>
   <button id="btnStart">Start</button>
   <button id="btnStop">Stop</button>
   <button id="btnRefresh">Refresh account</button>
