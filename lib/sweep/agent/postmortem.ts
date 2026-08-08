@@ -46,6 +46,25 @@ import type { AgentState } from "./types";
 export interface TradeRecord {
   id: string;
   symbol: string;
+  /**
+   * Where this record came from, and therefore what it may be used to decide.
+   *
+   * "live" is an order that really executed. "shadow" is an intent the strategy
+   * produced and priced but never sent — a real decision, read off a real book,
+   * scored against what price really did, with the fill modelled rather than
+   * observed.
+   *
+   * The distinction is load-bearing rather than informational, and the rule it
+   * enforces is in `admissible()`: shadow evidence is valid for anything
+   * derived from *price* and invalid for anything derived from *fills*. Whether
+   * a thin ask predicted an upward move is a question about the market, and a
+   * shadow row answers it as well as a live one. Whether the strategy makes
+   * money is a question about execution — queue position, slippage, partial
+   * fills — and a shadow row answers it with an assumption dressed as a
+   * measurement. Merging the two pools without this tag is how a system talks
+   * itself into believing an edge it has never actually collected.
+   */
+  source: "live" | "shadow";
   side: "long" | "short";
   openedAt: number;
   closedAt: number;
@@ -139,6 +158,28 @@ export interface EntryConditions {
   /** Size retained after the condition derates, 0..1. */
   sizeRetained: number | null;
 
+  /* ------------------------------------------------- what was in the air */
+
+  /**
+   * Headlines live when the entry was taken, as numbers rather than prose.
+   *
+   * These exist so the news store stops being decoration. It was being written
+   * by an agent and attached to each record as text for a human to read, which
+   * meant no amount of diligent news capture could ever change a decision. As
+   * three bucketable fields the analyser can ask the only question worth
+   * asking: do entries taken in the minutes after a significant headline behave
+   * differently from the rest?
+   *
+   * Still a covariate and still not a cause. A split on these says trades near
+   * news performed differently, never that the news did it.
+   */
+  /** 3 for a high-impact item live at entry, 2 medium, 1 low, 0 for none. */
+  newsImpactMax: number;
+  /** Minutes since the most recent item. Null when there was none. */
+  minutesSinceNews: number | null;
+  /** How many items were live in the preceding six hours. */
+  newsCount6h: number;
+
   /* --------------------------------------------------- who was standing there */
 
   /**
@@ -198,6 +239,14 @@ export function captureConditions(
     biasConviction?: number | null;
     signalKind?: string | null;
     sizeRetained?: number | null;
+    /**
+     * Headlines live at entry, newest first, supplied by the caller.
+     *
+     * Passed in rather than read here so this module stays free of file access
+     * and can be called from the browser, the shadow runner and the control
+     * server alike.
+     */
+    news?: { at: number; impact: string }[];
   },
 ): EntryConditions {
   const long = side === "long";
@@ -245,6 +294,8 @@ export function captureConditions(
     signalKind: extra.signalKind ?? null,
     sizeRetained: extra.sizeRetained ?? null,
 
+    ...newsFields(extra.news ?? [], Date.now()),
+
     /*
      * The participant read, only when it is confident enough to mean something.
      *
@@ -272,6 +323,19 @@ export function captureConditions(
     aggressorImbalance: agg ? (long ? agg.aggressorImbalance : -agg.aggressorImbalance) : null,
     takerIntensity: agg?.takerIntensity ?? null,
     aggressorConcentration: agg?.concentration ?? null,
+  };
+}
+
+/** Reduce the live headlines to three numbers the analyser can group by. */
+function newsFields(news: { at: number; impact: string }[], now: number) {
+  const SIX_HOURS = 6 * 3_600_000;
+  const recent = news.filter((n) => now - n.at <= SIX_HOURS && n.at <= now);
+  const weight = (i: string) => (i === "high" ? 3 : i === "medium" ? 2 : i === "low" ? 1 : 0);
+  const newest = recent.reduce<number | null>((a, n) => (a === null || n.at > a ? n.at : a), null);
+  return {
+    newsImpactMax: recent.reduce((a, n) => Math.max(a, weight(n.impact)), 0),
+    minutesSinceNews: newest === null ? null : (now - newest) / 60_000,
+    newsCount6h: recent.length,
   };
 }
 

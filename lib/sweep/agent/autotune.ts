@@ -1,6 +1,7 @@
 import type { Report } from "./learn";
 import { classifyLoss, type LossKind } from "./learn";
 import type { TradeRecord } from "./postmortem";
+import { evidenceFor } from "./evidence";
 
 /**
  * Move the caps in response to what the closed trades actually did.
@@ -458,6 +459,15 @@ export function proposeTuning(input: TuneInput): TuneResult {
    * costs some upside, and sizing up when it was not costs money on every trade
    * until somebody notices.
    */
+  /*
+   * Exposure moves on live evidence only.
+   *
+   * report.expectancyR is already computed from live rows alone, but the count
+   * is re-derived here so the gate cannot drift if that ever changes: sizing up
+   * is the one decision where being wrong costs money on every subsequent
+   * trade, and it must never rest on a modelled fill.
+   */
+  const liveCount = evidenceFor(trades, "expectancy").length;
   const exp = report.expectancyR;
   if (exp.n >= 10 && exp.hi < 0) {
     const need = gate("riskPerTradePct", "down");
@@ -476,7 +486,7 @@ export function proposeTuning(input: TuneInput): TuneResult {
         });
       }
     }
-  } else if (exp.n >= cfg.minTradesToRaiseRisk && exp.lo > 0.1) {
+  } else if (exp.n >= cfg.minTradesToRaiseRisk && liveCount >= cfg.minTradesToRaiseRisk && exp.lo > 0.1) {
     const need = gate("riskPerTradePct", "up");
     if (need !== null) {
       const to = bounded("riskPerTradePct", limits.riskPerTradePct, limits.riskPerTradePct * 1.25);

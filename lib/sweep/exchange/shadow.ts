@@ -2,6 +2,7 @@ import type { AgentState, ExecutionAdapter, TradeIntent } from "../agent/types";
 import { proposePosition, type SizingConfig, type SizingLimits } from "../agent/sizing";
 import { roundTripCost, type FeeSchedule, type StylePair } from "../metrics/fees";
 import type { Cluster, CostPoint } from "../types";
+import type { EntryConditions } from "../agent/postmortem";
 
 /**
  * The whole decision path, against real prices, without an order.
@@ -34,6 +35,8 @@ import type { Cluster, CostPoint } from "../types";
 
 export interface ShadowTrade {
   at: number;
+  /** Which contract. Needed once one file holds rows from several desks. */
+  symbol: string;
   intentId: string;
   signalKind: string;
   reason: string;
@@ -72,6 +75,26 @@ export interface ShadowTrade {
 
   /** Set when the stop or the target would have been hit inside the window. */
   resolved?: "stop" | "target" | "open";
+
+  /**
+   * Highest and lowest mid seen while the trade was open.
+   *
+   * Written by the runner from the same live feed the control server samples,
+   * so the excursion derived from these is the same measurement the live path
+   * takes rather than an approximation of it. That equivalence is what lets the
+   * loss anatomy treat shadow and live rows identically.
+   */
+  high?: number;
+  low?: number;
+
+  /**
+   * The full entry state, captured with the same function the live path uses.
+   *
+   * Without this a shadow row could only be grouped by the handful of context
+   * fields above, and the conditional analysis — the part that most needs the
+   * extra sample size shadow exists to provide — could not read it at all.
+   */
+  conditions?: EntryConditions;
 }
 
 export interface ShadowOptions {
@@ -148,6 +171,7 @@ export function createShadowAdapter(options: ShadowOptions): ExecutionAdapter & 
 
       trades.push({
         at: Date.now(),
+        symbol: options.symbol,
         intentId: intent.id,
         signalKind: intent.signalKind,
         reason: intent.reason,

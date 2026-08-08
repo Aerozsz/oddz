@@ -1,4 +1,5 @@
 import type { EntryConditions, TradeRecord } from "./postmortem";
+import { evidenceFor } from "./evidence";
 
 /**
  * What the losses have in common, measured rather than modelled.
@@ -462,17 +463,38 @@ const pct = (x: number) => `${(x * 100).toFixed(0)}%`;
 const usd = (x: number) => `${x < 0 ? "-" : ""}$${Math.abs(x).toFixed(2)}`;
 
 export function analyse(trades: TradeRecord[], minPerArm = 5): Report {
-  const n = trades.length;
-  const wins = trades.filter((t) => t.outcome === "win").length;
+  /*
+   * Each section reads only the evidence entitled to answer it.
+   *
+   * Filtered here rather than at the call sites because forgetting is silent:
+   * an expectancy that quietly included shadow rows would not throw, it would
+   * simply be optimistic, and the first symptom would be sizing up into an edge
+   * that had never been collected. See evidence.ts for the rule.
+   */
+  const priced = evidenceFor(trades, "expectancy");
+  const observed = evidenceFor(trades, "entry-quality");
+
+  const n = priced.length;
+  const wins = priced.filter((t) => t.outcome === "win").length;
   const [winLo, winHi] = wilson(wins, n);
-  const rs = trades.map(rMultiple).filter((x): x is number => x !== null);
+  const rs = priced.map(rMultiple).filter((x): x is number => x !== null);
   const expectancyR = meanCi(rs);
-  const netUsd = trades.reduce((a, t) => a + (t.realisedPnlUsd ?? 0), 0);
-  const anatomy = lossAnatomy(trades);
-  const all = splits(trades, minPerArm);
+  const netUsd = priced.reduce((a, t) => a + (t.realisedPnlUsd ?? 0), 0);
+  // Anatomy and splits read the wider pool: both are derived from price.
+  const anatomy = lossAnatomy(evidenceFor(trades, "loss-anatomy"));
+  const all = splits(observed, minPerArm);
   const actionable = all.filter((s) => s.decisive);
 
   const caveats: string[] = [];
+  const shadowCount = trades.length - priced.length;
+  if (shadowCount > 0) {
+    caveats.push(
+      `${shadowCount} of ${trades.length} records are shadow trades — real decisions on a real book whose ` +
+        `fill was modelled rather than observed. They count toward the loss anatomy and the conditions table, ` +
+        `which are questions about what price did. They are excluded from the win rate, the expectancy and ` +
+        `the net figure, which are questions about what our orders did.`,
+    );
+  }
   /*
    * Measured against the number of comparisons actually run, not a fixed count.
    *

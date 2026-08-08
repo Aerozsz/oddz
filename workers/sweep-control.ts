@@ -1260,6 +1260,8 @@ async function recordClosedTrade(desk: Desk) {
   const record: TradeRecord = {
     id: `${desk.symbol}-${openedAt}`,
     symbol: desk.symbol,
+    // A real fill, so every question may be answered from it. See evidence.ts.
+    source: "live",
     side: remembered.side,
     openedAt,
     closedAt,
@@ -2093,6 +2095,7 @@ function armDesk(desk: Desk) {
        * strategy is, which is exactly backwards.
        */
       desk.pendingConditions = captureConditions(state, proposal.side, {
+        news: newsFor(desk.symbol, 20).map((n) => ({ at: n.at, impact: n.impact })),
         targetPrice: proposal.targetPrice,
         biasConviction: _intent.confidence,
         signalKind: _intent.signalKind,
