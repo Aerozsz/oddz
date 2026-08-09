@@ -488,6 +488,14 @@ interface Desk {
    * again on every sweep until the position was gone.
    */
   scaledOut: number;
+  /**
+   * How many times this position's target has been moved further out.
+   *
+   * Per position, and the reason the counter exists at all: without it the
+   * target retreated every time price came near, so a winning position could
+   * never reach a target and never closed in profit.
+   */
+  targetRolls: number;
   /** The most recent profit-management decision, for the page to show. */
   profit: ProfitDecision | null;
   /**
@@ -543,6 +551,7 @@ function newDesk(symbol: string): Desk {
     hold: null,
     excursion: null,
     scaledOut: 0,
+    targetRolls: 0,
     profit: null,
     excursionFromOpen: false,
     exitIntent: null,
@@ -992,6 +1001,7 @@ async function maintainBrackets() {
         targetPrice: target,
         highWaterPrice: desk.excursion.peakPrice(),
         scaledOut: desk.scaledOut,
+        targetRolls: desk.targetRolls,
         feePct,
         thesisHealth: hold.thesisHealth,
         config: {
@@ -1050,7 +1060,10 @@ async function maintainBrackets() {
         }
         const j = journal[desk.symbol];
         journalOpen(desk.symbol, { ...j, openedAt: j?.openedAt ?? desk.positionOpenedAt, targetPrice: rolledTarget } as Parameters<typeof journalOpen>[1]);
-        log(`TARGET ROLLED ${desk.symbol}: ${target} → ${moved.stopPrice} — ${desk.profit?.notes[0] ?? ""}`);
+        // Counted only once the exchange accepted the new target, so a refused
+        // roll does not consume one of the position's two chances.
+        desk.targetRolls++;
+        log(`TARGET ROLLED ${desk.symbol} (${desk.targetRolls}/2): ${target} → ${moved.stopPrice} — ${desk.profit?.notes[0] ?? ""}`);
       } catch (err) {
         log(`target roll ${desk.symbol} declined: ${redact(err instanceof Error ? err.message : String(err))}`);
       }
@@ -1134,6 +1147,7 @@ async function enforceMaxHold() {
       desk.excursionFromOpen = false;
       desk.exitIntent = null;
       desk.scaledOut = 0;
+      desk.targetRolls = 0;
       desk.profit = null;
       continue;
     }
@@ -2168,6 +2182,7 @@ function armDesk(desk: Desk) {
         desk.excursionFromOpen = !!desk.excursion;
         desk.exitIntent = null;
         desk.scaledOut = 0;
+        desk.targetRolls = 0;
         desk.profit = null;
         acceptedSinceRejection++;
         relaxHeadroom(acceptedSinceRejection);

@@ -82,6 +82,25 @@ export interface ProfitConfig {
   extendNearTarget: number;
   /** Thesis health required to extend rather than take the target. */
   extendMinHealth: number;
+  /**
+   * How many times one position's target may be rolled out. 0 disables.
+   *
+   * Unbounded rolling is not "letting a winner run", it is removing the exit.
+   * There is almost always another cluster beyond the current one, so a target
+   * that extends whenever price approaches it retreats every time it is nearly
+   * reached, and the position cannot close at a profit however far it goes. A
+   * hard count is the only thing that makes extension safe, because every
+   * individual roll looks justified.
+   */
+  maxTargetRolls: number;
+  /**
+   * The furthest a rolled target may sit from entry, in multiples of risk.
+   *
+   * A second, independent ceiling. The roll count bounds how often; this bounds
+   * how far, so a single enormous jump to a distant cluster cannot do what a
+   * sequence of rolls is prevented from doing.
+   */
+  maxTargetR: number;
 }
 
 export const DEFAULT_PROFIT: ProfitConfig = {
@@ -98,6 +117,10 @@ export const DEFAULT_PROFIT: ProfitConfig = {
   scaleOutFraction: 0.4,
   extendNearTarget: 0.85,
   extendMinHealth: 0.7,
+  // Two. Enough to follow a cascade through a second and third cluster, few
+  // enough that the position still has a place it is trying to get to.
+  maxTargetRolls: 2,
+  maxTargetR: 6,
 };
 
 export interface ProfitInput {
@@ -113,6 +136,8 @@ export interface ProfitInput {
   highWaterPrice: number;
   /** Fraction of the original position already taken off, 0..1. */
   scaledOut: number;
+  /** How many times this position's target has already been moved out. */
+  targetRolls: number;
   /** Round-trip fee in percent of notional, for the scale-out arithmetic. */
   feePct: number;
   /**
@@ -275,17 +300,43 @@ export function profitDecision(input: ProfitInput): ProfitDecision {
       const beyond = long ? state.nearestAbove : state.nearestBelow;
       const further = beyond !== null && (long ? beyond.price > targetPrice : beyond.price < targetPrice);
 
-      if (further && input.thesisHealth >= cfg.extendMinHealth) {
+      /*
+       * Three gates, all of which must hold, because each closes a different
+       * way this turns into a position that never takes profit.
+       *
+       * The roll count stops the target retreating every time price nearly
+       * reaches it — the failure that actually happened, where a winner could
+       * not close because there is always another cluster further out and every
+       * single roll looked justified on its own.
+       *
+       * The distance ceiling stops one jump doing what a sequence cannot.
+       *
+       * The trail requirement is the important one. Moving the target only
+       * makes sense if something else has become the exit; with the trail
+       * unarmed, rolling removes the only thing that would have closed the
+       * position in profit and replaces it with nothing.
+       */
+      const rollsLeft = input.targetRolls < cfg.maxTargetRolls;
+      const newR = beyond !== null ? Math.abs(beyond.price - entryPrice) / riskDistance : Infinity;
+      const withinReach = newR <= cfg.maxTargetR;
+      const trailIsLive = rPeak >= cfg.trailArmsAtR - 1e-9;
+
+      if (further && input.thesisHealth >= cfg.extendMinHealth && rollsLeft && withinReach && trailIsLive) {
         newTarget = beyond!.price;
         notes.push(
           `arrived at ${targetPrice} with the reasoning ${(input.thesisHealth * 100).toFixed(0)}% intact and ` +
             `another cluster at ${beyond!.price} — target rolled out, with the trail behind it`,
         );
       } else if (further) {
-        notes.push(
-          `there is a level at ${beyond!.price} beyond the target, but the reasoning is only ` +
-            `${(input.thesisHealth * 100).toFixed(0)}% intact — taking the target that was planned`,
-        );
+        const why = !rollsLeft
+          ? `the target has already been rolled ${input.targetRolls} time${input.targetRolls === 1 ? "" : "s"} — ` +
+            `it stands now, so this position has somewhere it is actually trying to get to`
+          : !withinReach
+            ? `${beyond!.price} is ${newR.toFixed(1)}R from entry, past the ${cfg.maxTargetR}R ceiling`
+            : !trailIsLive
+              ? `the trail has not armed yet, so rolling the target would leave nothing to close this in profit`
+              : `the reasoning is only ${(input.thesisHealth * 100).toFixed(0)}% intact`;
+        notes.push(`there is a level at ${beyond!.price} beyond the target, but ${why} — taking the target that was planned`);
       }
     }
   }
