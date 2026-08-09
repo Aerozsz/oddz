@@ -2514,6 +2514,38 @@ function status() {
   let mode: "none" | "testnet" | "live" = "none";
   if (creds) mode = process.env.BINANCE_LIVE === "1" ? "live" : "testnet";
 
+  /*
+   * Where every number on this page came from.
+   *
+   * Added after a session spent looking at a balance that did not match the
+   * wallet on screen and a ticker that was not the one being tested. Both had
+   * the same shape: the page showed a value without showing which account or
+   * which contract produced it, so there was no way to tell a wrong number from
+   * a right number about something else. A figure whose provenance is invisible
+   * cannot be checked, and one that cannot be checked will eventually be
+   * trusted when it should not be.
+   *
+   * `venue` is the actual host being signed against rather than a label derived
+   * from it, so switching BINANCE_LIVE can never leave the two disagreeing.
+   * `wallet` names which balance this is, because the USDⓈ-M futures wallet and
+   * the spot wallet are different money and the demo site shows both.
+   * `staleFor` exists so a frozen number reads as frozen instead of current.
+   */
+  const cfgNow = creds ? (() => { try { return loadConfig(); } catch { return null; } })() : null;
+  const provenance = {
+    venue: cfgNow?.baseUrl ?? "not configured",
+    live: cfgNow?.live ?? false,
+    wallet: "USDⓈ-M futures",
+    // Milliseconds since the account was last read successfully. The account
+    // sweep runs every 20s, so anything past a minute means reads are failing.
+    staleForMs: account.at > 0 ? Date.now() - account.at : null,
+    symbolsConfigured: SYMBOLS,
+    symbolsRunning: allDesks().filter((d) => d.feed).map((d) => d.symbol),
+    focus,
+    /** Set when SWEEP_SYMBOLS/SWEEP_SYMBOL were not set and the default applied. */
+    symbolsAreDefault: !process.env.SWEEP_SYMBOLS?.trim() && !process.env.SWEEP_SYMBOL?.trim(),
+  };
+
   // Aggregated across desks: the loop is one loop from the operator's side even
   // though it is several runners underneath, and a per-desk breakdown that
   // disagreed with the headline would be worse than either alone.
@@ -2579,6 +2611,7 @@ function status() {
           flow: state.flow,
         }
       : null,
+    provenance,
     account: {
       at: account.at,
       error: account.error,
@@ -4373,6 +4406,7 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
   <button id="btnRefresh">Refresh account</button>
   <button id="btnKill" class="danger">Kill</button>
 </div>
+<div id="provBanner"></div>
 
 <div id="venueNote"></div>
 <div id="protNote"></div>
@@ -4930,8 +4964,51 @@ function render(s){
   $("execNote").innerHTML=s.execution.available?"":
     '<div class="banner warn"><b>Read-only.</b><span>'+s.execution.reason+'</span></div>';
 
+  /*
+   * Provenance, above everything.
+   *
+   * Two failures this exists to make impossible: a balance from the wrong
+   * wallet or a stale read looking current, and a contract that is the default
+   * rather than the one being tested. Both were invisible before because the
+   * page showed values without showing where they came from.
+   */
+  const pv=s.provenance;
+  if(pv){
+    const warn=[];
+    if(pv.symbolsAreDefault){
+      warn.push("<b>No symbol was set</b>, so this defaulted to "+pv.symbolsConfigured.join(", ")+
+        ". Set SWEEP_SYMBOLS (or SWEEP_SYMBOL) and restart if you meant something else.");
+    }
+    const running=pv.symbolsRunning.join(",");
+    if(running && running!==pv.symbolsConfigured.join(",")){
+      warn.push("<b>Configured "+pv.symbolsConfigured.join(", ")+" but running "+running+".</b>");
+    }
+    // A minute is three missed sweeps. Past that the number on screen is not
+    // what the account holds, and saying "stale" beats showing it plainly.
+    if(pv.staleForMs!==null&&pv.staleForMs>60000){
+      warn.push("<b>The account has not been read for "+Math.round(pv.staleForMs/1000)+"s</b> — "+
+        "the balance and positions below are stale."+(s.account.error?" "+String(s.account.error).replace(/</g,"&lt;"):""));
+    }
+    if(pv.staleForMs===null&&s.hasCredentials){
+      warn.push("<b>The account has never been read.</b>"+(s.account.error?" "+String(s.account.error).replace(/</g,"&lt;"):""));
+    }
+    // split rather than a regex: this string is inside a template literal, and
+    // an escaped slash there resolves to a bare slash, which closes the regex.
+    const host=String(pv.venue).split("//").pop();
+    $("provBanner").innerHTML=
+      '<div style="display:flex;gap:14px;flex-wrap:wrap;align-items:center;padding:7px 12px;margin-bottom:12px;'+
+      'background:var(--surface);border:1px solid '+(pv.live?"var(--bad)":"var(--hair)")+';border-radius:var(--r);font-size:11px">'+
+        '<span class="muted">signing against</span> <b style="color:'+(pv.live?"var(--bad)":"var(--ink)")+'">'+host+
+          (pv.live?" — REAL MONEY":"")+'</b>'+
+        '<span class="muted">balance is the</span> <b>'+pv.wallet+'</b> <span class="muted">wallet</span>'+
+        '<span class="muted">watching</span> <b>'+(running||pv.symbolsConfigured.join(", "))+'</b>'+
+        '<span class="muted">read '+(pv.staleForMs===null?"never":Math.round(pv.staleForMs/1000)+"s ago")+'</span>'+
+      '</div>'+
+      warn.map(w=>'<div class="banner warn" style="margin-bottom:10px"><span class="icon" style="color:var(--warn)">!</span><div>'+w+'</div></div>').join("");
+  }
+
   const m=s.market;
-  $("mid").textContent=m?n(m.mid):"—";
+  $("mid").textContent=n(m?m.mid:null);
   $("session").textContent=m?"Nasdaq "+m.session:"—";
   $("lwi").textContent=m?n(m.lwi,2):"—";
   $("lwiSides").textContent=m?(m.warm?"":"cold · ")+"bid "+n(m.lwiBid,2)+" / ask "+n(m.lwiAsk,2):"—";
