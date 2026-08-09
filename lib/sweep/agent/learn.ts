@@ -301,6 +301,22 @@ const NUMERIC_FIELDS: { key: keyof EntryConditions; label: string; unit?: string
   { key: "aggressorImbalance", label: "aggression pushing the trade's way" },
   { key: "takerIntensity", label: "aggressive notional per second", unit: "$" },
   { key: "aggressorConcentration", label: "aggression concentrated in few orders" },
+
+  /*
+   * What was going on outside the book.
+   *
+   * These were recorded on every trade and split on by nothing, which made the
+   * whole news and social apparatus decoration in exactly the way its own
+   * comments warned against: collected diligently, attached faithfully, and
+   * incapable of changing an opinion. Each is a covariate and none is a cause —
+   * a split here says trades taken during a tape shock behaved differently, not
+   * that the shock did it. That is still the only question worth asking of them.
+   */
+  { key: "shockLevel", label: "tape shock at entry" },
+  { key: "chatterVelocity", label: "crowd chatter vs baseline", unit: "x" },
+  { key: "newsImpactMax", label: "strongest headline live at entry" },
+  { key: "minutesSinceNews", label: "minutes since the last headline" },
+  { key: "newsCount6h", label: "headlines in the previous six hours" },
 ];
 
 const CATEGORICAL_FIELDS: { key: keyof EntryConditions; label: string }[] = [

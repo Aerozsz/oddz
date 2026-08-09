@@ -22,6 +22,7 @@ import { EMPTY_FUNDING, type FundingSettlement, readFunding } from "./metrics/fu
 import { EMPTY_MARKOUT, MarkoutTracker } from "./metrics/markout";
 import { PLACEHOLDER_SESSION, sessionState } from "./metrics/session";
 import { CascadeOutcomes, EMPTY_CALIBRATION } from "./metrics/cascade-outcomes";
+import { ShockDetector, NO_SHOCK } from "./metrics/shock";
 import { ParticipantTracker } from "./metrics/participants";
 import { WithdrawalTracker } from "./metrics/withdrawal";
 import type {
@@ -67,6 +68,8 @@ export class Engine {
   private stream: StreamClient | null = null;
   private tracker = new WithdrawalTracker();
   private participants = new ParticipantTracker();
+  /** Regime-break detector fed from the same stream. See metrics/shock.ts. */
+  private shock = new ShockDetector();
   private markout = new MarkoutTracker();
   private fundingHistory: FundingSettlement[] = [];
 
@@ -240,6 +243,28 @@ export class Engine {
     };
   };
 
+  /** Spread in basis points from the live book, or 0 when it is not two-sided. */
+  private spreadBpsNow(): number {
+    const bid = this.book.bestBid();
+    const ask = this.book.bestAsk();
+    const mid = this.book.mid();
+    return bid && ask && mid ? ((ask - bid) / mid) * 10_000 : 0;
+  }
+
+  /**
+   * The tape's own regime-break reading. Milliseconds, no network.
+   *
+   * Every news source is at best seconds late and usually minutes; the order
+   * book is not late, because it is where the event happens. See metrics/shock.ts.
+   */
+  readShock(now = Date.now()) {
+    try {
+      return this.shock.read(this.spreadBpsNow(), now);
+    } catch {
+      return NO_SHOCK;
+    }
+  }
+
   getSnapshot = () => this.snapshot;
 
   /* -------------------------------------------------------------- bootstrap */
@@ -387,7 +412,12 @@ export class Engine {
       case "depthUpdate": {
         const diff = d as unknown as DepthDiff;
         const midNow = this.book.mid();
-        if (midNow) this.participants.onDepthDiff(diff.b ?? [], diff.a ?? [], midNow, Date.now());
+        if (midNow) {
+          this.participants.onDepthDiff(diff.b ?? [], diff.a ?? [], midNow, Date.now());
+          // Same tick, so the shock baseline advances with real elapsed time
+          // rather than with however often anyone happens to ask for it.
+          this.shock.onTick(midNow, this.spreadBpsNow(), Date.now());
+        }
         const ok = this.book.apply(diff);
         if (!ok) void this.resync();
         // Only a book that is actually applying diffs clears the backoff. The
@@ -420,6 +450,7 @@ export class Engine {
         this.last = price;
         this.tracker.addTrade(notional, trade.buyerIsMaker);
         this.participants.onTrade(trade, Date.now());
+        this.shock.onTrade(trade, Date.now());
         this.markout.onTrade(trade, Date.now());
         if (notional >= CONFIG.largeTradeNotional) {
           this.largeTrades.unshift(trade);

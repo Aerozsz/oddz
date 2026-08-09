@@ -154,9 +154,34 @@ export interface NewsPressure {
   count6h: number;
   /** The most recent headline, for display and the post-mortem. Never parsed. */
   latest: string | null;
+  /**
+   * The tape's own verdict, which arrives in milliseconds rather than minutes.
+   *
+   * Every network source here is at best seconds late and usually minutes. The
+   * order book is not late — it is where the event happens. So this is folded
+   * into the same `impact` the sizer reads, and in practice it is what fires
+   * first on anything that matters.
+   */
+  shockLevel: number;
+  shockReasons: string[];
+  /**
+   * How often this ticker is being mentioned across forums and social, against
+   * its own baseline. 1 is normal.
+   *
+   * The only thing crowd sources are worth to a machine. Reading a Reddit thread
+   * yields nothing actionable; a sixfold jump in how often BTC is named inside
+   * five minutes says the crowd has noticed something, needs no judgement about
+   * what any single post meant, and arrives well before a wire writes it up.
+   * Folded into `impact` so it can only ever make the agent smaller, never
+   * bolder — a chatter spike is not a direction.
+   */
+  chatterVelocity: number;
 }
 
-export const NO_NEWS: NewsPressure = { impact: 0, minutesSince: null, count6h: 0, latest: null };
+export const NO_NEWS: NewsPressure = {
+  impact: 0, minutesSince: null, count6h: 0, latest: null,
+  shockLevel: 0, shockReasons: [], chatterVelocity: 1,
+};
 
 export interface AgentState {
   ts: number;

@@ -151,7 +151,19 @@ export async function listOpenOrders(cfg: BinanceConfig, symbol: string): Promis
     signedRequest<RawOrder[]>(cfg, "GET", "/fapi/v1/openOrders", { symbol }),
     signedRequest<RawAlgoOrder[]>(cfg, "GET", "/fapi/v1/openAlgoOrders", { symbol }).catch(() => []),
   ]);
-  return [...plain.map(toOrder), ...algo.map(fromAlgo)];
+  /*
+   * Shape-checked, not just error-checked.
+   *
+   * The `.catch` above handles a request that fails. It does not handle one that
+   * succeeds and returns something other than a list — which Binance does, on
+   * occasion, by answering `{"code":-1130,"msg":...}` with HTTP 200. Mapping
+   * over that threw, the throw propagated out of checkProtection, and the caller
+   * treated it as "could not check" — so a position missing its stop would keep
+   * missing it for as long as the malformed response persisted, which is the
+   * exact failure this function exists to prevent.
+   */
+  const list = <T,>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
+  return [...list<RawOrder>(plain).map(toOrder), ...list<RawAlgoOrder>(algo).map(fromAlgo)];
 }
 
 export async function cancelOrder(

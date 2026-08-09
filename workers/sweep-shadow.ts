@@ -31,10 +31,10 @@ import { loadEnv } from "./load-env";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { attachCalendar } from "../lib/sweep/metrics/event-store";
-import { newsPressure } from "../lib/sweep/metrics/news-store";
 import { getEngine } from "../lib/sweep/engine";
 import { attachExecution, createSweepFeed, intentId } from "../lib/sweep/agent";
 import { attachNews } from "../lib/sweep/agent/feed";
+import { livePressure } from "../lib/sweep/agent/pressure";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import { canPostEntry, DEFAULT_FEES, parseFeeTiers, type FeeSchedule } from "../lib/sweep/metrics/fees";
 import {
@@ -48,9 +48,10 @@ import { SYMBOLS } from "../lib/sweep/config";
 
 loadEnv();
 
-// Live headlines reach the sizer through this. Without it the store is
-// written and displayed but changes no decision, which is what it did before.
-attachNews((symbol, now) => newsPressure(symbol, now));
+// The tape, the crowd and the wires reach the sizer through this. Shared with
+// the control server so a shadow trade and a live one are scored against the
+// same reading of the outside world.
+attachNews(livePressure);
 
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 22) {

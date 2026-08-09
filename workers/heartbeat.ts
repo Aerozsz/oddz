@@ -106,11 +106,21 @@ export interface HeartbeatRead {
   at: number;
   ageMs: number;
   stats: Heartbeat["stats"];
+  /**
+   * Who is writing it.
+   *
+   * Needed because a worker can now legitimately host another worker's job — the
+   * control server runs the news poller in-process and beats on its behalf, so
+   * "is sweep-news running" and "is somebody else running it" are different
+   * questions, and answering the second with the first makes the server stand
+   * down in deference to itself.
+   */
+  pid: number;
 }
 
 export function readHeartbeat(name: string): HeartbeatRead {
   const path = heartbeatPath(name);
-  const empty: HeartbeatRead = { running: false, stale: false, startedAt: 0, at: 0, ageMs: 0, stats: {} };
+  const empty: HeartbeatRead = { running: false, stale: false, startedAt: 0, at: 0, ageMs: 0, stats: {}, pid: 0 };
   if (!existsSync(path)) return empty;
   try {
     const hb = JSON.parse(readFileSync(path, "utf8")) as Heartbeat;
@@ -124,6 +134,7 @@ export function readHeartbeat(name: string): HeartbeatRead {
       at: hb.at,
       ageMs,
       stats: hb.stats ?? {},
+      pid: hb.pid ?? 0,
     };
   } catch {
     return empty;

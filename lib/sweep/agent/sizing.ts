@@ -499,15 +499,31 @@ export function proposePosition(input: SizingInput): SizingResult {
   const news = state.news;
   let newsScale = 1;
   if (news.impact >= 2 && news.minutesSince !== null && news.minutesSince < 60) {
-    const freshness = 1 - news.minutesSince / 60;
+    /*
+     * A shock or a chatter spike decays far faster than a headline.
+     *
+     * The book re-forms within minutes of a break, and mention velocity is
+     * measured over a rolling five, while a story stays "recent" for an hour.
+     * One window for all three would keep the agent standing back long after
+     * the market had settled — and on the crowd reading it would double-count
+     * the decay, since a spike already expires by falling out of its own
+     * window.
+     */
+    const fast = (news.shockLevel >= 2 && news.shockReasons.length > 0) || news.chatterVelocity > 3;
+    const window = fast ? 10 : 60;
+    if (news.minutesSince >= window) {
+      // Nothing: the shock has passed and the headline is now history.
+    } else {
+    const freshness = 1 - news.minutesSince / window;
     // High-impact halves at its freshest; medium takes a fifth off.
     const depth = news.impact >= 3 ? 0.5 : 0.2;
     newsScale = 1 - depth * freshness;
     reasoning.push(
       `${news.impact >= 3 ? "high" : "medium"}-impact news ${Math.round(news.minutesSince)} min ago — ` +
         `size scaled to ${(newsScale * 100).toFixed(0)}% while the book reacts to it` +
-        (news.latest ? ` (${news.latest.slice(0, 70)})` : ""),
+        (news.shockReasons.length ? ` — ${news.shockReasons[0]}` : news.latest ? ` (${news.latest.slice(0, 70)})` : ""),
     );
+    }
   }
 
   // A projected earnings date derates; a confirmed one already refused above.

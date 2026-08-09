@@ -19,7 +19,7 @@
  * the cost actually paid cannot disagree.
  */
 
-import { readHeartbeat } from "./heartbeat";
+import { beat, readHeartbeat } from "./heartbeat";
 import { loadEnv } from "./load-env";
 import { randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
@@ -73,7 +73,10 @@ import {
   ConstraintMemory, classifyConstraint,
   type ConstraintEvent, type ConstraintKind,
 } from "../lib/sweep/exchange/constraints";
-import { newsFor, newsPressure } from "../lib/sweep/metrics/news-store";
+import { newsFor, newsPath } from "../lib/sweep/metrics/news-store";
+import { startNewsPoller, type NewsPoller } from "../lib/sweep/metrics/news-poller";
+import { available as newsSources, unavailable as newsOff } from "../lib/sweep/metrics/sources";
+import { livePressure } from "../lib/sweep/agent/pressure";
 import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
 import { attachExecution, intentId, type ExecutionRunner } from "../lib/sweep/agent";
 import { CONFIG, SYMBOLS, isCalibrated } from "../lib/sweep/config";
@@ -84,9 +87,10 @@ import { CONFIG, SYMBOLS, isCalibrated } from "../lib/sweep/config";
  * defined" deep inside a stream callback, which is a miserable first
  * experience for something that is really just a version mismatch.
  */
-// Live headlines reach the sizer through this. Without it the store is
-// written and displayed but changes no decision, which is what it did before.
-attachNews((symbol, now) => newsPressure(symbol, now));
+// The tape, the crowd and the wires reach the sizer through this. Shared with
+// the shadow run so a shadow trade and a live one are scored against the same
+// reading of the outside world.
+attachNews(livePressure);
 
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 22) {
@@ -3568,6 +3572,37 @@ const server = createServer(async (req, res) => {
             b.running ? "ok" : "warn");
         }
 
+        /*
+         * The feeds, checked separately because they are not a worker any more.
+         *
+         * This process collects them itself, so "not running" here does not mean
+         * the operator forgot a command — it means something inside this server
+         * failed, which is a different problem with a different fix. Erroring
+         * sources are reported but not treated as broken: a rate-limited public
+         * RSSHub or a 4chan outage degrades the feed and does not stop it, and a
+         * check that goes red every time one of thirteen sources hiccups trains
+         * the operator to ignore it.
+         */
+        {
+          const st = newsPoller?.status();
+          const external = externalNewsRunning();
+          const hb = readHeartbeat("sweep-news");
+          const collecting = Boolean(st) || external;
+          const errs = String(st?.errors ?? hb.stats.errors ?? "");
+          const nErr = errs ? errs.split(" | ").length : 0;
+          const total = st?.sources ?? Number(hb.stats.sources ?? 0);
+          add("news + social feeds", collecting,
+            !collecting
+              ? "not collecting"
+              : `${total - nErr}/${total} sources live${external ? " (standalone sweep:news)" : " (in this process)"}` +
+                `, ${st?.recorded ?? hb.stats.recorded ?? 0} headlines recorded` +
+                (nErr ? ` · ${nErr} erroring: ${errs.slice(0, 160)}` : ""),
+            collecting
+              ? undefined
+              : "This server starts the collector itself, so this should never be off. Restart it.",
+            collecting ? "ok" : "bad");
+        }
+
         const s2 = allDesks().reduce(
           (acc, d) => {
             const s = d.runner?.stats();
@@ -3863,7 +3898,22 @@ const server = createServer(async (req, res) => {
         const net = scored.reduce((a, t) => a + (t.outcomes.t900.netUsd as number), 0);
         const fees = scored.reduce((a, t) => a + t.feeUsd, 0);
 
+        const newsStat = newsPoller?.status();
+        const newsBeat = readHeartbeat("sweep-news");
         send(res, 200, {
+          news: {
+            // Whoever owns it: this process, or a standalone poller.
+            collecting: Boolean(newsStat) || externalNewsRunning(),
+            inProcess: Boolean(newsStat),
+            sources: newsStat?.sources ?? Number(newsBeat.stats.sources ?? 0),
+            recorded: newsStat?.recorded ?? Number(newsBeat.stats.recorded ?? 0),
+            errors: String(newsStat?.errors ?? newsBeat.stats.errors ?? ""),
+            velocity: String(newsStat?.velocity ?? newsBeat.stats.velocity ?? ""),
+            unavailable: String(newsStat?.unavailable ?? newsBeat.stats.unavailable ?? ""),
+            latest: newsFor(SYMBOLS[0] ?? "BTCUSDT", 6).map((n) => ({
+              at: n.at, headline: n.headline, impact: n.impact, source: n.source,
+            })),
+          },
           paper: { ...paper, lines: undefined, beat: paperBeat },
           shadow: {
             beat: shadowBeat,
@@ -4005,11 +4055,78 @@ server.on("error", (err: NodeJS.ErrnoException) => {
   process.exit(1);
 });
 
+/* ------------------------------------------------------------------- news */
+
+/**
+ * The outside world, collected by this process.
+ *
+ * It used to be a second command in a second terminal. That is a setup step
+ * dressed as a feature: an operator who has to remember `npm run sweep:news`
+ * after every reboot will eventually not, and forgetting it raises no error —
+ * it produces an agent trading with no awareness of anything outside its own
+ * order book, which looks exactly like a quiet week. The feeds are not optional
+ * to how this thing decides, so they are not optional to start.
+ *
+ * A standalone poller still wins if one is running. Deferring to it rather than
+ * refusing to start means the operator who *does* want a separate process — on
+ * another machine, or to watch a source misbehave — gets it without a flag, and
+ * the store never sees two collectors competing for the same rate limits.
+ */
+let newsPoller: NewsPoller | null = null;
+let stopNewsBeat: (() => void) | null = null;
+
+/**
+ * Somebody else is collecting.
+ *
+ * The pid check is what makes this safe: this process beats on `sweep-news`'s
+ * behalf while it owns the poller, so without it the server would read its own
+ * heartbeat, conclude a standalone collector exists, and shut down the poller it
+ * had just started — every sixty seconds, forever.
+ */
+function externalNewsRunning(): boolean {
+  const hb = readHeartbeat("sweep-news");
+  return hb.running && hb.pid !== process.pid;
+}
+
+function superviseNews() {
+  const external = externalNewsRunning();
+
+  if (external && newsPoller) {
+    newsPoller.stop();
+    newsPoller = null;
+    stopNewsBeat?.();
+    stopNewsBeat = null;
+    log("news: standalone sweep:news is running — handing collection over to it");
+    return;
+  }
+  if (external || newsPoller) return;
+
+  newsPoller = startNewsPoller({
+    recordedBy: "sweep:control",
+    onHigh: (headline, source) => log(`news: HIGH ${source} — ${headline.slice(0, 140)}`),
+  });
+  stopNewsBeat = beat("sweep-news", () => ({
+    ...(newsPoller?.status() ?? { recorded: 0, cycles: 0, sources: 0, unavailable: "", errors: "", velocity: "", lastPollAt: 0 }),
+    host: "sweep-control",
+    out: newsPath(),
+  }));
+
+  const off = newsOff();
+  log(
+    `news: collecting from ${newsSources().length} sources in-process` +
+      (off.length ? ` (${off.length} unavailable: ${off.map((s) => s.id).join(", ")})` : ""),
+  );
+}
+
 server.listen(PORT, HOST, () => {
   // The file may still say armed from the last session; readLimits() has
   // already overridden it, and writing it back keeps the two in step.
   writeLimits(limits);
   startEngine();
+  superviseNews();
+  // Re-checked rather than decided once, so starting or stopping a standalone
+  // poller mid-session hands collection over either way without a restart.
+  setInterval(superviseNews, 60_000).unref?.();
   void (async () => {
     // First, because it decides whether anything else can possibly work and
     // needs no credentials to answer.
@@ -4081,6 +4198,10 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     stopExecutionLoop();
     stopEngine();
+    newsPoller?.stop();
+    // Marks the heartbeat stopped rather than leaving it to go stale, so the
+    // panel reads "not running" immediately instead of ninety seconds late.
+    stopNewsBeat?.();
     server.close();
     // Positions are deliberately left open: their protection is the stop
     // resting on the exchange, which outlives this process.
@@ -4134,8 +4255,8 @@ const COMMAND_GROUPS: { title: string; blurb: string; items: Cmd[] }[] = [
       { cmd: "SWEEP_PAIRS_ARM=1 npm run sweep:pairs", risk: "orders",
         what: "The same loop, sending real orders." },
       { cmd: "npm run sweep:news", risk: "safe",
-        what: "Pulls headlines from public RSS every 3 minutes into the news store.",
-        note: "Nothing else fetches news. Without this running the store stays empty, the panel shows nothing, and the news derate in the sizer never fires." },
+        what: "Collects exchange announcements, Reddit, 4chan /biz/, Hacker News, X and the wires on a continuous staggered clock. Forums and social drive mention velocity only — never recorded as headlines.",
+        note: "You do not need this. sweep:control runs the same collector in-process, and stands down automatically if it sees this one running. Use it only to collect on a machine that is not running the server, or to watch a source misbehave." },
       { cmd: "npm run sweep:mcp", risk: "safe",
         what: "MCP server so an agent can read live market state and record news or events.",
         note: "Still single-symbol — it only sees the first contract." },
@@ -4574,7 +4695,11 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
     <div class="tile"><span class="k">Evidence log</span><span class="v" id="rPaper">—</span><span class="d" id="rPaperD">npm run sweep:paper</span></div>
     <div class="tile"><span class="k">Shadow trades</span><span class="v" id="rShadow">—</span><span class="d" id="rShadowD">npm run sweep:shadow</span></div>
     <div class="tile"><span class="k">Shadow net P&amp;L</span><span class="v" id="rNet">—</span><span class="d" id="rNetD">after fees</span></div>
+    <div class="tile"><span class="k">News + social</span><span class="v" id="rNews">—</span><span class="d" id="rNewsD">sources live</span></div>
   </div>
+  <table style="margin-top:10px"><thead><tr><th style="text-align:left">Time</th><th style="text-align:left">Headline</th><th style="text-align:left">Source</th><th style="text-align:left">Impact</th></tr></thead>
+  <tbody id="rNewsRows"><tr><td colspan="4" class="muted">nothing collected yet</td></tr></tbody></table>
+  <p class="note" id="rNewsNote"></p>
   <table style="margin-top:10px"><thead><tr><th style="text-align:left">Time</th><th style="text-align:left">Trade</th><th style="text-align:left">Signal</th><th>Net</th><th style="text-align:left">Outcome</th></tr></thead>
   <tbody id="rTrades"><tr><td colspan="5" class="muted">nothing recorded yet</td></tr></tbody></table>
   <p class="note" id="rNote"></p>
@@ -5566,6 +5691,29 @@ async function runs(){
   $("rNote").textContent=r.shadow.scored<30
     ? "Shadow trades are recorded by a separate process against real prices, with no order placed. Fewer than 30 scored is not a result yet."
     : "Net is after the fees each trade would have paid. Run npm run sweep:shadow:report for the full breakdown.";
+
+  const nw=r.news||{};
+  const esc=(s)=>String(s).replace(/</g,"&lt;");
+  const nErr=nw.errors?nw.errors.split(" | ").length:0;
+  $("rNews").textContent=nw.collecting?((nw.sources-nErr)+"/"+nw.sources):"off";
+  $("rNews").style.color=nw.collecting?(nErr?"var(--warn)":"var(--good)"):"var(--bad)";
+  $("rNewsD").textContent=nw.collecting
+    ?("sources live · "+nw.recorded+" recorded"+(nw.inProcess?"":" (standalone)"))
+    :"not collecting";
+  const nrows=nw.latest||[];
+  $("rNewsRows").innerHTML=nrows.length?nrows.map(n=>
+    "<tr><td>"+new Date(n.at).toTimeString().slice(0,5)+"</td>"+
+    "<td>"+esc(String(n.headline).slice(0,110))+"</td>"+
+    "<td class='muted'>"+esc(n.source||"—")+"</td>"+
+    "<td style='color:"+(n.impact==="high"?"var(--bad)":n.impact==="medium"?"var(--warn)":"var(--ink2)")+"'>"+n.impact+"</td></tr>"
+  ).join(""):"<tr><td colspan='4' class='muted'>nothing collected yet — the first pass takes about a minute</td></tr>";
+  // Velocity is the only thing the forums contribute, so it is the only thing
+  // worth showing from them. The posts themselves are never recorded.
+  $("rNewsNote").textContent=
+    "Forums and social drive mention velocity only, never headlines."+
+    (nw.velocity?"  Chatter now: "+nw.velocity+" (1x is normal).":"")+
+    (nErr?"  Erroring: "+nw.errors.slice(0,200):"")+
+    (nw.unavailable?"  Off: "+nw.unavailable:"");
 }
 
 const LOSS_LABEL={

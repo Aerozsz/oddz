@@ -263,8 +263,29 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
          * "comfortably fundable" without changing anything about how risk is
          * computed — the risk budget is a fraction of equity either way.
          */
-        const headroom = Math.min(50, Math.max(0, limits.marginHeadroomPct)) / 100;
+        /*
+         * Coerced, because a missing value here silently voided the leverage cap.
+         *
+         * `Math.max(0, undefined)` is NaN, so an absent marginHeadroomPct made
+         * `committable` NaN, which made `impliedLeverage` NaN, and `NaN > cap`
+         * is false — the ceiling below stopped refusing anything at all while
+         * still appearing in the code and in the GUI. An operator upgrading with
+         * a limits file written before this field existed would have got exactly
+         * that, and the first sign of it would have been a filled order at a
+         * leverage they had explicitly capped.
+         *
+         * Not defensive programming for its own sake: this is the one place that
+         * enforces an account-wide cap on real money, so it has to fail closed
+         * on a bad input rather than compute its way past one.
+         */
+        const headroomPct = Number.isFinite(limits.marginHeadroomPct) ? limits.marginHeadroomPct : 5;
+        const headroom = Math.min(50, Math.max(0, headroomPct)) / 100;
         const committable = risk.availableBalance * (1 - headroom);
+        if (!Number.isFinite(committable) || committable <= 0) {
+          throw new Refused(
+            `available balance reads ${String(risk.availableBalance)} — cannot size against that`,
+          );
+        }
 
         const sized = options.size(intent, state, committable);
         if (!sized) throw new Refused("sizing declined this setup");
@@ -301,7 +322,10 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
          * other direction, and fixing only the sizer would have left it.
          */
         const impliedLeverage = actualNotional / Math.max(committable, 1e-9);
-        if (impliedLeverage > limits.maxLeverage) {
+        // `!(x <= cap)` rather than `x > cap`, so a NaN that survived everything
+        // above refuses instead of passing. The comparison that reads more
+        // naturally is the one that fails open.
+        if (!(impliedLeverage <= limits.maxLeverage)) {
           throw new Refused(
             `${quantity} contract${quantity === 1 ? "" : "s"} is ${actualNotional.toFixed(2)} of notional, ` +
               `which needs ${impliedLeverage.toFixed(1)}x against a ${limits.maxLeverage}x ceiling`,

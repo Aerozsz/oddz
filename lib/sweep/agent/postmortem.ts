@@ -179,6 +179,19 @@ export interface EntryConditions {
   minutesSinceNews: number | null;
   /** How many items were live in the preceding six hours. */
   newsCount6h: number;
+  /**
+   * What the tape itself said at entry: 0 nothing, 3 severe.
+   *
+   * Recorded separately from the headline fields because it is a different
+   * instrument answering the same question, and the whole argument for building
+   * it was that it is the one that fires first. Leaving it out would have meant
+   * the fastest reading in the system was the one thing the post-mortem could
+   * never split on — every "was this a normal market" question answered by a
+   * source that is minutes late by construction.
+   */
+  shockLevel: number;
+  /** Mentions across forums and social against baseline. 1 is normal. */
+  chatterVelocity: number;
 
   /* --------------------------------------------------- who was standing there */
 
@@ -295,6 +308,10 @@ export function captureConditions(
     sizeRetained: extra.sizeRetained ?? null,
 
     ...newsFields(extra.news ?? [], Date.now()),
+    // From the live reading rather than the store: the store holds headlines,
+    // and neither of these is one.
+    shockLevel: state.news.shockLevel,
+    chatterVelocity: state.news.chatterVelocity,
 
     /*
      * The participant read, only when it is confident enough to mean something.
