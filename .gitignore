@@ -5,6 +5,22 @@ dist
 .env
 .env.local
 .env.*.local
+
+# Credentials in any of the shapes people actually save them in.
+#
+# .env is already covered above, but keys get pasted into a scratch file next
+# to it far more often than that — and the failure is unrecoverable: one
+# `git add -A` and a push, and the key is public and in the history. These
+# patterns are deliberately broad, because a false positive costs an ignored
+# file nobody wanted tracked and a false negative costs the account.
+*cred*.txt
+*credential*
+*secret*
+*.key
+*.pem
+api-key*
+apikey*
+keys.json
 .vercel
 .DS_Store
 *.log
