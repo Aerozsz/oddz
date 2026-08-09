@@ -4066,6 +4066,11 @@ const COMMAND_GROUPS: { title: string; blurb: string; items: Cmd[] }[] = [
         what: "Reads the paper log and says which readings actually predict anything." },
       { cmd: "npm run sweep:analyse -- --in data/sweep-paper.jsonl --horizon 300", risk: "safe",
         what: "...at a chosen horizon." },
+      { cmd: "npm run sweep:bundle", risk: "safe",
+        what: "Packages every log plus the post-mortem into one redacted, truncated file in evidence/.",
+        note: "The way to hand the collected data to someone who is not on this machine. Credentials are stripped; large logs are trimmed and say how many rows were dropped." },
+      { cmd: "npm run sweep:bundle -- --rows 500", risk: "safe",
+        what: "...smaller, when the full bundle is unwieldy." },
     ],
   },
   {

@@ -13,5 +13,9 @@ coverage
 *.tsbuildinfo
 .claude/settings.local.json
 
-# Local evidence logs from workers/sweep-paper.ts
+# Local evidence logs. Machine-specific and often large.
 data/
+
+# ...but bundles built by `npm run sweep:bundle` are meant to be shared:
+# redacted, truncated, and one `git add` from being readable by someone else.
+!evidence/
