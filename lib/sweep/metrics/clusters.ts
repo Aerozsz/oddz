@@ -63,8 +63,32 @@ export function extremeLevels(
   mid: number,
 ): WeightedLevel[] {
   const out: WeightedLevel[] = [];
+
+  /*
+   * A level price is already sitting on is not a pool of stops.
+   *
+   * Stops rest above a high that price has *pulled back from*. When price is
+   * making new highs the session high is, by definition, the current price — so
+   * an extreme emitted there describes a level that has just been reached and
+   * whose stops have already fired, not one waiting to be swept.
+   *
+   * Left unguarded this was the most damaging defect in the system. Over a
+   * weekend of 2000 samples the nearest cluster above was closer than the one
+   * below in 1985 of them — a median 0.050% up against 0.318% down — because
+   * the upside "cluster" was always the high price had just set. That fed the
+   * bias's heaviest factor, "cost to trigger", which read the upside as
+   * permanently cheaper and called long on 1980 of 2000 samples. Every
+   * downstream fix was working on entries chosen from a broken map.
+   *
+   * The floor is the same stop buffer these levels are already offset by:
+   * inside that, the level and the price are the same thing.
+   */
+  const minDistPct = CONFIG.stopBufferPct / 100;
+
   const push = (price: number, weight: number, source: ClusterSource) => {
-    if (Number.isFinite(price) && price > 0) out.push({ price, weight, source });
+    if (!Number.isFinite(price) || price <= 0) return;
+    if (mid > 0 && Math.abs(price - mid) / mid < minDistPct) return;
+    out.push({ price, weight, source });
   };
 
   // Stops rest *past* the level they protect, not on it.
