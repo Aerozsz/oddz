@@ -1267,9 +1267,23 @@ async function recordClosedTrade(desk: Desk) {
    * direction, and counting those as wins inflates the hit rate that every
    * sizing decision downstream is derived from.
    */
-  const scratchBand = (remembered.notionalUsd ?? 0) * (fees.tiers[0]?.takerRate ?? 0.0005) * 2;
+  /*
+   * Net decides it, and net is already net of everything.
+   *
+   * The previous band was a full round trip of the notional — $32 on a $32k
+   * position — which double-counted fees, because `net` has already had
+   * commission and funding taken out. The effect was not cosmetic: over one
+   * weekend it filed 40 real losses totalling $1,037 as "scratch", so they
+   * dropped out of the loss anatomy and the tuner saw 14 of 54 losses. The
+   * learning loop was reasoning about a quarter of the evidence and had no way
+   * to know it.
+   *
+   * A scratch is now only a trade that moved the balance by less than a cent —
+   * float noise, not a category. If money left the account it is a loss, which
+   * is also what the account statement says.
+   */
   const outcome: TradeRecord["outcome"] =
-    net === null || Math.abs(net) <= scratchBand ? "scratch" : net > 0 ? "win" : "loss";
+    net === null ? "scratch" : Math.abs(net) < 0.01 ? "scratch" : net > 0 ? "win" : "loss";
 
   const record: TradeRecord = {
     id: `${desk.symbol}-${openedAt}`,
@@ -2175,11 +2189,30 @@ function armDesk(desk: Desk) {
           stopPrice: desk.pendingStopPrice,
         });
         desk.positionOpenedAt = Date.now();
-        // From the fill, not from the sizer's assumed entry: the excursion has
-        // to be measured against the price actually paid or a slipped entry
-        // shows up as a move that never happened.
-        desk.excursion = entryPrice > 0 ? new Excursion(entryPrice, !!long) : null;
+        /*
+         * The fill price when there is one, the live mark when there is not.
+         *
+         * Measuring against the price actually paid is right, and depending on
+         * it being present was wrong. A market order's immediate response
+         * carries avgPrice 0 — the fill is reported asynchronously — so this
+         * condition was false on every taker entry and the tracker was never
+         * created. The consequence was silent and total: MAE and MFE were
+         * written as 0 on all 55 trades of a weekend, `excursionComplete` was
+         * false on all of them, and the loss anatomy classified 100% of losses
+         * as "unclassified" because the two numbers it reasons from were
+         * fabricated zeros.
+         *
+         * Falling back to the mark costs at most the spread in accuracy and
+         * buys the entire excursion. The exchange's real entry price is
+         * reconciled onto the record at close time regardless.
+         */
+        const markNow = desk.feed?.getState().mark ?? desk.feed?.getState().mid ?? 0;
+        const excursionFrom = entryPrice > 0 ? entryPrice : markNow;
+        desk.excursion = excursionFrom > 0 ? new Excursion(excursionFrom, !!long) : null;
         desk.excursionFromOpen = !!desk.excursion;
+        if (!desk.excursion) {
+          log(`!! ${desk.symbol}: no price to track the excursion from — MAE/MFE will be blank for this trade`);
+        }
         desk.exitIntent = null;
         desk.scaledOut = 0;
         desk.targetRolls = 0;
