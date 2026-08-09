@@ -134,7 +134,61 @@ it collects at the signal rate, unthrottled by trade caps.
 
 ---
 
+## 5b. AUDIT FINDINGS (2026-08-09, from the weekend bundle)
+
+Four bugs fixed, and one finding that outranks all of them.
+
+**Fixed:**
+1. `hold.ts` recovery divisor clamped to 0.1 when `entryLwi >= 1`, so ordinary
+   tick noise read as 70% thesis decay. Closed every trade in ~90s. 55 trades,
+   median hold 1.5 min, $1,343 of fees on $1,583 of loss.
+2. Target extension had no cap — it retreated every time price approached, so a
+   winner could never close. Now 2 rolls, 6R ceiling, trail must be armed.
+3. The excursion tracker never ran, on any trade. It required
+   `r.entry?.avgPrice > 0`, and market orders report avgPrice 0 immediately.
+   MAE/MFE were 0 on all 55 records, so 100% of losses were "unclassified".
+4. The scratch band double-counted fees, filing 40 real losses ($1,037) as
+   "no result". The anatomy saw 14 of 54 losses.
+
+**THE FINDING — the signal layer is near-constant.** From 2000 paper samples:
+
+| Reading | Observed |
+|---|---|
+| `biasDirection` | **up 1980, down 3, null 17** |
+| `biasConviction` | p10 0.218, p50 0.245, p90 0.267 |
+| `lwi` | p10 0.92, p50 0.99, p90 1.08 |
+| `flowCharacter` | **"unclear" on all 2000** |
+
+The withdrawal index — the core signal, the thing the entire thesis rests on —
+sits at 1.0 +/- 0.08 and never detects thinness. The bias is stuck long. The
+conviction is effectively a constant. Shadow confirms the consequence: 552
+trades, gross move distribution symmetric around zero (p50 -0.005%), 11.4%
+exceeding the 0.10% round trip, net negative at 60s/300s/900s.
+
+**No exit, sizing or fee fix can rescue this.** The entries are close to random
+and almost always long. Fixing the signal layer is the only work that matters,
+and everything downstream of it is currently unmeasurable.
+
+Also: `sweep:paper` was running on the default symbol (mid ~102 = INTC) while
+control and shadow ran BTC (~65k). The paper evidence does not correspond to
+the trades. Set SWEEP_SYMBOL/SWEEP_SYMBOLS on every worker.
+
 ## 6. TODO — in priority order
+
+### 0. THE SIGNAL LAYER ← nothing else matters until this is fixed
+- Why is `lwi` pinned at ~1.0? Either the baseline EWMA is tracking the current
+  value (so nothing is ever "below baseline"), or the withdrawal decomposition
+  is not being fed. Start at `lib/sweep/metrics/withdrawal.ts` and the baseline
+  update in `engine.ts`.
+- Why is `biasDirection` up 1980/2000? `imbalance` is `(bid-ask)/total` and was
+  -0.26 (ask-heavy) in the same samples that produced "up". Check the sign and
+  the weighting in `lib/sweep/agent/bias.ts`.
+- Why is `flowCharacter` always "unclear"? It needs 20 trades in the window;
+  check it is being fed.
+- Why did the maker path never fire (552/552 taker)? `canPostEntry` gates on
+  mark-out, and `markoutInformed` was null in the paper samples — an unwarm
+  mark-out may be permanently closing the maker path.
+
 
 ### 1. Finish wiring shadow into the learning pool ← START HERE
 `evidence.ts` has `shadowToRecord()` and the admissibility rule. Still missing:
