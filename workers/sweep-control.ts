@@ -27,6 +27,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import { dirname, resolve } from "node:path";
 import { attachCalendar } from "../lib/sweep/metrics/event-store";
 import { getEngine } from "../lib/sweep/engine";
+import { attachNews } from "../lib/sweep/agent/feed";
 import { createSweepFeed, type SweepFeed } from "../lib/sweep/agent";
 import type { Signal } from "../lib/sweep/agent";
 import {
@@ -72,7 +73,7 @@ import {
   ConstraintMemory, classifyConstraint,
   type ConstraintEvent, type ConstraintKind,
 } from "../lib/sweep/exchange/constraints";
-import { newsFor } from "../lib/sweep/metrics/news-store";
+import { newsFor, newsPressure } from "../lib/sweep/metrics/news-store";
 import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
 import { attachExecution, intentId, type ExecutionRunner } from "../lib/sweep/agent";
 import { CONFIG, SYMBOLS, isCalibrated } from "../lib/sweep/config";
@@ -83,6 +84,10 @@ import { CONFIG, SYMBOLS, isCalibrated } from "../lib/sweep/config";
  * defined" deep inside a stream callback, which is a miserable first
  * experience for something that is really just a version mismatch.
  */
+// Live headlines reach the sizer through this. Without it the store is
+// written and displayed but changes no decision, which is what it did before.
+attachNews((symbol, now) => newsPressure(symbol, now));
+
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 22) {
   console.error("");
@@ -4128,6 +4133,9 @@ const COMMAND_GROUPS: { title: string; blurb: string; items: Cmd[] }[] = [
         what: "Market-neutral pairs across correlated perpetuals. Paper by default — prints what it would do." },
       { cmd: "SWEEP_PAIRS_ARM=1 npm run sweep:pairs", risk: "orders",
         what: "The same loop, sending real orders." },
+      { cmd: "npm run sweep:news", risk: "safe",
+        what: "Pulls headlines from public RSS every 3 minutes into the news store.",
+        note: "Nothing else fetches news. Without this running the store stays empty, the panel shows nothing, and the news derate in the sizer never fires." },
       { cmd: "npm run sweep:mcp", risk: "safe",
         what: "MCP server so an agent can read live market state and record news or events.",
         note: "Still single-symbol — it only sees the first contract." },

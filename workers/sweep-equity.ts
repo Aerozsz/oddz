@@ -18,6 +18,7 @@
 import { loadEnv } from "./load-env";
 import { proposePosition } from "../lib/sweep/agent/sizing";
 import type { AgentState } from "../lib/sweep/agent/types";
+import { NO_NEWS } from "../lib/sweep/agent/types";
 import { NO_EVENT_RISK } from "../lib/sweep/metrics/events";
 import { EMPTY_FUNDING } from "../lib/sweep/metrics/funding";
 import { EMPTY_MARKOUT } from "../lib/sweep/metrics/markout";
@@ -97,6 +98,7 @@ function state(phase: keyof typeof WEIGHTS): AgentState {
     markout: EMPTY_MARKOUT,
     funding: EMPTY_FUNDING,
     events: NO_EVENT_RISK,
+    news: NO_NEWS,
     openInterestNotional: 5e7,
     longShortRatio: 1.2,
     flow: { buy: 5000, sell: 4000 },

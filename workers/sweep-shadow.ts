@@ -31,8 +31,10 @@ import { loadEnv } from "./load-env";
 import { appendFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { attachCalendar } from "../lib/sweep/metrics/event-store";
+import { newsPressure } from "../lib/sweep/metrics/news-store";
 import { getEngine } from "../lib/sweep/engine";
 import { attachExecution, createSweepFeed, intentId } from "../lib/sweep/agent";
+import { attachNews } from "../lib/sweep/agent/feed";
 import { directionalBias } from "../lib/sweep/agent/bias";
 import { canPostEntry, DEFAULT_FEES, parseFeeTiers, type FeeSchedule } from "../lib/sweep/metrics/fees";
 import {
@@ -45,6 +47,10 @@ import type { AgentState, Signal, TradeIntent } from "../lib/sweep/agent";
 import { SYMBOLS } from "../lib/sweep/config";
 
 loadEnv();
+
+// Live headlines reach the sizer through this. Without it the store is
+// written and displayed but changes no decision, which is what it did before.
+attachNews((symbol, now) => newsPressure(symbol, now));
 
 const NODE_MAJOR = Number(process.versions.node.split(".")[0]);
 if (NODE_MAJOR < 22) {

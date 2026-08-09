@@ -477,6 +477,39 @@ export function proposePosition(input: SizingInput): SizingResult {
     );
   }
 
+  /*
+   * Fresh significant news derates, and only derates.
+   *
+   * The temptation with a news feed is to trade on it — read the headline,
+   * infer a direction, take a side. Nothing here can do that: a keyword match
+   * cannot tell whether an SEC filing is good or bad for a price, and a system
+   * that pretends otherwise is a random number generator with a narrative.
+   *
+   * What a headline does reliably indicate is that the book is about to stop
+   * behaving like the book this strategy models. Depth thins for reasons that
+   * have nothing to do with a cascade, the clusters that were mapped stop being
+   * where flow is going, and the withdrawal signal — the whole thesis — starts
+   * measuring people reacting to a story instead of people stepping away from a
+   * level. So the correct response is a smaller position for a while, never a
+   * different one.
+   *
+   * Decays over an hour. A headline is loudest in its first minutes and part of
+   * the tape by the end.
+   */
+  const news = state.news;
+  let newsScale = 1;
+  if (news.impact >= 2 && news.minutesSince !== null && news.minutesSince < 60) {
+    const freshness = 1 - news.minutesSince / 60;
+    // High-impact halves at its freshest; medium takes a fifth off.
+    const depth = news.impact >= 3 ? 0.5 : 0.2;
+    newsScale = 1 - depth * freshness;
+    reasoning.push(
+      `${news.impact >= 3 ? "high" : "medium"}-impact news ${Math.round(news.minutesSince)} min ago — ` +
+        `size scaled to ${(newsScale * 100).toFixed(0)}% while the book reacts to it` +
+        (news.latest ? ` (${news.latest.slice(0, 70)})` : ""),
+    );
+  }
+
   // A projected earnings date derates; a confirmed one already refused above.
   const eventScale = state.events.sizeScale;
   if (eventScale < 1 && state.events.reason) reasoning.push(state.events.reason);
@@ -530,7 +563,7 @@ export function proposePosition(input: SizingInput): SizingResult {
    * with a different mechanism, and it is the one case where stacking is the
    * honest arithmetic rather than double-counting.
    */
-  const combinedScale = Math.max(cfg.minSizeScale, bookScale * soften(eventScale));
+  const combinedScale = Math.max(cfg.minSizeScale, bookScale * soften(eventScale) * soften(newsScale));
   if (combinedScale < 1) {
     reasoning.push(
       `size at ${(combinedScale * 100).toFixed(0)}% of the risk budget — set by ${binding.name}` +

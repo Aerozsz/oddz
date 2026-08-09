@@ -185,3 +185,23 @@ export function newsFor(symbol: string, limit = 25, path = newsPath()): NewsItem
     .sort((a, b) => b.at - a.at)
     .slice(0, limit);
 }
+
+/**
+ * The store reduced to the four numbers a live decision can use.
+ *
+ * Kept here rather than in the agent so there is one definition of "what the
+ * news says right now", shared by the sizer, the post-mortem and the page. Two
+ * that disagreed would be worse than either.
+ */
+export function newsPressure(symbol: string, now = Date.now(), path = newsPath()) {
+  const SIX_HOURS = 6 * 3_600_000;
+  const items = newsFor(symbol, 50, path).filter((n) => n.at <= now && now - n.at <= SIX_HOURS);
+  const weight = (i: string) => (i === "high" ? 3 : i === "medium" ? 2 : i === "low" ? 1 : 0);
+  const newest = items.reduce<typeof items[number] | null>((a, n) => (!a || n.at > a.at ? n : a), null);
+  return {
+    impact: items.reduce((a, n) => Math.max(a, weight(n.impact)), 0),
+    minutesSince: newest ? (now - newest.at) / 60_000 : null,
+    count6h: items.length,
+    latest: newest?.headline ?? null,
+  };
+}

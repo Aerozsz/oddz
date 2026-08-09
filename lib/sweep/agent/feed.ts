@@ -2,7 +2,7 @@ import { type Engine, getEngine } from "../engine";
 import type { CascadePath, Cluster, CostPoint, Snapshot } from "../types";
 import { assessHealth } from "./health";
 import { type SignalOptions, SignalEngine } from "./signals";
-import type { AgentCascade, AgentState, Signal } from "./types";
+import { NO_NEWS, type AgentCascade, type AgentState, type NewsPressure, type Signal } from "./types";
 
 export interface SweepFeedOptions {
   signals?: Partial<SignalOptions>;
@@ -133,6 +133,18 @@ export function createSweepFeed(options: SweepFeedOptions = {}): SweepFeed {
 
 /* ------------------------------------------------------------- projection */
 
+/**
+ * How the live news store is read into state.
+ *
+ * Injected rather than imported so this module stays free of file access and
+ * can run in the browser. The control server supplies the real reader; anything
+ * that does not care gets NO_NEWS and behaves exactly as before.
+ */
+let readNewsPressure: ((symbol: string, now: number) => NewsPressure) | null = null;
+export function attachNews(reader: (symbol: string, now: number) => NewsPressure) {
+  readNewsPressure = reader;
+}
+
 function project(snap: Snapshot, symbol: string, now = Date.now()): AgentState {
   const health = assessHealth(snap, now);
   const liq = snap.liquidity;
@@ -155,6 +167,7 @@ function project(snap: Snapshot, symbol: string, now = Date.now()): AgentState {
     ts: snap.ts,
     symbol,
     health,
+    news: readNewsPressure ? readNewsPressure(symbol, now) : NO_NEWS,
     session: snap.session,
     mid,
     mark: snap.mark?.markPrice ?? null,

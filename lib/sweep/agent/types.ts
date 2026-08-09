@@ -144,6 +144,20 @@ export interface AgentCascade {
   firstClusterPrice: number | null;
 }
 
+/** What the news store says about right now, as numbers. */
+export interface NewsPressure {
+  /** 3 high, 2 medium, 1 low, 0 nothing, within the recent window. */
+  impact: number;
+  /** Minutes since the most recent item. Null when there is none. */
+  minutesSince: number | null;
+  /** Items in the last six hours. */
+  count6h: number;
+  /** The most recent headline, for display and the post-mortem. Never parsed. */
+  latest: string | null;
+}
+
+export const NO_NEWS: NewsPressure = { impact: 0, minutesSince: null, count6h: 0, latest: null };
+
 export interface AgentState {
   ts: number;
   symbol: string;
@@ -177,6 +191,16 @@ export interface AgentState {
   funding: FundingRead;
   /** Scheduled releases. `blackout` is a hard stop for execution. */
   events: EventRisk;
+  /**
+   * Headlines live right now, reduced to something a decision can use.
+   *
+   * Deliberately not the text. Nothing here reads a story or takes a view on
+   * what it means — inferring direction from a headline is how a news feed
+   * becomes a random number generator with a narrative attached. All the agent
+   * gets is "something significant is happening and how long ago", which is
+   * enough to stand back from a market that is reacting and nothing more.
+   */
+  news: NewsPressure;
   openInterestNotional: number | null;
   longShortRatio: number | null;
   /** Rolling one-second aggressive flow, in USD. */
