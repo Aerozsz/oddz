@@ -129,9 +129,28 @@ export function holdDecision(input: HoldInput): HoldDecision {
    * have moved for this to be over.
    */
   const liq = state.liquidity;
-  if (liq?.warm && input.entryLwi !== null && input.entryLwi > 0) {
+  /*
+   * Only meaningful if the book was actually thin when the trade was opened.
+   *
+   * `1 - entryLwi` is the thinness being measured against: how far below
+   * baseline the depth sat. When the entry was taken at or above baseline there
+   * is no thinness, nothing can refill, and this exit does not apply.
+   *
+   * The previous form clamped that denominator to 0.1, which was catastrophic
+   * rather than merely wrong. An entry at 1.11x gave a divisor of 0.1, so a
+   * depth rise of 0.07 — ordinary tick-to-tick noise — computed as 0.7
+   * recovery, took 0.7 off health, and closed the position immediately. Over a
+   * weekend that produced 55 trades at a median hold of ninety seconds, every
+   * single one closed by this branch, and $1,343 of commission against $1,583
+   * of total loss: the account was not traded away, it was churned away.
+   *
+   * A floor of 0.05 rather than 0 keeps a barely-thin entry from dividing by
+   * something near zero and reproducing the same explosion at the other end.
+   */
+  const thinnessAtEntry = input.entryLwi !== null ? 1 - input.entryLwi : 0;
+  if (liq?.warm && input.entryLwi !== null && input.entryLwi > 0 && thinnessAtEntry > 0.05) {
     const nowLwi = long ? liq.lwiAskAdj : liq.lwiBidAdj;
-    const recovery = (nowLwi - input.entryLwi) / Math.max(0.1, 1 - input.entryLwi);
+    const recovery = (nowLwi - input.entryLwi) / thinnessAtEntry;
     if (recovery > 0.7) {
       // Decisive on its own. This is the fastest legitimate exit there is: the
       // condition that justified the entry has been directly observed to end,
@@ -146,6 +165,14 @@ export function holdDecision(input: HoldInput): HoldDecision {
       health -= 0.2;
       notes.push(`depth is coming back (${nowLwi.toFixed(2)}x from ${input.entryLwi.toFixed(2)}x)`);
     }
+  } else if (input.entryLwi !== null && thinnessAtEntry <= 0.05) {
+    // Worth saying rather than silently skipping: an entry taken on a book that
+    // was not thin is a signal problem, and it is invisible if the exit that
+    // would have mentioned it simply does not run.
+    notes.push(
+      `opened at ${input.entryLwi.toFixed(2)}x depth — at or above baseline, so there was no thinness ` +
+        `to expire and this trade is governed by its stop, target and clock alone`,
+    );
   }
 
   /*
