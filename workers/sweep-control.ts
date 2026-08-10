@@ -66,6 +66,7 @@ import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { dayDrawdown, fetchDayActivity, fetchSettlement, type DayActivity } from "../lib/sweep/exchange/activity";
 import { readEpoch, rebaseNow, reconcileLedger, type LedgerEpoch } from "../lib/sweep/exchange/ledger";
 import { snapshotPath, writeSnapshot } from "../lib/sweep/metrics/snapshot";
+import { desiredPath, planDesired, readDesired } from "../lib/sweep/agent/desired";
 import { startOfDayUtc } from "../lib/sweep/exchange/activity";
 import { Excursion, captureConditions, type EntryConditions, type TradeRecord } from "../lib/sweep/agent/postmortem";
 import { appendTrade, loadTrades } from "../lib/sweep/metrics/trade-log";
@@ -4579,6 +4580,88 @@ function superviseNews() {
   );
 }
 
+/* ---------------------------------------------------------- desired state */
+
+/**
+ * Risk settings written elsewhere and applied here.
+ *
+ * The operator's position is that they start and pause trading and open and
+ * close positions, and that everything else should not require them to click
+ * anything. The snapshot made this process readable from outside; this makes it
+ * configurable from outside, which is the half that was missing.
+ *
+ * What it cannot do is arm, disarm, or touch a position — those are reserved,
+ * and rejected explicitly rather than ignored. Nor can it set the three stopping
+ * rules that were deliberately switched off. Everything else is clamped to the
+ * same bounds the auto-tuner works inside, so a wrong file can only move a
+ * setting somewhere the tuner could have moved it anyway.
+ *
+ * Every applied change goes through the same audit log as a hand edit, so the
+ * record of who changed what does not depend on which channel was used.
+ */
+let desiredAppliedAt = 0;
+
+function applyDesired() {
+  const file = readDesired();
+  if (!file) return;
+  // An unchanged file is not reapplied: the watcher pulls on a timer and the
+  // same content arriving again is the normal case, not an instruction.
+  if (!(Number(file.at) > desiredAppliedAt)) return;
+
+  const plan = planDesired(limits as unknown as Record<string, number | boolean>, file);
+  desiredAppliedAt = Number(file.at);
+
+  for (const r of plan.rejected) {
+    log(`config: refused ${r.key} — ${r.why}`);
+  }
+  if (plan.changes.length === 0) {
+    if (plan.rejected.length === 0) log("config: nothing to change");
+    return;
+  }
+
+  const next = { ...limits } as Record<string, unknown>;
+  const applied: string[] = [];
+  for (const c of plan.changes) {
+    /*
+     * Written to the audit before it takes effect, and skipped if that write
+     * fails — the same rule the auto-tuner follows. A change nobody can see
+     * afterwards is worse than a change that did not happen.
+     */
+    const ok = appendTuneChecked({
+      at: Date.now(),
+      setting: c.key as Tunable,
+      from: c.from,
+      to: c.to,
+      /*
+       * Recorded as an operator change, because that is what it is.
+       *
+       * The tuner defers to operator edits for twelve closes. A setting changed
+       * through this channel should get the same protection — otherwise the
+       * tuner would start moving it back on the next close, and the two would
+       * fight over the same dial.
+       */
+      by: "operator",
+      tradesAt: loadTrades().records.length,
+      direction: "neutral",
+      reason: `applied from ${desiredPath()}${plan.reason ? `: ${plan.reason}` : ""}` +
+        (c.clamped ? " (clamped to its permitted range)" : ""),
+    });
+    if (!ok) {
+      log(`config: could not record ${c.key} in the audit, so it was not applied`);
+      continue;
+    }
+    next[c.key] = c.to;
+    applied.push(`${c.key} ${c.from} → ${c.to}${c.clamped ? " (clamped)" : ""}`);
+  }
+
+  if (applied.length === 0) return;
+  limits = next as unknown as Limits;
+  writeLimits(limits);
+  log(`config: applied ${applied.join(", ")}${plan.reason ? ` — ${plan.reason}` : ""}`);
+  // Re-arm the desks against the new numbers rather than waiting for a restart.
+  for (const desk of allDesks()) if (desk.runner) armDesk(desk);
+}
+
 /* --------------------------------------------------------------- snapshot */
 
 /**
@@ -4605,6 +4688,9 @@ function writeStateSnapshot() {
         symbols: allDesks().map((d) => d.symbol),
       },
       status: status(),
+      // What the last remotely-applied configuration was, so a reader can tell
+      // whether the file they wrote has landed.
+      desired: { path: desiredPath(), appliedAt: desiredAppliedAt },
       // The tally that answers "why did nothing trade", which took a round trip
       // to obtain every previous time it was needed.
       refusals: pooledRefusals(),
@@ -4644,7 +4730,10 @@ server.listen(PORT, HOST, () => {
   setInterval(superviseNews, 60_000).unref?.();
   writeStateSnapshot();
   setInterval(writeStateSnapshot, 30_000).unref?.();
+  applyDesired();
+  setInterval(applyDesired, 20_000).unref?.();
   console.log(`  snapshot:    ${snapshotPath()} (refreshed every 30s — npm run sweep:share to send it)`);
+  console.log(`  config in:   ${desiredPath()} (applied within 20s; cannot arm, disarm or touch a position)`);
   void (async () => {
     // First, because it decides whether anything else can possibly work and
     // needs no credentials to answer.

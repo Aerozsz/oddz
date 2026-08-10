@@ -110,6 +110,31 @@ function ensureMergeDriver() {
   }
 }
 
+/**
+ * Take anything written elsewhere before sending anything back.
+ *
+ * This is what makes the channel two-way. The control server watches
+ * `control/limits.json` on disk and applies it within twenty seconds; this is
+ * the only thing that brings a new copy of that file onto the machine.
+ *
+ * Deliberately still git and still this process: the trading server never runs
+ * git, and stopping this command stops configuration arriving without stopping
+ * trading. Nothing here decides anything — it moves a file and the server
+ * decides what, if any, of it is permitted.
+ */
+function takeRemote(): void {
+  try {
+    git("pull", "--rebase", "--autostash", "origin", branch);
+  } catch (err) {
+    console.error(`[share] could not take the remote: ${err instanceof Error ? err.message : String(err)}`);
+    try {
+      git("rebase", "--abort");
+    } catch {
+      /* nothing in progress */
+    }
+  }
+}
+
 function share(): boolean {
   ensureMergeDriver();
   const path = snapshotPath();
@@ -205,11 +230,14 @@ async function main() {
   console.error("");
 
   if (!watch) {
+    takeRemote();
     process.exit(share() ? 0 : 1);
   }
 
-  console.error(`[share] watching — sending every ${everySec}s. Ctrl-C to stop.`);
+  console.error(`[share] watching — every ${everySec}s. Ctrl-C to stop.`);
+  console.error("[share] each pass takes any new configuration first, then sends the current state.");
   for (;;) {
+    takeRemote();
     share();
     await sleep(Math.max(60, everySec) * 1000);
   }
