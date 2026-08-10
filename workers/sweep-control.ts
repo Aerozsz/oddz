@@ -67,6 +67,7 @@ import { dayDrawdown, fetchDayActivity, fetchSettlement, type DayActivity } from
 import { readEpoch, rebaseNow, reconcileLedger, type LedgerEpoch } from "../lib/sweep/exchange/ledger";
 import { snapshotPath, writeSnapshot } from "../lib/sweep/metrics/snapshot";
 import { desiredPath, planDesired, readDesired } from "../lib/sweep/agent/desired";
+import { appendNote, outbox, repliesPath, thread } from "../lib/sweep/agent/messages";
 import { startOfDayUtc } from "../lib/sweep/exchange/activity";
 import { Excursion, captureConditions, type EntryConditions, type TradeRecord } from "../lib/sweep/agent/postmortem";
 import { appendTrade, loadTrades } from "../lib/sweep/metrics/trade-log";
@@ -3260,6 +3261,34 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      /*
+       * The thread, merged from both directions.
+       *
+       * Read on a timer by the page, so a reply that arrived over git shows up
+       * without anyone refreshing anything.
+       */
+      case "GET /api/messages":
+        send(res, 200, { thread: thread(60), repliesFrom: repliesPath() });
+        return;
+
+      case "POST /api/messages": {
+        const body = await readJson(req);
+        const desk2 = focused();
+        const st = desk2?.feed?.getState();
+        const pos = desk2?.protection.state?.position;
+        // The state at the moment of writing, because a note saying "this looked
+        // wrong" is close to useless a day later without it.
+        const r = appendNote(typeof body.text === "string" ? body.text : "", {
+          symbol: desk2?.symbol ?? null,
+          mid: st?.mid ?? null,
+          armed: limits.tradingEnabled,
+          holding: pos ? pos.positionAmt : 0,
+        });
+        if (r.ok) log(`note from you: ${String(body.text).slice(0, 160)}`);
+        send(res, 200, { ...r, thread: thread(60) });
+        return;
+      }
+
       case "POST /api/symbols/add": {
         const body = await readJson(req);
         const result = await addDesk(typeof body.symbol === "string" ? body.symbol : "");
@@ -4750,6 +4779,14 @@ function writeStateSnapshot() {
       diagnose: diagnose(),
       /** Anything that threw, kept out of the log ring so it does not rotate away. */
       errors: errorLines,
+      /*
+       * Notes typed on the page, carried with the state they refer to.
+       *
+       * This is the whole reason they are in the snapshot rather than in a chat
+       * window: "that one looked wrong" is only answerable next to the limits,
+       * the refusals and the log for that exact minute.
+       */
+      notes: outbox(40),
       // The tally that answers "why did nothing trade", which took a round trip
       // to obtain every previous time it was needed.
       refusals: pooledRefusals(),
@@ -5187,6 +5224,12 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
 .banner.warn{background:rgba(250,178,25,.08);border-color:rgba(250,178,25,.45)}
 .deskstrip{display:flex;gap:8px;flex-wrap:wrap}
 .closebar{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+.thread{max-height:280px;overflow-y:auto;display:flex;flex-direction:column;gap:8px;margin-bottom:4px}
+.msg{padding:8px 10px;border-radius:var(--r);border:1px solid var(--hair);font-size:12.5px;line-height:1.45}
+.msg.you{background:var(--plane);margin-left:18%}
+.msg.claude{background:rgba(79,143,247,.07);border-color:rgba(79,143,247,.3);margin-right:18%}
+.msg .who{font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--dim);margin-bottom:3px}
+.msg .ctx{font-size:10.5px;color:var(--dim);margin-top:4px;font-variant-numeric:tabular-nums}
 button.danger{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:600}
 button.danger:hover:not(:disabled){filter:brightness(1.12)}
 button.danger:disabled{opacity:.4}
@@ -5435,6 +5478,19 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
   <table style="margin-top:10px"><thead><tr><th style="text-align:left">Time</th><th style="text-align:left">Trade</th><th style="text-align:left">Signal</th><th>Net</th><th style="text-align:left">Outcome</th></tr></thead>
   <tbody id="rTrades"><tr><td colspan="5" class="muted">nothing recorded yet</td></tr></tbody></table>
   <p class="note" id="rNote"></p>
+</div>
+
+<div class="panel">
+  <h2>Notes to Claude <span id="msgCount" class="muted" style="font-weight:400;font-size:11px"></span></h2>
+  <div id="msgThread" class="thread"></div>
+  <div class="symbar">
+    <input id="msgText" class="symq" type="text" autocomplete="off"
+      placeholder="Something look wrong? Type it here — it goes out with the state at this exact minute.">
+    <button id="msgSend" class="primary" type="button">Send</button>
+  </div>
+  <p class="note" id="msgNote">Replies are not instant. This is not a chat window — a note is attached to the
+  run and answered next time the analysis reads it, alongside the limits, refusals and log for the minute you
+  wrote it. That context is the point; it is what a message in a chat window loses.</p>
 </div>
 
 <div class="panel">
@@ -6769,6 +6825,51 @@ async function diagnose(){
 }
 $("btnDiag").onclick=diagnose;
 
+/* ---------------------------------------------------------------- notes */
+
+async function messages(){
+  const r=await api("/api/messages");
+  if(!r.thread) return;
+  const esc=(t)=>String(t).replace(/</g,"&lt;");
+  const el=$("msgThread");
+  // Only redraw when something changed, so the box does not fight the scroll
+  // position of someone reading back through it.
+  const sig=r.thread.map(m=>m.at).join(",");
+  if(el.dataset.sig===sig) return;
+  const wasAtBottom=el.scrollTop+el.clientHeight>=el.scrollHeight-24;
+  el.dataset.sig=sig;
+
+  $("msgCount").textContent=r.thread.length?("— "+r.thread.length+" message"+(r.thread.length===1?"":"s")):"";
+  el.innerHTML=r.thread.length?r.thread.map(m=>{
+    const when=new Date(m.at).toLocaleString(undefined,{month:"short",day:"numeric",
+      hour:"2-digit",minute:"2-digit"});
+    const ctx=m.context
+      ? '<div class="ctx">'+esc(m.context.symbol||"")+
+        (m.context.mid?" @ "+(+m.context.mid).toFixed(2):"")+
+        (m.context.armed?" · armed":" · disarmed")+
+        (m.context.holding?" · holding "+m.context.holding:" · flat")+"</div>"
+      : "";
+    return '<div class="msg '+(m.from==="claude"?"claude":"you")+'">'+
+      '<div class="who">'+(m.from==="claude"?"Claude":"You")+" · "+when+"</div>"+
+      esc(m.text)+ctx+"</div>";
+  }).join(""):'<div class="muted" style="font-size:12px">Nothing yet.</div>';
+  if(wasAtBottom) el.scrollTop=el.scrollHeight;
+}
+
+async function sendNote(){
+  const t=$("msgText").value.trim();
+  if(!t) return;
+  $("msgSend").disabled=true;
+  try{
+    const r=await api("/api/messages",{method:"POST",body:JSON.stringify({text:t})});
+    $("msgNote").textContent=r.note||"";
+    if(r.ok){ $("msgText").value=""; $("msgThread").dataset.sig=""; await messages();
+      $("msgThread").scrollTop=$("msgThread").scrollHeight; }
+  } finally { $("msgSend").disabled=false; }
+}
+$("msgSend").onclick=sendNote;
+$("msgText").onkeydown=(e)=>{ if(e.key==="Enter") sendNote(); };
+
 $("btnRebase").onclick=async()=>{
   if(!confirm("Start today's P&L, trade count and cooldown again from right now? Use this after a testnet reset: the exchange wipes the balance but keeps the income rows, so the day totals go on counting trades whose money no longer exists.")) return;
   $("btnRebase").disabled=true;
@@ -6881,6 +6982,8 @@ $("symClear").onclick=()=>{ $("symQ").value=""; $("symNote").textContent=""; sym
 
 tick(); setInterval(tick,1000);
 symbols(""); setInterval(()=>{ if(!$("symQ").value.trim()) symbols(""); },15000);
+// Ten seconds, so a reply that arrived over git appears without a refresh.
+messages(); setInterval(messages,10000);
 funds(); setInterval(funds,15000);
 pullLog(); setInterval(pullLog,2000);
 runs(); setInterval(runs,10000);
