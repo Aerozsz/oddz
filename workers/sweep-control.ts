@@ -336,6 +336,12 @@ interface Limits {
  *                   without permitting the 8.6-a-day pace that produced the
  *                   original result.
  */
+/*
+ * Corrections applied while reading the limits file, reported once the log
+ * exists. readLimits() runs before it does.
+ */
+const pendingMigrations: string[] = [];
+
 const DEFAULT_LIMITS: Limits = {
   maxPositionUsd: 0,
   maxLeverage: 10,
@@ -346,8 +352,8 @@ const DEFAULT_LIMITS: Limits = {
   maxTradesPerDay: 8,
   lossCooldownMin: 15,
   requireCashOpen: false,
-  minRewardRisk: 1.2,
-  maxHoldMinutes: 30,
+  minRewardRisk: 2,
+  maxHoldMinutes: 120,
   riskPerTradePct: 4,
   sizeDerateStrength: 0.5,
   breakEvenAtPct: 60,
@@ -395,15 +401,52 @@ function readFeeSchedule(): FeeSchedule {
   };
 }
 
+/**
+ * Settings whose old default was wrong, and what it was.
+ *
+ * A limits file is written the first time the server runs, so raising a default
+ * afterwards changes nothing for anyone who already has one — the stored value
+ * wins, and the new default only ever applies to a fresh install. That is right
+ * for a preference and wrong for a default that was a mistake.
+ *
+ * Moved only when the stored value is still exactly the old default, which means
+ * nobody has touched it. A value that was deliberately set to something else is
+ * left alone, including one deliberately set back to the old number.
+ *
+ *  - `minRewardRisk` at 1.2 admitted trades whose reward barely covers the round
+ *    trip. Against a fee load near 20% of one unit of risk, a 1.2R target needs a
+ *    win rate around 60% to break even, and a 2R target needs 40%.
+ *  - `maxHoldMinutes` at 30 cut off the trades the strategy is built to catch.
+ *    The operator's own winners ran 17 minutes to 4 hours 21, so a half-hour time
+ *    stop was closing the long ones mid-move and recording them as failures.
+ */
+const CORRECTED_DEFAULTS: { key: keyof Limits; wasDefault: number; why: string }[] = [
+  { key: "minRewardRisk", wasDefault: 1.2, why: "1.2R does not clear the round trip often enough to be worth taking" },
+  { key: "maxHoldMinutes", wasDefault: 30, why: "30 minutes cut off winners that historically ran for hours" },
+];
+
 function readLimits(): Limits {
-  const stored = (() => {
-    if (!existsSync(LIMITS_PATH)) return { ...DEFAULT_LIMITS };
+  const raw = (() => {
+    if (!existsSync(LIMITS_PATH)) return null;
     try {
-      return { ...DEFAULT_LIMITS, ...JSON.parse(readFileSync(LIMITS_PATH, "utf8")) };
+      return JSON.parse(readFileSync(LIMITS_PATH, "utf8")) as Partial<Limits>;
     } catch {
-      return { ...DEFAULT_LIMITS };
+      return null;
     }
   })();
+
+  const stored = raw ? { ...DEFAULT_LIMITS, ...raw } : { ...DEFAULT_LIMITS };
+
+  if (raw) {
+    for (const c of CORRECTED_DEFAULTS) {
+      const now = Number(raw[c.key]);
+      const next = Number(DEFAULT_LIMITS[c.key]);
+      if (now === c.wasDefault && next !== c.wasDefault) {
+        (stored as Record<string, unknown>)[c.key] = next;
+        pendingMigrations.push(`${c.key}: ${c.wasDefault} → ${next} — ${c.why}`);
+      }
+    }
+  }
 
   /*
    * Always boot disarmed, whatever the file says.
@@ -4383,6 +4426,7 @@ server.listen(PORT, HOST, () => {
   // The file may still say armed from the last session; readLimits() has
   // already overridden it, and writing it back keeps the two in step.
   writeLimits(limits);
+  for (const m of pendingMigrations) log(`limits: ${m}`);
   startEngine();
   superviseNews();
   // Re-checked rather than decided once, so starting or stopping a standalone
