@@ -193,6 +193,16 @@ interface Limits {
   maxTradesPerDay: number;
   /** Minutes to wait after a loss before another entry. */
   lossCooldownMin: number;
+  /**
+   * When the balance-derived caps were filled in, or 0 if they never were.
+   *
+   * Exists so that a cap of zero can mean one thing instead of two. It used to
+   * mean both "never configured" and "deliberately switched off", and the
+   * deriver could not tell them apart — so it kept recomputing a daily loss
+   * budget that had been set to zero on purpose. After the first derivation a
+   * zero is the operator's decision and is left alone.
+   */
+  capsDerivedAt: number;
   /** Only trade while the Nasdaq cash market is open. */
   requireCashOpen: boolean;
   /** Minimum reward-to-risk before a setup is worth taking. */
@@ -363,6 +373,7 @@ const DEFAULT_LIMITS: Limits = {
   // Enough to cover a taker commission on both legs plus the exchange's own
   // initial-margin rounding, which is what the boundary case was short of.
   marginHeadroomPct: 5,
+  capsDerivedAt: 0,
   trailArmsAtR: 1,
   scaleOutAtR: 1.5,
   scaleOutFraction: 40,
@@ -631,6 +642,9 @@ const desks = new Map<string, Desk>(readSymbols().map((s) => [s, newDesk(s)]));
  * with the ledger — see exchange/ledger.ts.
  */
 let ledgerEpoch: LedgerEpoch = readEpoch();
+
+/** So the "caps still unset" warning is said once, not every twenty seconds. */
+let capsWarned = false;
 const allDesks = () => [...desks.values()];
 
 /**
@@ -1998,9 +2012,43 @@ async function refreshAccount() {
  * operator has actually chosen is never overwritten — a cap someone set to 500
  * on purpose stays 500 forever, including when the balance grows.
  */
-async function deriveUnsetCaps() {
-  const equity = account.risk?.availableBalance ?? 0;
-  if (!(equity > 0)) return;
+async function deriveUnsetCaps(): Promise<string | null> {
+  /*
+   * Already done, so a zero from here on is a decision rather than a gap.
+   *
+   * This is the distinction that was missing, and it cost a live session. A cap
+   * of zero meant two different things — "never configured" and "deliberately
+   * switched off" — and the deriver could not tell them apart, so every pass
+   * re-derived a daily loss budget the operator had deliberately set to zero to
+   * collect data. Recording that derivation has happened separates the two: the
+   * first pass fills what was never set, and nothing overwrites a choice after.
+   */
+  if (limits.capsDerivedAt > 0) return null;
+
+  /*
+   * Wallet balance as the fallback, not only free collateral.
+   *
+   * availableBalance is what is left after margin, so a position open at the
+   * moment this runs makes it small and an account fully committed makes it
+   * zero — and a zero here used to mean the caps were silently left at zero,
+   * which refuses every subsequent order. The cap being derived is a structural
+   * ceiling on the account, so the account's size is the right input.
+   */
+  const equity = Math.max(account.risk?.availableBalance ?? 0, account.risk?.walletBalance ?? 0);
+  if (!(equity > 0)) {
+    /*
+     * Said out loud, and retried.
+     *
+     * This returned silently, once, at boot. If the balance was not yet known —
+     * a slow first account read, an exchange hiccup, an account reset in
+     * progress — the caps stayed at zero, the adapter refused every order with
+     * "max position size is not set", and nothing ever tried again or explained
+     * why. Trading was over until someone restarted the process.
+     */
+    return account.risk
+      ? `balance reads ${equity} — caps cannot be derived from it yet`
+      : `no account data yet (${account.error ?? "not fetched"}) — caps cannot be derived`;
+  }
 
   const next = { ...limits };
   const notes: string[] = [];
@@ -2034,11 +2082,16 @@ async function deriveUnsetCaps() {
     );
   }
 
-  if (notes.length === 0) return;
+  next.capsDerivedAt = Date.now();
   limits = next;
   writeLimits(limits);
+  if (notes.length === 0) {
+    log("caps were already set; marking them derived so they are never recomputed over your choice.");
+    return null;
+  }
   log(`caps were unset, so they were derived from the balance: ${notes.join("; ")}`);
-  log("change them in Risk limits — once set, they are never overwritten.");
+  log("change them in Risk limits — from here on a zero is treated as your decision, not a gap.");
+  return null;
 }
 
 async function reconcileOnStart() {
@@ -3183,6 +3236,15 @@ const server = createServer(async (req, res) => {
         };
         const before = limits;
         limits = {
+          /*
+           * Saving the form marks the caps derived, whatever is in it.
+           *
+           * The operator has now looked at these numbers and pressed save, so a
+           * zero in the field is a decision. Without this the deriver would put
+           * a daily loss budget back the moment it saw a zero, which is exactly
+           * the setting most likely to be zeroed on purpose.
+           */
+          capsDerivedAt: limits.capsDerivedAt || Date.now(),
           maxPositionUsd: n("maxPositionUsd", limits.maxPositionUsd),
           maxLeverage: Math.max(1, n("maxLeverage", limits.maxLeverage)),
           maxDailyLossUsd: n("maxDailyLossUsd", limits.maxDailyLossUsd),
@@ -3349,13 +3411,28 @@ const server = createServer(async (req, res) => {
           // would refuse everything.
           maxPositionUsd: 0,
           maxDailyLossUsd: 0,
+          // Cleared so the derivation runs again — this is the one path that is
+          // *supposed* to overwrite whatever is there.
+          capsDerivedAt: 0,
           tradingEnabled: false,
         };
         writeLimits(limits);
         stopExecutionLoop();
-        await deriveUnsetCaps();
+        /*
+         * Reported rather than assumed.
+         *
+         * This used to call the deriver and send back a status regardless of
+         * whether it had done anything. When the balance was unavailable the
+         * deriver returned silently, the caps stayed at zero, and the page
+         * showed a successful reset with empty caps and no trading — which is
+         * what "reset isn't working" looked like from the outside.
+         */
+        const problem = await deriveUnsetCaps();
+        if (problem) log(`reset: caps could not be derived — ${problem}`);
         log(`limits reset to the derived defaults: ${JSON.stringify(limits)}`);
-        send(res, 200, status());
+        // The problem is handed back so the page can say why the caps are still
+        // empty rather than reporting a successful reset that changed nothing.
+        send(res, 200, { ...status(), capsProblem: problem });
         return;
       }
 
@@ -3956,6 +4033,26 @@ const server = createServer(async (req, res) => {
             explained === s2.seen ? "ok" : "bad");
         }
 
+        /*
+         * A zero max-position refuses every order, and did so silently.
+         *
+         * The adapter throws "max position size is not set" per attempt, which
+         * lands in the execution log where it reads as one rejected trade
+         * rather than as a dead session. Stated here as what it is: nothing can
+         * trade until this is a number.
+         */
+        add("position cap", limits.maxPositionUsd > 0,
+          limits.maxPositionUsd > 0
+            ? `max position ${usdShort(limits.maxPositionUsd)}` +
+              (limits.capsDerivedAt ? "" : " (not yet marked derived)")
+            : "max position is 0 — every order is refused before it is sized",
+          limits.maxPositionUsd > 0
+            ? undefined
+            : "It is derived from the balance at startup and retried every 20s. If it is still zero, the " +
+              "account balance is not readable — check credentials and that the venue is reachable. " +
+              "Setting it by hand in Risk limits also works.",
+          limits.maxPositionUsd > 0 ? "ok" : "bad");
+
         const uncalibrated = SYMBOLS.filter((s) => !isCalibrated(s));
         add("symbols", uncalibrated.length === 0,
           uncalibrated.length === 0
@@ -4463,13 +4560,29 @@ server.listen(PORT, HOST, () => {
     await reconcileOnStart();
     await refreshAccount();
     // After the balance is known, because that is what they are derived from.
-    await deriveUnsetCaps();
+    const capsProblem = await deriveUnsetCaps();
+    if (capsProblem) log(`caps not derived yet — ${capsProblem}. Will retry on each account sweep.`);
     // Analysis only — see runAutoTune. This fills the panel at boot instead of
     // leaving it blank until the next position closes.
     await runAutoTune(false).catch(() => {});
     setInterval(() => {
       void (async () => {
         await refreshAccount();
+        /*
+         * Retried, because the first attempt can legitimately fail.
+         *
+         * The balance is not always known at boot — a slow first account read,
+         * an exchange hiccup, an account reset in progress — and a cap of zero
+         * refuses every order the adapter is handed. Running this once meant a
+         * transient failure at startup killed trading for the whole session
+         * with nothing in the log to say why. It is a no-op once the caps are
+         * marked derived, so this costs nothing in the normal case.
+         */
+        const problem = await deriveUnsetCaps();
+        if (problem && !capsWarned) {
+          capsWarned = true;
+          log(`!! caps are still unset and no order can be sized — ${problem}`);
+        }
         await maintainBrackets();
         await enforceMaxHold();
       })();
@@ -5902,7 +6015,13 @@ $("btnReset").onclick=async()=>{
     "8 trades a day · 15 min loss cooldown · derates at half.\\n\\n"+
     "Max position and max daily loss are recalculated from your balance. Trading is disarmed."))return;
   limitsDirty=false;
-  render(await api("/api/limits/reset",{method:"POST"}));
+  const rr=await api("/api/limits/reset",{method:"POST"});
+  render(rr);
+  if(rr.capsProblem){
+    alert("Settings were reset, but the caps could not be derived. "+rr.capsProblem+
+      " — nothing can be sized until max position is a number. It retries every 20 seconds, "+
+      "or set it by hand in Risk limits.");
+  }
 };
 $("btnPreview").onclick=async()=>{
   const body={side:$("pvSide").value,notionalUsd:+$("pvNotional").value,
