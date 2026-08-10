@@ -45,7 +45,14 @@ const arg = (name: string, fallback: string) => {
     : fallback;
 };
 const watch = process.argv.includes("--watch");
-const everySec = Number(arg("every", "300"));
+/*
+ * Two minutes, not five.
+ *
+ * This is the latency on noticing that something is wrong from somewhere else,
+ * and five minutes of it is a long time to sit with a stopped agent. The cost is
+ * one small commit every two minutes on a branch that exists for exactly this.
+ */
+const everySec = Number(arg("every", "120"));
 const branch = arg("branch", "claude/amm-liquidity-sweep-8qhnd0");
 
 const git = (...args: string[]) =>

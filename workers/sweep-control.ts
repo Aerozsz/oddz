@@ -141,6 +141,42 @@ interface LogLine {
 const logLines: LogLine[] = [];
 
 /**
+ * Failures, kept apart from the ordinary log.
+ *
+ * The log ring holds 200 lines and a busy minute fills it, so an exception at
+ * 09:15 is gone by 09:20 — which is exactly when someone starts asking what
+ * happened. These are kept separately and never rotate out for ordinary
+ * chatter, because the question "did anything throw" should not depend on how
+ * talkative the rest of the process was.
+ */
+interface ErrorLine { t: number; where: string; text: string; stack?: string }
+const errorLines: ErrorLine[] = [];
+
+function noteError(where: string, err: unknown) {
+  const text = err instanceof Error ? err.message : String(err);
+  const stack = err instanceof Error && err.stack ? err.stack.split("\n").slice(0, 6).join("\n") : undefined;
+  errorLines.push({ t: Date.now(), where, text: redact(text), stack: stack ? redact(stack) : undefined });
+  if (errorLines.length > 60) errorLines.shift();
+}
+
+/*
+ * Nothing else catches these.
+ *
+ * An unhandled rejection in a background sweep previously vanished: no log
+ * line, no crash, just a loop that stopped doing something. Recorded here so it
+ * reaches the snapshot, and deliberately not rethrown — a trading process with
+ * an open position should not exit because a status fetch rejected.
+ */
+process.on("unhandledRejection", (reason) => {
+  noteError("unhandled rejection", reason);
+  console.error("[control] unhandled rejection:", reason);
+});
+process.on("uncaughtException", (err) => {
+  noteError("uncaught exception", err);
+  console.error("[control] uncaught exception:", err);
+});
+
+/**
  * Collapse a line that is repeating.
  *
  * A rejection that recurs once a second is one fact, not four hundred, and
@@ -3821,322 +3857,9 @@ const server = createServer(async (req, res) => {
         return;
       }
 
-      case "GET /api/diagnose": {
-        /*
-         * One place that answers "why is nothing happening".
-         *
-         * Every check here corresponds to something that has actually gone
-         * wrong in this project rather than to a category someone imagined:
-         * .env not being read, a saved flag quietly refusing every setup out of
-         * hours, the loop claiming to be armed while attached to nothing, a
-         * worker judged dead because its output file was empty. The point is to
-         * return the specific next action, not a status colour.
-         */
-        const checks: {
-          name: string;
-          ok: boolean;
-          severity: "ok" | "warn" | "bad";
-          detail: string;
-          fix?: string;
-        }[] = [];
-        const add = (
-          name: string,
-          ok: boolean,
-          detail: string,
-          fix?: string,
-          severity: "ok" | "warn" | "bad" = ok ? "ok" : "bad",
-        ) => checks.push({ name, ok, severity, detail, fix });
-
-        add(
-          ".env loaded",
-          dotenv.found && dotenv.count > 0,
-          dotenv.found ? `${dotenv.path} — ${dotenv.count} values` : `not found at ${dotenv.path}`,
-          dotenv.found ? "Check the key names are exactly BINANCE_API_KEY and BINANCE_API_SECRET."
-            : "On Windows, Notepad saves it as .env.txt unless you set Save as type to All Files.",
-        );
-
-        const creds = hasCredentials();
-        add("credentials present", creds,
-          creds ? (process.env.BINANCE_LIVE === "1" ? "LIVE — real money" : "demo trading") : "none",
-          creds ? undefined : "Run npm run sweep:check to test them on their own.");
-
-        const acctOk = account.risk !== null;
-        add("exchange reachable", acctOk,
-          acctOk ? `balance ${account.risk?.availableBalance.toFixed(2)} USDT`
-                 : (account.error ?? "no account read yet"),
-          acctOk ? undefined : "npm run sweep:check names the specific cause.");
-
-        /*
-         * The check that catches a perfectly healthy monitor pointed at a
-         * contract the account cannot trade. Placed directly after the
-         * credential checks because when it fails, nothing below it matters.
-         */
-        if (orderable.symbols) {
-          const missing = SYMBOLS.filter((s) => !orderable.symbols!.has(s));
-          add("contracts tradeable here", missing.length === 0,
-            missing.length === 0
-              ? `${SYMBOLS.join(", ")} all listed at ${orderable.venue}`
-              : `${missing.join(", ")} not listed at ${orderable.venue}`,
-            missing.length === 0
-              ? undefined
-              : "Market data comes from production, so the book, the signals and the sizer will all look " +
-                "completely normal — and every order on these will be rejected. Demo lists far fewer " +
-                "contracts than production. Either drop them from SWEEP_SYMBOLS for demo testing, or test " +
-                "the order path on a contract demo does list.");
-        } else if (hasCredentials()) {
-          add("contracts tradeable here", false,
-            orderable.error ?? "not checked yet",
-            "Without this, a symbol the demo account cannot trade is indistinguishable from a quiet market.",
-            "warn");
-        }
-
-        const live = allDesks().filter((d) => d.feed !== null);
-        add("engines running", live.length === desks.size,
-          live.length === 0
-            ? "all stopped"
-            : `${live.length}/${desks.size} — ${live.map((d) => `${d.symbol} up ${Math.round((Date.now() - d.startedAt) / 1000)}s`).join(", ")}`,
-          live.length === desks.size ? undefined : "Press Start at the top of this page.",
-          live.length === 0 ? "bad" : live.length === desks.size ? "ok" : "warn");
-
-        /*
-         * Per contract, because "the feed is fine" is not one fact when there
-         * are three of them. A contract that never warms up — the usual cause
-         * being a ticker that does not exist, so the stream carries nothing —
-         * looks identical to a quiet market from a pooled reading, and that was
-         * exactly the failure this was added to catch.
-         */
-        for (const d of allDesks()) {
-          const s = d.feed?.getState();
-          const healthy = s?.health.tradeable === true;
-          add(`feed: ${d.symbol}`, healthy,
-            s ? `${s.health.level}${s.health.tradeable ? "" : " — " + s.health.summary}` : "no state",
-            healthy ? undefined
-              : "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance " +
-                `is blocked or ${d.symbol} is not a listed contract — npm run sweep:symbols says which.`,
-            healthy ? "ok" : s?.health.level === "degraded" ? "warn" : "bad");
-        }
-
-        const st = focused().feed?.getState();
-
-        add("max position set", limits.maxPositionUsd > 0,
-          limits.maxPositionUsd > 0 ? `${limits.maxPositionUsd} USD` : "not set — every setup is refused",
-          "Set it in Risk limits and save.");
-
-        /*
-         * The stop and the reward-to-risk floor multiply into a demand for a
-         * level a certain distance away, and the cluster model only maps a
-         * fixed band around mark. Past that band the demand cannot be met by
-         * any book in any market condition — it is arithmetic, not a market
-         * judgement, and it is knowable the instant the setting is saved.
-         *
-         * This is here because it happened: a 50% stop, entered in the belief
-         * that it meant "close at a 50% loss", asked for a level 60% away and
-         * refused every setup silently and forever. The refusal reason was
-         * true and useless; nothing said the configuration could never work.
-         */
-        {
-          const need = limits.stopLossPct * (limits.minRewardRisk > 0 ? limits.minRewardRisk : 1.5);
-          const mapped = CONFIG.clusterRangePct;
-          const impossible = need > mapped;
-          /*
-           * The same failure from the other end.
-           *
-           * A stop can be too tight as surely as too wide, and it is less
-           * obvious: the target it implies gets smaller with it, and once that
-           * target is worth less than a multiple of the round trip, every
-           * setup is refused for a reward that was never going to clear its own
-           * costs. A 0.1% stop at 1.2 reward-to-risk asks for a 0.12% move
-           * against a round trip near 0.10% — structurally unpayable, and it
-           * presents as a quiet market rather than as a setting.
-           */
-          const roundTripPct = (fees.tiers[0]?.takerRate ?? 0.0005) * 2 * 100;
-          const feeFloor = roundTripPct * limits.minRewardOverFees;
-          const tooTight = !impossible && need < feeFloor;
-          // A stop this wide is also almost certainly a unit mix-up rather than
-          // a deliberate choice, so the two are worth separating.
-          const implausible = !impossible && limits.stopLossPct > 5;
-          add("stop distance is reachable", !impossible && !implausible && !tooTight,
-            `${limits.stopLossPct}% stop × ${limits.minRewardRisk} reward-to-risk needs a level ` +
-              `${need.toFixed(1)}% away; levels are mapped to ±${mapped}%` +
-              (impossible ? " — nothing can ever satisfy this" : ""),
-            tooTight
-              ? `A ${limits.stopLossPct}% stop asks for a ${need.toFixed(2)}% move, and the round trip costs ` +
-                `about ${roundTripPct.toFixed(2)}% — the reward is smaller than the fee hurdle, so every setup ` +
-                `is refused. Set the stop to at least ${(feeFloor / Math.max(limits.minRewardRisk, 0.1)).toFixed(2)}%.`
-              : impossible
-              ? `Set the stop to about ${(mapped / 4 / Math.max(limits.minRewardRisk, 1)).toFixed(1)}% or less. ` +
-                "This field is a price move, not a percentage of your money: 0.5% means price moving half a " +
-                `percent against you, which at ${limits.maxLeverage}x is ` +
-                `${(0.5 * limits.maxLeverage).toFixed(0)}% of the margin behind the position.`
-              : implausible
-                ? "That is a very wide stop for an intraday equity perp. It is a price move, not a share of " +
-                  "your money — check it is the number you meant."
-                : undefined,
-            impossible || tooTight ? "bad" : implausible ? "warn" : "ok");
-        }
-
-        add("max daily loss set", true,
-          limits.maxDailyLossUsd > 0 ? `${limits.maxDailyLossUsd} USD` : "off — no daily stop, by choice",
-          "Set it in Risk limits and save.");
-
-        // The specific trap: a flag that silently refuses everything out of hours.
-        const cashBlocking = limits.requireCashOpen && st?.session.cashOpen === false;
-        add("session rule", !cashBlocking,
-          limits.requireCashOpen
-            ? `set to "do not trade" while Nasdaq is shut — currently ${st?.session.phase ?? "?"}`
-            : "trades outside cash hours at reduced size",
-          cashBlocking ? 'Set "When Nasdaq is shut" to "trade, sized down".' : undefined,
-          cashBlocking ? "warn" : "ok");
-
-        add("armed", limits.tradingEnabled,
-          limits.tradingEnabled ? "orders will be placed when a setup passes" : "disarmed — nothing will be sent",
-          limits.tradingEnabled ? undefined : "Press Start trading. It always boots disarmed by design.",
-          limits.tradingEnabled ? "ok" : "warn");
-
-        const attached = allDesks().filter((d) => d.runner !== null);
-        add("execution loop attached", attached.length === desks.size,
-          attached.length === 0
-            ? "not attached"
-            : `${attached.length}/${desks.size} listening — ${attached.map((d) => d.symbol).join(", ")}`,
-          attached.length === desks.size ? undefined : "Needs the engine running and credentials. Disarm and re-arm.",
-          attached.length === desks.size ? "ok" : limits.tradingEnabled ? "bad" : "warn");
-
-        for (const [worker, label, cmd] of [
-          ["sweep-paper", "evidence sampler", "npm run sweep:paper"],
-          ["sweep-shadow", "shadow run", "npm run sweep:shadow"],
-        ] as const) {
-          const b = readHeartbeat(worker);
-          add(label, b.running,
-            b.running ? `${Math.round(b.ageMs / 1000)}s since its last beat`
-              : b.stale ? `last beat ${Math.round(b.ageMs / 60_000)} min ago — stopped or wedged`
-              : "never started",
-            b.running ? undefined : `Run ${cmd} in its own window.`,
-            b.running ? "ok" : "warn");
-        }
-
-        /*
-         * The feeds, checked separately because they are not a worker any more.
-         *
-         * This process collects them itself, so "not running" here does not mean
-         * the operator forgot a command — it means something inside this server
-         * failed, which is a different problem with a different fix. Erroring
-         * sources are reported but not treated as broken: a rate-limited public
-         * RSSHub or a 4chan outage degrades the feed and does not stop it, and a
-         * check that goes red every time one of thirteen sources hiccups trains
-         * the operator to ignore it.
-         */
-        {
-          const st = newsPoller?.status();
-          const external = externalNewsRunning();
-          const hb = readHeartbeat("sweep-news");
-          const collecting = Boolean(st) || external;
-          const errs = String(st?.errors ?? hb.stats.errors ?? "");
-          const nErr = errs ? errs.split(" | ").length : 0;
-          const total = st?.sources ?? Number(hb.stats.sources ?? 0);
-          add("news + social feeds", collecting,
-            !collecting
-              ? "not collecting"
-              : `${total - nErr}/${total} sources live${external ? " (standalone sweep:news)" : " (in this process)"}` +
-                `, ${st?.recorded ?? hb.stats.recorded ?? 0} headlines recorded` +
-                (nErr ? ` · ${nErr} erroring: ${errs.slice(0, 160)}` : ""),
-            collecting
-              ? undefined
-              : "This server starts the collector itself, so this should never be off. Restart it.",
-            collecting ? "ok" : "bad");
-        }
-
-        const s2 = allDesks().reduce(
-          (acc, d) => {
-            const s = d.runner?.stats();
-            return s
-              ? {
-                  any: true,
-                  seen: acc.seen + s.seen,
-                  accepted: acc.accepted + s.accepted,
-                  rejected: acc.rejected + s.rejected,
-                  declined: acc.declined + s.declined,
-                  notReady: acc.notReady + s.notReady,
-                }
-              : acc;
-          },
-          { any: false, seen: 0, accepted: 0, rejected: 0, declined: 0, notReady: 0 },
-        );
-        if (s2.any) {
-          const explained = s2.accepted + s2.rejected + s2.declined + s2.notReady;
-          add("loop accounting", explained === s2.seen,
-            `${s2.seen} seen = ${s2.accepted} placed + ${s2.declined} no side + ${s2.rejected} refused` +
-              (s2.notReady ? ` + ${s2.notReady} while the feed was warming` : ""),
-            explained === s2.seen ? undefined : "Signals are going unaccounted — that is a bug, not a setting.",
-            explained === s2.seen ? "ok" : "bad");
-        }
-
-        /*
-         * A zero max-position refuses every order, and did so silently.
-         *
-         * The adapter throws "max position size is not set" per attempt, which
-         * lands in the execution log where it reads as one rejected trade
-         * rather than as a dead session. Stated here as what it is: nothing can
-         * trade until this is a number.
-         */
-        add("position cap", limits.maxPositionUsd > 0,
-          limits.maxPositionUsd > 0
-            ? `max position ${usdShort(limits.maxPositionUsd)}` +
-              (limits.capsDerivedAt ? "" : " (not yet marked derived)")
-            : "max position is 0 — every order is refused before it is sized",
-          limits.maxPositionUsd > 0
-            ? undefined
-            : "It is derived from the balance at startup and retried every 20s. If it is still zero, the " +
-              "account balance is not readable — check credentials and that the venue is reachable. " +
-              "Setting it by hand in Risk limits also works.",
-          limits.maxPositionUsd > 0 ? "ok" : "bad");
-
-        const uncalibrated = SYMBOLS.filter((s) => !isCalibrated(s));
-        add("symbols", uncalibrated.length === 0,
-          uncalibrated.length === 0
-            ? `${SYMBOLS.join(", ")} — all equity perps the models are built for`
-            : `${uncalibrated.join(", ")} — NOT calibrated (of ${SYMBOLS.join(", ")})`,
-          uncalibrated.length === 0
-            ? undefined
-            : "Fine for testing that orders place. The leverage ladder, maintenance rate, session " +
-              "weights and earnings calendar are all built for an equity perp on Nasdaq and mean " +
-              "nothing on a crypto pair or a contract on another exchange's clock — do not read a " +
-              "strategy result off those.",
-          uncalibrated.length === 0 ? "ok" : "warn");
-
-        /*
-         * The multi-desk trap: every cap is account-wide, so adding contracts
-         * raises how often a setup is *found* and not how much is at risk. That
-         * is only true while the caps are actually set — with maxTradesPerDay at
-         * zero or maxOpenPositions above one, more desks does mean more risk,
-         * and that is worth saying out loud rather than leaving implied.
-         */
-        if (desks.size > 1) {
-          const capped = limits.maxTradesPerDay > 0 && limits.maxOpenPositions <= 1;
-          add("multi-contract risk", capped,
-            capped
-              ? `${desks.size} desks sharing one budget: ${limits.maxTradesPerDay} trades/day, ${limits.maxOpenPositions} position at a time`
-              : `${desks.size} desks with ${limits.maxOpenPositions} concurrent positions allowed` +
-                (limits.maxTradesPerDay > 0 ? "" : " and no daily trade cap"),
-            capped
-              ? undefined
-              : "These are correlated names — holding several at once is one sector bet in three tickers, " +
-                "and their stops fire on the same tick. Set max open positions to 1 and a daily trade cap.",
-            capped ? "ok" : "warn");
-        }
-
-        const bad = checks.filter((c) => c.severity === "bad");
-        const warn = checks.filter((c) => c.severity === "warn");
-        send(res, 200, {
-          checks,
-          verdict: bad.length
-            ? `${bad.length} thing${bad.length === 1 ? "" : "s"} broken`
-            : warn.length
-              ? `nothing broken; ${warn.length} thing${warn.length === 1 ? "" : "s"} would stop a trade`
-              : "everything checks out — quiet means no setup has qualified yet",
-          worst: bad.length ? "bad" : warn.length ? "warn" : "ok",
-        });
+      case "GET /api/diagnose":
+        send(res, 200, diagnose());
         return;
-      }
 
       case "GET /api/log": {
         const since = Number(new URL(req.url ?? "", "http://x").searchParams.get("since") ?? 0);
@@ -4662,6 +4385,333 @@ function applyDesired() {
   for (const desk of allDesks()) if (desk.runner) armDesk(desk);
 }
 
+/* -------------------------------------------------------------- diagnose */
+
+/**
+ * What is wrong right now, and the specific next action for each thing.
+ *
+ * Extracted from the endpoint so the snapshot can carry it. That is the whole
+ * point: this is the one place that already knows why nothing is happening, and
+ * for a whole session it was reachable only by a human clicking a button on the
+ * machine the agent runs on — so every remote diagnosis reconstructed by hand
+ * what this computes directly, and got it wrong more than once.
+ */
+function diagnose() {
+        /*
+         * One place that answers "why is nothing happening".
+         *
+         * Every check here corresponds to something that has actually gone
+         * wrong in this project rather than to a category someone imagined:
+         * .env not being read, a saved flag quietly refusing every setup out of
+         * hours, the loop claiming to be armed while attached to nothing, a
+         * worker judged dead because its output file was empty. The point is to
+         * return the specific next action, not a status colour.
+         */
+        const checks: {
+          name: string;
+          ok: boolean;
+          severity: "ok" | "warn" | "bad";
+          detail: string;
+          fix?: string;
+        }[] = [];
+        const add = (
+          name: string,
+          ok: boolean,
+          detail: string,
+          fix?: string,
+          severity: "ok" | "warn" | "bad" = ok ? "ok" : "bad",
+        ) => checks.push({ name, ok, severity, detail, fix });
+
+        add(
+          ".env loaded",
+          dotenv.found && dotenv.count > 0,
+          dotenv.found ? `${dotenv.path} — ${dotenv.count} values` : `not found at ${dotenv.path}`,
+          dotenv.found ? "Check the key names are exactly BINANCE_API_KEY and BINANCE_API_SECRET."
+            : "On Windows, Notepad saves it as .env.txt unless you set Save as type to All Files.",
+        );
+
+        const creds = hasCredentials();
+        add("credentials present", creds,
+          creds ? (process.env.BINANCE_LIVE === "1" ? "LIVE — real money" : "demo trading") : "none",
+          creds ? undefined : "Run npm run sweep:check to test them on their own.");
+
+        const acctOk = account.risk !== null;
+        add("exchange reachable", acctOk,
+          acctOk ? `balance ${account.risk?.availableBalance.toFixed(2)} USDT`
+                 : (account.error ?? "no account read yet"),
+          acctOk ? undefined : "npm run sweep:check names the specific cause.");
+
+        /*
+         * The check that catches a perfectly healthy monitor pointed at a
+         * contract the account cannot trade. Placed directly after the
+         * credential checks because when it fails, nothing below it matters.
+         */
+        if (orderable.symbols) {
+          const missing = SYMBOLS.filter((s) => !orderable.symbols!.has(s));
+          add("contracts tradeable here", missing.length === 0,
+            missing.length === 0
+              ? `${SYMBOLS.join(", ")} all listed at ${orderable.venue}`
+              : `${missing.join(", ")} not listed at ${orderable.venue}`,
+            missing.length === 0
+              ? undefined
+              : "Market data comes from production, so the book, the signals and the sizer will all look " +
+                "completely normal — and every order on these will be rejected. Demo lists far fewer " +
+                "contracts than production. Either drop them from SWEEP_SYMBOLS for demo testing, or test " +
+                "the order path on a contract demo does list.");
+        } else if (hasCredentials()) {
+          add("contracts tradeable here", false,
+            orderable.error ?? "not checked yet",
+            "Without this, a symbol the demo account cannot trade is indistinguishable from a quiet market.",
+            "warn");
+        }
+
+        const live = allDesks().filter((d) => d.feed !== null);
+        add("engines running", live.length === desks.size,
+          live.length === 0
+            ? "all stopped"
+            : `${live.length}/${desks.size} — ${live.map((d) => `${d.symbol} up ${Math.round((Date.now() - d.startedAt) / 1000)}s`).join(", ")}`,
+          live.length === desks.size ? undefined : "Press Start at the top of this page.",
+          live.length === 0 ? "bad" : live.length === desks.size ? "ok" : "warn");
+
+        /*
+         * Per contract, because "the feed is fine" is not one fact when there
+         * are three of them. A contract that never warms up — the usual cause
+         * being a ticker that does not exist, so the stream carries nothing —
+         * looks identical to a quiet market from a pooled reading, and that was
+         * exactly the failure this was added to catch.
+         */
+        for (const d of allDesks()) {
+          const s = d.feed?.getState();
+          const healthy = s?.health.tradeable === true;
+          add(`feed: ${d.symbol}`, healthy,
+            s ? `${s.health.level}${s.health.tradeable ? "" : " — " + s.health.summary}` : "no state",
+            healthy ? undefined
+              : "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance " +
+                `is blocked or ${d.symbol} is not a listed contract — npm run sweep:symbols says which.`,
+            healthy ? "ok" : s?.health.level === "degraded" ? "warn" : "bad");
+        }
+
+        const st = focused().feed?.getState();
+
+        add("max position set", limits.maxPositionUsd > 0,
+          limits.maxPositionUsd > 0 ? `${limits.maxPositionUsd} USD` : "not set — every setup is refused",
+          "Set it in Risk limits and save.");
+
+        /*
+         * The stop and the reward-to-risk floor multiply into a demand for a
+         * level a certain distance away, and the cluster model only maps a
+         * fixed band around mark. Past that band the demand cannot be met by
+         * any book in any market condition — it is arithmetic, not a market
+         * judgement, and it is knowable the instant the setting is saved.
+         *
+         * This is here because it happened: a 50% stop, entered in the belief
+         * that it meant "close at a 50% loss", asked for a level 60% away and
+         * refused every setup silently and forever. The refusal reason was
+         * true and useless; nothing said the configuration could never work.
+         */
+        {
+          const need = limits.stopLossPct * (limits.minRewardRisk > 0 ? limits.minRewardRisk : 1.5);
+          const mapped = CONFIG.clusterRangePct;
+          const impossible = need > mapped;
+          /*
+           * The same failure from the other end.
+           *
+           * A stop can be too tight as surely as too wide, and it is less
+           * obvious: the target it implies gets smaller with it, and once that
+           * target is worth less than a multiple of the round trip, every
+           * setup is refused for a reward that was never going to clear its own
+           * costs. A 0.1% stop at 1.2 reward-to-risk asks for a 0.12% move
+           * against a round trip near 0.10% — structurally unpayable, and it
+           * presents as a quiet market rather than as a setting.
+           */
+          const roundTripPct = (fees.tiers[0]?.takerRate ?? 0.0005) * 2 * 100;
+          const feeFloor = roundTripPct * limits.minRewardOverFees;
+          const tooTight = !impossible && need < feeFloor;
+          // A stop this wide is also almost certainly a unit mix-up rather than
+          // a deliberate choice, so the two are worth separating.
+          const implausible = !impossible && limits.stopLossPct > 5;
+          add("stop distance is reachable", !impossible && !implausible && !tooTight,
+            `${limits.stopLossPct}% stop × ${limits.minRewardRisk} reward-to-risk needs a level ` +
+              `${need.toFixed(1)}% away; levels are mapped to ±${mapped}%` +
+              (impossible ? " — nothing can ever satisfy this" : ""),
+            tooTight
+              ? `A ${limits.stopLossPct}% stop asks for a ${need.toFixed(2)}% move, and the round trip costs ` +
+                `about ${roundTripPct.toFixed(2)}% — the reward is smaller than the fee hurdle, so every setup ` +
+                `is refused. Set the stop to at least ${(feeFloor / Math.max(limits.minRewardRisk, 0.1)).toFixed(2)}%.`
+              : impossible
+              ? `Set the stop to about ${(mapped / 4 / Math.max(limits.minRewardRisk, 1)).toFixed(1)}% or less. ` +
+                "This field is a price move, not a percentage of your money: 0.5% means price moving half a " +
+                `percent against you, which at ${limits.maxLeverage}x is ` +
+                `${(0.5 * limits.maxLeverage).toFixed(0)}% of the margin behind the position.`
+              : implausible
+                ? "That is a very wide stop for an intraday equity perp. It is a price move, not a share of " +
+                  "your money — check it is the number you meant."
+                : undefined,
+            impossible || tooTight ? "bad" : implausible ? "warn" : "ok");
+        }
+
+        add("max daily loss set", true,
+          limits.maxDailyLossUsd > 0 ? `${limits.maxDailyLossUsd} USD` : "off — no daily stop, by choice",
+          "Set it in Risk limits and save.");
+
+        // The specific trap: a flag that silently refuses everything out of hours.
+        const cashBlocking = limits.requireCashOpen && st?.session.cashOpen === false;
+        add("session rule", !cashBlocking,
+          limits.requireCashOpen
+            ? `set to "do not trade" while Nasdaq is shut — currently ${st?.session.phase ?? "?"}`
+            : "trades outside cash hours at reduced size",
+          cashBlocking ? 'Set "When Nasdaq is shut" to "trade, sized down".' : undefined,
+          cashBlocking ? "warn" : "ok");
+
+        add("armed", limits.tradingEnabled,
+          limits.tradingEnabled ? "orders will be placed when a setup passes" : "disarmed — nothing will be sent",
+          limits.tradingEnabled ? undefined : "Press Start trading. It always boots disarmed by design.",
+          limits.tradingEnabled ? "ok" : "warn");
+
+        const attached = allDesks().filter((d) => d.runner !== null);
+        add("execution loop attached", attached.length === desks.size,
+          attached.length === 0
+            ? "not attached"
+            : `${attached.length}/${desks.size} listening — ${attached.map((d) => d.symbol).join(", ")}`,
+          attached.length === desks.size ? undefined : "Needs the engine running and credentials. Disarm and re-arm.",
+          attached.length === desks.size ? "ok" : limits.tradingEnabled ? "bad" : "warn");
+
+        for (const [worker, label, cmd] of [
+          ["sweep-paper", "evidence sampler", "npm run sweep:paper"],
+          ["sweep-shadow", "shadow run", "npm run sweep:shadow"],
+        ] as const) {
+          const b = readHeartbeat(worker);
+          add(label, b.running,
+            b.running ? `${Math.round(b.ageMs / 1000)}s since its last beat`
+              : b.stale ? `last beat ${Math.round(b.ageMs / 60_000)} min ago — stopped or wedged`
+              : "never started",
+            b.running ? undefined : `Run ${cmd} in its own window.`,
+            b.running ? "ok" : "warn");
+        }
+
+        /*
+         * The feeds, checked separately because they are not a worker any more.
+         *
+         * This process collects them itself, so "not running" here does not mean
+         * the operator forgot a command — it means something inside this server
+         * failed, which is a different problem with a different fix. Erroring
+         * sources are reported but not treated as broken: a rate-limited public
+         * RSSHub or a 4chan outage degrades the feed and does not stop it, and a
+         * check that goes red every time one of thirteen sources hiccups trains
+         * the operator to ignore it.
+         */
+        {
+          const st = newsPoller?.status();
+          const external = externalNewsRunning();
+          const hb = readHeartbeat("sweep-news");
+          const collecting = Boolean(st) || external;
+          const errs = String(st?.errors ?? hb.stats.errors ?? "");
+          const nErr = errs ? errs.split(" | ").length : 0;
+          const total = st?.sources ?? Number(hb.stats.sources ?? 0);
+          add("news + social feeds", collecting,
+            !collecting
+              ? "not collecting"
+              : `${total - nErr}/${total} sources live${external ? " (standalone sweep:news)" : " (in this process)"}` +
+                `, ${st?.recorded ?? hb.stats.recorded ?? 0} headlines recorded` +
+                (nErr ? ` · ${nErr} erroring: ${errs.slice(0, 160)}` : ""),
+            collecting
+              ? undefined
+              : "This server starts the collector itself, so this should never be off. Restart it.",
+            collecting ? "ok" : "bad");
+        }
+
+        const s2 = allDesks().reduce(
+          (acc, d) => {
+            const s = d.runner?.stats();
+            return s
+              ? {
+                  any: true,
+                  seen: acc.seen + s.seen,
+                  accepted: acc.accepted + s.accepted,
+                  rejected: acc.rejected + s.rejected,
+                  declined: acc.declined + s.declined,
+                  notReady: acc.notReady + s.notReady,
+                }
+              : acc;
+          },
+          { any: false, seen: 0, accepted: 0, rejected: 0, declined: 0, notReady: 0 },
+        );
+        if (s2.any) {
+          const explained = s2.accepted + s2.rejected + s2.declined + s2.notReady;
+          add("loop accounting", explained === s2.seen,
+            `${s2.seen} seen = ${s2.accepted} placed + ${s2.declined} no side + ${s2.rejected} refused` +
+              (s2.notReady ? ` + ${s2.notReady} while the feed was warming` : ""),
+            explained === s2.seen ? undefined : "Signals are going unaccounted — that is a bug, not a setting.",
+            explained === s2.seen ? "ok" : "bad");
+        }
+
+        /*
+         * A zero max-position refuses every order, and did so silently.
+         *
+         * The adapter throws "max position size is not set" per attempt, which
+         * lands in the execution log where it reads as one rejected trade
+         * rather than as a dead session. Stated here as what it is: nothing can
+         * trade until this is a number.
+         */
+        add("position cap", limits.maxPositionUsd > 0,
+          limits.maxPositionUsd > 0
+            ? `max position ${usdShort(limits.maxPositionUsd)}` +
+              (limits.capsDerivedAt ? "" : " (not yet marked derived)")
+            : "max position is 0 — every order is refused before it is sized",
+          limits.maxPositionUsd > 0
+            ? undefined
+            : "It is derived from the balance at startup and retried every 20s. If it is still zero, the " +
+              "account balance is not readable — check credentials and that the venue is reachable. " +
+              "Setting it by hand in Risk limits also works.",
+          limits.maxPositionUsd > 0 ? "ok" : "bad");
+
+        const uncalibrated = SYMBOLS.filter((s) => !isCalibrated(s));
+        add("symbols", uncalibrated.length === 0,
+          uncalibrated.length === 0
+            ? `${SYMBOLS.join(", ")} — all equity perps the models are built for`
+            : `${uncalibrated.join(", ")} — NOT calibrated (of ${SYMBOLS.join(", ")})`,
+          uncalibrated.length === 0
+            ? undefined
+            : "Fine for testing that orders place. The leverage ladder, maintenance rate, session " +
+              "weights and earnings calendar are all built for an equity perp on Nasdaq and mean " +
+              "nothing on a crypto pair or a contract on another exchange's clock — do not read a " +
+              "strategy result off those.",
+          uncalibrated.length === 0 ? "ok" : "warn");
+
+        /*
+         * The multi-desk trap: every cap is account-wide, so adding contracts
+         * raises how often a setup is *found* and not how much is at risk. That
+         * is only true while the caps are actually set — with maxTradesPerDay at
+         * zero or maxOpenPositions above one, more desks does mean more risk,
+         * and that is worth saying out loud rather than leaving implied.
+         */
+        if (desks.size > 1) {
+          const capped = limits.maxTradesPerDay > 0 && limits.maxOpenPositions <= 1;
+          add("multi-contract risk", capped,
+            capped
+              ? `${desks.size} desks sharing one budget: ${limits.maxTradesPerDay} trades/day, ${limits.maxOpenPositions} position at a time`
+              : `${desks.size} desks with ${limits.maxOpenPositions} concurrent positions allowed` +
+                (limits.maxTradesPerDay > 0 ? "" : " and no daily trade cap"),
+            capped
+              ? undefined
+              : "These are correlated names — holding several at once is one sector bet in three tickers, " +
+                "and their stops fire on the same tick. Set max open positions to 1 and a daily trade cap.",
+            capped ? "ok" : "warn");
+        }
+
+        const bad = checks.filter((c) => c.severity === "bad");
+        const warn = checks.filter((c) => c.severity === "warn");
+        return {
+          checks,
+          verdict: bad.length
+            ? `${bad.length} thing${bad.length === 1 ? "" : "s"} broken`
+            : warn.length
+              ? `nothing broken; ${warn.length} thing${warn.length === 1 ? "" : "s"} would stop a trade`
+              : "everything checks out — quiet means no setup has qualified yet",
+          worst: bad.length ? "bad" : warn.length ? "warn" : "ok",
+        };
+}
+
 /* --------------------------------------------------------------- snapshot */
 
 /**
@@ -4691,6 +4741,15 @@ function writeStateSnapshot() {
       // What the last remotely-applied configuration was, so a reader can tell
       // whether the file they wrote has landed.
       desired: { path: desiredPath(), appliedAt: desiredAppliedAt },
+      /*
+       * The self-check, which is the thing that actually answers "what is
+       * broken". Computed here rather than left behind a button on the
+       * operator's machine — that gap is why a trade cap was diagnosed as a
+       * target gate and a render throw as lost settings.
+       */
+      diagnose: diagnose(),
+      /** Anything that threw, kept out of the log ring so it does not rotate away. */
+      errors: errorLines,
       // The tally that answers "why did nothing trade", which took a round trip
       // to obtain every previous time it was needed.
       refusals: pooledRefusals(),
