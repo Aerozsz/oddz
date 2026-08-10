@@ -82,7 +82,36 @@ function safeToSend(path: string): { ok: boolean; reason: string } {
   return { ok: true, reason: "" };
 }
 
+/**
+ * Teach git that this file never needs a human to resolve it.
+ *
+ * `.gitattributes` marks the snapshot `merge=ours`, and that line does nothing
+ * whatsoever unless a driver by that name exists in config — git ignores an
+ * unknown merge driver silently and conflicts as usual. Which it did, on the
+ * first rebase after the feature shipped, leaving a conflict marker in a file
+ * that is regenerated every thirty seconds.
+ *
+ * `true` is the driver: it succeeds without touching the file, so the version
+ * already in the working tree wins. Registered here rather than left as a setup
+ * instruction, because a setup instruction is a thing that does not happen.
+ */
+function ensureMergeDriver() {
+  try {
+    if (git("config", "--get", "merge.ours.driver")) return;
+  } catch {
+    // Not set, which is the normal first-run case.
+  }
+  try {
+    git("config", "merge.ours.name", "keep the local copy of generated files");
+    git("config", "merge.ours.driver", "true");
+    console.error("[share] registered the merge driver so the snapshot can never conflict");
+  } catch (err) {
+    console.error(`[share] could not register the merge driver: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 function share(): boolean {
+  ensureMergeDriver();
   const path = snapshotPath();
   const check = safeToSend(path);
   if (!check.ok) {
