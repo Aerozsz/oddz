@@ -68,6 +68,8 @@ export class Engine {
   private stream: StreamClient | null = null;
   private tracker = new WithdrawalTracker();
   private participants = new ParticipantTracker();
+  /** Price the rounding scale was last derived at, so it is not redone per trade. */
+  private scaleAt = 0;
   /** Regime-break detector fed from the same stream. See metrics/shock.ts. */
   private shock = new ShockDetector();
   private markout = new MarkoutTracker();
@@ -449,6 +451,19 @@ export class Engine {
         };
         this.last = price;
         this.tracker.addTrade(notional, trade.buyerIsMaker);
+        /*
+         * Told what a round number looks like here before it is asked.
+         *
+         * The roundness measures are relative to the contract — a $100 price is
+         * round for Bitcoin and absurd for a $30 stock — and without this the
+         * tracker falls back to equity-perp constants that invert on a crypto
+         * perp rather than merely degrading. Cheap enough for the hot path: it
+         * recomputes only when the price has moved an order of magnitude.
+         */
+        if (this.meta && (this.scaleAt === 0 || price / this.scaleAt > 3 || this.scaleAt / price > 3)) {
+          this.participants.setScale(this.meta.tickSize, this.meta.stepSize, price);
+          this.scaleAt = price;
+        }
         this.participants.onTrade(trade, Date.now());
         this.shock.onTrade(trade, Date.now());
         this.markout.onTrade(trade, Date.now());

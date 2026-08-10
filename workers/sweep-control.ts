@@ -64,6 +64,8 @@ import {
 } from "../lib/sweep/exchange/orders";
 import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { dayDrawdown, fetchDayActivity, fetchSettlement, type DayActivity } from "../lib/sweep/exchange/activity";
+import { readEpoch, rebaseNow, reconcileLedger, type LedgerEpoch } from "../lib/sweep/exchange/ledger";
+import { startOfDayUtc } from "../lib/sweep/exchange/activity";
 import { Excursion, captureConditions, type EntryConditions, type TradeRecord } from "../lib/sweep/agent/postmortem";
 import { appendTrade, loadTrades } from "../lib/sweep/metrics/trade-log";
 import { analyse, classifyLoss, recommendations } from "../lib/sweep/agent/learn";
@@ -579,6 +581,12 @@ function newDesk(symbol: string): Desk {
  * starting set — see addDesk/removeDesk.
  */
 const desks = new Map<string, Desk>(readSymbols().map((s) => [s, newDesk(s)]));
+
+/*
+ * Where today's counting starts. Moved forward when the wallet stops agreeing
+ * with the ledger — see exchange/ledger.ts.
+ */
+let ledgerEpoch: LedgerEpoch = readEpoch();
 const allDesks = () => [...desks.values()];
 
 /**
@@ -1878,6 +1886,30 @@ async function refreshAccount() {
    * reported as "unknown" reads like an unprotected position and invites a
    * manual flatten that was never needed.
    */
+  /*
+   * Does the balance still agree with the ledger the day's caps are read from?
+   *
+   * A testnet reset puts the wallet back to its starting figure and leaves every
+   * income row that came before it in place, so the ledger goes on reporting
+   * trades whose money no longer exists. Every cap measured against the day is
+   * then wrong in the same direction. Checked here, once per sweep, before
+   * anything reads the day.
+   */
+  const wallet = account.risk?.walletBalance ?? 0;
+  if (wallet > 0) {
+    try {
+      const rec = await reconcileLedger(cfg, wallet);
+      ledgerEpoch = rec.epoch;
+      if (rec.reset) {
+        log(
+          `!! account balance no longer matches the ledger — expected ${usdShort(rec.reset.expected)}, ` +
+            `wallet says ${usdShort(rec.reset.actual)}. Day counting restarted from now; ` +
+            `trades before this are excluded from today's totals.`,
+        );
+      }
+    } catch { /* an unreachable ledger must not stop the account sweep */ }
+  }
+
   for (const desk of allDesks()) {
     try {
       const position = await fetchPosition(cfg, desk.symbol);
@@ -1886,7 +1918,10 @@ async function refreshAccount() {
         error: null,
         at: Date.now(),
       };
-      desk.day = { activity: await fetchDayActivity(cfg, desk.symbol), error: null, at: Date.now() };
+      desk.day = {
+        activity: await fetchDayActivity(cfg, desk.symbol, Date.now(), ledgerEpoch.epoch),
+        error: null, at: Date.now(),
+      };
     } catch (err) {
       const message = redact(err instanceof Error ? err.message : String(err));
       desk.protection = { state: null, error: message, at: Date.now() };
@@ -2826,6 +2861,15 @@ function status() {
             limits.lossCooldownMin > 0 && totals.lastLossAt > 0
               ? Math.max(0, limits.lossCooldownMin - (Date.now() - totals.lastLossAt) / 60_000)
               : 0,
+          /*
+           * Where the count starts, so "today" is never silently something
+           * other than today. After a reset it is hours into the day, and a
+           * P&L figure covering a different window than its label claims is
+           * the kind of wrong that gets believed.
+           */
+          countingFrom: ledgerEpoch.epoch,
+          rebased: ledgerEpoch.epoch > startOfDayUtc(),
+          rebaseReason: ledgerEpoch.reason,
         }
       : { at: desk.day.at, error: desk.day.error },
     // Top-level rather than nested under `execution`, which is where the GUI
@@ -3029,6 +3073,20 @@ const server = createServer(async (req, res) => {
               }))
             : [],
         });
+        return;
+      }
+
+      case "POST /api/ledger/rebase": {
+        // The automatic check catches a reset within one account sweep, but a
+        // deposit or withdrawal the operator made deliberately is *explained* by
+        // a ledger row and correctly leaves the epoch alone. This is for the
+        // case where they know the history is meaningless and the arithmetic
+        // does not.
+        const wallet = account.risk?.walletBalance ?? 0;
+        ledgerEpoch = rebaseNow(wallet);
+        log(`day counting restarted by hand at a wallet balance of ${usdShort(wallet)}`);
+        await refreshAccount();
+        send(res, 200, { ok: true, epoch: ledgerEpoch });
         return;
       }
 
@@ -4861,7 +4919,13 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
          the page described what might happen next and none described what had
          already happened. -->
     <div class="tiles" id="dayTiles" style="margin-top:10px"></div>
+    <p class="note" id="dayScope"></p>
     <p class="note" id="acctNote"></p>
+    <!-- The automatic check catches a reset within one account sweep. This is
+         for the case where the operator knows the history is meaningless and
+         the arithmetic does not — a deposit is explained by a ledger row and
+         correctly leaves the window alone. -->
+    <button id="btnRebase" class="ghost" type="button" style="margin-top:8px">Restart day counting from now</button>
   </div>
 </div>
 
@@ -5469,8 +5533,20 @@ function render(s){
         capLeft===null?"no cap set":"of "+usd(s.limits.maxDailyLossUsd))+
       tile("Cooldown",D.cooldownLeftMin>0?'<span class="warnc">'+Math.ceil(D.cooldownLeftMin)+"m</span>":"none",
         D.lastLossAt?"since the last loss":"no loss yet today");
+    /*
+     * Say when "today" stopped meaning midnight.
+     *
+     * A P&L figure covering a different window than its label claims is the
+     * kind of wrong that gets believed, and after an account reset that is
+     * exactly what it is.
+     */
+    $("dayScope").innerHTML=D.rebased
+      ? '<span class="warnc">Counting from '+new Date(D.countingFrom).toLocaleTimeString()+
+        ", not midnight</span> — "+esc(String(D.rebaseReason||""))
+      : "";
   } else {
     $("dayTiles").innerHTML="";
+    $("dayScope").textContent="";
   }
   $("positions").innerHTML=a.positions.length?a.positions.map(p=>
     "<tr><td>"+p.symbol+'</td><td class="'+(p.amt>0?"pos":"neg")+'">'+n(p.amt,3)+"</td><td>"+n(p.entry)+
@@ -6200,6 +6276,14 @@ async function diagnose(){
   }).join("");
 }
 $("btnDiag").onclick=diagnose;
+
+$("btnRebase").onclick=async()=>{
+  if(!confirm("Start today's P&L, trade count and cooldown again from right now? Use this after a testnet reset: the exchange wipes the balance but keeps the income rows, so the day totals go on counting trades whose money no longer exists.")) return;
+  $("btnRebase").disabled=true;
+  try { render(await api("/api/status")); await api("/api/ledger/rebase",{method:"POST",body:"{}"});
+        render(await api("/api/status")); }
+  finally { $("btnRebase").disabled=false; }
+};
 
 /* ------------------------------------------------------- contract picker */
 

@@ -157,6 +157,15 @@ const MAX_LEVELS = 2_000;
 
 export class ParticipantTracker {
   private levels = new Map<number, LevelState>();
+  /*
+   * What counts as a round number on this contract.
+   *
+   * Defaulted rather than required, so a caller that never learns the contract
+   * metadata still gets the old behaviour instead of nothing — but every engine
+   * calls setScale() once exchangeInfo arrives, which is what makes the reading
+   * comparable across a $30 stock and a $100,000 perp.
+   */
+  private scale: RoundingScale = DEFAULT_SCALE;
   private replenishTimes: number[] = [];
   private trades: Trade[] = [];
   private bookUpdates: number[] = [];
@@ -228,6 +237,12 @@ export class ParticipantTracker {
     }
   }
 
+  /** Called once the contract's tick and lot step are known. */
+  setScale(tickSize: number, stepSize: number, price: number) {
+    if (!(tickSize > 0) || !(stepSize > 0) || !(price > 0)) return;
+    this.scale = roundingScale(tickSize, stepSize, price);
+  }
+
   read(now = Date.now()): ParticipantRead {
     this.prune(now);
     const notes: string[] = [];
@@ -295,7 +310,7 @@ export class ParticipantTracker {
       );
     }
 
-    const character = flowCharacter(this.trades, this.tradeTimes, sliceUniformity, replenishSec);
+    const character = flowCharacter(this.trades, this.tradeTimes, sliceUniformity, replenishSec, this.scale);
     if (character.label !== "unclear") {
       notes.push(`flow looks ${character.label}${character.notes[0] ? ` — ${character.notes[0]}` : ""}`);
     }
@@ -317,19 +332,108 @@ export class ParticipantTracker {
 }
 
 /** Whole or half unit — the levels people actually think in. */
-function isRoundPrice(p: number): boolean {
-  const whole = Math.abs(p - Math.round(p));
-  const half = Math.abs(p * 2 - Math.round(p * 2)) / 2;
-  return whole < 0.005 || half < 0.005;
+/**
+ * The scale a person actually rounds to on this contract.
+ *
+ * Both of these were hardcoded for a $30 stock with a $0.01 tick and whole-share
+ * quantities, and on anything else they did not degrade — they inverted.
+ *
+ * On BTCUSDT the tick is $0.10, so one price in ten lands on a whole dollar by
+ * arithmetic alone. Measured against a constant "2% of prices are round" that
+ * reads as five times more round-number clustering than chance, and the human
+ * score pinned near 0.5 on pure tick size. Quantities went the other way: BTC
+ * trades in 0.002 and 0.015, never integers, so the integer test could never be
+ * true and quantity roundness was structurally zero.
+ *
+ * One reading permanently overstated and another permanently absent is worse
+ * than no reading, because `participantRegime` is the grouping the whole
+ * strategy is a bet on — it is what distinguishes a book that is thin because
+ * quotes were pulled from one that is thin because someone is working an order.
+ * Deriving the scale from the contract makes the measure mean the same thing on
+ * a $30 stock and a $100,000 perp.
+ */
+export interface RoundingScale {
+  /** Price increments a person plausibly aims at, largest first. */
+  priceSteps: number[];
+  /** Share of all valid prices that land on one of those steps. */
+  priceBaseRate: number;
+  /** Quantity increments a person plausibly reaches for. */
+  qtySteps: number[];
+  /** Share of valid quantities that land on one of those steps by chance. */
+  qtyBaseRate: number;
 }
 
-/** 1, 5, 10, 25, 50, 100 ... the quantities a person reaches for. */
-function isRoundQty(q: number): boolean {
+/**
+ * Derived from the tick and the lot step rather than assumed.
+ *
+ * The rule is the same one a person uses without thinking: round to something
+ * two to three orders of magnitude coarser than the smallest move available.
+ * On a $0.01 tick that is $1 and $0.50; on a $0.10 tick it is $100 and $50;
+ * the intent — "a number I can hold in my head" — is identical.
+ */
+export function roundingScale(tickSize: number, stepSize: number, price: number): RoundingScale {
+  const tick = tickSize > 0 ? tickSize : 0.01;
+  const step = stepSize > 0 ? stepSize : 1;
+
+  /*
+   * Anchored to the price, because that is what "round" is relative to.
+   *
+   * $100 is a round price for Bitcoin and an absurd one for a $30 stock, where
+   * the same instinct produces $1. Two percent of price, snapped to the nearest
+   * power of ten, reproduces both: $30 → $1 and $0.50; $100,000 → $1,000 and
+   * $500; $3,000 → $100 and $50. Nearest rather than floor, or $30 would snap
+   * down to $0.10 and call a tick-level price round.
+   */
+  const magnitude = Math.max(tick, Math.pow(10, Math.round(Math.log10(Math.max(price * 0.02, tick)))));
+  const priceSteps = [magnitude, magnitude / 2].filter((s) => s >= tick);
+  // Each step of size s catches tick/s of all valid prices; every multiple of
+  // the whole is also a multiple of the half, so the union is the half's rate.
+  const priceBaseRate = priceSteps.length
+    ? Math.min(1, Math.max(...priceSteps.map((s) => tick / s)))
+    : 1;
+
+  /*
+   * Quantities, in units of the lot step.
+   *
+   * "10 contracts" and "0.10 BTC" are the same gesture expressed in different
+   * units, and only the second one has a fractional quantity — so counting in
+   * steps rather than whole units makes them the same measurement.
+   *
+   * The lot step itself is deliberately not on this list. Every valid quantity
+   * is a multiple of it by definition, so including it would score every trade
+   * on every contract as round and the measure would be the constant 1.
+   */
+  const qtySteps = [100, 50, 25, 10, 5].map((n) => n * step);
+
+  return {
+    priceSteps,
+    priceBaseRate: priceBaseRate > 0 ? priceBaseRate : 0.02,
+    qtySteps,
+    // The union of the multiples above is the multiples of 5 steps, since 10,
+    // 25, 50 and 100 are all multiples of 5. Continuous sizing lands there one
+    // time in five, so that is the bar an excess is measured against.
+    qtyBaseRate: 0.2,
+  };
+}
+
+/** The default scale, for a $30 equity perp. Kept so callers without meta work. */
+export const DEFAULT_SCALE: RoundingScale = roundingScale(0.01, 1, 30);
+
+function isRoundPrice(p: number, scale: RoundingScale): boolean {
+  // Half a tick of tolerance, so a price that *is* the round number is not
+  // missed by floating point.
+  return scale.priceSteps.some((s) => {
+    const r = Math.abs(p / s - Math.round(p / s)) * s;
+    return r < s * 1e-6 || r < 1e-9;
+  });
+}
+
+function isRoundQty(q: number, scale: RoundingScale): boolean {
   if (q <= 0) return false;
-  const nearInt = Math.abs(q - Math.round(q)) < 1e-6;
-  if (!nearInt) return false;
-  const n = Math.round(q);
-  return n % 100 === 0 || n % 50 === 0 || n % 25 === 0 || n % 10 === 0 || n % 5 === 0 || n <= 10;
+  return scale.qtySteps.some((s) => {
+    const n = q / s;
+    return Math.abs(n - Math.round(n)) < 1e-6 && Math.round(n) >= 1;
+  });
 }
 
 /**
@@ -337,7 +441,13 @@ function isRoundQty(q: number): boolean {
  * computed trading would produce, so the signal is the excess rather than the
  * raw share.
  */
-function flowCharacter(trades: Trade[], times: number[], sliceUniformity: number, replenishSec: number | null): FlowCharacter {
+function flowCharacter(
+  trades: Trade[],
+  times: number[],
+  sliceUniformity: number,
+  replenishSec: number | null,
+  scale: RoundingScale,
+): FlowCharacter {
   const notes: string[] = [];
   if (trades.length < 20) {
     return {
@@ -347,11 +457,12 @@ function flowCharacter(trades: Trade[], times: number[], sliceUniformity: number
     };
   }
 
-  // With a 0.01 tick, whole-or-half prices are 2% of all possible prices.
-  const roundPrices = trades.filter((t) => isRoundPrice(t.price)).length / trades.length;
-  const priceRoundnessRatio = roundPrices / 0.02;
+  // Against this contract's own base rate, so the excess means the same thing
+  // on a $0.01 tick and a $0.10 one.
+  const roundPrices = trades.filter((t) => isRoundPrice(t.price, scale)).length / trades.length;
+  const priceRoundnessRatio = roundPrices / scale.priceBaseRate;
 
-  const quantityRoundness = trades.filter((t) => isRoundQty(t.qty)).length / trades.length;
+  const quantityRoundness = trades.filter((t) => isRoundQty(t.qty, scale)).length / trades.length;
 
   // Even spacing is a machine cadence; people arrive in bursts.
   let timingRegularity = 0;
@@ -370,18 +481,27 @@ function flowCharacter(trades: Trade[], times: number[], sliceUniformity: number
     1,
     sliceUniformity * 0.4 + timingRegularity * 0.35 + (replenishSec !== null && replenishSec < 1 ? 0.25 : 0),
   );
+  /*
+   * Both roundness terms are excess over chance, not raw share.
+   *
+   * Multiples of five lot steps are one valid quantity in five on every
+   * contract, so a purely computed tape scores 0.2 before anyone has decided
+   * anything. Scoring the raw share put a fifth of that straight into the human
+   * reading as a constant.
+   */
+  const qtyExcess = Math.max(0, quantityRoundness - scale.qtyBaseRate) / Math.max(1e-9, 1 - scale.qtyBaseRate);
   const human = Math.min(
     1,
     Math.min(1, Math.max(0, priceRoundnessRatio - 1) / 3) * 0.5 +
-      Math.min(1, quantityRoundness * 1.5) * 0.35 +
+      Math.min(1, qtyExcess * 1.5) * 0.35 +
       (1 - timingRegularity) * 0.15,
   );
 
   if (priceRoundnessRatio > 2) {
     notes.push(`trades cluster at round prices ${priceRoundnessRatio.toFixed(1)}x more than chance would give`);
   }
-  if (quantityRoundness > 0.4) {
-    notes.push(`${(quantityRoundness * 100).toFixed(0)}% of sizes are round numbers — unit bias, a person choosing`);
+  if (qtyExcess > 0.25) {
+    notes.push(`${(quantityRoundness * 100).toFixed(0)}% of sizes are round numbers against ${(scale.qtyBaseRate * 100).toFixed(0)}% by chance — unit bias, a person choosing`);
   }
   if (timingRegularity > 0.6) notes.push("trades arrive on a regular cadence, not in bursts");
   if (sliceUniformity > 0.7) notes.push("sizes are near-identical — computed, not chosen");

@@ -48,8 +48,14 @@ export async function fetchDayActivity(
   cfg: BinanceConfig,
   symbol: string,
   now = Date.now(),
+  /**
+   * Earliest income to count, when something later than midnight invalidated
+   * what came before it — see exchange/ledger.ts. Defaults to midnight, so a
+   * caller that knows nothing about resets behaves exactly as before.
+   */
+  countFrom = 0,
 ): Promise<DayActivity> {
-  const since = startOfDayUtc(now);
+  const since = Math.max(startOfDayUtc(now), countFrom);
   const rows = await signedRequest<RawIncome[]>(cfg, "GET", "/fapi/v1/income", {
     symbol,
     startTime: since,
