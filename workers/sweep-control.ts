@@ -65,6 +65,7 @@ import {
 import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { dayDrawdown, fetchDayActivity, fetchSettlement, type DayActivity } from "../lib/sweep/exchange/activity";
 import { readEpoch, rebaseNow, reconcileLedger, type LedgerEpoch } from "../lib/sweep/exchange/ledger";
+import { snapshotPath, writeSnapshot } from "../lib/sweep/metrics/snapshot";
 import { startOfDayUtc } from "../lib/sweep/exchange/activity";
 import { Excursion, captureConditions, type EntryConditions, type TradeRecord } from "../lib/sweep/agent/postmortem";
 import { appendTrade, loadTrades } from "../lib/sweep/metrics/trade-log";
@@ -4578,6 +4579,60 @@ function superviseNews() {
   );
 }
 
+/* --------------------------------------------------------------- snapshot */
+
+/**
+ * Everything the page shows, written to a file on a timer.
+ *
+ * The point is that a diagnosis should never again start with a guess about
+ * state this process already holds. It writes the same objects the API serves,
+ * so a reader has the limits, the desks, the day, the refusal tally, the recent
+ * log and the self-check without having to ask for any of them.
+ *
+ * Redaction happens in writeSnapshot, over the finished string rather than over
+ * chosen fields — a secret that reaches this file will do so inside a log line
+ * or an error message, not in a field anyone thought to name.
+ */
+function writeStateSnapshot() {
+  try {
+    const { records } = loadTrades();
+    const report = analyse(records);
+    writeSnapshot({
+      meta: {
+        at: Date.now(),
+        node: process.version,
+        platform: process.platform,
+        symbols: allDesks().map((d) => d.symbol),
+      },
+      status: status(),
+      // The tally that answers "why did nothing trade", which took a round trip
+      // to obtain every previous time it was needed.
+      refusals: pooledRefusals(),
+      limits,
+      ledger: ledgerEpoch,
+      learn: {
+        n: report.n,
+        wins: report.wins,
+        winRate: report.winRate,
+        expectancyR: report.expectancyR,
+        netUsd: report.netUsd,
+        anatomy: report.anatomy,
+        splits: report.splits.filter((x) => x.decisive).slice(0, 6),
+      },
+      // Newest last, matching how they read in a terminal.
+      log: logLines.slice(-200),
+      news: {
+        sources: newsSources().length,
+        unavailable: newsOff().map((x) => x.id),
+        poller: newsPoller?.status() ?? null,
+      },
+    });
+  } catch (err) {
+    // A snapshot that fails must never be able to affect trading.
+    log(`snapshot failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+}
+
 server.listen(PORT, HOST, () => {
   // The file may still say armed from the last session; readLimits() has
   // already overridden it, and writing it back keeps the two in step.
@@ -4587,6 +4642,9 @@ server.listen(PORT, HOST, () => {
   // Re-checked rather than decided once, so starting or stopping a standalone
   // poller mid-session hands collection over either way without a restart.
   setInterval(superviseNews, 60_000).unref?.();
+  writeStateSnapshot();
+  setInterval(writeStateSnapshot, 30_000).unref?.();
+  console.log(`  snapshot:    ${snapshotPath()} (refreshed every 30s — npm run sweep:share to send it)`);
   void (async () => {
     // First, because it decides whether anything else can possibly work and
     // needs no credentials to answer.

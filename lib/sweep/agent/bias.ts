@@ -47,6 +47,18 @@ const DEAD_ZONE = 0.12;
 /** No combination of these inputs justifies more than this. */
 const MAX_CONVICTION = 0.75;
 
+/**
+ * How far below baseline counts as fully withdrawn.
+ *
+ * 0.3 means a side at 0.70x of its normal depth scores the factor at full
+ * strength, and anything at or above 1.00x scores it at zero. Not tuned — it is
+ * a statement about what the strategy is for, and the point of the evidence log
+ * is to replace it with a measured number.
+ */
+const THINNESS_FULL = 0.3;
+
+const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
+
 const norm = (a: number, b: number): number => {
   const total = a + b;
   return total > 0 ? (a - b) / total : 0;
@@ -89,14 +101,41 @@ export function directionalBias(state: AgentState, ctx: BiasContext = {}): Direc
    * own ten-minute baseline, corrected for what the clock alone would do to it
    * — otherwise the cash close reads as a two-sided withdrawal every day. */
   if (liq && liq.warm) {
+    /*
+     * Relative thinness, scaled by whether anything was actually withdrawn.
+     *
+     * This was the whole factor, and it only ever asked which side was thinner
+     * than the other. On a book with bids at 1.17x and asks at 1.00x it called
+     * a long — "the ceiling has thinned more" — when neither side had thinned
+     * at all: 1.00x is the baseline and 1.17x is above it. The strategy is a bet
+     * that withdrawn depth lets price travel, so a book at or above its own
+     * normal depth is not a setup, it is the absence of one.
+     *
+     * The cost was not subtle. Fifty-nine live trades entered at 1.00x, 1.08x,
+     * 1.34x and 1.42x depth, won 3% of the time, and the hold engine kept
+     * closing them with "there was no thinness to expire" — the exit already
+     * knew what the entry had not checked.
+     *
+     * So the relative reading survives, multiplied by an absolute one: how far
+     * below baseline the side price must travel through actually sits. At
+     * baseline the factor contributes nothing, and conviction has to come from
+     * the cascade cost and the mark-out instead.
+     */
     const score = norm(liq.lwiBidAdj, liq.lwiAskAdj);
+    // The side a move has to eat through: upward travel consumes asks.
+    const travelSide = score > 0 ? liq.lwiAskAdj : liq.lwiBidAdj;
+    const withdrawn = clamp01((1 - travelSide) / THINNESS_FULL);
     factors.push({
       name: "which side thinned",
-      score,
+      score: score * withdrawn,
       weight: 0.25,
       detail:
         `bids at ${liq.lwiBidAdj.toFixed(2)}x expected, asks at ${liq.lwiAskAdj.toFixed(2)}x — ` +
-        `${score < 0 ? "the floor has thinned more" : score > 0 ? "the ceiling has thinned more" : "both alike"}`,
+        (withdrawn <= 0
+          ? `neither side is below its own baseline, so nothing has been withdrawn to travel into`
+          : `${score < 0 ? "the floor has thinned more" : score > 0 ? "the ceiling has thinned more" : "both alike"}` +
+            `, and the side it would travel through sits at ${travelSide.toFixed(2)}x` +
+            (withdrawn < 1 ? ` — only ${(withdrawn * 100).toFixed(0)}% of a full withdrawal` : "")),
     });
   }
 

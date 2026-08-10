@@ -1,0 +1,159 @@
+/**
+ * Send the current state to the repository, so it can be read from elsewhere.
+ *
+ *   npm run sweep:share            # once
+ *   npm run sweep:share -- --watch # every 5 minutes, until stopped
+ *
+ * The problem this solves is not convenience. The analysis does not run on the
+ * machine the agent runs on, so for a whole session every diagnosis began as a
+ * guess, went out as a question, and came back a round trip later — and several
+ * of those guesses were confidently wrong about state the server was already
+ * holding in memory. A trade cap was diagnosed as a target gate; a render throw
+ * was diagnosed as lost settings. Both were in `status()` the entire time.
+ *
+ * ## Why this is a separate command from the server
+ *
+ * The trading process never runs git. It writes a file; this pushes it. That
+ * boundary matters: a process authorised to place orders should not also be
+ * authorised to rewrite history in a repository, and an operator should be able
+ * to stop sharing without stopping trading.
+ *
+ * ## What is actually sent
+ *
+ * `evidence/snapshot.json`, written by the control server every 30 seconds, and
+ * whatever else is already in `evidence/`. Credentials, signatures and the
+ * control token are redacted before the file is ever written — see
+ * lib/sweep/metrics/snapshot.ts — and this refuses to push if that redaction
+ * does not appear to have run.
+ *
+ * Balances and positions are included. They are not secrets, they are the point.
+ */
+
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
+import { setTimeout as sleep } from "node:timers/promises";
+import { resolve } from "node:path";
+import { loadEnv } from "./load-env";
+import { redactSnapshot, snapshotPath } from "../lib/sweep/metrics/snapshot";
+
+loadEnv();
+
+const arg = (name: string, fallback: string) => {
+  const i = process.argv.indexOf(`--${name}`);
+  return i > -1 && process.argv[i + 1] && !process.argv[i + 1].startsWith("--")
+    ? process.argv[i + 1]
+    : fallback;
+};
+const watch = process.argv.includes("--watch");
+const everySec = Number(arg("every", "300"));
+const branch = arg("branch", "claude/amm-liquidity-sweep-8qhnd0");
+
+const git = (...args: string[]) =>
+  execFileSync("git", args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }).trim();
+
+/**
+ * A last check before anything leaves the machine.
+ *
+ * The redaction runs when the file is written, so this should always pass. It
+ * exists because "should always pass" is exactly the reasoning that precedes a
+ * leaked key, and the check costs a millisecond.
+ */
+function safeToSend(path: string): { ok: boolean; reason: string } {
+  if (!existsSync(path)) {
+    return { ok: false, reason: `${path} does not exist — is the control server running?` };
+  }
+  const raw = readFileSync(path, "utf8");
+  if (raw !== redactSnapshot(raw)) {
+    return {
+      ok: false,
+      reason:
+        "the snapshot contains something the redactor would have removed, which means it was written " +
+        "by an older build. Restart the control server and try again — nothing has been pushed.",
+    };
+  }
+  // A last, independent look for the two shapes that matter most, in case the
+  // redactor itself is the thing that is wrong.
+  for (const [what, re] of [
+    ["an API key or secret", /\b[A-Za-z0-9]{64}\b/],
+    ["a signature", /signature=[A-Fa-f0-9]{16,}/i],
+  ] as const) {
+    if (re.test(raw)) return { ok: false, reason: `refusing to push: ${what} appears to be present` };
+  }
+  return { ok: true, reason: "" };
+}
+
+function share(): boolean {
+  const path = snapshotPath();
+  const check = safeToSend(path);
+  if (!check.ok) {
+    console.error(`[share] ${check.reason}`);
+    return false;
+  }
+
+  const age = Math.round((Date.now() - JSON.parse(readFileSync(path, "utf8")).meta.at) / 1000);
+  if (age > 300) {
+    console.error(`[share] warning: the snapshot is ${age}s old — the control server may not be running.`);
+  }
+
+  /*
+   * Only ever the evidence directory.
+   *
+   * Explicitly pathspec'd rather than `git add -A`, because this runs
+   * unattended on a machine whose working tree contains a credentials file the
+   * operator keeps outside version control. A blanket add is one .gitignore
+   * mistake away from committing it.
+   */
+  const dir = resolve("evidence");
+  try {
+    git("add", "--", dir);
+  } catch (err) {
+    console.error(`[share] nothing to add: ${err instanceof Error ? err.message : String(err)}`);
+    return false;
+  }
+
+  const staged = git("diff", "--cached", "--name-only");
+  if (!staged) {
+    console.error("[share] no change since the last one");
+    return true;
+  }
+
+  git("commit", "-m", `state snapshot ${new Date().toISOString()}`, "--no-verify");
+  for (let attempt = 1; attempt <= 4; attempt++) {
+    try {
+      git("push", "-u", "origin", branch);
+      console.error(`[share] sent ${staged.split("\n").length} file(s) to ${branch}`);
+      return true;
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (attempt === 4) {
+        console.error(`[share] push failed after 4 attempts: ${message}`);
+        return false;
+      }
+      const waitMs = 2000 * 2 ** (attempt - 1);
+      console.error(`[share] push failed, retrying in ${waitMs / 1000}s`);
+      execFileSync("node", ["-e", `setTimeout(()=>{}, ${waitMs})`]);
+    }
+  }
+  return false;
+}
+
+async function main() {
+  console.error("");
+  console.error(`[share] snapshot: ${snapshotPath()}`);
+  console.error(`[share] branch:   ${branch}`);
+  console.error("[share] credentials, signatures and the control token are redacted before writing,");
+  console.error("[share] and this refuses to push if that redaction did not run.");
+  console.error("");
+
+  if (!watch) {
+    process.exit(share() ? 0 : 1);
+  }
+
+  console.error(`[share] watching — sending every ${everySec}s. Ctrl-C to stop.`);
+  for (;;) {
+    share();
+    await sleep(Math.max(60, everySec) * 1000);
+  }
+}
+
+main();
