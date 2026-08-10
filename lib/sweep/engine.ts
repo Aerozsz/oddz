@@ -753,4 +753,28 @@ export function allEngines(): Engine[] {
   return [...engines.values()];
 }
 
+/**
+ * Stop an engine and forget it, so a symbol can be dropped at runtime.
+ *
+ * Closing the feed alone is not enough and the difference is a resource leak
+ * with a socket attached. A feed unsubscribes; the engine underneath keeps its
+ * WebSocket, its resync timer and its rolling baselines, because it is
+ * deliberately shared — the dashboard and any number of feeds read one engine so
+ * they cannot drift. That sharing is right while a symbol is being watched and
+ * wrong once it is removed: without this, every add/remove cycle would leave
+ * another live stream behind, and the rate limit would eventually be spent on
+ * contracts nobody is looking at.
+ *
+ * Deliberately unconditional. There is no reference count here, so the caller
+ * has to know it is the last reader — which the control server does, since it
+ * owns the only feed per symbol.
+ */
+export function dropEngine(symbol: string): boolean {
+  const e = engines.get(symbol);
+  if (!e) return false;
+  e.stop();
+  engines.delete(symbol);
+  return true;
+}
+
 export { SYMBOL };

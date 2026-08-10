@@ -26,7 +26,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, resolve } from "node:path";
 import { attachCalendar } from "../lib/sweep/metrics/event-store";
-import { getEngine } from "../lib/sweep/engine";
+import { dropEngine, getEngine } from "../lib/sweep/engine";
 import { attachNews } from "../lib/sweep/agent/feed";
 import { createSweepFeed, type SweepFeed } from "../lib/sweep/agent";
 import type { Signal } from "../lib/sweep/agent";
@@ -80,6 +80,8 @@ import { livePressure } from "../lib/sweep/agent/pressure";
 import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
 import { attachExecution, intentId, type ExecutionRunner } from "../lib/sweep/agent";
 import { CONFIG, SYMBOLS, isCalibrated } from "../lib/sweep/config";
+import { MAX_SYMBOLS, normalise, readSymbols, symbolsPath, writeSymbols } from "../lib/sweep/metrics/symbol-store";
+import { findContract, loadCatalog, searchCatalog } from "../lib/sweep/metrics/symbol-catalog";
 
 /*
  * Node 22 or newer. The engine uses the global WebSocket, which older releases
@@ -571,7 +573,12 @@ function newDesk(symbol: string): Desk {
   };
 }
 
-const desks = new Map<string, Desk>(SYMBOLS.map((s) => [s, newDesk(s)]));
+/*
+ * Seeded from the store, which is the file if one exists and the environment if
+ * not. Desks are added and removed at runtime from here on, so this is only the
+ * starting set — see addDesk/removeDesk.
+ */
+const desks = new Map<string, Desk>(readSymbols().map((s) => [s, newDesk(s)]));
 const allDesks = () => [...desks.values()];
 
 /**
@@ -597,7 +604,7 @@ const dislocationFor = (symbol: string) =>
  * has to be an explicit choice rather than something inferred from whichever
  * desk last did something, because these are the controls that send orders.
  */
-let focus = SYMBOLS[0];
+let focus = allDesks()[0]?.symbol ?? SYMBOLS[0];
 const focused = () => desks.get(focus) ?? allDesks()[0];
 
 /** Contract metadata from the exchange, once that desk's engine has fetched it. */
@@ -690,6 +697,137 @@ function stopEngine() {
     dislocation.forget(desk.symbol);
     log(`engine stopped — ${desk.symbol}`);
   }
+}
+
+/* ---------------------------------------------------------------- symbols */
+
+/**
+ * Adding and dropping a contract while the server runs.
+ *
+ * This used to be an environment variable, so changing it meant a restart — and
+ * a restart is not free here. The withdrawal metrics, the mark-out and the shock
+ * detector are all EWMAs over minutes of history, so bouncing the process to add
+ * a fourth contract blinds the three already running for as long as they take to
+ * warm back up. Adding a desk in place costs the new desk its warm-up and costs
+ * the others nothing, which is the only version of this that is safe to do
+ * during a session.
+ */
+export interface SymbolChange {
+  ok: boolean;
+  symbols: string[];
+  note: string;
+}
+
+async function addDesk(raw: string): Promise<SymbolChange> {
+  const symbol = normalise(raw);
+  const current = allDesks().map((d) => d.symbol);
+  if (!symbol) return { ok: false, symbols: current, note: "no symbol given" };
+  if (desks.has(symbol)) return { ok: false, symbols: current, note: `${symbol} is already being watched` };
+  if (desks.size >= MAX_SYMBOLS) {
+    return {
+      ok: false,
+      symbols: current,
+      note:
+        `${MAX_SYMBOLS} contracts is the ceiling — each one is a WebSocket and a share of the same ` +
+        `rate limit, and past this the book updates start arriving late on all of them. Remove one first.`,
+    };
+  }
+
+  /*
+   * Checked against the exchange before anything is started.
+   *
+   * A ticker that does not exist is the silent failure this whole picker was
+   * built to remove: the engine connects, subscribes to a stream nobody
+   * publishes, and reports itself healthy forever. Refusing here is the
+   * difference between a typo costing a second and a typo costing an afternoon.
+   */
+  const catalog = await loadCatalog();
+  const contract = findContract(catalog, symbol);
+  if (!contract) {
+    if (catalog.error && catalog.entries.length === 0) {
+      return { ok: false, symbols: current, note: `could not reach the exchange to check ${symbol}: ${catalog.error}` };
+    }
+    return { ok: false, symbols: current, note: `Binance does not list a perpetual called ${symbol}` };
+  }
+
+  desks.set(symbol, newDesk(symbol));
+  // Idempotent: it skips every desk that already has a feed, so this starts
+  // exactly the new one.
+  startEngine();
+  const saved = writeSymbols(allDesks().map((d) => d.symbol));
+
+  const warnings: string[] = [];
+  if (contract.orderable === false) {
+    warnings.push(
+      `your order venue does not list it, so this desk can watch but never trade — ` +
+        `it is real on production and absent from ${catalog.orderVenue ?? "the venue orders go to"}`,
+    );
+  }
+  if (!isCalibrated(symbol)) {
+    warnings.push(
+      "uncalibrated: the order path works, but the leverage ladder, maintenance rate, session weights " +
+        "and earnings calendar are built for a US equity perp and mean nothing here",
+    );
+  }
+  if (contract.volumeUsd > 0 && contract.volumeUsd < 5_000_000) {
+    warnings.push(
+      `thin — $${Math.round(contract.volumeUsd / 1e6 * 10) / 10}M of 24h volume. The premise here is that ` +
+        `withdrawn depth is informative, and on a book this quiet there is little to withdraw`,
+    );
+  }
+
+  const note = `watching ${symbol}${warnings.length ? ` — ${warnings.join("; ")}` : ""}`;
+  log(`symbols: added ${symbol}${warnings.length ? ` (${warnings.join("; ")})` : ""}`);
+  return { ok: true, symbols: saved, note };
+}
+
+function removeDesk(raw: string): SymbolChange {
+  const symbol = normalise(raw);
+  const current = allDesks().map((d) => d.symbol);
+  const desk = desks.get(symbol);
+  if (!desk) return { ok: false, symbols: current, note: `${symbol} is not being watched` };
+  if (desks.size <= 1) {
+    return { ok: false, symbols: current, note: "this is the only contract — add another before removing it" };
+  }
+
+  /*
+   * Never while it is holding.
+   *
+   * Removing the desk does not close the position; it removes the only thing
+   * managing it. The stop stays on the exchange, so the money is not
+   * unprotected — but the time stop, the target, the trailing logic and the
+   * post-mortem all live in this loop, so the position would sit on its stop
+   * until a human noticed. That is precisely the orphan state the startup
+   * reconciler shouts about, and there is no reason to create one on purpose.
+   */
+  const position = desk.protection.state?.position;
+  if (position && position.positionAmt !== 0) {
+    return {
+      ok: false,
+      symbols: current,
+      note:
+        `${symbol} is holding ${position.positionAmt} — removing it would leave the position on its stop ` +
+        `with nothing managing the target or the time stop. Close it first.`,
+    };
+  }
+
+  // Disarmed before the feed goes, so the execution loop cannot fire into a
+  // desk that is being torn down.
+  desk.runner?.stop();
+  desk.runner = null;
+  desk.feed?.close();
+  desk.feed = null;
+  dislocation.forget(symbol);
+  desks.delete(symbol);
+  // The feed only unsubscribes; the engine underneath keeps its socket, its
+  // timers and its baselines. Without this every add/remove cycle would leave
+  // another live stream running against the same rate limit.
+  dropEngine(symbol);
+
+  if (focus === symbol) focus = allDesks()[0]?.symbol ?? focus;
+  const saved = writeSymbols(allDesks().map((d) => d.symbol));
+  log(`symbols: removed ${symbol}`);
+  return { ok: true, symbols: saved, note: `stopped watching ${symbol}` };
 }
 
 /* ------------------------------------------------------- position journal */
@@ -2842,11 +2980,76 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      /*
+       * The watched list, and the exchange's own catalogue to pick from.
+       *
+       * Both in one response because the page needs them together: a chip row
+       * of what is running, and a search that can only offer contracts that
+       * actually exist. Splitting them would let the two disagree, which is how
+       * a picker offers a symbol the adder then refuses.
+       */
+      case "GET /api/symbols": {
+        const q = url.searchParams.get("q") ?? "";
+        const catalog = await loadCatalog();
+        const watched = allDesks().map((d) => {
+          const entry = findContract(catalog, d.symbol);
+          const pos = d.protection.state?.position;
+          return {
+            symbol: d.symbol,
+            calibrated: isCalibrated(d.symbol),
+            running: d.feed !== null,
+            armed: d.runner !== null,
+            focused: d.symbol === focus,
+            holding: pos ? pos.positionAmt : 0,
+            orderable: entry?.orderable ?? null,
+            volumeUsd: entry?.volumeUsd ?? null,
+            listed: entry !== null,
+          };
+        });
+        send(res, 200, {
+          watched,
+          max: MAX_SYMBOLS,
+          path: symbolsPath(),
+          orderVenue: catalog.orderVenue,
+          catalogError: catalog.error,
+          catalogSize: catalog.entries.length,
+          // Only when asked for. The full list is ~500 contracts and the page
+          // polls this endpoint for the chip row on a timer.
+          results: q
+            ? searchCatalog(catalog, q, 18).map((e) => ({
+                symbol: e.symbol,
+                baseAsset: e.baseAsset,
+                kind: e.kind,
+                lastPrice: e.lastPrice,
+                changePct: e.changePct,
+                volumeUsd: e.volumeUsd,
+                orderable: e.orderable,
+                calibrated: isCalibrated(e.symbol),
+                watched: desks.has(e.symbol),
+              }))
+            : [],
+        });
+        return;
+      }
+
+      case "POST /api/symbols/add": {
+        const body = await readJson(req);
+        const result = await addDesk(typeof body.symbol === "string" ? body.symbol : "");
+        send(res, 200, result);
+        return;
+      }
+
+      case "POST /api/symbols/remove": {
+        const body = await readJson(req);
+        send(res, 200, removeDesk(typeof body.symbol === "string" ? body.symbol : ""));
+        return;
+      }
+
       case "POST /api/focus": {
         const body = await readJson(req);
         const next = typeof body.symbol === "string" ? body.symbol.trim().toUpperCase() : "";
         if (!desks.has(next)) {
-          send(res, 200, { error: `${next || "(none)"} is not one of ${SYMBOLS.join(", ")}` });
+          send(res, 200, { error: `${next || "(none)"} is not being watched` });
           return;
         }
         focus = next;
@@ -4301,7 +4504,7 @@ const COMMAND_GROUPS: { title: string; blurb: string; items: Cmd[] }[] = [
 ];
 
 const ENV_VARS: { name: string; what: string; danger?: boolean }[] = [
-  { name: "SWEEP_SYMBOLS=BTCUSDT,ETHUSDT", what: "Contracts to watch. Used by control and shadow." },
+  { name: "SWEEP_SYMBOLS=BTCUSDT,ETHUSDT", what: "Starting contracts. Still how sweep:shadow is pointed, and the fallback for sweep:control on a fresh install — but once you add or remove one from the Contracts panel, data/sweep-symbols.json wins and this is ignored." },
   { name: "SWEEP_SYMBOL=BTCUSDT", what: "Single contract, for mcp and paper." },
   { name: "BINANCE_LIVE=1", what: "Orders go to production instead of demo. Real money.", danger: true },
   { name: "SWEEP_CONTROL_PORT=8899", what: "Port for this server." },
@@ -4411,6 +4614,8 @@ td:first-child{white-space:nowrap;width:1%}
       <tr><td><code>data/sweep-tuning.jsonl</code></td><td class="muted">Every cap change, who made it and why. Append-only.</td></tr>
       <tr><td><code>data/sweep-positions.json</code></td><td class="muted">What this process remembers about open positions.</td></tr>
       <tr><td><code>data/sweep-limits.json</code></td><td class="muted">The risk limits, as edited on the dashboard.</td></tr>
+      <tr><td><code>data/sweep-symbols.json</code></td><td class="muted">Contracts being watched, as picked on the dashboard. Overrides SWEEP_SYMBOLS once written.</td></tr>
+      <tr><td><code>data/sweep-news.json</code></td><td class="muted">Headlines collected by the control server. Forums and social are counted, never stored.</td></tr>
     </tbody></table>
   </div>
 </div>
@@ -4502,6 +4707,23 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
 .banner.bad{background:rgba(208,59,59,.1);border-color:rgba(208,59,59,.5)}
 .banner.warn{background:rgba(250,178,25,.08);border-color:rgba(250,178,25,.45)}
 .deskstrip{display:flex;gap:8px;flex-wrap:wrap}
+.symbar{display:flex;gap:8px;align-items:center;margin-top:12px}
+.symq{flex:1 1 auto}
+.chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:5px 9px;border-radius:999px;
+border:1px solid var(--hair);background:var(--plane);font-size:12px;color:var(--ink);
+font-variant-numeric:tabular-nums}
+.chip.warn{border-color:rgba(255,199,90,.55)}
+.chip.bad{border-color:rgba(208,59,59,.5)}
+.chip .x{cursor:pointer;color:var(--dim);font-weight:700;line-height:1;padding:0 1px}
+.chip .x:hover{color:var(--bad)}
+.chip .meta{color:var(--dim);font-size:11px}
+/* A result is a button because clicking it does something; a watched chip is
+   not, because only its × does. Making both buttons invited the click that
+   removes a desk to land on the whole chip. */
+button.chip{cursor:pointer}
+button.chip:hover:not(:disabled){border-color:var(--accent)}
+button.chip:disabled{opacity:.45;cursor:default}
 .desk{flex:1 1 200px;min-width:180px;text-align:left;padding:9px 11px;border-radius:var(--r);
 border:1px solid var(--hair);background:var(--plane);cursor:pointer;font:inherit;color:var(--ink)}
 .desk:hover{border-color:var(--ink)}
@@ -4592,10 +4814,20 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
   <div id="liveOut" style="margin-top:8px"></div>
 </div>
 
-<div class="panel" id="deskPanel" style="display:none">
-  <h2>Contracts</h2>
+<div class="panel" id="deskPanel">
+  <h2>Contracts <span id="symCount" class="muted" style="font-weight:400;font-size:11px"></span></h2>
   <div id="desks" class="deskstrip"></div>
   <p class="note" id="disNote"></p>
+
+  <div class="symbar">
+    <input id="symQ" class="symq" type="text" autocomplete="off" spellcheck="false"
+      placeholder="Add a contract — type a ticker or a name (INTC, BTC, NVDA)">
+    <button id="symClear" class="ghost" type="button">clear</button>
+  </div>
+  <div id="symWatched" class="chips"></div>
+  <div id="symResults" class="chips"></div>
+  <p class="note" id="symNote"></p>
+
   <p class="note">Every contract is watched at once and they share one risk budget — the daily loss cap,
   the trade count, the cooldown and the one-position-at-a-time rule are counted across all of them.
   More contracts means more chances to find a setup, not more money at risk. Click one to point the
@@ -5014,9 +5246,10 @@ function render(s){
   // single-symbol run looks exactly as it did.
   const ds=s.desks||[];
   focusSymbol=s.focus||focusSymbol;
-  $("deskPanel").style.display=ds.length>1?"":"none";
+  // Always shown now: the panel hosts the contract picker, so hiding it on a
+  // single desk hid the only way to add a second one.
   $("mktSym").textContent=ds.length>1?("— "+s.focus):"";
-  if(ds.length>1){
+  {
     $("desks").innerHTML=ds.map(d=>{
       const dot=d.holding?"good":d.tradeable?"ok":d.running?"degraded":"blind";
       const risk=(d.riskDown!==null&&d.riskUp!==null)?("cascade "+n(d.riskDown,0)+"↓ / "+n(d.riskUp,0)+"↑"):"warming up";
@@ -5041,7 +5274,10 @@ function render(s){
     // reading is switched off entirely, and it is better to see that than to
     // wonder why a factor never appears.
     const warm=ds.filter(d=>d.dislocation&&d.dislocation.warm);
-    if(warm.length===0){
+    if(ds.length<2){
+      $("disNote").textContent="One contract. The cross-contract comparison needs at least two, and the "+
+        "binding constraint here is how often a setup appears — adding a second roughly doubles that at unchanged risk.";
+    } else if(warm.length===0){
       $("disNote").textContent="Cross-contract comparison warming up — it needs about 20 minutes of history on each.";
     } else {
       const corr=warm[0].dislocation.correlation;
@@ -5965,7 +6201,110 @@ async function diagnose(){
 }
 $("btnDiag").onclick=diagnose;
 
+/* ------------------------------------------------------- contract picker */
+
+const bigUsd=(v)=>{
+  const x=Number(v)||0;
+  if(x>=1e9) return "$"+(x/1e9).toFixed(1)+"B";
+  if(x>=1e6) return "$"+Math.round(x/1e6)+"M";
+  if(x>=1e3) return "$"+Math.round(x/1e3)+"k";
+  return "$"+Math.round(x);
+};
+
+let symTimer=null, symBusy=false;
+
+async function symbols(query){
+  const q=query===undefined?$("symQ").value.trim():query;
+  const s=await api("/api/symbols"+(q?"?q="+encodeURIComponent(q):""));
+  if(!s.watched) return;
+  const esc=(t)=>String(t).replace(/</g,"&lt;");
+
+  $("symCount").textContent="— "+s.watched.length+" of "+s.max+
+    (s.orderVenue?" · orders to "+esc(String(s.orderVenue).split("//").pop()):"");
+
+  /*
+   * Watched first, with everything that would stop a trade shown on the chip.
+   *
+   * A contract can be listed, liquid and completely untradeable by this account
+   * — production lists far more than demo does — and discovering that after an
+   * hour of watching is the failure this panel exists to prevent. So orderable,
+   * calibrated and holding all appear here rather than behind a click.
+   */
+  $("symWatched").innerHTML=s.watched.map(d=>{
+    const bits=[];
+    if(d.holding) bits.push("holding "+d.holding);
+    if(d.armed) bits.push("armed");
+    if(!d.calibrated) bits.push("uncal.");
+    if(d.orderable===false) bits.push("not orderable");
+    if(!d.listed) bits.push("NOT LISTED");
+    const cls=(!d.listed||d.orderable===false)?" bad":(!d.calibrated?" warn":"");
+    // The × is withheld rather than shown-and-refused while holding: the server
+    // refuses it too, but a button that is always rejected is a worse answer
+    // than a button that is visibly unavailable.
+    const x=d.holding?'<span class="meta" title="close the position first">held</span>'
+      :'<span class="x" data-rm="'+d.symbol+'" title="stop watching '+d.symbol+'">×</span>';
+    return '<span class="chip'+cls+'">'+esc(d.symbol)+
+      (bits.length?'<span class="meta">'+esc(bits.join(" · "))+'</span>':'')+x+'</span>';
+  }).join("");
+
+  for(const el of document.querySelectorAll("[data-rm]")){
+    el.onclick=async()=>{
+      const r=await api("/api/symbols/remove",{method:"POST",body:JSON.stringify({symbol:el.dataset.rm})});
+      $("symNote").textContent=r.note||"";
+      $("symNote").style.color=r.ok?"var(--dim)":"var(--bad)";
+      await symbols(); render(await api("/api/status"));
+    };
+  }
+
+  const full=s.watched.length>=s.max;
+  $("symResults").innerHTML=(s.results||[]).map(r=>{
+    const why=[];
+    if(r.watched) why.push("already watching");
+    else if(full) why.push("at the "+s.max+"-contract ceiling");
+    if(r.orderable===false) why.push("not orderable here");
+    if(!r.calibrated) why.push("uncalibrated");
+    const cls=r.orderable===false?" bad":(!r.calibrated?" warn":"");
+    return '<button class="chip'+cls+'" data-add="'+r.symbol+'"'+
+      ((r.watched||full)?" disabled":"")+' title="'+esc(why.join(" · ")||"add this contract")+'">'+
+      esc(r.symbol)+'<span class="meta">'+bigUsd(r.volumeUsd)+" 24h"+
+      (r.kind==="equity"?" · equity":"")+(why.length?" · "+esc(why[0]):"")+"</span></button>";
+  }).join("");
+
+  for(const b of document.querySelectorAll("[data-add]")){
+    b.onclick=async()=>{
+      if(symBusy) return;
+      symBusy=true; b.disabled=true;
+      try{
+        const r=await api("/api/symbols/add",{method:"POST",body:JSON.stringify({symbol:b.dataset.add})});
+        $("symNote").textContent=r.note||"";
+        $("symNote").style.color=r.ok?"var(--dim)":"var(--bad)";
+        if(r.ok){ $("symQ").value=""; }
+        await symbols(); render(await api("/api/status"));
+      } finally { symBusy=false; }
+    };
+  }
+
+  if(!$("symNote").textContent){
+    $("symNote").textContent=s.catalogError
+      ? "Could not refresh the contract list: "+esc(s.catalogError)+(s.catalogSize?" (showing the last good one)":"")
+      : (q?"":"Adding a contract starts its engine immediately — no restart, and the desks already running keep their warm baselines.");
+  }
+}
+
+// Debounced: the catalogue is cached server-side, but a request per keystroke
+// still means twenty round trips to type a ticker.
+$("symQ").oninput=()=>{ clearTimeout(symTimer); symTimer=setTimeout(()=>symbols(),180); };
+$("symQ").onkeydown=(e)=>{
+  if(e.key!=="Enter") return;
+  // Enter adds the top result, which is what typing a full ticker and hitting
+  // return is obviously asking for.
+  const first=document.querySelector("[data-add]:not([disabled])");
+  if(first) first.click();
+};
+$("symClear").onclick=()=>{ $("symQ").value=""; $("symNote").textContent=""; symbols(""); };
+
 tick(); setInterval(tick,1000);
+symbols(""); setInterval(()=>{ if(!$("symQ").value.trim()) symbols(""); },15000);
 funds(); setInterval(funds,15000);
 pullLog(); setInterval(pullLog,2000);
 runs(); setInterval(runs,10000);
