@@ -290,9 +290,26 @@ export function createBinanceAdapter(options: BinanceAdapterOptions): ExecutionA
         const sized = options.size(intent, state, committable);
         if (!sized) throw new Refused("sizing declined this setup");
 
-        // The cap is a ceiling on the sizer, not the size itself.
-        let notional = Math.min(sized.notionalUsd, limits.maxPositionUsd);
-        if (notional <= 0) throw new Refused("max position size is not set");
+        /*
+         * The cap is a ceiling on the sizer, and zero means there is no ceiling.
+         *
+         * It used to mean "refuse everything", which made a single blank field
+         * the most destructive setting in the program: every order was rejected
+         * before the strategy was consulted, the log filled with per-order
+         * refusals rather than one clear statement, and a session could be dead
+         * for hours. Nothing an operator can type into a box should be able to
+         * do that.
+         *
+         * Zero is now consistent with every other cap here — maxDailyLossUsd,
+         * maxTradesPerDay, lossCooldownMin all already mean "no limit" at zero —
+         * and it is safe, because size is never actually unbounded: the risk
+         * budget sets it, and the leverage ceiling and the margin check below
+         * both still apply.
+         */
+        let notional = limits.maxPositionUsd > 0
+          ? Math.min(sized.notionalUsd, limits.maxPositionUsd)
+          : sized.notionalUsd;
+        if (notional <= 0) throw new Refused("the sizer returned nothing to trade");
         // Applied by the caller when a rejection asked for a smaller order.
         notional *= sizeScale;
 

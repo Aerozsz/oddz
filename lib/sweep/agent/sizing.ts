@@ -340,7 +340,6 @@ export function proposePosition(input: SizingInput): SizingResult {
   if (!state.health.tradeable) reasons.push(`feed not tradeable: ${state.health.summary}`);
   if (!state.mid || state.mid <= 0) reasons.push("no price");
   if (input.equity <= 0) reasons.push("no free collateral");
-  if (limits.maxPositionUsd <= 0) reasons.push("max position size is 0 — set your caps first");
   if (state.liquidity && !state.liquidity.warm) {
     reasons.push("depth baseline not warm yet — the thinness reading would be meaningless");
   }
@@ -610,7 +609,9 @@ export function proposePosition(input: SizingInput): SizingResult {
     );
   }
 
-  if (notional > limits.maxPositionUsd) {
+  // Zero means no ceiling, matching every other cap here. See the adapter for
+  // why a blank field must never be able to refuse every order.
+  if (limits.maxPositionUsd > 0 && notional > limits.maxPositionUsd) {
     notional = limits.maxPositionUsd;
     reasoning.push(`capped at your ${limits.maxPositionUsd} maximum position size`);
   }

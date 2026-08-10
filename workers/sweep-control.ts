@@ -347,12 +347,6 @@ interface Limits {
  *                   without permitting the 8.6-a-day pace that produced the
  *                   original result.
  */
-/*
- * Corrections applied while reading the limits file, reported once the log
- * exists. readLimits() runs before it does.
- */
-const pendingMigrations: string[] = [];
-
 const DEFAULT_LIMITS: Limits = {
   maxPositionUsd: 0,
   maxLeverage: 10,
@@ -414,29 +408,21 @@ function readFeeSchedule(): FeeSchedule {
 }
 
 /**
- * Settings whose old default was wrong, and what it was.
+ * The limits file is operator input. Nothing here rewrites a value in it.
  *
- * A limits file is written the first time the server runs, so raising a default
- * afterwards changes nothing for anyone who already has one — the stored value
- * wins, and the new default only ever applies to a fresh install. That is right
- * for a preference and wrong for a default that was a mistake.
+ * There was a migration in this spot that moved settings whose default had been
+ * judged wrong — and it was wrong to have written it, for a reason worth keeping
+ * on record. An operator who types a number into a box and comes back to find
+ * the program has changed it cannot trust any other number on the page either,
+ * and they now have to re-check the entire configuration after every update.
+ * That cost is far larger than any default being two points off.
  *
- * Moved only when the stored value is still exactly the old default, which means
- * nobody has touched it. A value that was deliberately set to something else is
- * left alone, including one deliberately set back to the old number.
- *
- *  - `minRewardRisk` at 1.2 admitted trades whose reward barely covers the round
- *    trip. Against a fee load near 20% of one unit of risk, a 1.2R target needs a
- *    win rate around 60% to break even, and a 2R target needs 40%.
- *  - `maxHoldMinutes` at 30 cut off the trades the strategy is built to catch.
- *    The operator's own winners ran 17 minutes to 4 hours 21, so a half-hour time
- *    stop was closing the long ones mid-move and recording them as failures.
+ * So: a key absent from the file takes the default, which is what a default is
+ * for. A key present in the file wins, always, including when it is the same
+ * value a default used to have and including when a later version disagrees.
+ * The only writer of a value here is the operator, through the form, and the
+ * auto-tuner, which keeps its own audit log of every change it makes.
  */
-const CORRECTED_DEFAULTS: { key: keyof Limits; wasDefault: number; why: string }[] = [
-  { key: "minRewardRisk", wasDefault: 1.2, why: "1.2R does not clear the round trip often enough to be worth taking" },
-  { key: "maxHoldMinutes", wasDefault: 30, why: "30 minutes cut off winners that historically ran for hours" },
-];
-
 function readLimits(): Limits {
   const raw = (() => {
     if (!existsSync(LIMITS_PATH)) return null;
@@ -449,16 +435,20 @@ function readLimits(): Limits {
 
   const stored = raw ? { ...DEFAULT_LIMITS, ...raw } : { ...DEFAULT_LIMITS };
 
-  if (raw) {
-    for (const c of CORRECTED_DEFAULTS) {
-      const now = Number(raw[c.key]);
-      const next = Number(DEFAULT_LIMITS[c.key]);
-      if (now === c.wasDefault && next !== c.wasDefault) {
-        (stored as Record<string, unknown>)[c.key] = next;
-        pendingMigrations.push(`${c.key}: ${c.wasDefault} → ${next} — ${c.why}`);
-      }
-    }
+  /*
+   * An existing file means an operator has been running this, so their zeros are
+   * decisions and not gaps.
+   *
+   * capsDerivedAt did not exist before, so every upgrading install reads it as 0
+   * — "fresh, derive everything" — and the first boot after the upgrade would
+   * put a daily loss budget back onto an account that had deliberately switched
+   * it off. The file's existence is the evidence that it was configured; the
+   * sentinel records that without claiming a date nobody measured.
+   */
+  if (raw && !(Number(raw.capsDerivedAt) > 0)) {
+    stored.capsDerivedAt = 1;
   }
+
 
   /*
    * Always boot disarmed, whatever the file says.
@@ -2023,7 +2013,21 @@ async function deriveUnsetCaps(): Promise<string | null> {
    * collect data. Recording that derivation has happened separates the two: the
    * first pass fills what was never set, and nothing overwrites a choice after.
    */
-  if (limits.capsDerivedAt > 0) return null;
+  /*
+   * Two caps, two different meanings of zero, and only one of them is a choice.
+   *
+   * `maxPositionUsd` at zero is never a valid configuration: the adapter refuses
+   * every order before it is sized, so nothing can trade. It is always filled in.
+   *
+   * `maxDailyLossUsd` at zero is a legitimate and deliberate setting — running
+   * without a daily loss budget is how this account is collecting data — so it
+   * is only ever derived on a genuinely fresh install. Treating both the same
+   * way is what put a $396 loss budget back onto an account that had switched it
+   * off on purpose, and then halted trading three stop-outs later.
+   */
+  const freshInstall = limits.capsDerivedAt === 0;
+  const needPosition = !(limits.maxPositionUsd > 0);
+  if (!freshInstall && !needPosition) return null;
 
   /*
    * Wallet balance as the fallback, not only free collateral.
@@ -2053,7 +2057,7 @@ async function deriveUnsetCaps(): Promise<string | null> {
   const next = { ...limits };
   const notes: string[] = [];
 
-  if (!(limits.maxPositionUsd > 0)) {
+  if (needPosition) {
     /*
      * The structural ceiling rather than a second opinion on size.
      *
@@ -2071,7 +2075,7 @@ async function deriveUnsetCaps(): Promise<string | null> {
     );
   }
 
-  if (!(limits.maxDailyLossUsd > 0)) {
+  if (freshInstall && !(limits.maxDailyLossUsd > 0)) {
     // Three full stop-outs ends the day. At 4% risk that is 12% of the
     // account: past a third of the way to the five-loss run that costs 20%,
     // and early enough that the day can be reviewed rather than salvaged.
@@ -2085,10 +2089,7 @@ async function deriveUnsetCaps(): Promise<string | null> {
   next.capsDerivedAt = Date.now();
   limits = next;
   writeLimits(limits);
-  if (notes.length === 0) {
-    log("caps were already set; marking them derived so they are never recomputed over your choice.");
-    return null;
-  }
+  if (notes.length === 0) return null;
   log(`caps were unset, so they were derived from the balance: ${notes.join("; ")}`);
   log("change them in Risk limits — from here on a zero is treated as your decision, not a gap.");
   return null;
@@ -4547,7 +4548,6 @@ server.listen(PORT, HOST, () => {
   // The file may still say armed from the last session; readLimits() has
   // already overridden it, and writing it back keeps the two in step.
   writeLimits(limits);
-  for (const m of pendingMigrations) log(`limits: ${m}`);
   startEngine();
   superviseNews();
   // Re-checked rather than decided once, so starting or stopping a standalone
@@ -5066,6 +5066,8 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
   <div id="liveOut" style="margin-top:8px"></div>
 </div>
 
+<div id="renderErr" style="display:none;margin-bottom:12px"></div>
+
 <div class="panel" id="deskPanel">
   <h2>Contracts <span id="symCount" class="muted" style="font-weight:400;font-size:11px"></span></h2>
   <div id="desks" class="deskstrip"></div>
@@ -5524,7 +5526,7 @@ function render(s){
         '<div class="sub">'+risk+"</div>"+hold+"</button>";
     }).join("");
     for(const b of document.querySelectorAll(".desk")){
-      b.onclick=async()=>{ render(await api("/api/focus",{method:"POST",body:JSON.stringify({symbol:b.dataset.sym})})); };
+      b.onclick=async()=>{ safeRender(await api("/api/focus",{method:"POST",body:JSON.stringify({symbol:b.dataset.sym})})); };
     }
 
     // How the group is behaving as a group. Stated plainly because the number
@@ -5619,7 +5621,7 @@ function render(s){
     : pr.protected===true && pr.flat===false ? '<div class="banner warn"><span>Position protected — '+pr.reason+'</span></div>'
     : "";
   const bp=document.getElementById("btnProtect");
-  if(bp) bp.onclick=async()=>render(await api("/api/protect",{method:"POST",body:JSON.stringify({symbol:"all"})}));
+  if(bp) bp.onclick=async()=>safeRender(await api("/api/protect",{method:"POST",body:JSON.stringify({symbol:"all"})}));
 
   $("execNote").innerHTML=s.execution.available?"":
     '<div class="banner warn"><b>Read-only.</b><span>'+s.execution.reason+'</span></div>';
@@ -5736,7 +5738,7 @@ function render(s){
      */
     $("dayScope").innerHTML=D.rebased
       ? '<span class="warnc">Counting from '+new Date(D.countingFrom).toLocaleTimeString()+
-        ", not midnight</span> — "+esc(String(D.rebaseReason||""))
+        ', not midnight</span> — '+String(D.rebaseReason||"").replace(/</g,"&lt;")
       : "";
   } else {
     $("dayTiles").innerHTML="";
@@ -5873,9 +5875,32 @@ function explainLimits(s){
     "</div></div>";
 }
 
+/*
+ * A render that throws must not leave the page looking wiped.
+ *
+ * render() populates the form fields near its end, so a ReferenceError anywhere
+ * above them leaves every setting blank with no error visible — which reads as
+ * "the update deleted my configuration" rather than as a bug on one line. It
+ * happened, on a branch that only executes after an account reset, so no test
+ * that did not simulate one could have caught it.
+ */
+function safeRender(s){
+  try { render(s); }
+  catch(err){
+    console.error("render failed", err);
+    const el=$("renderErr");
+    if(el){
+      el.style.display="";
+      el.innerHTML='<div class="banner bad"><span><b>The page failed to draw.</b> '+
+        'Your settings are safe on disk — this is a display bug, not lost configuration. '+
+        String(err&&err.message||err).replace(/</g,"&lt;")+"</span></div>";
+    }
+  }
+}
+
 async function tick(){
   try{
-    render(await api("/api/status"));
+    safeRender(await api("/api/status"));
     const {signals}=await api("/api/signals?limit=40&symbol=all");
     // The ticker column only appears with more than one desk. With one it is a
     // constant repeated forty times, which is noise.
@@ -5888,10 +5913,10 @@ async function tick(){
   }catch(e){ $("health").textContent="control server unreachable"; }
 }
 
-$("btnStart").onclick=async()=>render(await api("/api/engine/start",{method:"POST"}));
-$("btnStop").onclick=async()=>render(await api("/api/engine/stop",{method:"POST"}));
-$("btnRefresh").onclick=async()=>render(await api("/api/account/refresh",{method:"POST"}));
-$("btnKill").onclick=async()=>{ if(confirm("Stop the engine and disarm trading?")) render(await api("/api/kill",{method:"POST"})); };
+$("btnStart").onclick=async()=>safeRender(await api("/api/engine/start",{method:"POST"}));
+$("btnStop").onclick=async()=>safeRender(await api("/api/engine/stop",{method:"POST"}));
+$("btnRefresh").onclick=async()=>safeRender(await api("/api/account/refresh",{method:"POST"}));
+$("btnKill").onclick=async()=>{ if(confirm("Stop the engine and disarm trading?")) safeRender(await api("/api/kill",{method:"POST"})); };
 $("btnLimits").onclick=async()=>{
   const body={maxPositionUsd:+$("maxPositionUsd").value,maxLeverage:+$("maxLeverage").value,
     maxDailyLossUsd:+$("maxDailyLossUsd").value,maxOpenPositions:+$("maxOpenPositions").value,
@@ -5903,7 +5928,7 @@ $("btnLimits").onclick=async()=>{
     trailArmsAtR:+$("trailArmsAtR").value,scaleOutAtR:+$("scaleOutAtR").value,
     scaleOutFraction:+$("scaleOutFraction").value,marginHeadroomPct:+$("marginHeadroomPct").value,
     lossCooldownMin:+$("lossCooldownMin").value};
-  limitsDirty=false; render(await api("/api/limits",{method:"POST",body:JSON.stringify(body)}));
+  limitsDirty=false; safeRender(await api("/api/limits",{method:"POST",body:JSON.stringify(body)}));
 };
 
 $("btnPlace").onclick=async()=>{
@@ -5924,7 +5949,7 @@ $("btnPlace").onclick=async()=>{
     :'<div class="banner"><b>Filled.</b><span>'+r.quantity+" contracts at "+r.leverage+
       "x · protective stop resting on Binance at "+(r.stop&&r.stop.stopPrice)+
       ". Check it on the exchange, then use Close position.</span></div>";
-  if(!r.error) render(r);
+  if(!r.error) safeRender(r);
 };
 $("btnExitTest").onclick=async()=>{
   const notionalUsd=+$("pvNotional").value;
@@ -5948,7 +5973,7 @@ $("btnExitTest").onclick=async()=>{
     '</div><div class="muted" style="font-size:11px;margin-top:6px">'+
     x.steps.map(st=>new Date(st.at).toLocaleTimeString()+"  "+String(st.text).replace(/</g,"&lt;")).join("<br>")+
     "</div></div>";
-  render(r);
+  safeRender(r);
 };
 $("btnClose").onclick=async()=>{
   if(!confirm("Close the open "+(focusSymbol||"")+" position at market?"))return;
@@ -5956,7 +5981,7 @@ $("btnClose").onclick=async()=>{
   $("pvOut").innerHTML=r.error
     ?'<div class="banner bad"><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
     :'<div class="banner"><span>Position closed at market.</span></div>';
-  if(!r.error) render(r);
+  if(!r.error) safeRender(r);
 };
 
 for(const id of ["liveStop","liveTarget"]) $(id).addEventListener("input",()=>liveDirty=true);
@@ -5972,7 +5997,7 @@ $("btnMoveBracket").onclick=async()=>{
   $("liveOut").innerHTML=r.error
     ?'<div class="banner bad"><b>Refused.</b><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
     :'<div class="banner"><span>'+String(r.moved).replace(/</g,"&lt;")+"</span></div>";
-  if(!r.error) render(r);
+  if(!r.error) safeRender(r);
 };
 /*
  * Rests reduce-only, so it can sit next to the automatic stop without the two
@@ -5993,7 +6018,7 @@ $("btnCloseLimit").onclick=async()=>{
       $("liveOut").innerHTML='<div class="banner'+(r.marketable?" bad":"")+'"><span>'+
         String(r.reason).replace(/</g,"&lt;")+"</span></div>";
       $("closeLimitPx").value="";
-      render(r);
+      safeRender(r);
     }
   } finally { $("btnCloseLimit").disabled=false; }
 };
@@ -6006,7 +6031,7 @@ $("btnCloseNow").onclick=async()=>{
     $("liveOut").innerHTML=r.error
       ?'<div class="banner bad"><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
       :'<div class="banner"><span>Closed at market.</span></div>';
-    if(!r.error) render(r);
+    if(!r.error) safeRender(r);
   } finally { $("btnCloseNow").disabled=false; }
 };
 $("btnReset").onclick=async()=>{
@@ -6016,7 +6041,7 @@ $("btnReset").onclick=async()=>{
     "Max position and max daily loss are recalculated from your balance. Trading is disarmed."))return;
   limitsDirty=false;
   const rr=await api("/api/limits/reset",{method:"POST"});
-  render(rr);
+  safeRender(rr);
   if(rr.capsProblem){
     alert("Settings were reset, but the caps could not be derived. "+rr.capsProblem+
       " — nothing can be sized until max position is a number. It retries every 20 seconds, "+
@@ -6159,7 +6184,7 @@ $("btnFundOut").onclick=()=>move("futures-to-spot");
 async function arm(want){
   const r=await api("/api/arm",{method:"POST",body:JSON.stringify({armed:want})});
   if(r.error){ $("armState").textContent=r.error; $("armState").style.color="var(--bad)"; return; }
-  render(r);
+  safeRender(r);
 }
 $("btnArm").onclick=()=>{
   const armed=$("btnArm").dataset.armed==="true";
@@ -6413,7 +6438,7 @@ $("tuneOn").onchange=async()=>{
   /* Its own endpoint, not the limits form. Posting a partial body there reads
      as tradingEnabled:false and would disarm the agent every time this box was
      ticked — the switch would do something its label does not mention. */
-  render(await api("/api/tuning/enable",{method:"POST",body:JSON.stringify({enabled:$("tuneOn").checked})}));
+  safeRender(await api("/api/tuning/enable",{method:"POST",body:JSON.stringify({enabled:$("tuneOn").checked})}));
   tuning();
 };
 
@@ -6477,7 +6502,7 @@ async function constraintsPanel(){
   for(const b of document.querySelectorAll("[data-clearhalt]")){
     b.onclick=async()=>{
       if(!confirm("Clear the halt on "+b.dataset.clearhalt+"? Only do this once the cause is actually fixed.")) return;
-      render(await api("/api/constraints/clear",{method:"POST",body:JSON.stringify({symbol:b.dataset.clearhalt})}));
+      safeRender(await api("/api/constraints/clear",{method:"POST",body:JSON.stringify({symbol:b.dataset.clearhalt})}));
       constraintsPanel();
     };
   }
@@ -6507,8 +6532,8 @@ $("btnDiag").onclick=diagnose;
 $("btnRebase").onclick=async()=>{
   if(!confirm("Start today's P&L, trade count and cooldown again from right now? Use this after a testnet reset: the exchange wipes the balance but keeps the income rows, so the day totals go on counting trades whose money no longer exists.")) return;
   $("btnRebase").disabled=true;
-  try { render(await api("/api/status")); await api("/api/ledger/rebase",{method:"POST",body:"{}"});
-        render(await api("/api/status")); }
+  try { safeRender(await api("/api/status")); await api("/api/ledger/rebase",{method:"POST",body:"{}"});
+        safeRender(await api("/api/status")); }
   finally { $("btnRebase").disabled=false; }
 };
 
@@ -6563,7 +6588,7 @@ async function symbols(query){
       const r=await api("/api/symbols/remove",{method:"POST",body:JSON.stringify({symbol:el.dataset.rm})});
       $("symNote").textContent=r.note||"";
       $("symNote").style.color=r.ok?"var(--dim)":"var(--bad)";
-      await symbols(); render(await api("/api/status"));
+      await symbols(); safeRender(await api("/api/status"));
     };
   }
 
@@ -6590,7 +6615,7 @@ async function symbols(query){
         $("symNote").textContent=r.note||"";
         $("symNote").style.color=r.ok?"var(--dim)":"var(--bad)";
         if(r.ok){ $("symQ").value=""; }
-        await symbols(); render(await api("/api/status"));
+        await symbols(); safeRender(await api("/api/status"));
       } finally { symBusy=false; }
     };
   }
