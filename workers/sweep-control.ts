@@ -350,12 +350,25 @@ interface Limits {
 const DEFAULT_LIMITS: Limits = {
   maxPositionUsd: 0,
   maxLeverage: 10,
+  /*
+   * The three stopping rules default to off, and Reset leaves them off.
+   *
+   * They were 394 USD, 8 trades and 15 minutes, and every one of them was
+   * switched off deliberately to collect data — then Reset put them back,
+   * eight trades happened, and the cap blocked 510 of the next 747 signals
+   * while the page reported "armed" and "tradeable". A control the operator
+   * has explicitly disabled must not come back because a button labelled
+   * "reset to agreed" disagrees with what was agreed.
+   *
+   * Zero means no limit, consistently with every other cap here. Turning them
+   * back on is one edit away and is the operator's call to make.
+   */
   maxDailyLossUsd: 0,
   maxOpenPositions: 1,
   tradingEnabled: false,
   stopLossPct: 0.5,
-  maxTradesPerDay: 8,
-  lossCooldownMin: 15,
+  maxTradesPerDay: 0,
+  lossCooldownMin: 0,
   requireCashOpen: false,
   minRewardRisk: 2,
   maxHoldMinutes: 120,
@@ -2075,7 +2088,15 @@ async function deriveUnsetCaps(): Promise<string | null> {
     );
   }
 
-  if (freshInstall && !(limits.maxDailyLossUsd > 0)) {
+  /*
+   * The daily loss budget is never derived, on any install.
+   *
+   * It sits alongside the cooldown and the trade ceiling as a rule the operator
+   * owns outright, and deriving it is how a 394 USD cap appeared on an account
+   * that had switched it off. A cap nobody asked for that silently halts the
+   * day is worse than no cap.
+   */
+  if (false && freshInstall && !(limits.maxDailyLossUsd > 0)) {
     // Three full stop-outs ends the day. At 4% risk that is 12% of the
     // account: past a third of the way to the five-loss run that costs 20%,
     // and early enough that the day can be reviewed rather than salvaged.
@@ -2776,7 +2797,6 @@ function readiness() {
       if (missing.length) blockers.push(`${missing.join(", ")} cannot be traded at ${orderable.venue}`);
     }
     if (!(limits.maxPositionUsd > 0)) blockers.push("max position is 0, which refuses every setup");
-    if (!(limits.maxDailyLossUsd > 0)) waiting.push("no daily loss cap set");
   }
 
   // The structural check that produced a silent, permanent zero once already.
@@ -2852,11 +2872,25 @@ function status() {
     // Milliseconds since the account was last read successfully. The account
     // sweep runs every 20s, so anything past a minute means reads are failing.
     staleForMs: account.at > 0 ? Date.now() - account.at : null,
-    symbolsConfigured: SYMBOLS,
+    /*
+     * What is actually being watched, not what the environment once said.
+     *
+     * These read the env-derived SYMBOLS constant, which stopped being the
+     * source of truth when the contract picker started writing the watched list
+     * to disk. The page ended up warning "no symbol was set, so this defaulted
+     * to INTCUSDT" and "configured INTCUSDT but running BTCUSDT" on a server
+     * that was watching exactly the contract it had been told to — two alarming
+     * banners describing a problem that did not exist, on the page whose whole
+     * job is to be trustworthy about what it is doing.
+     */
+    symbolsConfigured: allDesks().map((d) => d.symbol),
     symbolsRunning: allDesks().filter((d) => d.feed).map((d) => d.symbol),
     focus,
-    /** Set when SWEEP_SYMBOLS/SWEEP_SYMBOL were not set and the default applied. */
-    symbolsAreDefault: !process.env.SWEEP_SYMBOLS?.trim() && !process.env.SWEEP_SYMBOL?.trim(),
+    /** Only when nothing chose them: no picker file, no environment variable. */
+    symbolsAreDefault:
+      !existsSync(symbolsPath()) &&
+      !process.env.SWEEP_SYMBOLS?.trim() &&
+      !process.env.SWEEP_SYMBOL?.trim(),
   };
 
   // Aggregated across desks: the loop is one loop from the operator's side even
@@ -3939,8 +3973,8 @@ const server = createServer(async (req, res) => {
             impossible || tooTight ? "bad" : implausible ? "warn" : "ok");
         }
 
-        add("max daily loss set", limits.maxDailyLossUsd > 0,
-          limits.maxDailyLossUsd > 0 ? `${limits.maxDailyLossUsd} USD` : "not set",
+        add("max daily loss set", true,
+          limits.maxDailyLossUsd > 0 ? `${limits.maxDailyLossUsd} USD` : "off — no daily stop, by choice",
           "Set it in Risk limits and save.");
 
         // The specific trap: a flag that silently refuses everything out of hours.
@@ -4406,7 +4440,7 @@ const server = createServer(async (req, res) => {
         if (want) {
           if (!hasCredentials()) { send(res, 200, { error: "no API credentials — nothing can be placed" }); return; }
           if (limits.maxPositionUsd <= 0) { send(res, 200, { error: "set a max position size first" }); return; }
-          if (limits.maxDailyLossUsd <= 0) { send(res, 200, { error: "set a max daily loss first" }); return; }
+
         }
         limits = { ...limits, tradingEnabled: want };
         writeLimits(limits);
@@ -5638,8 +5672,8 @@ function render(s){
   if(pv){
     const warn=[];
     if(pv.symbolsAreDefault){
-      warn.push("<b>No symbol was set</b>, so this defaulted to "+pv.symbolsConfigured.join(", ")+
-        ". Set SWEEP_SYMBOLS (or SWEEP_SYMBOL) and restart if you meant something else.");
+      warn.push("<b>No contract was chosen</b>, so this defaulted to "+pv.symbolsConfigured.join(", ")+
+        ". Pick one in Contracts above — it takes effect immediately, no restart.");
     }
     const running=pv.symbolsRunning.join(",");
     if(running && running!==pv.symbolsConfigured.join(",")){
