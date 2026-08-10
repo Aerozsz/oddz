@@ -80,6 +80,7 @@ import { startNewsPoller, type NewsPoller } from "../lib/sweep/metrics/news-poll
 import { available as newsSources, unavailable as newsOff } from "../lib/sweep/metrics/sources";
 import { livePressure } from "../lib/sweep/agent/pressure";
 import { createBinanceAdapter, flatten, type ExecutionRecord } from "../lib/sweep/exchange/adapter";
+import { closePositionAtLimit } from "../lib/sweep/exchange/orders";
 import { attachExecution, intentId, type ExecutionRunner } from "../lib/sweep/agent";
 import { CONFIG, SYMBOLS, isCalibrated } from "../lib/sweep/config";
 import { MAX_SYMBOLS, normalise, readSymbols, symbolsPath, writeSymbols } from "../lib/sweep/metrics/symbol-store";
@@ -3583,6 +3584,29 @@ const server = createServer(async (req, res) => {
         return;
       }
 
+      case "POST /api/close-limit": {
+        if (!hasCredentials()) { send(res, 200, { error: "no API credentials" }); return; }
+        const body = await readJson(req);
+        const desk2 = deskFor(body.symbol);
+        const price = Number(body.price);
+        if (!(price > 0)) { send(res, 200, { error: "a limit price above zero is required" }); return; }
+        try {
+          const m = metaFor(desk2.symbol);
+          const out = await closePositionAtLimit(
+            loadConfig(), desk2.symbol, price,
+            m?.quantityPrecision ?? 0, m?.pricePrecision ?? 2,
+          );
+          log(`MANUAL CLOSE (limit): ${desk2.symbol} ${out.reason}`);
+          await refreshAccount();
+          send(res, 200, { ok: true, ...out, ...status() });
+        } catch (err) {
+          const message = err instanceof Error ? redact(err.message) : String(err);
+          log(`limit close failed (${desk2.symbol}): ${message}`);
+          send(res, 200, { error: message });
+        }
+        return;
+      }
+
       case "POST /api/close": {
         // Flatten without stopping the engine, which is what Kill does.
         if (!hasCredentials()) { send(res, 200, { error: "no API credentials" }); return; }
@@ -4809,6 +4833,10 @@ padding:6px 8px;font:inherit;font-variant-numeric:tabular-nums;width:100%}
 .banner.bad{background:rgba(208,59,59,.1);border-color:rgba(208,59,59,.5)}
 .banner.warn{background:rgba(250,178,25,.08);border-color:rgba(250,178,25,.45)}
 .deskstrip{display:flex;gap:8px;flex-wrap:wrap}
+.closebar{display:flex;gap:10px;align-items:center;margin-bottom:12px}
+button.danger{background:var(--bad);border-color:var(--bad);color:#fff;font-weight:600}
+button.danger:hover:not(:disabled){filter:brightness(1.12)}
+button.danger:disabled{opacity:.4}
 .symbar{display:flex;gap:8px;align-items:center;margin-top:12px}
 .symq{flex:1 1 auto}
 .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
@@ -4899,6 +4927,16 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
 <div id="execNote"></div>
 <div class="panel" id="livePanel" style="display:none">
   <h2>Open position <span id="liveSym" class="muted" style="font-weight:400;font-size:11px"></span></h2>
+  <!-- Top of the panel and outside the bracket fieldset. This is the control an
+       operator reaches for when something is going wrong, and it was previously
+       three clicks down inside a group labelled "Move a bracket". -->
+  <div class="closebar">
+    <button id="btnCloseNow" class="danger" type="button">Close at market</button>
+    <input id="closeLimitPx" type="number" step="0.01" placeholder="or a price to close at"
+      style="max-width:200px">
+    <button id="btnCloseLimit" type="button">Close at limit</button>
+    <span id="closeNowWhat" class="muted"></span>
+  </div>
   <div id="liveTiles" class="tiles"></div>
   <div id="holdNote" style="margin-top:10px"></div>
   <div class="fieldset" style="margin-top:12px">
@@ -4907,7 +4945,6 @@ td.money{font-variant-numeric:tabular-nums;font-weight:600}
       <label>Stop price <i id="liveStopHint">&nbsp;</i><input id="liveStop" type="number" step="0.01"></label>
       <label>Target price <i id="liveTargetHint">&nbsp;</i><input id="liveTarget" type="number" step="0.01"></label>
       <label>&nbsp;<button id="btnMoveBracket" class="primary">Move</button></label>
-      <label>&nbsp;<button id="btnCloseLive">Close at market</button></label>
     </div>
   </div>
   <p class="note">Both are placed and maintained automatically — this is only for overriding them. A moved stop
@@ -5824,17 +5861,44 @@ $("btnMoveBracket").onclick=async()=>{
     :'<div class="banner"><span>'+String(r.moved).replace(/</g,"&lt;")+"</span></div>";
   if(!r.error) render(r);
 };
-$("btnCloseLive").onclick=async()=>{
-  if(!confirm("Close the open "+(focusSymbol||"")+" position at market?"))return;
-  const r=await api("/api/close",{method:"POST",body:JSON.stringify({symbol:focusSymbol})});
-  $("liveOut").innerHTML=r.error
-    ?'<div class="banner bad"><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
-    :'<div class="banner"><span>Closed at market.</span></div>';
-  if(!r.error) render(r);
+/*
+ * Rests reduce-only, so it can sit next to the automatic stop without the two
+ * of them being able to close the position twice.
+ */
+$("btnCloseLimit").onclick=async()=>{
+  const px=Number($("closeLimitPx").value);
+  if(!(px>0)){ $("closeNowWhat").textContent="Enter a price first."; return; }
+  if(!confirm("Rest an order to close the open "+(focusSymbol||"")+" position at "+px+"?"))return;
+  $("btnCloseLimit").disabled=true;
+  try{
+    const r=await api("/api/close-limit",{method:"POST",body:JSON.stringify({symbol:focusSymbol,price:px})});
+    if(r.error){
+      $("liveOut").innerHTML='<div class="banner bad"><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>";
+    } else {
+      // Says which side of the book it landed on. "I set a limit" and "I paid
+      // the spread" are different actions and the price decides which happened.
+      $("liveOut").innerHTML='<div class="banner'+(r.marketable?" bad":"")+'"><span>'+
+        String(r.reason).replace(/</g,"&lt;")+"</span></div>";
+      $("closeLimitPx").value="";
+      render(r);
+    }
+  } finally { $("btnCloseLimit").disabled=false; }
+};
+
+$("btnCloseNow").onclick=async()=>{
+  if(!confirm("Close the open "+(focusSymbol||"")+" position at market right now?"))return;
+  $("btnCloseNow").disabled=true;
+  try{
+    const r=await api("/api/close",{method:"POST",body:JSON.stringify({symbol:focusSymbol})});
+    $("liveOut").innerHTML=r.error
+      ?'<div class="banner bad"><span>'+String(r.error).replace(/</g,"&lt;")+"</span></div>"
+      :'<div class="banner"><span>Closed at market.</span></div>';
+    if(!r.error) render(r);
+  } finally { $("btnCloseNow").disabled=false; }
 };
 $("btnReset").onclick=async()=>{
   if(!confirm("Put every risk setting back to the values derived from your trade history?\\n\\n"+
-    "0.5% stop · 4% risk · 10x max leverage · 30 min max hold · 1 position at a time · "+
+    "0.5% stop · 4% risk · 10x max leverage · 120 min max hold · 1 position at a time · "+
     "8 trades a day · 15 min loss cooldown · derates at half.\\n\\n"+
     "Max position and max daily loss are recalculated from your balance. Trading is disarmed."))return;
   limitsDirty=false;

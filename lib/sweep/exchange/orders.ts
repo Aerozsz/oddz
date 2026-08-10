@@ -864,6 +864,100 @@ export async function reducePosition(
   return { quantity, remaining, reason: `took ${quantity} of ${open}, ${remaining} still running` };
 }
 
+/**
+ * Rest a reduce-only limit order to close the whole position at a chosen price.
+ *
+ * The market close answers "get me out now". This answers the other question an
+ * operator actually has, which is "get me out *there*" — a level they have a
+ * view about, without paying the spread to express it and without sitting on the
+ * screen waiting to press a button.
+ *
+ * `reduceOnly` is what makes it safe to leave resting next to the automatic
+ * bracket. The protective stop is a position-level order and this is not, so in
+ * principle both could fill; reduceOnly means the second one to arrive closes
+ * nothing rather than opening a position the other way. That is the difference
+ * between a redundant order and an accidental reversal.
+ *
+ * Priced through the market on purpose when the operator asks for it. A limit to
+ * sell below the bid is a marketable order and will fill immediately at the
+ * touch — that is a legitimate thing to want (a controlled exit with a worst
+ * acceptable price, rather than whatever the book offers), so it is reported
+ * rather than refused.
+ */
+export interface LimitClose {
+  orderId: number;
+  side: "BUY" | "SELL";
+  quantity: number;
+  price: number;
+  /** True when the price is already through the market and will fill at once. */
+  marketable: boolean;
+  reason: string;
+}
+
+export async function closePositionAtLimit(
+  cfg: BinanceConfig,
+  symbol: string,
+  price: number,
+  quantityPrecision: number,
+  pricePrecision: number,
+): Promise<LimitClose> {
+  if (!(price > 0)) throw new Error("a limit price above zero is required");
+
+  const rows = await signedRequest<{ positionAmt: string }[]>(cfg, "GET", "/fapi/v2/positionRisk", { symbol });
+  const raw = rows.find((r) => Number(r.positionAmt) !== 0);
+  if (!raw) throw new Error("flat — there is no position to close");
+
+  const amt = num(raw.positionAmt);
+  const open = Math.abs(amt);
+  const long = amt > 0;
+  const side: "BUY" | "SELL" = long ? "SELL" : "BUY";
+
+  const step = Math.pow(10, -quantityPrecision);
+  const quantity = Number((Math.floor(open / step) * step).toFixed(quantityPrecision));
+  if (!(quantity > 0)) throw new Error(`a position of ${open} rounds to nothing at this contract's precision`);
+
+  const limitPrice = Number(price.toFixed(pricePrecision));
+
+  /*
+   * Which side of the book it lands on, reported rather than assumed.
+   *
+   * A closing sell above the ask rests and waits; below the bid it crosses. The
+   * operator may want either, but they should be told which one they just did —
+   * "I set a limit" and "I paid the spread" feel like different actions and the
+   * order behaves like whichever the price implies.
+   */
+  const book = await signedRequest<{ bidPrice: string; askPrice: string }>(
+    cfg, "GET", "/fapi/v1/ticker/bookTicker", { symbol },
+  ).catch(() => null);
+  const bid = book ? num(book.bidPrice) : 0;
+  const ask = book ? num(book.askPrice) : 0;
+  const marketable = side === "SELL" ? bid > 0 && limitPrice <= bid : ask > 0 && limitPrice >= ask;
+
+  const res = await signedRequest<{ orderId: number }>(cfg, "POST", "/fapi/v1/order", {
+    symbol,
+    side,
+    type: "LIMIT",
+    // Good-till-cancel: the whole point is that it waits. A post-only variant
+    // would be rejected outright whenever the price is through the market,
+    // which is a case this deliberately supports.
+    timeInForce: "GTC",
+    quantity: quantity.toFixed(quantityPrecision),
+    price: limitPrice.toFixed(pricePrecision),
+    reduceOnly: true,
+  });
+
+  return {
+    orderId: res.orderId,
+    side,
+    quantity,
+    price: limitPrice,
+    marketable,
+    reason: marketable
+      ? `${side} ${quantity} at ${limitPrice} is through the market — it will fill immediately at the touch`
+      : `${side} ${quantity} resting at ${limitPrice}, waiting. The protective stop is untouched.`,
+  };
+}
+
 /* ------------------------------------------------------------- exit proving */
 
 export interface ExitTestStep {
