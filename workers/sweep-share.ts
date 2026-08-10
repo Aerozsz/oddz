@@ -118,6 +118,36 @@ function share(): boolean {
   }
 
   git("commit", "-m", `state snapshot ${new Date().toISOString()}`, "--no-verify");
+
+  /*
+   * Take whatever is on the remote first, stashing the file being rewritten.
+   *
+   * The snapshot is regenerated every 30 seconds, so by the time a push
+   * happens the working copy has already moved on. Without this, an ordinary
+   * `git pull` on either side fails with "your local changes would be
+   * overwritten" on a file whose contents nobody wants to keep — which is
+   * exactly what a generated artefact should never be able to do to a
+   * repository.
+   *
+   * --autostash sets the working copy aside and puts it back; a conflict on
+   * this path resolves to whatever was written last, which is the only
+   * sensible answer for a file that is a photograph of a moment.
+   */
+  try {
+    git("pull", "--rebase", "--autostash", "origin", branch);
+  } catch (err) {
+    console.error(`[share] could not take the remote first: ${err instanceof Error ? err.message : String(err)}`);
+    try {
+      // The snapshot is disposable, so resolving in its favour is always safe.
+      git("checkout", "--ours", "--", "evidence");
+      git("rebase", "--continue");
+    } catch {
+      git("rebase", "--abort");
+      console.error("[share] left the repository as it was; nothing pushed");
+      return false;
+    }
+  }
+
   for (let attempt = 1; attempt <= 4; attempt++) {
     try {
       git("push", "-u", "origin", branch);
