@@ -501,6 +501,25 @@ function readLimits(): Limits {
    */
   if (raw && !(Number(raw.capsDerivedAt) > 0)) {
     stored.capsDerivedAt = 1;
+    /*
+     * Written back, not only held in memory.
+     *
+     * Recomputing it on every boot gives the right answer for as long as this
+     * branch exists, which makes a decision the operator made — those zeros are
+     * deliberate — depend on a few lines nobody is looking at. Persisting it
+     * turns the inference into a recorded fact, and the file becomes the thing
+     * that remembers rather than the code.
+     *
+     * Exactly the one field, so nothing else in the file is disturbed, and it
+     * fires once: the next read sees the sentinel and skips this. A failure
+     * here is ignored on purpose — a read-only disk must not stop the agent
+     * booting, and the in-memory value is already correct.
+     */
+    try {
+      writeLimits({ ...(raw as unknown as Limits), capsDerivedAt: 1 });
+    } catch {
+      /* the value above still applies for this run */
+    }
   }
 
 
@@ -4891,6 +4910,23 @@ function writeStateSnapshot() {
         anatomy: report.anatomy,
         splits: report.splits.filter((x) => x.decisive).slice(0, 6),
       },
+      /*
+       * The trade records themselves, not only what was concluded from them.
+       *
+       * The summary above is a set of conclusions, and a conclusion cannot be
+       * audited from outside. `expectancyR` reported n=2 while `learn.n` said
+       * 23 — a fact about the records, invisible in every aggregate, and
+       * unanswerable from here because `data/` is not shared and the analysis
+       * runs on a different machine. Shipping the rows means a question about
+       * why a field is empty is answered by looking rather than by asking the
+       * operator to look.
+       *
+       * Thirty is roughly two days of trading and about 60KB. `news` is dropped
+       * — it is prose for a human, it is the largest field, and nothing infers
+       * from it. Everything else stays, `entryConditions` especially, because
+       * that is the only thing that can explain a losing entry.
+       */
+      trades: records.slice(-30).map(({ news: _news, ...t }) => t),
       // Newest last, matching how they read in a terminal.
       log: logLines.slice(-200),
       news: {

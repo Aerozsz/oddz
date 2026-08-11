@@ -61,6 +61,21 @@ export interface HoldConfig {
   workingProgress: number;
   /** The most the base limit can be stretched to, as a multiple. */
   maxExtension: number;
+  /**
+   * How long a position is held before a decayed reading may close it, in
+   * minutes.
+   *
+   * Not patience for its own sake — a floor on what a round trip is allowed to
+   * be spent on. Closing costs the full commission both ways, and a reading
+   * taken sixty seconds after entry is not evidence that the thesis died; it is
+   * one sample of a series that moves by more than the signal being traded.
+   *
+   * The stop rests on the exchange throughout, so this cannot turn a small loss
+   * into a large one. What it bounds is the churn: below this floor the exit
+   * rule can lower the thesis health, and the clock and the stall rule still
+   * run, but the depth branch cannot be the thing that pulls the trigger.
+   */
+  minThesisMinutes: number;
 }
 
 export const DEFAULT_HOLD: HoldConfig = {
@@ -72,6 +87,16 @@ export const DEFAULT_HOLD: HoldConfig = {
   minEarlyProgress: 0.15,
   workingProgress: 0.55,
   maxExtension: 2.5,
+  /*
+   * Three minutes, from the churn it is there to stop.
+   *
+   * Five consecutive live trades closed by the depth branch at 1, 1, 2, 2 and 4
+   * minutes held, for -$8.86, -$10.96, -$10.64, -$11.09 and -$28.85. Their
+   * worst adverse excursions were -0.007% to -0.068% — none of them was losing
+   * on price. They lost the commission, and they paid it to act on a depth
+   * reading that had reverted within a minute of entry.
+   */
+  minThesisMinutes: 3,
 };
 
 export interface HoldInput {
@@ -148,10 +173,29 @@ export function holdDecision(input: HoldInput): HoldDecision {
    * something near zero and reproducing the same explosion at the other end.
    */
   const thinnessAtEntry = input.entryLwi !== null ? 1 - input.entryLwi : 0;
+  /*
+   * Below this, the ratio below is measuring noise and calling it a signal.
+   *
+   * `recovery` divides the depth change by the thinness at entry, which makes
+   * the trigger *more* sensitive the weaker the entry was: a trade opened at
+   * 0.88x divides by 0.12, so an ordinary 0.15 wobble computes as 1.25
+   * recovery and closes the position. The observed minute-scale movement of
+   * this series is around 0.3–0.5, so any entry thinner than about a quarter
+   * has a denominator smaller than the noise it is dividing.
+   *
+   * In that regime the ratio is abandoned for an absolute statement that does
+   * not depend on the denominator at all: the book is back at or above its own
+   * baseline. That is what "the thinness is gone" means, and it cannot be
+   * manufactured by a small entry reading.
+   */
+  const RATIO_IS_MEANINGFUL = 0.25;
+  const minThesisMs = cfg.minThesisMinutes * 60_000;
   if (liq?.warm && input.entryLwi !== null && input.entryLwi > 0 && thinnessAtEntry > 0.05) {
     const nowLwi = long ? liq.lwiAskAdj : liq.lwiBidAdj;
     const recovery = (nowLwi - input.entryLwi) / thinnessAtEntry;
-    if (recovery > 0.7) {
+    const refilled =
+      thinnessAtEntry >= RATIO_IS_MEANINGFUL ? recovery > 0.7 : nowLwi >= 1;
+    if (refilled && heldMs >= minThesisMs) {
       // Decisive on its own. This is the fastest legitimate exit there is: the
       // condition that justified the entry has been directly observed to end,
       // and waiting for a clock or a price to confirm it just pays for the
@@ -160,6 +204,22 @@ export function holdDecision(input: HoldInput): HoldDecision {
       notes.push(
         `depth has refilled to ${nowLwi.toFixed(2)}x from ${input.entryLwi.toFixed(2)}x at entry — ` +
           `the thinness the trade was opened on is gone`,
+      );
+    } else if (refilled) {
+      /*
+       * Refilled, but too soon to spend a round trip on.
+       *
+       * Recorded rather than acted on: health falls enough to shorten the
+       * deadline and to show in the panel, but not far enough to close on its
+       * own. If the reading is real it will still be there in a minute, and it
+       * will close then having cost nothing extra. If it was noise — which is
+       * what it was on five consecutive trades — the position is still open
+       * when the noise reverts.
+       */
+      health -= 0.2;
+      notes.push(
+        `depth reads ${nowLwi.toFixed(2)}x against ${input.entryLwi.toFixed(2)}x at entry, but only ` +
+          `${Math.round(heldMs / 60_000)} min in — too soon to pay a round trip on one reading`,
       );
     } else if (recovery > 0.4) {
       health -= 0.2;
