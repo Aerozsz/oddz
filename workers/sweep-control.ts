@@ -1437,6 +1437,34 @@ async function enforceMaxHold() {
     const heldMs = Date.now() - desk.positionOpenedAt;
 
     /*
+     * Take the exchange's entry price onto the journal, every sweep.
+     *
+     * A market order's immediate response carries avgPrice 0 — the fill is
+     * reported asynchronously — so the journal recorded 0 for the entry on
+     * every taker entry, which is all of them. The excursion tracker already
+     * worked around this by falling back to the mark; the post-mortem did not,
+     * and the comment claiming the real price is "reconciled onto the record at
+     * close time" described something that was never implemented.
+     *
+     * The consequence was silent and reached everything downstream. `rMultiple`
+     * requires `entryPrice > 0`, so expectancy was computed from 2 of 27
+     * trades. `stopDistPct` has the same guard, so `classifyLoss` could not
+     * reach its `never-worked` or `stopped-mid-move` branches and filed 21 of
+     * 23 losses as `cut-on-time` — whose prescription is "a patience problem",
+     * which would have had the hold limit raised on trades that were dying at
+     * entry.
+     *
+     * `pos.entryPrice` is Binance's own average fill price for the open
+     * position and is already trusted three lines below to decide when to
+     * close. Writing it here costs one journal write per position, because
+     * after the first pass the two agree.
+     */
+    if (remembered && pos.entryPrice > 0 && remembered.entryPrice !== pos.entryPrice) {
+      journal[desk.symbol] = { ...remembered, entryPrice: pos.entryPrice, updatedAt: Date.now() };
+      writeJournal(journal);
+    }
+
+    /*
      * The adaptive decision when there is enough to make one, the flat limit
      * when there is not.
      *
@@ -2535,7 +2563,21 @@ function armDesk(desk: Desk) {
       // now a restart loses it and the position runs to the time stop instead.
       if (r.outcome === "submitted" && desk.pendingTarget !== null) {
         const long = r.entry?.side === "BUY";
-        const entryPrice = r.entry?.avgPrice ?? 0;
+        /*
+         * The same fallback the excursion below already uses, applied to the
+         * journal itself.
+         *
+         * `avgPrice` is 0 on the immediate response to a market order, so the
+         * journal recorded 0 as the entry price of every taker entry. That is
+         * the field `rMultiple` and `stopDistPct` both refuse to work without,
+         * which is why expectancy ran on 2 of 27 trades and why every loss was
+         * filed as a patience problem. The mark is within a spread of the truth
+         * and is replaced by Binance's own average fill price on the next
+         * position sweep; 0 is replaced by nothing and poisons everything
+         * derived from it.
+         */
+        const markAtOpen = desk.feed?.getState().mark ?? desk.feed?.getState().mid ?? 0;
+        const entryPrice = r.entry?.avgPrice || markAtOpen;
         journalOpen(desk.symbol, {
           openedAt: Date.now(),
           side: long ? "long" : "short",
@@ -2564,12 +2606,11 @@ function armDesk(desk: Desk) {
          * fabricated zeros.
          *
          * Falling back to the mark costs at most the spread in accuracy and
-         * buys the entire excursion. The exchange's real entry price is
-         * reconciled onto the record at close time regardless.
+         * buys the entire excursion. Binance's own average fill price replaces
+         * it on the next position sweep — which is now true of the journal as
+         * well, rather than only of this tracker.
          */
-        const markNow = desk.feed?.getState().mark ?? desk.feed?.getState().mid ?? 0;
-        const excursionFrom = entryPrice > 0 ? entryPrice : markNow;
-        desk.excursion = excursionFrom > 0 ? new Excursion(excursionFrom, !!long) : null;
+        desk.excursion = entryPrice > 0 ? new Excursion(entryPrice, !!long) : null;
         desk.excursionFromOpen = !!desk.excursion;
         if (!desk.excursion) {
           log(`!! ${desk.symbol}: no price to track the excursion from — MAE/MFE will be blank for this trade`);

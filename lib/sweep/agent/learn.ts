@@ -184,10 +184,34 @@ export function classifyLoss(t: TradeRecord): LossClass {
     return { kind: "unclassified", detail: `${t.exitReason} — the process restarted while this was open, so its excursion is incomplete` };
   }
 
+  /*
+   * Without a stop distance there is no scale to read the excursion against.
+   *
+   * Both remaining diagnostic branches — "it never started" and "the stop was
+   * inside its own noise" — compare MFE and MAE to how far the stop sat, and
+   * both are guarded on that distance existing. When it does not, control fell
+   * through to the time-exit branch below, and a trade whose failure could not
+   * be diagnosed was filed as `cut-on-time`: "a patience problem", whose
+   * prescription is to hold longer.
+   *
+   * That is not a harmless default. 21 of 23 losses landed there because
+   * `entryPrice` was 0 on every taker entry, and acting on the summary would
+   * have meant extending the hold limit on trades that were dying at entry.
+   * An unanswerable question has to read as unanswered.
+   */
+  if (stop === null) {
+    return {
+      kind: "unclassified",
+      detail:
+        `${t.exitReason} — no stop distance on this record (entry ${t.entryPrice}, stop ${t.stopPrice}), ` +
+        `so there is nothing to measure the excursion against`,
+    };
+  }
+
   // Never moved even a fifth of the distance it was allowed to move against.
   // A setup whose mechanism is supposed to act in seconds and that never got
   // going was misread at entry, whatever happened afterwards.
-  if (stop !== null && t.mfePct < stop * 0.2) {
+  if (t.mfePct < stop * 0.2) {
     return {
       kind: "never-worked",
       detail: `best it ever got was +${t.mfePct.toFixed(3)}% against a ${stop.toFixed(2)}% stop — it never started`,
@@ -201,7 +225,7 @@ export function classifyLoss(t: TradeRecord): LossClass {
     };
   }
 
-  if (stop !== null && Math.abs(t.maePct) >= stop * 0.9) {
+  if (Math.abs(t.maePct) >= stop * 0.9) {
     return {
       kind: "stopped-mid-move",
       detail:
