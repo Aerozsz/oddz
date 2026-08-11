@@ -68,6 +68,7 @@ import { dayDrawdown, fetchDayActivity, fetchSettlement, type DayActivity } from
 import { readEpoch, rebaseNow, reconcileLedger, type LedgerEpoch } from "../lib/sweep/exchange/ledger";
 import { snapshotPath, writeSnapshot } from "../lib/sweep/metrics/snapshot";
 import { killTree } from "../lib/sweep/agent/process-tree";
+import { summariseShadow, type ShadowRowLike } from "../lib/sweep/agent/shadow-summary";
 import { desiredPath, planDesired, readDesired } from "../lib/sweep/agent/desired";
 import { appendNote, outbox, repliesPath, thread } from "../lib/sweep/agent/messages";
 import { startOfDayUtc } from "../lib/sweep/exchange/activity";
@@ -4905,6 +4906,29 @@ function superviseShare() {
  * chosen fields — a secret that reaches this file will do so inside a log line
  * or an error message, not in a field anyone thought to name.
  */
+/**
+ * Read and condense the shadow log, tolerating everything a live file does.
+ *
+ * Never throws: this runs inside the snapshot writer, and a summary that can
+ * fail is a summary that takes the whole state file down with it — including
+ * the parts that say why. A half-written final line is the normal state of a
+ * file being appended to, not an error.
+ */
+function shadowSummary(): ReturnType<typeof summariseShadow> | { error: string } {
+  try {
+    const path = resolve(process.env.SWEEP_SHADOW_OUT ?? "data/sweep-shadow.jsonl");
+    if (!existsSync(path)) return { error: "no shadow log yet — npm run sweep:shadow collects it" };
+    const rows: ShadowRowLike[] = [];
+    for (const line of readFileSync(path, "utf8").split("\n")) {
+      if (!line.trim()) continue;
+      try { rows.push(JSON.parse(line) as ShadowRowLike); } catch { /* partial last line */ }
+    }
+    return summariseShadow(rows);
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
 function writeStateSnapshot() {
   try {
     const { records } = loadTrades();
@@ -4968,6 +4992,17 @@ function writeStateSnapshot() {
        * that is the only thing that can explain a losing entry.
        */
       trades: records.slice(-30).map(({ news: _news, ...t }) => t),
+      /*
+       * What the shadow run has already learned, which is twenty times what the
+       * account has paid to learn.
+       *
+       * These rows were being generated, scored and then read by nobody: the
+       * file lives under `data/`, which is not shared, so the cheapest evidence
+       * in the project was the only evidence invisible from where the analysis
+       * happens. Meanwhile the same question was being put to the live account
+       * at $7.60 a round trip.
+       */
+      shadow: shadowSummary(),
       // Newest last, matching how they read in a terminal.
       log: logLines.slice(-200),
       news: {
