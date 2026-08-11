@@ -73,3 +73,44 @@ because `data/` is not shared. That gap cost this pass an hour of inference.
    The same noise measurement that fixed the exit applies to the entry: a
    thinness smaller than the series' own minute-scale movement is not a signal.
 3. Maker path, 0 fills in 552 shadow trades, ~$4.87 a round trip.
+
+## 2026-08-11 (later) — entryPrice was 0 on 25 of 27 records
+
+Shipping the trade rows in the snapshot paid for itself on the first read.
+`entryPrice` is 0 on 25 of 27 live records. A market order's immediate response
+carries `avgPrice` 0 and the journal wrote it down; the excursion tracker had a
+mark fallback, nothing else did, and the comment claiming reconciliation at close
+described code that did not exist.
+
+One empty field, three wrong outputs, all of which read as findings:
+- `rMultiple` guards on `entryPrice > 0` → expectancy over 2 trades next to a
+  win rate over 27, in the same object. Autotune reads it.
+- `stopDistPct` has the same guard → `classifyLoss` could reach neither
+  `never-worked` nor `stopped-mid-move`, fell through to the time branch, and
+  filed 21 of 23 losses as `cut-on-time` = "a patience problem". Those trades had
+  MFEs of 0.00–0.03% against a 0.5% stop. The summary was prescribing a longer
+  hold for trades that were dying at entry.
+- Anything comparing entry to exit was comparing 64,300 to 0.
+
+Fixed: journal takes `pos.entryPrice` from Binance every sweep (authoritative,
+and repairs an already-open position); mark used at submission so the field is
+never 0; `classifyLoss` returns `unclassified` naming the missing field instead
+of defaulting into a diagnosis. Regression in `entry-price-check.ts`.
+
+Historical rows left alone. Entry is recoverable as `stop + (target − stop)/3`
+but that lands 0.03–0.06% out against the two intact records — targets are
+cluster prices, not strict multiples of the stop — which is a ~12% error in the
+risk denominator. Fine for classification, not for expectancy. So the next 20
+closes are the first honest sample this project has had.
+
+**Note for the next pass:** do not trust `learn.anatomy` on rows written before
+this commit. Check `trades[].entryPrice > 0` before reading any conclusion drawn
+from a stop distance.
+
+**Open, in order:**
+1. Watch the first closes under the new build: `expectancyR.n` should track
+   `learn.n`, and the anatomy should stop being 90% `cut-on-time`. If losses now
+   read as `never-worked`, it is an entry problem and the bias is next.
+2. Entry gate. 1717 of 1816 signals refused as "bias called no side"; the ones
+   that passed entered at 0.54x–0.93x, several inside the series' own noise.
+3. Maker path, 0 fills in 552 shadow trades, ~$4.87 a round trip.
