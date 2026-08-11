@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1786458087489,
+    "at": 1786458603441,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -14,20 +14,20 @@
         "focused": true,
         "calibrated": false,
         "running": true,
-        "attached": true,
-        "tradeable": true,
-        "warm": true,
-        "mid": 64104.95,
-        "spreadBps": 0.015599419389383319,
-        "riskUp": 34.523357015376185,
-        "riskDown": 31.127308080674748,
-        "signalsSeen": 6502,
-        "accepted": 147,
-        "holding": 0.161,
-        "pnl": 0,
-        "protected": true,
-        "heldMin": 2,
-        "lastRefusal": "another contract just entered — 45s of burst guard left",
+        "attached": false,
+        "tradeable": false,
+        "warm": null,
+        "mid": null,
+        "spreadBps": null,
+        "riskUp": null,
+        "riskDown": null,
+        "signalsSeen": 0,
+        "accepted": 0,
+        "holding": 0,
+        "pnl": null,
+        "protected": null,
+        "heldMin": 0,
+        "lastRefusal": null,
         "dislocation": {
           "warm": false,
           "coupled": false,
@@ -51,49 +51,61 @@
       "sides": [
         {
           "direction": "up",
-          "ok": true,
-          "stopPct": 0.516873222341325,
-          "target": 64800,
-          "rewardRisk": 2.0976858498559965,
-          "notionalUsd": 1390.9225561767466,
-          "marginUsd": 278.1845112353493,
-          "leverage": 5,
-          "riskUsd": 7.189306236383077,
-          "sizeRetained": 0.5263575520833332,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         },
         {
           "direction": "down",
-          "ok": true,
-          "stopPct": 0.516873222341325,
-          "target": 63400,
-          "rewardRisk": 2.1275644052312384,
-          "notionalUsd": 1390.9225561767466,
-          "marginUsd": 278.1845112353493,
-          "leverage": 5,
-          "riskUsd": 7.189306236383077,
-          "sizeRetained": 0.5263575520833332,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         }
       ],
       "tradeable": false
     },
     "readiness": {
-      "ready": true,
-      "armed": true,
-      "blockers": [],
-      "waiting": [],
-      "summary": "armed — orders go out when a setup passes every check"
+      "ready": false,
+      "armed": false,
+      "blockers": [
+        "the exchange is not answering"
+      ],
+      "waiting": [
+        "BTCUSDT: starting up"
+      ],
+      "summary": "the exchange is not answering"
     },
     "orderVenue": {
-      "url": "https://demo-fapi.binance.com",
-      "checked": true,
+      "url": "",
+      "checked": false,
       "error": null,
       "untradeable": []
     },
     "engine": {
       "running": true,
-      "uptimeSec": 9844,
+      "uptimeSec": 0,
       "symbol": "BTCUSDT",
       "symbols": [
         "INTCUSDT"
@@ -102,25 +114,31 @@
     "mode": "testnet",
     "hasCredentials": true,
     "health": {
-      "level": "ok",
-      "tradeable": true,
-      "reasons": [],
-      "summary": "live",
-      "snapshotAgeMs": 1
+      "level": "blind",
+      "tradeable": false,
+      "reasons": [
+        {
+          "code": "snapshot-stale",
+          "severity": "blind",
+          "detail": "the engine has not published yet"
+        }
+      ],
+      "summary": "starting up",
+      "snapshotAgeMs": 0
     },
     "market": {
-      "mid": 64104.95,
+      "mid": null,
       "mark": null,
-      "spreadBps": 0.015599419389383319,
-      "lwi": 0.9697183654942139,
-      "lwiBid": 1.0919626352021599,
-      "lwiAsk": 0.8537318730033336,
-      "warm": true,
-      "riskUp": 34.523357015376185,
-      "riskDown": 31.127308080674748,
-      "nearestAbove": 64180.07399999999,
-      "nearestBelow": 64038.68222679049,
-      "session": "regular",
+      "spreadBps": null,
+      "lwi": null,
+      "lwiBid": null,
+      "lwiAsk": null,
+      "warm": null,
+      "riskUp": null,
+      "riskDown": null,
+      "nearestAbove": null,
+      "nearestBelow": null,
+      "session": "closed",
       "flow": {
         "buy": 0,
         "sell": 0
@@ -130,7 +148,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 11296,
+      "staleForMs": null,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -141,32 +159,20 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1786458076193,
+      "at": 0,
       "error": null,
-      "availableBalance": 341.46495134,
-      "walletBalance": 2934.30620181,
-      "unrealizedPnl": -7.82049809,
-      "marginRatio": 0.014116536550131268,
-      "positions": [
-        {
-          "symbol": "BTCUSDT",
-          "amt": 0.161,
-          "entry": 64197.39813664596,
-          "mark": 0,
-          "pnl": -7.82049809,
-          "liquidation": 0,
-          "leverage": 4,
-          "notional": 10327.9606019
-        }
-      ]
+      "availableBalance": null,
+      "walletBalance": null,
+      "unrealizedPnl": null,
+      "marginRatio": null,
+      "positions": []
     },
     "limits": {
-      "capsDerivedAt": 1786377791176,
       "maxPositionUsd": 32590,
       "maxLeverage": 10,
       "maxDailyLossUsd": 0,
       "maxOpenPositions": 1,
-      "tradingEnabled": true,
+      "tradingEnabled": false,
       "stopLossPct": 0.5,
       "maxTradesPerDay": 4000,
       "lossCooldownMin": 0,
@@ -179,253 +185,58 @@
       "minRewardOverFees": 2,
       "autoTune": false,
       "marginHeadroomPct": 5,
+      "capsDerivedAt": 1786377791176,
       "trailArmsAtR": 1,
       "scaleOutAtR": 1.5,
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1786458077299,
-      "realisedPnl": -86.30872996,
-      "drawdown": 210.48088143,
-      "trades": 17,
-      "fees": 124.17215147000003,
-      "funding": 0,
-      "lastLossAt": 1786457899000,
-      "cooldownLeftMin": 0,
-      "countingFrom": 1786442084062,
-      "rebased": true,
-      "rebaseReason": "reset by hand from the dashboard"
+      "at": 0,
+      "error": null
     },
     "loop": {
-      "attached": true,
-      "signalsSeen": 6502,
-      "seen": 6479,
-      "accepted": 147,
+      "attached": false,
+      "signalsSeen": 0,
+      "seen": 0,
+      "accepted": 0,
       "rejected": 0,
-      "declined": 6326,
-      "notReady": 6,
-      "lastAcceptedAt": 1786458070936,
-      "lastRefusal": {
-        "at": 1786458085997,
-        "reason": "another contract just entered — 45s of burst guard left"
-      },
-      "refusals": [
-        {
-          "reason": "bias called no side",
-          "count": 6326
-        }
-      ]
+      "declined": 0,
+      "notReady": 0,
+      "lastAcceptedAt": 0,
+      "lastRefusal": null,
+      "refusals": []
     },
     "execution": {
-      "available": true,
-      "armed": true,
-      "running": true,
-      "reason": "armed — orders will be placed when a setup passes every check",
-      "history": [
-        {
-          "at": 1786458072822,
-          "intentId": "intent:cluster-approach:1786458070935:506",
-          "outcome": "refused",
-          "detail": "already holding 0.161 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786458012515,
-          "intentId": "intent:cluster-approach:1786458010649:4yn",
-          "outcome": "refused",
-          "detail": "already holding 0.161 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457953124,
-          "intentId": "intent:cluster-approach:1786457950367:4wt",
-          "outcome": "submitted",
-          "detail": "BUY 0.161 BTCUSDT at market (~10326 notional), protective stop resting at 63829.82. Reason: price 0.28% from a $90.6M amplifying cluster at 63981.594699695306 (round, pivot-low, confidence 45%) | Least resistance is upward — 28,901,078 to set off the downside vs 17,965,428 upside — cheaper to push up; 0.16% below, 0.10% above",
-          "entry": {
-            "orderId": 28537796235,
-            "symbol": "BTCUSDT",
-            "side": "BUY",
-            "type": "MARKET",
-            "stopPrice": 0,
-            "closePosition": false,
-            "reduceOnly": false,
-            "quantity": 0.161,
-            "executedQty": 0,
-            "avgPrice": 0,
-            "price": 0,
-            "status": "NEW"
-          },
-          "stop": {
-            "orderId": 1000000163935173,
-            "isAlgo": true,
-            "symbol": "BTCUSDT",
-            "side": "SELL",
-            "type": "STOP_MARKET",
-            "stopPrice": 63829.82,
-            "closePosition": true,
-            "reduceOnly": true,
-            "quantity": 0,
-            "executedQty": 0,
-            "avgPrice": 0,
-            "price": 0,
-            "status": "NEW"
-          },
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457889516,
-          "intentId": "intent:cluster-approach:1786457888140:4uw",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457829572,
-          "intentId": "intent:cluster-approach:1786457827684:4tb",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457767219,
-          "intentId": "intent:cluster-approach:1786457765373:4rs",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457702209,
-          "intentId": "intent:cluster-approach:1786457701132:4qd",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457629126,
-          "intentId": "intent:cluster-approach:1786457627779:4oy",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457568525,
-          "intentId": "intent:cluster-approach:1786457566641:4nx",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457492187,
-          "intentId": "intent:cluster-approach:1786457490308:4ma",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457431945,
-          "intentId": "intent:cluster-approach:1786457430077:4kj",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457369813,
-          "intentId": "intent:cluster-approach:1786457367943:4in",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457307449,
-          "intentId": "intent:cluster-approach:1786457305558:4fy",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457227120,
-          "intentId": "intent:cluster-approach:1786457225282:4dm",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457160419,
-          "intentId": "intent:cluster-approach:1786457159035:4c8",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457092677,
-          "intentId": "intent:cluster-approach:1786457090793:4a7",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786457032419,
-          "intentId": "intent:cluster-approach:1786457030557:48i",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786456972213,
-          "intentId": "intent:cluster-approach:1786456970274:46x",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786456911368,
-          "intentId": "intent:cluster-approach:1786456910031:44v",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786456850977,
-          "intentId": "intent:wall-pulled:1786456849634:42z",
-          "outcome": "refused",
-          "detail": "already holding -0.14 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        }
-      ],
+      "available": false,
+      "armed": false,
+      "running": false,
+      "reason": "trading is disarmed; set your caps and arm it to allow orders",
+      "history": [],
       "stats": {
-        "seen": 6479,
-        "accepted": 147,
+        "seen": 0,
+        "accepted": 0,
         "rejected": 0,
-        "declined": 6326,
-        "notReady": 6,
-        "lastAcceptedAt": 1786458070936
+        "declined": 0,
+        "notReady": 0,
+        "lastAcceptedAt": 0
       }
     },
     "protection": {
-      "at": 1786458077018,
+      "at": 0,
       "error": null,
-      "flat": false,
-      "protected": true,
-      "stopPrice": 63829.82,
-      "stopDistancePct": 0.4845248552082436,
-      "targetPrice": 65000,
-      "targetDistancePct": 1.3398735013112084,
-      "entryPrice": 64197.39813664596,
-      "markPrice": 64140.5971354,
-      "side": "long",
-      "heldMin": 2,
+      "flat": null,
+      "protected": null,
+      "stopPrice": null,
+      "stopDistancePct": null,
+      "targetPrice": null,
+      "targetDistancePct": null,
+      "entryPrice": null,
+      "markPrice": null,
+      "side": null,
+      "heldMin": 0,
       "ratcheted": false,
-      "hold": {
-        "close": false,
-        "reason": "-11% to target, thesis 75% intact, 118 min left",
-        "thesisHealth": 0.75,
-        "progress": -0.10883121586702542,
-        "deadlineMs": 7200000,
-        "notes": [
-          "the level this was aimed at is no longer the nearest one ahead"
-        ]
-      },
-      "reason": "stop resting at 63829.82 (0.48% away), target at 65000 (1.34% away)"
+      "hold": null,
+      "reason": null
     }
   },
   "desired": {
@@ -449,27 +260,30 @@
       },
       {
         "name": "exchange reachable",
-        "ok": true,
-        "severity": "ok",
-        "detail": "balance 341.46 USDT"
+        "ok": false,
+        "severity": "bad",
+        "detail": "no account read yet",
+        "fix": "npm run sweep:check names the specific cause."
       },
       {
         "name": "contracts tradeable here",
-        "ok": true,
-        "severity": "ok",
-        "detail": "INTCUSDT all listed at https://demo-fapi.binance.com"
+        "ok": false,
+        "severity": "warn",
+        "detail": "not checked yet",
+        "fix": "Without this, a symbol the demo account cannot trade is indistinguishable from a quiet market."
       },
       {
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 9844s"
+        "detail": "1/1 — BTCUSDT up 0s"
       },
       {
         "name": "feed: BTCUSDT",
-        "ok": true,
-        "severity": "ok",
-        "detail": "ok"
+        "ok": false,
+        "severity": "bad",
+        "detail": "blind — starting up",
+        "fix": "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance is blocked or BTCUSDT is not a listed contract — npm run sweep:symbols says which."
       },
       {
         "name": "max position set",
@@ -499,39 +313,35 @@
       },
       {
         "name": "armed",
-        "ok": true,
-        "severity": "ok",
-        "detail": "orders will be placed when a setup passes"
+        "ok": false,
+        "severity": "warn",
+        "detail": "disarmed — nothing will be sent",
+        "fix": "Press Start trading. It always boots disarmed by design."
       },
       {
         "name": "execution loop attached",
-        "ok": true,
-        "severity": "ok",
-        "detail": "1/1 listening — BTCUSDT"
+        "ok": false,
+        "severity": "warn",
+        "detail": "not attached",
+        "fix": "Needs the engine running and credentials. Disarm and re-arm."
       },
       {
         "name": "evidence sampler",
         "ok": true,
         "severity": "ok",
-        "detail": "9s since its last beat"
+        "detail": "5s since its last beat"
       },
       {
         "name": "shadow run",
         "ok": true,
         "severity": "ok",
-        "detail": "7s since its last beat"
+        "detail": "3s since its last beat"
       },
       {
         "name": "news + social feeds",
         "ok": true,
         "severity": "ok",
-        "detail": "6/14 sources live (in this process), 12 headlines recorded · 8 erroring: reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-binance: 403 "
-      },
-      {
-        "name": "loop accounting",
-        "ok": true,
-        "severity": "ok",
-        "detail": "6479 seen = 147 placed + 6326 no side + 0 refused + 6 while the feed was warming"
+        "detail": "14/14 sources live (in this process), 0 headlines recorded"
       },
       {
         "name": "position cap",
@@ -546,24 +356,18 @@
         "detail": "INTCUSDT — all equity perps the models are built for"
       }
     ],
-    "verdict": "everything checks out — quiet means no setup has qualified yet",
-    "worst": "ok"
+    "verdict": "2 things broken",
+    "worst": "bad"
   },
   "errors": [],
   "notes": [],
-  "refusals": [
-    {
-      "reason": "bias called no side",
-      "count": 6326
-    }
-  ],
+  "refusals": [],
   "limits": {
-    "capsDerivedAt": 1786377791176,
     "maxPositionUsd": 32590,
     "maxLeverage": 10,
     "maxDailyLossUsd": 0,
     "maxOpenPositions": 1,
-    "tradingEnabled": true,
+    "tradingEnabled": false,
     "stopLossPct": 0.5,
     "maxTradesPerDay": 4000,
     "lossCooldownMin": 0,
@@ -576,6 +380,7 @@
     "minRewardOverFees": 2,
     "autoTune": false,
     "marginHeadroomPct": 5,
+    "capsDerivedAt": 1786377791176,
     "trailArmsAtR": 1,
     "scaleOutAtR": 1.5,
     "scaleOutFraction": 40
@@ -583,7 +388,7 @@
   "ledger": {
     "epoch": 1786442084062,
     "balance": 2934.30620181,
-    "at": 1786458076193,
+    "at": 1786458177321,
     "reason": "reset by hand from the dashboard"
   },
   "learn": {
@@ -634,806 +439,1744 @@
     ],
     "splits": []
   },
+  "trades": [
+    {
+      "id": "BTCUSDT-1786377807606",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786377807606,
+      "closedAt": 1786383821684,
+      "heldMs": 6014078,
+      "entryPrice": 0,
+      "exitPrice": 0,
+      "stopPrice": 64604.465249999994,
+      "targetPrice": 63600,
+      "notionalUsd": 14433.955068220595,
+      "leverage": 5,
+      "realisedPnlUsd": -5.78568499,
+      "feesUsd": 5.78568499,
+      "roiPct": -0.2004192531656971,
+      "outcome": "loss",
+      "maePct": -0.07295857928333235,
+      "mfePct": 0.7375194549729762,
+      "peakProgress": 0.6940926725715596,
+      "excursionComplete": true,
+      "exitReason": "closed without this process asking for it",
+      "entryConditions": {
+        "lwiAdj": 1.4514829333243422,
+        "lwiOtherAdj": 1.229308074607339,
+        "spreadBps": 0.015556200273407188,
+        "cancelShare": 1,
+        "cascadeRisk": 32.16171335529891,
+        "seedNotional": 12659381.748299997,
+        "targetDistPct": 1.062566259690545,
+        "adverseDistPct": 0.18192976220013998,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.04180627368363169,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "midday",
+        "cashOpen": true,
+        "utcHour": 16,
+        "biasConviction": 0.08463152721931093,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.582761945410511,
+        "newsImpactMax": 2,
+        "minutesSinceNews": 25.272816666666667,
+        "newsCount6h": 17,
+        "shockLevel": 1,
+        "chatterVelocity": 1,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.834,
+        "refillLevels": 169,
+        "flickerPerSec": 5.833333333333333,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786388610672",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786388610672,
+      "closedAt": 1786390437881,
+      "heldMs": 1827209,
+      "entryPrice": 0,
+      "exitPrice": 63990.99999999999,
+      "stopPrice": 64199.450249999994,
+      "targetPrice": 63234.89070233361,
+      "notionalUsd": 23634.67585596929,
+      "leverage": 8,
+      "realisedPnlUsd": -56.29638799999999,
+      "feesUsd": 18.926388,
+      "roiPct": -1.9055522772750533,
+      "outcome": "loss",
+      "maePct": -0.2927361515841017,
+      "mfePct": 0.007200996242184877,
+      "peakProgress": 0.007130022021916863,
+      "excursionComplete": true,
+      "exitReason": "30 min in and only -26% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 0.9928261879766532,
+        "lwiOtherAdj": 0.8927936951012035,
+        "spreadBps": 0.015654339656676036,
+        "cancelShare": null,
+        "cascadeRisk": 38.280100014605026,
+        "seedNotional": 16403467.634699991,
+        "targetDistPct": 1.0099542778479291,
+        "adverseDistPct": 0.18777380418455697,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.15356008766970172,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "afternoon",
+        "cashOpen": true,
+        "utcHour": 19,
+        "biasConviction": 0.08824470483880148,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.9333941944444444,
+        "newsImpactMax": 2,
+        "minutesSinceNews": 20.056983333333335,
+        "newsCount6h": 11,
+        "shockLevel": 0,
+        "chatterVelocity": 0.8435529532493267,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.8385,
+        "refillLevels": 1225,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786392211180",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786392211180,
+      "closedAt": 1786394039889,
+      "heldMs": 1828709,
+      "entryPrice": 0,
+      "exitPrice": 64090,
+      "stopPrice": 64340.853749999995,
+      "targetPrice": 63355.37673258054,
+      "notionalUsd": 13250.987983495128,
+      "leverage": 5,
+      "realisedPnlUsd": -29.71176156,
+      "feesUsd": 10.60566156,
+      "roiPct": -1.1211149537305338,
+      "outcome": "loss",
+      "maePct": -0.11684734004372857,
+      "mfePct": 0.02374437926021745,
+      "peakProgress": 0.02303821744619667,
+      "excursionComplete": true,
+      "exitReason": "30 min in and only -14% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 2.592614280261595,
+        "lwiOtherAdj": 2.5633449375511472,
+        "spreadBps": 0.015619935724873697,
+        "cancelShare": 1,
+        "cascadeRisk": 34.0930129916801,
+        "seedNotional": 4337024.798199999,
+        "targetDistPct": 1.0393087669536232,
+        "adverseDistPct": 0.3233760581963917,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.14020515129470557,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "after-hours",
+        "cashOpen": false,
+        "utcHour": 20,
+        "biasConviction": 0.15390377562255053,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.5323100712243671,
+        "newsImpactMax": 2,
+        "minutesSinceNews": 16.48155,
+        "newsCount6h": 11,
+        "shockLevel": 0,
+        "chatterVelocity": 0.8980538774646756,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.7305,
+        "refillLevels": 1071,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786395819631",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786395819631,
+      "closedAt": 1786397641006,
+      "heldMs": 1821375,
+      "entryPrice": 0,
+      "exitPrice": 64067.5,
+      "stopPrice": 64396.63124999999,
+      "targetPrice": 63402.888726930774,
+      "notionalUsd": 14157.967160201391,
+      "leverage": 5,
+      "realisedPnlUsd": -10.70858152,
+      "feesUsd": 11.32738152,
+      "roiPct": -0.3781821711701044,
+      "outcome": "loss",
+      "maePct": -0.06070892101206637,
+      "mfePct": 0.06398626636234174,
+      "peakProgress": 0.0608885625588761,
+      "excursionComplete": true,
+      "exitReason": "30 min in and only -0% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 1.0941533173491924,
+        "lwiOtherAdj": 0.8802478194035408,
+        "spreadBps": 0.01560640643074786,
+        "cancelShare": 1,
+        "cascadeRisk": 30.510145967577223,
+        "seedNotional": 19940342.643300008,
+        "targetDistPct": 1.050874970163244,
+        "adverseDistPct": 0.2364804085410331,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.07282754303440557,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "after-hours",
+        "cashOpen": false,
+        "utcHour": 21,
+        "biasConviction": 0.11802074763096493,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.5739509972887451,
+        "newsImpactMax": 1,
+        "minutesSinceNews": 12.65615,
+        "newsCount6h": 13,
+        "shockLevel": 0,
+        "chatterVelocity": 1.2196835009647073,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 2.1505,
+        "refillLevels": 728,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786399420594",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786399420594,
+      "closedAt": 1786401243538,
+      "heldMs": 1822944,
+      "entryPrice": 0,
+      "exitPrice": 63950,
+      "stopPrice": 63675.17425,
+      "targetPrice": 64772.222222222226,
+      "notionalUsd": 13612.575023526051,
+      "leverage": 5,
+      "realisedPnlUsd": -17.31094452,
+      "feesUsd": 10.89964452,
+      "roiPct": -0.6358438609183865,
+      "outcome": "loss",
+      "maePct": -0.11281858162666125,
+      "mfePct": 0.048127594378138995,
+      "peakProgress": 0.039707493858377435,
+      "excursionComplete": true,
+      "exitReason": "30 min in and only -5% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 0.9657775261999257,
+        "lwiOtherAdj": 0.9438356722825689,
+        "spreadBps": 0.01562618417154188,
+        "cancelShare": 1,
+        "cascadeRisk": 35.38568968587651,
+        "seedNotional": 753705.0106999996,
+        "targetDistPct": 1.2142673659210614,
+        "adverseDistPct": 0.28144266777987376,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.09555485474064836,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "after-hours",
+        "cashOpen": false,
+        "utcHour": 22,
+        "biasConviction": 0.27002655019860833,
+        "signalKind": "cascade-risk",
+        "sizeRetained": 0.5536680074793505,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 51.53855,
+        "newsCount6h": 13,
+        "shockLevel": 0,
+        "chatterVelocity": 0.7618144747662373,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.73,
+        "refillLevels": 798,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786403022550",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786403022550,
+      "closedAt": 1786403263479,
+      "heldMs": 240929,
+      "entryPrice": 0,
+      "exitPrice": 63952.299999999996,
+      "stopPrice": 63643.43375,
+      "targetPrice": 64772.22222222222,
+      "notionalUsd": 16506.8587122948,
+      "leverage": 6,
+      "realisedPnlUsd": -22.18174607,
+      "feesUsd": 13.20334608,
+      "roiPct": -0.8062737964847924,
+      "outcome": "loss",
+      "maePct": -0.02485802394342717,
+      "mfePct": 0.0014070579590533302,
+      "peakProgress": 0.001112522748336043,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 1.01x from 0.90x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.9040823973443678,
+        "lwiOtherAdj": 0.8792676713244165,
+        "spreadBps": 0.01563397732382591,
+        "cancelShare": null,
+        "cascadeRisk": 33.85601410709842,
+        "seedNotional": 11320382.903500002,
+        "targetDistPct": 1.264745337709105,
+        "adverseDistPct": 0.23171067042253302,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.05512018241992852,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "after-hours",
+        "cashOpen": false,
+        "utcHour": 23,
+        "biasConviction": 0.1689751850297557,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.675,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 111.57171666666666,
+        "newsCount6h": 12,
+        "shockLevel": 0,
+        "chatterVelocity": 0.9994113846694869,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.587,
+        "refillLevels": 941,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786409314129",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786409314129,
+      "closedAt": 1786409374327,
+      "heldMs": 60198,
+      "entryPrice": 0,
+      "exitPrice": 0,
+      "stopPrice": 63651.79175,
+      "targetPrice": 64772.222222222226,
+      "notionalUsd": 15178.7651434775,
+      "leverage": 5,
+      "realisedPnlUsd": null,
+      "feesUsd": null,
+      "roiPct": null,
+      "outcome": "scratch",
+      "maePct": 0,
+      "mfePct": 0,
+      "peakProgress": 0,
+      "excursionComplete": true,
+      "exitReason": "closed without this process asking for it",
+      "entryConditions": {
+        "lwiAdj": 0.9955402912018879,
+        "lwiOtherAdj": 0.7310416438597922,
+        "spreadBps": 0.015631924453808028,
+        "cancelShare": null,
+        "cascadeRisk": 32.69279845831056,
+        "seedNotional": 10213060.617999997,
+        "targetDistPct": 1.2514484497777252,
+        "adverseDistPct": 0.24481105405332787,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.0380581939331703,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "overnight",
+        "cashOpen": false,
+        "utcHour": 0,
+        "biasConviction": 0.15594894532175704,
+        "signalKind": "wall-pulled",
+        "sizeRetained": 0.6250000000000001,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 216.38738333333333,
+        "newsCount6h": 9,
+        "shockLevel": 0,
+        "chatterVelocity": 0,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 0.534,
+        "refillLevels": 743,
+        "flickerPerSec": 1.55,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786416754544",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786416754544,
+      "closedAt": 1786416870688,
+      "heldMs": 116144,
+      "entryPrice": 0,
+      "exitPrice": 64023.7,
+      "stopPrice": 64323.78145277777,
+      "targetPrice": 63339.56520944176,
+      "notionalUsd": 11898.706008901587,
+      "leverage": 4,
+      "realisedPnlUsd": -10.73524296,
+      "feesUsd": 9.526242960000001,
+      "roiPct": -0.36088774533865503,
+      "outcome": "loss",
+      "maePct": -0.017343086084994904,
+      "mfePct": 0,
+      "peakProgress": 0,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 0.99x from 0.80x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.8040598599275369,
+        "lwiOtherAdj": 0.883856156716431,
+        "spreadBps": 0.01562440187813823,
+        "cancelShare": 1,
+        "cascadeRisk": 37.73281499568155,
+        "seedNotional": 1048600.8754000003,
+        "targetDistPct": 1.0357178366738102,
+        "adverseDistPct": 0.3520611754359039,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.041545836256296736,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "overnight",
+        "cashOpen": false,
+        "utcHour": 2,
+        "biasConviction": 0.2797503638293031,
+        "signalKind": "wall-pulled",
+        "sizeRetained": 0.49224480468750004,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 30.051083333333334,
+        "newsCount6h": 4,
+        "shockLevel": 0,
+        "chatterVelocity": 0.5987312931011547,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 0.963,
+        "refillLevels": 1274,
+        "flickerPerSec": 4.616666666666666,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786420356253",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786420356253,
+      "closedAt": 1786421178012,
+      "heldMs": 821759,
+      "entryPrice": 0,
+      "exitPrice": 0,
+      "stopPrice": 64413.314249999996,
+      "targetPrice": 63357.14750890476,
+      "notionalUsd": 13607.096266851751,
+      "leverage": 5,
+      "realisedPnlUsd": null,
+      "feesUsd": null,
+      "roiPct": null,
+      "outcome": "scratch",
+      "maePct": -0.048835400516576116,
+      "mfePct": 0.009049371341737666,
+      "peakProgress": 0.007883621532079369,
+      "excursionComplete": true,
+      "exitReason": "closed without this process asking for it",
+      "entryConditions": {
+        "lwiAdj": 1.0009765330981881,
+        "lwiOtherAdj": 0.9524647021045857,
+        "spreadBps": 0.015602364382071448,
+        "cancelShare": 1,
+        "cascadeRisk": 27.415231456462823,
+        "seedNotional": 32572873.985799976,
+        "targetDistPct": 1.1478698343032738,
+        "adverseDistPct": 0.2105192354182759,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.03613221539370881,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "overnight",
+        "cashOpen": false,
+        "utcHour": 3,
+        "biasConviction": 0.0834060072954595,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.5625,
+        "newsImpactMax": 1,
+        "minutesSinceNews": 3.9139,
+        "newsCount6h": 4,
+        "shockLevel": 0,
+        "chatterVelocity": 1.203382425887942,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.0545,
+        "refillLevels": 805,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786427567079",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786427567079,
+      "closedAt": 1786427612076,
+      "heldMs": 44997,
+      "entryPrice": 0,
+      "exitPrice": 64003.5,
+      "stopPrice": 64323.78265277778,
+      "targetPrice": 63340.485319774605,
+      "notionalUsd": 11683.12094403833,
+      "leverage": 4,
+      "realisedPnlUsd": -9.42499043,
+      "feesUsd": 9.37009044,
+      "roiPct": -0.32268742145682877,
+      "outcome": "loss",
+      "maePct": 0,
+      "mfePct": 0.015780448649101133,
+      "peakProgress": 0.01523919469663197,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 1.01x from 0.94x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.9429010618048579,
+        "lwiOtherAdj": 0.9425535973207222,
+        "spreadBps": 0.015624206584168894,
+        "cancelShare": 1,
+        "cascadeRisk": 35.576462066159834,
+        "seedNotional": 1391702.6157,
+        "targetDistPct": 1.0355172279929454,
+        "adverseDistPct": 0.3508068383680106,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.041205542786401775,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "overnight",
+        "cashOpen": false,
+        "utcHour": 5,
+        "biasConviction": 0.2731713645507494,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.48308015625,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 26.144716666666667,
+        "newsCount6h": 9,
+        "shockLevel": 0,
+        "chatterVelocity": 1.1948860077266212,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 0.816,
+        "refillLevels": 799,
+        "flickerPerSec": 9.816666666666666,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786427630156",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786427630156,
+      "closedAt": 1786429453604,
+      "heldMs": 1823448,
+      "entryPrice": 0,
+      "exitPrice": 64004.7,
+      "stopPrice": 63673.18424999999,
+      "targetPrice": 64772.22222222221,
+      "notionalUsd": 11726.8375763448,
+      "leverage": 4,
+      "realisedPnlUsd": -9.15060024,
+      "feesUsd": 9.370200239999999,
+      "roiPct": -0.3121250782379199,
+      "outcome": "loss",
+      "maePct": -0.07579196745789835,
+      "mfePct": 0.04813180613821628,
+      "peakProgress": 0.03942287863812284,
+      "excursionComplete": true,
+      "exitReason": "30 min in and only -5% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 0.999713357560615,
+        "lwiOtherAdj": 0.9900450171606432,
+        "spreadBps": 0.015626672542068145,
+        "cancelShare": 1,
+        "cascadeRisk": 34.31811847310893,
+        "seedNotional": 2984032.1161999996,
+        "targetDistPct": 1.2174306503465098,
+        "adverseDistPct": 0.27832613105787335,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.039246296673351944,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "overnight",
+        "cashOpen": false,
+        "utcHour": 5,
+        "biasConviction": 0.2573664640004176,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.48554234375,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 27.19546666666667,
+        "newsCount6h": 9,
+        "shockLevel": 0,
+        "chatterVelocity": 1.1895123276788926,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 0.9705,
+        "refillLevels": 815,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786431171065",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786431171065,
+      "closedAt": 1786432993687,
+      "heldMs": 1822622,
+      "entryPrice": 0,
+      "exitPrice": 63881.6,
+      "stopPrice": 64189.19925,
+      "targetPrice": 63228.39617737538,
+      "notionalUsd": 11369.362512485208,
+      "leverage": 4,
+      "realisedPnlUsd": -5.662713999999999,
+      "feesUsd": 9.098113999999999,
+      "roiPct": -0.19922714202424344,
+      "outcome": "loss",
+      "maePct": -0.1850652934466956,
+      "mfePct": 0.06481982359302033,
+      "peakProgress": 0.06459123658937103,
+      "excursionComplete": true,
+      "exitReason": "30 min in and only 1% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 1.215124383605679,
+        "lwiOtherAdj": 0.8930954913464477,
+        "spreadBps": 0.015656839651031713,
+        "cancelShare": 1,
+        "cascadeRisk": 31.141669641776808,
+        "seedNotional": 19521508.810500022,
+        "targetDistPct": 1.0043139644521197,
+        "adverseDistPct": 0.20377376806113395,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.0660955929885954,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "overnight",
+        "cashOpen": false,
+        "utcHour": 6,
+        "biasConviction": 0.08287200321300862,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.472100703125,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 21.46066666666667,
+        "newsCount6h": 13,
+        "shockLevel": 1,
+        "chatterVelocity": 0.804433249323483,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 2.5525,
+        "refillLevels": 898,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786434771998",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786434771998,
+      "closedAt": 1786434794680,
+      "heldMs": 22682,
+      "entryPrice": 0,
+      "exitPrice": 64052.4,
+      "stopPrice": 64387.58624999999,
+      "targetPrice": 63395.229541069115,
+      "notionalUsd": 10581.88851363438,
+      "leverage": 4,
+      "realisedPnlUsd": -9.691921789999999,
+      "feesUsd": 8.454421799999999,
+      "roiPct": -0.36635886978065624,
+      "outcome": "loss",
+      "maePct": -0.005463725933262929,
+      "mfePct": 0.00046831936571279433,
+      "peakProgress": 0.00045206562872732685,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 1.01x from 0.90x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.902000635554792,
+        "lwiOtherAdj": 1.7020130976162489,
+        "spreadBps": 0.015608598777974826,
+        "cancelShare": 1,
+        "cascadeRisk": 32.72477649291341,
+        "seedNotional": 16677904.881500002,
+        "targetDistPct": 1.0489297713432135,
+        "adverseDistPct": 0.20720414876555493,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.07235942262673256,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "overnight",
+        "cashOpen": false,
+        "utcHour": 7,
+        "biasConviction": 0.20659613957955614,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.4401883203125,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 7.84405,
+        "newsCount6h": 18,
+        "shockLevel": 0,
+        "chatterVelocity": 0.9733198520556509,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 0.9275,
+        "refillLevels": 723,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786434832077",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786434832077,
+      "closedAt": 1786434894467,
+      "heldMs": 62390,
+      "entryPrice": 0,
+      "exitPrice": 64065.34698795181,
+      "stopPrice": 64363.868249999985,
+      "targetPrice": 63372.37401012386,
+      "notionalUsd": 10605.844398166366,
+      "leverage": 4,
+      "realisedPnlUsd": -10.65621839,
+      "feesUsd": 8.507018389999999,
+      "roiPct": -0.4018998578497849,
+      "outcome": "loss",
+      "maePct": 0,
+      "mfePct": 0.034039284144467656,
+      "peakProgress": 0.03247546512725846,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 0.98x from 0.93x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.9283953081442238,
+        "lwiOtherAdj": 1.5078745199356813,
+        "spreadBps": 0.015614350524766283,
+        "cancelShare": 1,
+        "cascadeRisk": 33.611641096359065,
+        "seedNotional": 10975670.179199984,
+        "targetDistPct": 1.0481538604937977,
+        "adverseDistPct": 0.2441303704582825,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.07671288954132274,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "overnight",
+        "cashOpen": false,
+        "utcHour": 7,
+        "biasConviction": 0.23738070292831515,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.44254082031249997,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 8.844733333333334,
+        "newsCount6h": 18,
+        "shockLevel": 1,
+        "chatterVelocity": 0.9740824316990926,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 0.51,
+        "refillLevels": 764,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786438475382",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786438475382,
+      "closedAt": 1786440296733,
+      "heldMs": 1821351,
+      "entryPrice": 0,
+      "exitPrice": 64153.66761904763,
+      "stopPrice": 63794.17625,
+      "targetPrice": 64800,
+      "notionalUsd": 14803.476144894734,
+      "leverage": 5,
+      "realisedPnlUsd": 2.048681720000001,
+      "feesUsd": 11.85003828,
+      "roiPct": 0.06919596789118104,
+      "outcome": "win",
+      "maePct": -0.013569420453167313,
+      "mfePct": 0.09607773562246724,
+      "peakProgress": 0.0898941991973817,
+      "excursionComplete": true,
+      "exitReason": "30 min in and only 10% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 1.0587400326312295,
+        "lwiOtherAdj": 1.0807450639942788,
+        "spreadBps": 0.015597035004553674,
+        "cancelShare": null,
+        "cascadeRisk": 20.73114291347096,
+        "seedNotional": 58958546.700699985,
+        "targetDistPct": 1.068786823624829,
+        "adverseDistPct": 0.17897597666683562,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.05056361505880946,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "pre-market",
+        "cashOpen": false,
+        "utcHour": 8,
+        "biasConviction": 0.06096604749595923,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.6197861736111111,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 32.52856666666667,
+        "newsCount6h": 19,
+        "shockLevel": 1,
+        "chatterVelocity": 1.029792744318581,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 0.7175,
+        "refillLevels": 825,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786442121382",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786442121382,
+      "closedAt": 1786447269261,
+      "heldMs": 5147879,
+      "entryPrice": 64234.5,
+      "exitPrice": 64308.899999999994,
+      "stopPrice": 63912.38225,
+      "targetPrice": 65000,
+      "notionalUsd": 11400.621619443564,
+      "leverage": 4,
+      "realisedPnlUsd": 4.067927279999999,
+      "feesUsd": 9.10087272,
+      "roiPct": 0.14272650793224184,
+      "outcome": "win",
+      "maePct": 0,
+      "mfePct": 0.12166359199494692,
+      "peakProgress": 0.10209013716524387,
+      "excursionComplete": false,
+      "exitReason": "85 min in and only 10% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 1.059462493677264,
+        "lwiOtherAdj": 0.8473983206726509,
+        "spreadBps": 0.01556818827521518,
+        "cancelShare": 1,
+        "cascadeRisk": 34.23524864781873,
+        "seedNotional": 3494468.1499999994,
+        "targetDistPct": 1.1932237903712266,
+        "adverseDistPct": 0.05223127166411153,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.026669319360901843,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "pre-market",
+        "cashOpen": false,
+        "utcHour": 9,
+        "biasConviction": 0.12078032764168513,
+        "signalKind": "wall-pulled",
+        "sizeRetained": 0.47700583611102504,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 17.733733333333333,
+        "newsCount6h": 19,
+        "shockLevel": 1,
+        "chatterVelocity": 1,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 0.921,
+        "refillLevels": 90,
+        "flickerPerSec": 9.633333333333333,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786447302312",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786447302312,
+      "closedAt": 1786449134086,
+      "heldMs": 1831774,
+      "entryPrice": 64350.00000000001,
+      "exitPrice": 64325.4,
+      "stopPrice": 63999.44475,
+      "targetPrice": 65000,
+      "notionalUsd": 10839.804672750084,
+      "leverage": 4,
+      "realisedPnlUsd": -12.85585704,
+      "feesUsd": 8.698457040000001,
+      "roiPct": -0.47439441680413375,
+      "outcome": "loss",
+      "maePct": -0.0675213675213743,
+      "mfePct": 0,
+      "peakProgress": 0,
+      "excursionComplete": false,
+      "exitReason": "30 min in and only -1% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 1.2800268415841005,
+        "lwiOtherAdj": 1.0574147614238298,
+        "spreadBps": 0.015547009882230593,
+        "cancelShare": 1,
+        "cascadeRisk": 27.474817121353666,
+        "seedNotional": 32739897.945799995,
+        "targetDistPct": 1.055564235969402,
+        "adverseDistPct": 0.11046150521486031,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.009580935379802176,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "pre-market",
+        "cashOpen": false,
+        "utcHour": 11,
+        "biasConviction": 0.08702483039370781,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.45295514838081136,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 7.765583333333334,
+        "newsCount6h": 20,
+        "shockLevel": 1,
+        "chatterVelocity": 1,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 0.205,
+        "refillLevels": 95,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786449157128",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786449157128,
+      "closedAt": 1786450977665,
+      "heldMs": 1820537,
+      "entryPrice": 0,
+      "exitPrice": 64358.299999999996,
+      "stopPrice": 64026.01125,
+      "targetPrice": 65000,
+      "notionalUsd": 10740.678403510898,
+      "leverage": 4,
+      "realisedPnlUsd": -5.816956779999999,
+      "feesUsd": 8.597156779999999,
+      "roiPct": -0.216632751171418,
+      "outcome": "loss",
+      "maePct": -0.04258113143038285,
+      "mfePct": 0.1880407628860372,
+      "peakProgress": 0.185511690302798,
+      "excursionComplete": true,
+      "exitReason": "30 min in and only -2% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 1.4126746692527126,
+        "lwiOtherAdj": 1.019290568304127,
+        "spreadBps": 0.015540558917106002,
+        "cancelShare": 1,
+        "cascadeRisk": 29.532088843223818,
+        "seedNotional": 23919900.94479999,
+        "targetDistPct": 1.0136329553092378,
+        "adverseDistPct": 0.1519089634058689,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.029405518182061247,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "pre-market",
+        "cashOpen": false,
+        "utcHour": 11,
+        "biasConviction": 0.13326629887238872,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.45065291449088085,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 6.811616666666667,
+        "newsCount6h": 20,
+        "shockLevel": 1,
+        "chatterVelocity": 1,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.322,
+        "refillLevels": 561,
+        "flickerPerSec": 9.816666666666666,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786451057592",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786451057592,
+      "closedAt": 1786451294947,
+      "heldMs": 237355,
+      "entryPrice": 0,
+      "exitPrice": 64273.3,
+      "stopPrice": 63967.405750000005,
+      "targetPrice": 65000,
+      "notionalUsd": 12641.23016744843,
+      "leverage": 5,
+      "realisedPnlUsd": -28.85195807,
+      "feesUsd": 10.136958069999999,
+      "roiPct": -1.1411847457810993,
+      "outcome": "loss",
+      "maePct": -0.046664172725879874,
+      "mfePct": 0.0012443779393613238,
+      "peakProgress": 0.0011254132376772932,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 1.25x from 0.61x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.6121936380771325,
+        "lwiOtherAdj": 0.8337607703024311,
+        "spreadBps": 0.01555479682690619,
+        "cancelShare": null,
+        "cascadeRisk": 37.534070773732275,
+        "seedNotional": 15235416.899599992,
+        "targetDistPct": 1.1061793763615217,
+        "adverseDistPct": 0.09499660084481959,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.09551618872951649,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "pre-market",
+        "cashOpen": false,
+        "utcHour": 12,
+        "biasConviction": 0.07076254246748245,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.5313811319444444,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 14.632083333333334,
+        "newsCount6h": 20,
+        "shockLevel": 0,
+        "chatterVelocity": 1.510547303336734,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 2.243,
+        "refillLevels": 520,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786451317877",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786451317877,
+      "closedAt": 1786451374975,
+      "heldMs": 57098,
+      "entryPrice": 0,
+      "exitPrice": 64273.3,
+      "stopPrice": 63953.97325,
+      "targetPrice": 65000,
+      "notionalUsd": 10607.677962673557,
+      "leverage": 4,
+      "realisedPnlUsd": -8.86372738,
+      "feesUsd": 8.484227390000001,
+      "roiPct": -0.3342381777120236,
+      "outcome": "loss",
+      "maePct": -0.00653441732055765,
+      "mfePct": 0.037806271640399985,
+      "peakProgress": 0.03351955307262985,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 1.40x from 0.69x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.6894465604020964,
+        "lwiOtherAdj": 0.8920834125098329,
+        "spreadBps": 0.01555806386095833,
+        "cancelShare": 1,
+        "cascadeRisk": 37.63843513538798,
+        "seedNotional": 11637980.146299984,
+        "targetDistPct": 1.1274150977007422,
+        "adverseDistPct": 0.0740131671351845,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.09826713010758198,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "pre-market",
+        "cashOpen": false,
+        "utcHour": 12,
+        "biasConviction": 0.06482481540089903,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.4500478804115841,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 18.9737,
+        "newsCount6h": 20,
+        "shockLevel": 0,
+        "chatterVelocity": 1.444873756371946,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.118,
+        "refillLevels": 676,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786451397803",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786451397803,
+      "closedAt": 1786451494962,
+      "heldMs": 97159,
+      "entryPrice": 0,
+      "exitPrice": 64285.97692771084,
+      "stopPrice": 64612.00275,
+      "targetPrice": 63600,
+      "notionalUsd": 10653.401577894507,
+      "leverage": 4,
+      "realisedPnlUsd": -10.640705950000001,
+      "feesUsd": 8.53633598,
+      "roiPct": -0.3995233211551567,
+      "outcome": "loss",
+      "maePct": -0.046507974406605965,
+      "mfePct": 0.004977442076957615,
+      "peakProgress": 0.004637345119914608,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 1.09x from 0.80x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.7985808964236097,
+        "lwiOtherAdj": 0.7446914317250841,
+        "spreadBps": 0.015554385519885085,
+        "cancelShare": 1,
+        "cascadeRisk": 33.72466434331993,
+        "seedNotional": 18624696.8659,
+        "targetDistPct": 1.0741080920912993,
+        "adverseDistPct": 0.16742928747804892,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.09950725842771493,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "pre-market",
+        "cashOpen": false,
+        "utcHour": 12,
+        "biasConviction": 0.06441230737801781,
+        "signalKind": "wall-pulled",
+        "sizeRetained": 0.4532832806476637,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 20.306233333333335,
+        "newsCount6h": 20,
+        "shockLevel": 0,
+        "chatterVelocity": 1.425526306537241,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.019,
+        "refillLevels": 731,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786451523255",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786451523255,
+      "closedAt": 1786451615119,
+      "heldMs": 91864,
+      "entryPrice": 0,
+      "exitPrice": 64288.30000000001,
+      "stopPrice": 64613.91224999999,
+      "targetPrice": 63600,
+      "notionalUsd": 10734.45220289131,
+      "leverage": 4,
+      "realisedPnlUsd": -11.092914869999998,
+      "feesUsd": 8.587914869999999,
+      "roiPct": -0.4133574647437393,
+      "outcome": "loss",
+      "maePct": -0.035929568712976125,
+      "mfePct": 0.008088041441875507,
+      "peakProgress": 0.007509567477792059,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 1.52x from 0.88x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.8784036094420383,
+        "lwiOtherAdj": 0.802853870905435,
+        "spreadBps": 0.015553925849542958,
+        "cancelShare": 1,
+        "cascadeRisk": 31.639237224058945,
+        "seedNotional": 22118532.128999997,
+        "targetDistPct": 1.0770315954672705,
+        "adverseDistPct": 0.1644690934612744,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.10564722620966774,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "pre-market",
+        "cashOpen": false,
+        "utcHour": 12,
+        "biasConviction": 0.06386598282479045,
+        "signalKind": "wall-pulled",
+        "sizeRetained": 0.45830881129103096,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 22.397616666666668,
+        "newsCount6h": 20,
+        "shockLevel": 0,
+        "chatterVelocity": 1.3975835987901415,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.727,
+        "refillLevels": 1001,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786451649942",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786451649942,
+      "closedAt": 1786451695079,
+      "heldMs": 45137,
+      "entryPrice": 0,
+      "exitPrice": 64273.3,
+      "stopPrice": 63993.972250000006,
+      "targetPrice": 65000,
+      "notionalUsd": 10609.834389775515,
+      "leverage": 4,
+      "realisedPnlUsd": -10.9600656,
+      "feesUsd": 8.4850656,
+      "roiPct": -0.41320402175408116,
+      "outcome": "loss",
+      "maePct": 0,
+      "mfePct": 0.030785712008997684,
+      "peakProgress": 0.028928336620648688,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 0.98x from 0.83x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.8279790919236827,
+        "lwiOtherAdj": 1.503432668756869,
+        "spreadBps": 0.015548339398255135,
+        "cancelShare": 1,
+        "cascadeRisk": 32.23786371993161,
+        "seedNotional": 24380254.6634,
+        "targetDistPct": 1.0642060901290544,
+        "adverseDistPct": 0.10191936475705005,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.09692533257791995,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "pre-market",
+        "cashOpen": false,
+        "utcHour": 12,
+        "biasConviction": 0.13085159087270112,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.4546246419252857,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 8.457983333333333,
+        "newsCount6h": 20,
+        "shockLevel": 0,
+        "chatterVelocity": 1.373767008135679,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.84,
+        "refillLevels": 1033,
+        "flickerPerSec": 9.816666666666666,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786451710196",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786451710196,
+      "closedAt": 1786453535188,
+      "heldMs": 1824992,
+      "entryPrice": 0,
+      "exitPrice": 64304,
+      "stopPrice": 64023.623250000004,
+      "targetPrice": 65000,
+      "notionalUsd": 12848.17454796907,
+      "leverage": 5,
+      "realisedPnlUsd": -12.60956798,
+      "feesUsd": 10.28956798,
+      "roiPct": -0.4907143786427315,
+      "outcome": "loss",
+      "maePct": -0.15756559600273518,
+      "mfePct": 0.00916801791338823,
+      "peakProgress": 0.00913524812264253,
+      "excursionComplete": true,
+      "exitReason": "30 min in and only -8% of the way to target — this mechanism works quickly when it works, and this one has not started",
+      "entryConditions": {
+        "lwiAdj": 1.0518165464158478,
+        "lwiOtherAdj": 2.019510477624621,
+        "spreadBps": 0.015541138559125842,
+        "cancelShare": null,
+        "cascadeRisk": 30.68146275565315,
+        "seedNotional": 19355228.17379999,
+        "targetDistPct": 1.0174006357879695,
+        "adverseDistPct": 0.14818475616343033,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.10170593110299478,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "pre-market",
+        "cashOpen": false,
+        "utcHour": 12,
+        "biasConviction": 0.18840863072441374,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.5525081041666666,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 9.463033333333334,
+        "newsCount6h": 20,
+        "shockLevel": 0,
+        "chatterVelocity": 1.3620881111916947,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.734,
+        "refillLevels": 900,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786455388020",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786455388020,
+      "closedAt": 1786456037953,
+      "heldMs": 649933,
+      "entryPrice": 0,
+      "exitPrice": 64141.4,
+      "stopPrice": 63737.95875,
+      "targetPrice": 64772.22222222222,
+      "notionalUsd": 11403.2281740306,
+      "leverage": 4,
+      "realisedPnlUsd": -19.49747919,
+      "feesUsd": 9.13787919,
+      "roiPct": -0.6839284066735778,
+      "outcome": "loss",
+      "maePct": -0.057444036942139814,
+      "mfePct": 0.22587369960670672,
+      "peakProgress": 0.20383950163174758,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 0.87x from 0.54x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.5366199558498155,
+        "lwiOtherAdj": 0.6100752192449849,
+        "spreadBps": 0.015610791741238758,
+        "cancelShare": 1,
+        "cascadeRisk": 45.442739740361375,
+        "seedNotional": 18622118.8585,
+        "targetDistPct": 1.1145671669491737,
+        "adverseDistPct": 0.11966442848957037,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.14057356676549865,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "open-auction",
+        "cashOpen": true,
+        "utcHour": 13,
+        "biasConviction": 0.08302993601043464,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.4999945612645705,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 21.093083333333333,
+        "newsCount6h": 20,
+        "shockLevel": 1,
+        "chatterVelocity": 1.206617211511536,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.6305,
+        "refillLevels": 846,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786456076167",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "long",
+      "openedAt": 1786456076167,
+      "closedAt": 1786456458714,
+      "heldMs": 382547,
+      "entryPrice": 0,
+      "exitPrice": 64105.80066037736,
+      "stopPrice": 63822.0860684087,
+      "targetPrice": 65000,
+      "notionalUsd": 13625.599401593981,
+      "leverage": 5,
+      "realisedPnlUsd": -16.33283189,
+      "feesUsd": 5.43617189,
+      "roiPct": -0.599343610824538,
+      "outcome": "loss",
+      "maePct": -0.19020224578963163,
+      "mfePct": 0.058307901578123905,
+      "peakProgress": 0.04360244826580493,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 0.92x from 0.73x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.7347215253271241,
+        "lwiOtherAdj": 0.7819766705795199,
+        "spreadBps": 0.015589594568981976,
+        "cancelShare": null,
+        "cascadeRisk": 37.407563193376234,
+        "seedNotional": 9880163.025699992,
+        "targetDistPct": 1.3323646998574241,
+        "adverseDistPct": 0.1409198016691866,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.20158214529427307,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "open-auction",
+        "cashOpen": true,
+        "utcHour": 13,
+        "biasConviction": 0.12311783602961171,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.6061025,
+        "newsImpactMax": 3,
+        "minutesSinceNews": 32.561883333333334,
+        "newsCount6h": 20,
+        "shockLevel": 0,
+        "chatterVelocity": 1.1636467942253466,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.938,
+        "refillLevels": 1102,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    },
+    {
+      "id": "BTCUSDT-1786456473282",
+      "symbol": "BTCUSDT",
+      "source": "live",
+      "side": "short",
+      "openedAt": 1786456473282,
+      "closedAt": 1786457919124,
+      "heldMs": 1445842,
+      "entryPrice": 0,
+      "exitPrice": 64199.99999999999,
+      "stopPrice": 64472.398187106824,
+      "targetPrice": 63250,
+      "notionalUsd": 8974.132264049282,
+      "leverage": 4,
+      "realisedPnlUsd": -17.581200000000003,
+      "feesUsd": 3.5952,
+      "roiPct": -0.7836389962929772,
+      "outcome": "loss",
+      "maePct": -0.2246631807469895,
+      "mfePct": 0.04337247517199279,
+      "peakProgress": 0.032862462320471665,
+      "excursionComplete": true,
+      "exitReason": "the reason for this trade has expired — depth has refilled to 1.04x from 0.80x at entry — the thinness the trade was opened on is gone",
+      "entryConditions": {
+        "lwiAdj": 0.8030023785882732,
+        "lwiOtherAdj": 0.7553660196833363,
+        "spreadBps": 0.015601609773869459,
+        "cancelShare": 1,
+        "cascadeRisk": 35.75950170401151,
+        "seedNotional": 12393187.216100005,
+        "targetDistPct": 1.3198181788396883,
+        "adverseDistPct": 0.15726215875796057,
+        "markoutWarm": false,
+        "markoutInformed": null,
+        "markoutToxicity": null,
+        "volatilityPct": 0.2349279086162735,
+        "fundingRate": 0,
+        "minutesToFunding": null,
+        "session": "open-auction",
+        "cashOpen": true,
+        "utcHour": 13,
+        "biasConviction": 0.08942171052595443,
+        "signalKind": "cluster-approach",
+        "sizeRetained": 0.46865020450018463,
+        "newsImpactMax": 2,
+        "minutesSinceNews": 39.180733333333336,
+        "newsCount6h": 20,
+        "shockLevel": 0,
+        "chatterVelocity": 1.2210870239800522,
+        "participantRegime": null,
+        "participantConfidence": 0,
+        "replenishSec": 1.8385,
+        "refillLevels": 1132,
+        "flickerPerSec": 9.8,
+        "sliceUniformity": 0,
+        "mechanical": 0,
+        "sweepShare": 0,
+        "largestBurstUsd": 0,
+        "largestBurstLevels": 0,
+        "aggressorImbalance": 0,
+        "takerIntensity": 0,
+        "aggressorConcentration": 0
+      }
+    }
+  ],
   "log": [
     {
-      "t": 1786449376620,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
+      "t": 1786458603428,
+      "text": "engine started — BTCUSDT"
     },
     {
-      "t": 1786449396794,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×2 since 12:56:36 PM)"
-    },
-    {
-      "t": 1786449506746,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786449516505,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×3 since 12:58:36 PM)"
-    },
-    {
-      "t": 1786449637433,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786449697702,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×2 since 1:01:37 PM)"
-    },
-    {
-      "t": 1786449764696,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786449818309,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×2 since 1:03:38 PM)"
-    },
-    {
-      "t": 1786449890009,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786449938660,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×2 since 1:05:38 PM)"
-    },
-    {
-      "t": 1786450014641,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786450058963,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×2 since 1:07:38 PM)"
-    },
-    {
-      "t": 1786450138919,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786450180183,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×2 since 1:09:40 PM)"
-    },
-    {
-      "t": 1786450295433,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786450300166,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×3 since 1:11:40 PM)"
-    },
-    {
-      "t": 1786450420963,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786450480802,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×2 since 1:14:40 PM)"
-    },
-    {
-      "t": 1786450547566,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786450601206,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×2 since 1:16:41 PM)"
-    },
-    {
-      "t": 1786450673195,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786450721665,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×2 since 1:18:41 PM)"
-    },
-    {
-      "t": 1786450799005,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786450842646,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add  (×2 since 1:20:42 PM)"
-    },
-    {
-      "t": 1786450923926,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786450962923,
-      "text": "EXIT BTCUSDT: 30 min in and only -2% of the way to target — this mechanism works quickly when it works, and this one has not started"
-    },
-    {
-      "t": 1786450963814,
-      "text": "execution BTCUSDT refused: already holding 0.167 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786450979555,
-      "text": "POST-MORTEM BTCUSDT loss -$5.82 · held 30 min · best +0.188% (19% of target) · worst -0.043% · 30 min in and only -2% of the way to target — this mechanism works quickly when it works, and this one has not started"
-    },
-    {
-      "t": 1786451050972,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786451057591,
-      "text": "fill BTCUSDT taker buy 12641 at 64368.3"
-    },
-    {
-      "t": 1786451057595,
-      "text": "execution BTCUSDT submitted: BUY 0.197 BTCUSDT at market (~12641 notional), protective stop resting at 64022.49. Reason: price 0.22% from a $47.5M amplifying cluster at 64149.0581529091 (pivot-low, confidence 45%) | Least resistance is upward — 0.09% below, 0.05% above; bids at 0.83x expected, asks at 0.61x — the ceiling has thinned more, and the side it would travel through sits at 0.61x"
-    },
-    {
-      "t": 1786451075984,
-      "text": "bracket BTCUSDT: target at 65000"
-    },
-    {
-      "t": 1786451115632,
-      "text": "execution BTCUSDT refused: already holding 0.197 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786451175645,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786451178056,
-      "text": "execution BTCUSDT refused: already holding 0.197 BTCUSDT — this adapter opens, it does not add  (×2 since 1:26:18 PM)"
-    },
-    {
-      "t": 1786451277507,
-      "text": "EXIT BTCUSDT: the reason for this trade has expired — depth has refilled to 1.25x from 0.61x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786451296923,
-      "text": "POST-MORTEM BTCUSDT loss -$28.85 · held 4 min · best +0.001% (0% of target) · worst -0.047% · the reason for this trade has expired — depth has refilled to 1.25x from 0.61x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786451301386,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786451317876,
-      "text": "fill BTCUSDT taker buy 10608 at 64275.6"
-    },
-    {
-      "t": 1786451317878,
-      "text": "execution BTCUSDT submitted: BUY 0.165 BTCUSDT at market (~10608 notional), protective stop resting at 63953.92. Reason: price 0.35% from a $266k amplifying cluster at 64500 (round, confidence 28%) | Least resistance is upward — 16,619,524 to set off the downside vs 11,637,980 upside — cheaper to push up; bids at 0.89x expected, asks at 0.69x — the ceiling has thinned more, and the side it would travel through sits at 0.69x"
-    },
-    {
-      "t": 1786451337466,
-      "text": "bracket BTCUSDT: target at 65000"
-    },
-    {
-      "t": 1786451356445,
-      "text": "EXIT BTCUSDT: the reason for this trade has expired — depth has refilled to 1.40x from 0.69x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786451375784,
-      "text": "POST-MORTEM BTCUSDT loss -$8.86 · held 1 min · best +0.038% (3% of target) · worst -0.007% · the reason for this trade has expired — depth has refilled to 1.40x from 0.69x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786451397803,
-      "text": "fill BTCUSDT taker sell 10653 at 64273.30000000001"
-    },
-    {
-      "t": 1786451397805,
-      "text": "execution BTCUSDT submitted: SELL 0.166 BTCUSDT at market (~10653 notional), protective stop resting at 64596.98. Reason: $13.3M ask wall at 66222 pulled without trading through | Least resistance is downward — 18,624,697 to set off the downside vs 32,995,197 upside — cheaper to push down; 0.10% below, 0.17% above"
-    },
-    {
-      "t": 1786451416430,
-      "text": "bracket BTCUSDT: target at 63600"
-    },
-    {
-      "t": 1786451434495,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786451457735,
-      "text": "execution BTCUSDT refused: already holding -0.166 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786451476585,
-      "text": "EXIT BTCUSDT: the reason for this trade has expired — depth has refilled to 1.09x from 0.80x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786451495766,
-      "text": "POST-MORTEM BTCUSDT loss -$10.64 · held 2 min · best +0.005% (0% of target) · worst -0.047% · the reason for this trade has expired — depth has refilled to 1.09x from 0.80x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786451523254,
-      "text": "fill BTCUSDT taker sell 10734 at 64273.3"
-    },
-    {
-      "t": 1786451523256,
-      "text": "execution BTCUSDT submitted: SELL 0.167 BTCUSDT at market (~10734 notional), protective stop resting at 64609.74. Reason: $13.3M ask wall at 66222 pulled without trading through | Least resistance is downward — 22,118,532 to set off the downside vs 37,992,107 upside — cheaper to push down; 0.10% below, 0.16% above"
-    },
-    {
-      "t": 1786451537474,
-      "text": "bracket BTCUSDT: target at 63600"
-    },
-    {
-      "t": 1786451564739,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786451583978,
-      "text": "execution BTCUSDT refused: already holding -0.167 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786451596127,
-      "text": "EXIT BTCUSDT: the reason for this trade has expired — depth has refilled to 1.52x from 0.88x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786451616492,
-      "text": "POST-MORTEM BTCUSDT loss -$11.09 · held 2 min · best +0.008% (1% of target) · worst -0.036% · the reason for this trade has expired — depth has refilled to 1.52x from 0.88x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786451649942,
-      "text": "fill BTCUSDT taker buy 10610 at 64288.3"
-    },
-    {
-      "t": 1786451649944,
-      "text": "execution BTCUSDT submitted: BUY 0.165 BTCUSDT at market (~10610 notional), protective stop resting at 63966.86. Reason: price 0.13% from a $25.1M amplifying cluster at 64398.191207709446 (round, pivot-high, confidence 45%) | Least resistance is upward — 74,761,776 to set off the downside vs 24,380,255 upside — cheaper to push up; bids at 1.50x expected, asks at 0.83x — the ceiling has thinned more, and the side it would travel through sits at 0.83x — only 57% of a full withdrawal"
-    },
-    {
-      "t": 1786451655099,
-      "text": "bracket BTCUSDT: target at 65000"
-    },
-    {
-      "t": 1786451677510,
-      "text": "EXIT BTCUSDT: the reason for this trade has expired — depth has refilled to 0.98x from 0.83x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786451690317,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786451696959,
-      "text": "POST-MORTEM BTCUSDT loss -$10.96 · held 1 min · best +0.031% (3% of target) · worst 0.000% · the reason for this trade has expired — depth has refilled to 0.98x from 0.83x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786451710196,
-      "text": "fill BTCUSDT taker buy 12848 at 64315.6"
-    },
-    {
-      "t": 1786451710198,
-      "text": "execution BTCUSDT submitted: BUY 0.2 BTCUSDT at market (~12848 notional), protective stop resting at 63994.02. Reason: price 0.30% from a $49.2M amplifying cluster at 64149.1753881351 (round, pivot-low, confidence 45%) | Least resistance is upward — 129,050,983 to set off the downside vs 19,355,228 upside — cheaper to push up; 0.15% below, 0.08% above"
-    },
-    {
-      "t": 1786451715945,
-      "text": "bracket BTCUSDT: target at 65000"
-    },
-    {
-      "t": 1786451769037,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786451816253,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786451829255,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add  (×2 since 1:37:09 PM)"
-    },
-    {
-      "t": 1786451941927,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786451950965,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add  (×2 since 1:39:10 PM)"
-    },
-    {
-      "t": 1786452069685,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786452071277,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add  (×3 since 1:41:11 PM)"
-    },
-    {
-      "t": 1786452195594,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786452312196,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786452319783,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786452372343,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786452450764,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786452455955,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add  (×2 since 1:47:35 PM)"
-    },
-    {
-      "t": 1786452574804,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786452630671,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add  (×2 since 1:50:30 PM)"
-    },
-    {
-      "t": 1786452700621,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786452807485,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786452827835,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786452915172,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786452952890,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786452984194,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add  (×2 since 1:56:24 PM)"
-    },
-    {
-      "t": 1786453078773,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786453121447,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786453205789,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 2:00:05 PM)"
-    },
-    {
-      "t": 1786453396261,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786453462344,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786453504393,
-      "text": "execution BTCUSDT refused: already holding 0.2 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786453518158,
-      "text": "EXIT BTCUSDT: 30 min in and only -8% of the way to target — this mechanism works quickly when it works, and this one has not started"
-    },
-    {
-      "t": 1786453536530,
-      "text": "POST-MORTEM BTCUSDT loss -$12.61 · held 30 min · best +0.009% (1% of target) · worst -0.158% · 30 min in and only -8% of the way to target — this mechanism works quickly when it works, and this one has not started"
-    },
-    {
-      "t": 1786453569398,
-      "text": "fill BTCUSDT taker buy 14889 at 64308.4"
-    },
-    {
-      "t": 1786453569400,
-      "text": "execution BTCUSDT submitted: BUY 0.232 BTCUSDT at market (~14889 notional), protective stop resting at 63980.8. Reason: price 0.20% from a $46.2M amplifying cluster at 64149.05815290908 (pivot-low, confidence 45%) | Least resistance is upward — 44,104,962 to set off the downside vs 18,131,319 upside — cheaper to push up; 0.08% below, 0.06% above"
-    },
-    {
-      "t": 1786453576027,
-      "text": "bracket BTCUSDT: target at 65000"
-    },
-    {
-      "t": 1786453587449,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786453628780,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:07:08 PM)"
-    },
-    {
-      "t": 1786453761946,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786453783551,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:09:43 PM)"
-    },
-    {
-      "t": 1786453900506,
-      "text": "share: push failed, retrying in 2s"
-    },
-    {
-      "t": 1786453905025,
-      "text": "share: push failed, retrying in 4s"
-    },
-    {
-      "t": 1786453911541,
-      "text": "share: push failed, retrying in 8s"
-    },
-    {
-      "t": 1786453920905,
-      "text": "share: push failed after 4 attempts: Command failed: git push -u origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786453920905,
-      "text": "To https://github.com/aerozsz/oddz.git"
-    },
-    {
-      "t": 1786453920907,
-      "text": "! [rejected]        claude/amm-liquidity-sweep-8qhnd0 -> claude/amm-liquidity-sweep-8qhnd0 (fetch first)"
-    },
-    {
-      "t": 1786453920908,
-      "text": "error: failed to push some refs to 'https://github.com/aerozsz/oddz.git'"
-    },
-    {
-      "t": 1786453920909,
-      "text": "hint: Updates were rejected because the remote contains work that you do not"
-    },
-    {
-      "t": 1786453920909,
-      "text": "hint: have locally. This is usually caused by another repository pushing to"
-    },
-    {
-      "t": 1786453920910,
-      "text": "hint: the same ref. If you want to integrate the remote changes, use"
-    },
-    {
-      "t": 1786453920910,
-      "text": "hint: 'git pull' before pushing again."
-    },
-    {
-      "t": 1786453920911,
-      "text": "hint: See the 'Note about fast-forwards' in 'git push --help' for details."
-    },
-    {
-      "t": 1786453967247,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:12:47 PM)"
-    },
-    {
-      "t": 1786454049892,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786454088159,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:14:48 PM)"
-    },
-    {
-      "t": 1786454175636,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786454208679,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:16:48 PM)"
-    },
-    {
-      "t": 1786454301473,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786454358059,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:19:18 PM)"
-    },
-    {
-      "t": 1786454427394,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786454488572,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:21:28 PM)"
-    },
-    {
-      "t": 1786454552026,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786454609074,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:23:29 PM)"
-    },
-    {
-      "t": 1786454677486,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786454729935,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:25:29 PM)"
-    },
-    {
-      "t": 1786454804868,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786454856425,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:27:36 PM)"
-    },
-    {
-      "t": 1786454931129,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786454985937,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786455059644,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786455065137,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:31:05 PM)"
-    },
-    {
-      "t": 1786455188890,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786455203696,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add  (×2 since 2:33:23 PM)"
-    },
-    {
-      "t": 1786455317840,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786455326232,
-      "text": "execution BTCUSDT refused: already holding 0.232 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786455377865,
-      "text": "EXIT BTCUSDT: 30 min in and only -37% of the way to target — this mechanism works quickly when it works, and this one has not started"
-    },
-    {
-      "t": 1786455388020,
-      "text": "fill BTCUSDT taker buy 11403 at 64199.600000000006"
-    },
-    {
-      "t": 1786455388022,
-      "text": "execution BTCUSDT submitted: BUY 0.178 BTCUSDT at market (~11403 notional), protective stop resting at 63817.61. Reason: price 0.25% from a $81.9M amplifying cluster at 63898.108028821436 (pivot-low, confidence 45%) | Least resistance is upward — 31,827,455 to set off the downside vs 18,622,119 upside — cheaper to push up; 0.12% below, 0.08% above"
-    },
-    {
-      "t": 1786455398832,
-      "text": "bracket BTCUSDT: target at 64772.22"
-    },
-    {
-      "t": 1786455442566,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786455454570,
-      "text": "execution BTCUSDT refused: already holding 0.178 BTCUSDT — this adapter opens, it does not add  (×2 since 2:37:34 PM)"
-    },
-    {
-      "t": 1786455567330,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786455574819,
-      "text": "execution BTCUSDT refused: already holding 0.178 BTCUSDT — this adapter opens, it does not add  (×2 since 2:39:34 PM)"
-    },
-    {
-      "t": 1786455699781,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786455700747,
-      "text": "execution BTCUSDT refused: already holding 0.178 BTCUSDT — this adapter opens, it does not add  (×3 since 2:41:40 PM)"
-    },
-    {
-      "t": 1786455825598,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786455881442,
-      "text": "execution BTCUSDT refused: already holding 0.178 BTCUSDT — this adapter opens, it does not add  (×2 since 2:44:41 PM)"
-    },
-    {
-      "t": 1786455953835,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786456012362,
-      "text": "execution BTCUSDT refused: already holding 0.178 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786456017128,
-      "text": "EXIT BTCUSDT: the reason for this trade has expired — depth has refilled to 0.87x from 0.54x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786456038261,
-      "text": "POST-MORTEM BTCUSDT loss -$19.50 · held 11 min · best +0.226% (20% of target) · worst -0.057% · the reason for this trade has expired — depth has refilled to 0.87x from 0.54x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786456076166,
-      "text": "fill BTCUSDT taker buy 13626 at 64157.200000000004"
-    },
-    {
-      "t": 1786456076168,
-      "text": "execution BTCUSDT submitted: BUY 0.212 BTCUSDT at market (~13626 notional), protective stop resting at 63829.9. Reason: price 0.26% from a $88.3M amplifying cluster at 63981.5947512241 (round, pivot-low, confidence 45%) | Least resistance is upward — 27,347,421 to set off the downside vs 9,880,163 upside — cheaper to push up; 0.14% below, 0.08% above"
-    },
-    {
-      "t": 1786456077169,
-      "text": "bracket BTCUSDT: target at 65000"
-    },
-    {
-      "t": 1786456079296,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786456163027,
-      "text": "execution BTCUSDT refused: already holding 0.212 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786456204147,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786456227010,
-      "text": "execution BTCUSDT refused: already holding 0.212 BTCUSDT — this adapter opens, it does not add  (×2 since 2:50:27 PM)"
-    },
-    {
-      "t": 1786456329358,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786456351876,
-      "text": "execution BTCUSDT refused: already holding 0.212 BTCUSDT — this adapter opens, it does not add  (×2 since 2:52:31 PM)"
-    },
-    {
-      "t": 1786456439938,
-      "text": "EXIT BTCUSDT: the reason for this trade has expired — depth has refilled to 0.92x from 0.73x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786456455514,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786456459009,
-      "text": "POST-MORTEM BTCUSDT loss -$16.33 · held 6 min · best +0.058% (4% of target) · worst -0.190% · the reason for this trade has expired — depth has refilled to 0.92x from 0.73x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786456473282,
-      "text": "fill BTCUSDT taker sell 8974 at 64100.1"
-    },
-    {
-      "t": 1786456473284,
-      "text": "execution BTCUSDT submitted: SELL 0.14 BTCUSDT at market (~8974 notional), protective stop resting at 64496.02. Reason: price 0.23% from a $129.6M amplifying cluster at 63949.037220729864 (pivot-low, confidence 45%) | Least resistance is downward — 12,393,187 to set off the downside vs 28,005,961 upside — cheaper to push down; 0.09% below, 0.16% above"
-    },
-    {
-      "t": 1786456479099,
-      "text": "bracket BTCUSDT: target at 63250"
-    },
-    {
-      "t": 1786456532527,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786456580934,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786456604731,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add  (×2 since 2:56:44 PM)"
-    },
-    {
-      "t": 1786456707036,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786456729221,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add  (×2 since 2:58:49 PM)"
-    },
-    {
-      "t": 1786456834492,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786456850977,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786456896753,
-      "text": "news: HIGH Binance announcements — Binance Futures Will Launch USDⓈ-Margined DOSUSDT Perpetual Contract (2026-08-11)"
-    },
-    {
-      "t": 1786456911368,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786456960093,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786456972213,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add  (×2 since 3:02:52 PM)"
-    },
-    {
-      "t": 1786457086262,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786457092677,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add  (×2 since 3:04:52 PM)"
-    },
-    {
-      "t": 1786457212634,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786457227120,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add  (×2 since 3:07:07 PM)"
-    },
-    {
-      "t": 1786457341563,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786457369813,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add  (×2 since 3:09:29 PM)"
-    },
-    {
-      "t": 1786457466006,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786457492187,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add  (×2 since 3:11:32 PM)"
-    },
-    {
-      "t": 1786457591218,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786457629126,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add  (×2 since 3:13:49 PM)"
-    },
-    {
-      "t": 1786457717440,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786457767219,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add  (×2 since 3:16:07 PM)"
-    },
-    {
-      "t": 1786457848454,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786457889516,
-      "text": "execution BTCUSDT refused: already holding -0.14 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786457899961,
-      "text": "EXIT BTCUSDT: the reason for this trade has expired — depth has refilled to 1.04x from 0.80x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786457919418,
-      "text": "POST-MORTEM BTCUSDT loss -$17.58 · held 24 min · best +0.043% (3% of target) · worst -0.225% · the reason for this trade has expired — depth has refilled to 1.04x from 0.80x at entry — the thinness the trade was opened on is gone"
-    },
-    {
-      "t": 1786457953124,
-      "text": "fill BTCUSDT taker buy 10326 at 64197.39813664596"
-    },
-    {
-      "t": 1786457953126,
-      "text": "execution BTCUSDT submitted: BUY 0.161 BTCUSDT at market (~10326 notional), protective stop resting at 63829.82. Reason: price 0.28% from a $90.6M amplifying cluster at 63981.594699695306 (round, pivot-low, confidence 45%) | Least resistance is upward — 28,901,078 to set off the downside vs 17,965,428 upside — cheaper to push up; 0.16% below, 0.10% above"
-    },
-    {
-      "t": 1786457959070,
-      "text": "bracket BTCUSDT: target at 65000"
-    },
-    {
-      "t": 1786457974418,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786458012516,
-      "text": "execution BTCUSDT refused: already holding 0.161 BTCUSDT — this adapter opens, it does not add  (×2 since 3:20:12 PM)"
+      "t": 1786458603433,
+      "text": "news: collecting from 14 sources in-process (2 unavailable: x, linkedin)"
     }
   ],
   "news": {
@@ -1443,13 +2186,13 @@
       "linkedin"
     ],
     "poller": {
-      "recorded": 12,
-      "cycles": 468,
+      "recorded": 0,
+      "cycles": 1,
       "sources": 14,
       "unavailable": "x,linkedin",
-      "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-binance: 403 Blocked | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found | rsshub-twitter-keyword-binance: 404 Not Found",
-      "velocity": "BNBUSDT 1.3x ETHUSDT 1.2x BTCUSDT 1.1x XRPUSDT 1.3x SOLUSDT 1.0x",
-      "lastPollAt": 1786458068090
+      "errors": "",
+      "velocity": "",
+      "lastPollAt": 1786458603430
     }
   }
 }
