@@ -2585,7 +2585,16 @@ function armDesk(desk: Desk) {
      * the day, floored at two so a small cap does not become a one-trade-per-
      * hour rule.
      */
-    maxPerHour: Math.max(2, Math.ceil(limits.maxTradesPerDay / 3)),
+    /*
+     * Derived from the daily cap, and off when the daily cap is off.
+     *
+     * This was `Math.max(2, ceil(maxTradesPerDay / 3))`, so switching the daily
+     * cap off — which this account did deliberately, to collect data — floored
+     * the hourly ceiling at 2. Turning one limit off made a different limit
+     * maximally tight, and it refused 5,280 of 6,855 signals in a single
+     * session while every diagnostic reported the agent as healthy.
+     */
+    maxPerHour: limits.maxTradesPerDay > 0 ? Math.max(2, Math.ceil(limits.maxTradesPerDay / 3)) : 0,
     onRejected: (reason) => {
       desk.lastRefusal = { at: Date.now(), reason };
       tallyRefusal(desk, reason);

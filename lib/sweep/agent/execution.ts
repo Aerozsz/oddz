@@ -82,6 +82,10 @@ export interface ExecutionRunner {
  */
 export function attachExecution(feed: SweepFeed, options: ExecutionOptions): ExecutionRunner {
   const minIntervalMs = options.minIntervalMs ?? 30_000;
+  /*
+   * 12 when unset, 0 for no ceiling. See the check below for why zero cannot be
+   * allowed to mean "zero per hour".
+   */
   const maxPerHour = options.maxPerHour ?? 12;
 
   const submitted = new Set<string>();
@@ -158,7 +162,14 @@ export function attachExecution(feed: SweepFeed, options: ExecutionOptions): Exe
     }
 
     acceptedAt = acceptedAt.filter((t) => now - t < 3_600_000);
-    if (acceptedAt.length >= maxPerHour) {
+    /*
+     * Zero means no ceiling, as it does for every other cap here.
+     *
+     * `length >= 0` is true on the first signal of the session, so a zero read
+     * as a limit refuses everything forever — the most restrictive possible
+     * behaviour from the value an operator types to switch a limit off.
+     */
+    if (maxPerHour > 0 && acceptedAt.length >= maxPerHour) {
       reject(`hourly ceiling of ${maxPerHour} reached`, signal, intent);
       return;
     }
