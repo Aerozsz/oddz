@@ -4787,11 +4787,19 @@ function superviseShare() {
   const waitMs = Math.min(300_000, 5_000 * 2 ** Math.min(shareRestarts, 6));
   if (shareStoppedAt && Date.now() - shareStoppedAt < waitMs) return;
 
-  const child = spawn(
-    process.platform === "win32" ? "npm.cmd" : "npm",
-    ["run", "sweep:share", "--", "--watch"],
-    { cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"], env: process.env },
-  );
+  /*
+   * `shell` on Windows: npm is a .cmd there, and Node 20.12 refuses to spawn
+   * .bat/.cmd without one (CVE-2024-27980). Without this the share worker
+   * throws EINVAL on every attempt and the bridge silently never starts —
+   * which is the exact failure this supervision exists to prevent.
+   */
+  const isWindows = process.platform === "win32";
+  const child = spawn(isWindows ? "npm.cmd" : "npm", ["run", "sweep:share", "--", "--watch"], {
+    cwd: process.cwd(),
+    stdio: ["ignore", "pipe", "pipe"],
+    env: process.env,
+    shell: isWindows,
+  });
   shareChild = child;
 
   const relay = (buf: Buffer) => {

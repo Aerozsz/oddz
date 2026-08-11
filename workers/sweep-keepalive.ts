@@ -28,7 +28,7 @@
  */
 
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { loadEnv } from "./load-env";
 
@@ -63,16 +63,35 @@ function installAutoStart() {
     return;
   }
   const cwd = process.cwd();
-  // `cmd /c start ""` detaches, so the task completes immediately and the
-  // scheduler does not treat a long-running agent as a hung task.
-  const command = `cmd /c cd /d "${cwd}" && npm run sweep:keepalive`;
+
+  /*
+   * A script file rather than an inline command.
+   *
+   * schtasks /TR takes one string, and a command containing `&&`, spaces and a
+   * drive-qualified path needs nested quoting that differs between cmd.exe,
+   * PowerShell and schtasks' own parser. Every layer gets a chance to mangle
+   * it. A .cmd file has none of those problems: the task launches one path and
+   * the file holds whatever it likes.
+   */
+  const script = resolve(cwd, "data", "sweep-start.cmd");
+  try {
+    mkdirSync(dirname(script), { recursive: true });
+    writeFileSync(
+      script,
+      ["@echo off", `cd /d "${cwd}"`, "npm run sweep:keepalive", ""].join("\r\n"),
+    );
+  } catch (err) {
+    note(`could not write ${script}: ${err instanceof Error ? err.message : String(err)}`);
+    return;
+  }
+
   try {
     execFileSync("schtasks", [
       "/Create", "/F",
       "/TN", "SweepAgentKeepalive",
       "/SC", "ONLOGON",
       "/RL", "LIMITED",
-      "/TR", command,
+      "/TR", `"${script}"`,
     ], { stdio: "pipe" });
     note("registered scheduled task SweepAgentKeepalive — it starts on logon");
     note("remove it with:  schtasks /Delete /TN SweepAgentKeepalive /F");
@@ -92,11 +111,22 @@ let stopping = false;
 function start() {
   if (stopping || child) return;
   startedAt = Date.now();
-  child = spawn(
-    process.platform === "win32" ? "npm.cmd" : "npm",
-    ["run", "sweep:control"],
-    { cwd: process.cwd(), stdio: "inherit", env: process.env },
-  );
+  /*
+   * `shell` on Windows, because npm is a .cmd there.
+   *
+   * Node 20.12 hardened spawn against the .bat/.cmd argument-injection class
+   * (CVE-2024-27980) by refusing to launch them without a shell — so
+   * `spawn("npm.cmd", ...)` now throws EINVAL rather than running. Every
+   * argument here is a compile-time constant, so routing through cmd.exe costs
+   * nothing and is the documented way to launch a .cmd.
+   */
+  const isWindows = process.platform === "win32";
+  child = spawn(isWindows ? "npm.cmd" : "npm", ["run", "sweep:control"], {
+    cwd: process.cwd(),
+    stdio: "inherit",
+    env: process.env,
+    shell: isWindows,
+  });
 
   child.on("exit", (code, signal) => {
     const ranMs = Date.now() - startedAt;
