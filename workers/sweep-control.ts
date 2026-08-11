@@ -67,6 +67,7 @@ import { fetchPosition } from "../lib/sweep/exchange/binance";
 import { dayDrawdown, fetchDayActivity, fetchSettlement, type DayActivity } from "../lib/sweep/exchange/activity";
 import { readEpoch, rebaseNow, reconcileLedger, type LedgerEpoch } from "../lib/sweep/exchange/ledger";
 import { snapshotPath, writeSnapshot } from "../lib/sweep/metrics/snapshot";
+import { killTree } from "../lib/sweep/agent/process-tree";
 import { desiredPath, planDesired, readDesired } from "../lib/sweep/agent/desired";
 import { appendNote, outbox, repliesPath, thread } from "../lib/sweep/agent/messages";
 import { startOfDayUtc } from "../lib/sweep/exchange/activity";
@@ -4464,7 +4465,10 @@ function diagnose() {
         add(
           ".env loaded",
           dotenv.found && dotenv.count > 0,
-          dotenv.found ? `${dotenv.path} — ${dotenv.count} values` : `not found at ${dotenv.path}`,
+          dotenv.found
+            ? `${dotenv.path} — ${dotenv.count} values` +
+              (dotenv.applied < dotenv.count ? " (inherited from the supervisor)" : "")
+            : `not found at ${dotenv.path}`,
           dotenv.found ? "Check the key names are exactly BINANCE_API_KEY and BINANCE_API_SECRET."
             : "On Windows, Notepad saves it as .env.txt unless you set Save as type to All Files.",
         );
@@ -5013,7 +5017,10 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
     newsPoller?.stop();
     // Killed with this process, so the two can never be alive separately —
     // which is the whole reason it is a child rather than a second window.
-    shareChild?.kill();
+    // The tree, not the shell: on Windows this child is cmd.exe with node under
+    // it, and killing the shell alone leaves a share worker running git against
+    // the branch with no server left to describe.
+    killTree(shareChild);
     // Marks the heartbeat stopped rather than leaving it to go stale, so the
     // panel reads "not running" immediately instead of ninety seconds late.
     stopNewsBeat?.();

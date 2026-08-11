@@ -28,9 +28,11 @@
  */
 
 import { spawn, execFileSync, type ChildProcess } from "node:child_process";
-import { appendFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, mkdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { loadEnv } from "./load-env";
+import { killTree } from "../lib/sweep/agent/process-tree";
+import { snapshotPath } from "../lib/sweep/metrics/snapshot";
 
 loadEnv();
 
@@ -163,11 +165,66 @@ function start() {
   });
 }
 
+/* ------------------------------------------------------------- wedged */
+
+/**
+ * Restart a control server that is up but no longer doing anything.
+ *
+ * Everything above keys off the child exiting, and the failure that actually
+ * ends a long run does not exit. A blocked event loop, a WebSocket that stopped
+ * delivering without closing, a filesystem that went read-only — the process
+ * stays in the table, the supervisor stays satisfied, and nothing has traded
+ * since Tuesday.
+ *
+ * The snapshot is the liveness signal, because it is the one artefact the
+ * server rewrites on a fixed 30-second timer regardless of what the market is
+ * doing. Quiet markets do not stop it; only the server stopping stops it.
+ *
+ * The threshold is deliberately far above that timer. A restart is not free —
+ * it drops the WebSocket and re-reads the account — so this must never fire on
+ * a slow disk or a long GC pause. Ten minutes is twenty missed writes.
+ */
+const STALL_MS = 10 * 60_000;
+/** Long enough for a cold start to have written its first snapshot. */
+const GRACE_MS = 3 * 60_000;
+let lastStallKillAt = 0;
+
+function checkForStall() {
+  if (stopping || !child || !startedAt) return;
+  if (Date.now() - startedAt < GRACE_MS) return;
+  // One restart per stall, not one per tick while the replacement warms up.
+  if (Date.now() - lastStallKillAt < GRACE_MS + STALL_MS) return;
+
+  let wroteAt = 0;
+  try {
+    wroteAt = statSync(snapshotPath()).mtimeMs;
+  } catch {
+    // No snapshot at all, well past the grace period, is itself the symptom.
+  }
+
+  const staleFor = Date.now() - Math.max(wroteAt, startedAt);
+  if (staleFor < STALL_MS) return;
+
+  lastStallKillAt = Date.now();
+  note(
+    `control is up but has not written a snapshot for ${Math.round(staleFor / 60_000)}m — ` +
+      "killing it so it comes back. The process was alive, which is why nothing else caught this.",
+  );
+  // Any open position keeps its stop on Binance across the gap.
+  killTree(child);
+}
+
 for (const sig of ["SIGINT", "SIGTERM"] as const) {
   process.on(sig, () => {
     stopping = true;
     note("stopping — the control server is being shut down with this");
-    child?.kill();
+    /*
+     * The whole tree, not the shell. On Windows the child is cmd.exe and node
+     * lives underneath it; killing only the shell leaves a server holding 8787,
+     * and the next start fails to bind, exits fast, and gets backed off as a
+     * configuration error. The supervisor would then be the outage.
+     */
+    killTree(child);
     // Positions are unaffected: their stops rest on Binance and keep working.
     setTimeout(() => process.exit(0), 1500);
   });
@@ -182,3 +239,6 @@ note("  an agent that resumes placing orders on its own is acting on a decision"
 note("  nobody was there to make. Any open position keeps its stop on Binance.");
 note(`log: ${logPath}`);
 start();
+// Deliberately referenced: this timer is also what guarantees the supervisor
+// itself never runs out of work and exits while a child is being restarted.
+setInterval(checkForStall, 60_000);

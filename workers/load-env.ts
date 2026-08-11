@@ -23,9 +23,15 @@ import { resolve } from "node:path";
  * A value already in the real environment always wins, so an inline
  * `BINANCE_LIVE=1 npm run ...` is not silently overridden by the file.
  */
-export function loadEnv(path = resolve(".env")): { found: boolean; count: number; path: string } {
-  if (!existsSync(path)) return { found: false, count: 0, path };
+export function loadEnv(path = resolve(".env")): {
+  found: boolean;
+  count: number;
+  applied: number;
+  path: string;
+} {
+  if (!existsSync(path)) return { found: false, count: 0, applied: 0, path };
   let count = 0;
+  let applied = 0;
   for (const raw of readFileSync(path, "utf8").split("\n")) {
     const line = raw.trim();
     if (!line || line.startsWith("#")) continue;
@@ -35,8 +41,22 @@ export function loadEnv(path = resolve(".env")): { found: boolean; count: number
     const value = line.slice(eq + 1).trim().replace(/^["']|["']$/g, "");
     if (!(key in process.env)) {
       process.env[key] = value;
-      if (value) count++;
+      if (value) applied++;
     }
+    /*
+     * Counted whoever set it.
+     *
+     * `applied` alone was the answer for as long as these commands were started
+     * by hand. Under the supervisor they are not: keepalive loads .env, spawns
+     * control with that environment, and control's own load then applies
+     * nothing because every key is already present. The self-check read that as
+     * ".env loaded — 0 values" and flagged it `bad` on a machine that was
+     * trading perfectly well — a false alarm that, on an unattended run, sends
+     * the next session to the top of its list to fix nothing.
+     *
+     * What the check actually wants to know is whether the values are there.
+     */
+    if (process.env[key]) count++;
   }
-  return { found: true, count, path };
+  return { found: true, count, applied, path };
 }
