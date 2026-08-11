@@ -22,6 +22,7 @@
 import { beat, readHeartbeat } from "./heartbeat";
 import { loadEnv } from "./load-env";
 import { randomBytes } from "node:crypto";
+import { spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, resolve } from "node:path";
@@ -4750,6 +4751,74 @@ function diagnose() {
         };
 }
 
+/* ------------------------------------------------------------ the bridge */
+
+/**
+ * The sharing process, owned by this one.
+ *
+ * It used to be a second command in a second window, and the failure that
+ * produced was the worst possible shape: trading carried on for nine hours while
+ * the thing that reports on it was dead, so the run looked healthy from inside
+ * and was invisible from outside. Nobody noticed, because the only symptom was
+ * an absence.
+ *
+ * Tying the lifecycles together removes that asymmetry. If the agent is
+ * trading, it is observable; if it stops being observable, it is because the
+ * whole thing stopped, which is a state the operator notices immediately.
+ *
+ * The trading code still never calls git. It spawns a worker whose only git
+ * operation is pathspec'd to evidence/ — the point of that separation was to
+ * make an accidental `git add -A` from this process impossible, and a child
+ * process that cannot express one preserves it.
+ *
+ * Set SWEEP_NO_SHARE=1 to run without it.
+ */
+let shareChild: ChildProcess | null = null;
+let shareRestarts = 0;
+let shareStoppedAt = 0;
+
+function superviseShare() {
+  if (process.env.SWEEP_NO_SHARE === "1" || shareChild) return;
+
+  /*
+   * Backed off, so a permanently broken share — no remote, no credentials, a
+   * detached HEAD — does not spawn a process every second forever.
+   */
+  const waitMs = Math.min(300_000, 5_000 * 2 ** Math.min(shareRestarts, 6));
+  if (shareStoppedAt && Date.now() - shareStoppedAt < waitMs) return;
+
+  const child = spawn(
+    process.platform === "win32" ? "npm.cmd" : "npm",
+    ["run", "sweep:share", "--", "--watch"],
+    { cwd: process.cwd(), stdio: ["ignore", "pipe", "pipe"], env: process.env },
+  );
+  shareChild = child;
+
+  const relay = (buf: Buffer) => {
+    for (const line of String(buf).split("\n")) {
+      const t = line.trim();
+      // Only the lines that say something changed or broke. The share worker is
+      // chatty by design when watched directly, and this is not that window.
+      if (t && !/no change since the last one/.test(t)) log(t.replace(/^\[share\]\s*/, "share: "));
+    }
+  };
+  child.stdout?.on("data", relay);
+  child.stderr?.on("data", relay);
+
+  child.on("exit", (code) => {
+    shareChild = null;
+    shareStoppedAt = Date.now();
+    shareRestarts++;
+    log(`share: exited (${code ?? "signal"}) — restarting, attempt ${shareRestarts}`);
+  });
+  child.on("error", (err) => {
+    shareChild = null;
+    shareStoppedAt = Date.now();
+    shareRestarts++;
+    log(`share: could not start — ${err.message}`);
+  });
+}
+
 /* --------------------------------------------------------------- snapshot */
 
 /**
@@ -4837,8 +4906,15 @@ server.listen(PORT, HOST, () => {
   setInterval(writeStateSnapshot, 30_000).unref?.();
   applyDesired();
   setInterval(applyDesired, 20_000).unref?.();
+  superviseShare();
+  setInterval(superviseShare, 15_000).unref?.();
   console.log(`  snapshot:    ${snapshotPath()} (refreshed every 30s — npm run sweep:share to send it)`);
   console.log(`  config in:   ${desiredPath()} (applied within 20s; cannot arm, disarm or touch a position)`);
+  console.log(
+    process.env.SWEEP_NO_SHARE === "1"
+      ? "  sharing:     off (SWEEP_NO_SHARE=1)"
+      : "  sharing:     on, in this process — no second window to keep open",
+  );
   void (async () => {
     // First, because it decides whether anything else can possibly work and
     // needs no credentials to answer.
@@ -4927,6 +5003,9 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
     stopExecutionLoop();
     stopEngine();
     newsPoller?.stop();
+    // Killed with this process, so the two can never be alive separately —
+    // which is the whole reason it is a child rather than a second window.
+    shareChild?.kill();
     // Marks the heartbeat stopped rather than leaving it to go stale, so the
     // panel reads "not running" immediately instead of ninety seconds late.
     stopNewsBeat?.();

@@ -34,6 +34,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { resolve } from "node:path";
 import { loadEnv } from "./load-env";
+import { createHash } from "node:crypto";
 import { redactSnapshot, snapshotPath } from "../lib/sweep/metrics/snapshot";
 
 loadEnv();
@@ -142,6 +143,31 @@ function takeRemote(): void {
   }
 }
 
+/**
+ * What the snapshot says, ignoring the parts that always change.
+ *
+ * The file is rewritten every thirty seconds and its timestamps move every time,
+ * so "has it changed" was always yes and every pass produced a commit — around
+ * seven hundred a day, almost all of them saying nothing had happened. Hashing
+ * the content with the clocks stripped out means a commit marks a real change:
+ * a trade, a refusal, a setting, an error.
+ *
+ * A heartbeat still goes out on a slow timer regardless, because silence has to
+ * remain distinguishable from a dead process. That distinction is the entire
+ * reason this exists — it failed once already, and nine hours of a live run were
+ * invisible because nothing said whether the quiet was the market or the bridge.
+ */
+const VOLATILE = /"(?:at|ts|uptimeSec|staleForMs|ageMs|lastPollAt|startedAt|snapshotAgeMs|msToNext|msSincePhaseStart|secondsSince|minutesSince)"\s*:\s*-?[\d.]+/g;
+
+function materialHash(raw: string): string {
+  return createHash("sha1").update(raw.replace(VOLATILE, "")).digest("hex");
+}
+
+let lastHash = "";
+let lastSentAt = 0;
+/** A heartbeat this often even when nothing changed. */
+const HEARTBEAT_MS = 15 * 60_000;
+
 function share(): boolean {
   ensureMergeDriver();
   const path = snapshotPath();
@@ -177,6 +203,20 @@ function share(): boolean {
     console.error("[share] no change since the last one");
     return true;
   }
+
+  /*
+   * Nothing material changed and the heartbeat is not due, so unstage and wait.
+   * The file on disk is newer either way; what is being skipped is a commit
+   * that would record only that time passed.
+   */
+  const hash = materialHash(readFileSync(path, "utf8"));
+  const due = Date.now() - lastSentAt >= HEARTBEAT_MS;
+  if (hash === lastHash && !due) {
+    try { git("reset", "-q", "HEAD", "--", dir); } catch { /* nothing staged is fine */ }
+    return true;
+  }
+  lastHash = hash;
+  lastSentAt = Date.now();
 
   git("commit", "-m", `state snapshot ${new Date().toISOString()}`, "--no-verify");
 
