@@ -109,10 +109,25 @@ interface Fetched {
  * six hours of a day is worse than one that fails — it produces a number, and
  * the number looks fine.
  */
-async function grab(kind: string, date: string, subpath: string): Promise<Fetched> {
-  const name = `${symbol}-${kind}-${date}.zip`;
+async function grab(kind: string, date: string, subpath: string, fileKind = kind): Promise<Fetched> {
+  /*
+   * The archive names premium-index files after the interval, not the feed, so
+   * the file inside premiumIndexKlines/BTCUSDT/1m/ is BTCUSDT-1m-DATE.zip. One
+   * kind therefore needs its URL name to differ from its local name.
+   */
+  const name = `${symbol}-${fileKind}-${date}.zip`;
   const url = `${BASE}/daily/${subpath}/${name}`;
-  const dest = resolve(outDir, kind, name);
+  /*
+   * Under the symbol, always.
+   *
+   * These were written to data/history/<kind>/ with the symbol only in the file
+   * name, and the replay reads every zip in a directory. Fetching a second
+   * symbol therefore mixed two instruments into one series silently: INTC at
+   * about $43 scored against BTC at about $65,000 produced a -99.93% "return"
+   * on a third of all samples, which came back as a 271,000-sigma finding. It
+   * looked like an enormous edge and it was two price scales in one array.
+   */
+  const dest = resolve(outDir, symbol, kind, `${symbol}-${kind}-${date}.zip`);
 
   if (!force && existsSync(dest) && statSync(dest).size > 0) {
     return { kind, date, path: dest, bytes: statSync(dest).size, status: "cached" };
@@ -162,7 +177,7 @@ async function grab(kind: string, date: string, subpath: string): Promise<Fetche
  * `bookDepth` and `liquidationSnapshot` are daily-only; klines are published
  * both ways but daily keeps one code path and the volume is manageable.
  */
-const KINDS: { kind: string; subpath: string; why: string }[] = [
+const KINDS: { kind: string; subpath: string; why: string; fileKind?: string }[] = [
   { kind: "bookDepth", subpath: `bookDepth/${symbol}`, why: "depth per side per minute" },
   { kind: "1m", subpath: `klines/${symbol}/1m`, why: "returns, excursions, and taker flow" },
   /*
@@ -185,7 +200,7 @@ const KINDS: { kind: string; subpath: string; why: string }[] = [
    * samples just said this market has no predictable direction at these
    * horizons and does have a predictable step size.
    */
-  { kind: "premiumIndexKlines", subpath: `premiumIndexKlines/${symbol}/1m`, why: "basis against spot; funding carry" },
+  { kind: "premiumIndexKlines", subpath: `premiumIndexKlines/${symbol}/1m`, fileKind: "1m", why: "basis against spot; funding carry" },
   /*
    * Ticks, because the mechanism claims to work in seconds.
    *
@@ -203,7 +218,7 @@ async function main() {
   const dates = dateRange();
   console.error("");
   console.error(`[history] ${symbol} · ${dates[0]} to ${dates[dates.length - 1]} · ${dates.length} days`);
-  console.error(`[history] into ${outDir}`);
+  console.error(`[history] into ${resolve(outDir, symbol)}`);
   console.error("[history] public archive, no API key, nothing here touches the trading path");
   console.error("");
   for (const k of KINDS) console.error(`[history]   ${k.kind}: ${k.why}`);
@@ -231,7 +246,7 @@ async function main() {
     for (;;) {
       const job = queue[cursor++];
       if (!job) return;
-      const r = await grab(job.kind, job.date, job.subpath);
+      const r = await grab(job.kind, job.date, job.subpath, job.fileKind ?? job.kind);
       results.push(r);
       done++;
       if (done % 25 === 0 || done === queue.length) {
@@ -282,7 +297,8 @@ async function main() {
     files: results.map((r) => ({ kind: r.kind, date: r.date, bytes: r.bytes, status: r.status })),
     totalBytes: results.reduce((a, r) => a + r.bytes, 0),
   };
-  const manifestPath = resolve(outDir, `manifest-${symbol}.json`);
+  const manifestPath = resolve(outDir, symbol, "manifest.json");
+  mkdirSync(resolve(outDir, symbol), { recursive: true });
   writeFileSync(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
   console.error(`[history] manifest: ${manifestPath}`);
   console.error(`[history] next:     npm run sweep:backtest`);

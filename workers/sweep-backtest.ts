@@ -50,7 +50,15 @@ const arg = (name: string, fallback: string): string => {
 };
 
 const symbol = arg("symbol", "BTCUSDT").toUpperCase();
-const histDir = resolve(arg("in", "data/history"));
+/*
+ * The symbol's own directory, and only its own files.
+ *
+ * Both halves matter. Reading data/history/<kind>/ mixed two instruments into
+ * one series the moment a second symbol was fetched, and the prefix check below
+ * means an old flat layout, or a stray file, cannot do it again quietly.
+ */
+const histRoot = resolve(arg("in", "data/history"));
+const histDir = existsSync(join(histRoot, symbol)) ? join(histRoot, symbol) : histRoot;
 const outPath = resolve(arg("out", `evidence/backtest-${symbol}.json`));
 const HORIZONS = [1, 5, 15, 30, 60];
 
@@ -58,7 +66,14 @@ const HORIZONS = [1, 5, 15, 30, 60];
 
 function eachZip(dir: string, onRows: (rows: string[][]) => void) {
   if (!existsSync(dir)) return;
-  for (const file of readdirSync(dir).filter((f) => f.endsWith(".zip")).sort()) {
+  const all = readdirSync(dir).filter((f) => f.endsWith(".zip"));
+  const mine = all.filter((f) => f.startsWith(`${symbol}-`));
+  if (mine.length < all.length) {
+    console.error(
+      `[backtest] ignoring ${all.length - mine.length} file(s) in ${dir} belonging to another symbol`,
+    );
+  }
+  for (const file of mine.sort()) {
     try {
       for (const e of unzipEntries(readFileSync(join(dir, file)))) onRows(csvRows(e.data));
     } catch (err) {
@@ -187,6 +202,30 @@ function main() {
   console.error(`[backtest] ${symbol} · ${minutes.length} minutes with both depth and price`);
   if (minutes.length < 1000) {
     console.error("[backtest] not enough overlap — run npm run sweep:history first");
+    process.exit(1);
+  }
+
+  /*
+   * Refuse a series whose prices are not all the same instrument.
+   *
+   * This is the check that would have caught the symbol mixing whatever its
+   * cause, and it is cheap. A third of the samples came back with a -99.93%
+   * one-minute return, ranked as a 271,000-sigma discovery, because two price
+   * scales were in one array. Nothing about the statistics was wrong — they
+   * faithfully described nonsense, at enormous confidence, which is exactly how
+   * this class of error survives review.
+   *
+   * Twenty-fold is far outside anything a single contract does in a year and
+   * far inside the fifteen-hundred-fold gap between two different ones.
+   */
+  const closes = minutes.map((m) => m.close);
+  const lo = Math.min(...closes);
+  const hi = Math.max(...closes);
+  if (lo > 0 && hi / lo > 20) {
+    console.error(
+      `[backtest] refusing: prices span ${lo.toFixed(4)} to ${hi.toFixed(2)}, a ${(hi / lo).toFixed(0)}x range. ` +
+        `That is more than one instrument in one series — check ${histDir} for files from another symbol.`,
+    );
     process.exit(1);
   }
 
