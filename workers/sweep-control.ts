@@ -22,8 +22,8 @@
 import { beat, readHeartbeat } from "./heartbeat";
 import { loadEnv } from "./load-env";
 import { randomBytes } from "node:crypto";
-import { spawn, type ChildProcess } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "node:fs";
+import { execFileSync, spawn, type ChildProcess } from "node:child_process";
+import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import { dirname, resolve } from "node:path";
 import { attachCalendar } from "../lib/sweep/metrics/event-store";
@@ -4959,6 +4959,146 @@ function superviseShare() {
   });
 }
 
+/**
+ * The research loop, supervised like the share worker.
+ *
+ * It fetches public history and replays it, writing rankings into evidence/
+ * which sharing already pushes. Nothing in it places an order or reads a
+ * credential. It lives here because the alternative was the operator running it
+ * by hand and pasting the output back, which is not autonomy.
+ *
+ * Set SWEEP_NO_RESEARCH=1 to run without it.
+ */
+let researchChild: ChildProcess | null = null;
+let researchStoppedAt = 0;
+
+function superviseResearch() {
+  if (process.env.SWEEP_NO_RESEARCH === "1" || researchChild) return;
+  /*
+   * Never from a test harness.
+   *
+   * The suites boot a real control server, and a research child would start
+   * pulling a year of archive from a public endpoint every time one runs. A
+   * redirected snapshot path is the marker those harnesses already set to keep
+   * out of the operator's real state, so it serves here too.
+   */
+  if (process.env.SWEEP_SNAPSHOT) return;
+  // Slow retry: a broken research pass is not urgent, and a tight loop here
+  // would hammer a public archive.
+  if (researchStoppedAt && Date.now() - researchStoppedAt < 30 * 60_000) return;
+
+  const isWindows = process.platform === "win32";
+  const child = spawn(isWindows ? "npm.cmd" : "npm", ["run", "sweep:research", "--", "--watch"], {
+    cwd: process.cwd(),
+    stdio: ["ignore", "pipe", "pipe"],
+    env: process.env,
+    shell: isWindows,
+  });
+  researchChild = child;
+  const relay = (buf: Buffer) => {
+    for (const line of String(buf).split("\n")) {
+      const t = line.trim();
+      if (t) log(t.replace(/^\[research\]\s*/, "research: "));
+    }
+  };
+  child.stdout?.on("data", relay);
+  child.stderr?.on("data", relay);
+  child.on("exit", () => { researchChild = null; researchStoppedAt = Date.now(); });
+  child.on("error", (err) => {
+    researchChild = null;
+    researchStoppedAt = Date.now();
+    log(`research: could not start — ${err.message}`);
+  });
+}
+
+/* ----------------------------------------------------------- self-update */
+
+/**
+ * Restart into new code when the branch moves, without anybody being present.
+ *
+ * The share worker pulls the branch every two minutes, so a fix reaches the
+ * disk on its own — and then sits there, because a running Node process does
+ * not reload its own source. Every deployment so far has therefore required a
+ * person to notice, stop the window and start it again, which is exactly the
+ * hand-off that is not allowed to exist.
+ *
+ * Exiting is the whole mechanism: keepalive restarts what it supervises, so a
+ * clean exit is a redeploy.
+ */
+const bootRevision = (() => {
+  try {
+    return execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return "";
+  }
+})();
+
+/** Marks a restart this process chose, so arming can survive it. */
+const restartMarker = () => resolve("data/sweep-restart.json");
+
+function checkForUpdate() {
+  if (!bootRevision) return;
+  let head = "";
+  try {
+    head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+  } catch {
+    return;
+  }
+  if (!head || head === bootRevision) return;
+
+  /*
+   * Not while holding something.
+   *
+   * The position keeps its exchange stop across a restart, so this is not about
+   * safety — it is about the excursion tracker, which cannot observe what
+   * happened while the process was down and marks the trade incomplete. Waiting
+   * for flat costs a few minutes and keeps the record clean.
+   */
+  const holding = allDesks().some((d) => (d.protection.state?.position?.positionAmt ?? 0) !== 0);
+  if (holding) {
+    log(`update ${head.slice(0, 7)} is waiting for the open position to close`);
+    return;
+  }
+
+  /*
+   * Arming survives an update, and only an update.
+   *
+   * Booting disarmed is deliberate and stays: a crash, a power cut or a reboot
+   * must never resume placing orders on a decision nobody was present to make.
+   * A restart this process chose, seconds ago, having been armed, is a
+   * different event — the operator's instruction to trade has not changed, and
+   * dropping it would mean every deployment silently stops the agent. The
+   * marker is timestamped and only honoured for five minutes, so it cannot
+   * outlive the restart it describes.
+   */
+  try {
+    writeFileSync(restartMarker(), JSON.stringify({ at: Date.now(), wasArmed: limits.tradingEnabled, to: head }));
+  } catch { /* the restart still happens; it just comes back disarmed */ }
+
+  log(`new code on the branch (${bootRevision.slice(0, 7)} → ${head.slice(0, 7)}) — restarting into it`);
+  killTree(shareChild);
+  killTree(researchChild);
+  server.close();
+  process.exit(0);
+}
+
+/** Re-arm if the last stop was this process updating itself, moments ago. */
+function resumeAfterUpdate() {
+  const path = restartMarker();
+  if (!existsSync(path)) return;
+  try {
+    const m = JSON.parse(readFileSync(path, "utf8")) as { at: number; wasArmed: boolean };
+    rmSync(path, { force: true });
+    if (m.wasArmed && Date.now() - m.at < 5 * 60_000) {
+      limits = { ...limits, tradingEnabled: true };
+      writeLimits(limits);
+      log("resumed armed: this process restarted itself to take an update, and was armed before it did");
+    }
+  } catch {
+    try { rmSync(path, { force: true }); } catch { /* nothing to clean up */ }
+  }
+}
+
 /* --------------------------------------------------------------- snapshot */
 
 /**
@@ -5093,12 +5233,16 @@ server.listen(PORT, HOST, () => {
   // Re-checked rather than decided once, so starting or stopping a standalone
   // poller mid-session hands collection over either way without a restart.
   setInterval(superviseNews, 60_000).unref?.();
+  resumeAfterUpdate();
   writeStateSnapshot();
   setInterval(writeStateSnapshot, 30_000).unref?.();
   applyDesired();
   setInterval(applyDesired, 20_000).unref?.();
   superviseShare();
   setInterval(superviseShare, 15_000).unref?.();
+  superviseResearch();
+  setInterval(superviseResearch, 60_000).unref?.();
+  setInterval(checkForUpdate, 5 * 60_000).unref?.();
   console.log(`  snapshot:    ${snapshotPath()} (refreshed every 30s — npm run sweep:share to send it)`);
   console.log(`  config in:   ${desiredPath()} (applied within 20s; cannot arm, disarm or touch a position)`);
   console.log(
