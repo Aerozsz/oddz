@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1786532289645,
+    "at": 1786532409694,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -17,17 +17,17 @@
         "attached": true,
         "tradeable": true,
         "warm": true,
-        "mid": 64108.55,
-        "spreadBps": 0.015598543407789569,
-        "riskUp": 22.666045530202876,
-        "riskDown": 26.043510088300252,
-        "signalsSeen": 372,
-        "accepted": 289,
-        "holding": 0,
-        "pnl": null,
-        "protected": null,
+        "mid": 64176.649999999994,
+        "spreadBps": 0.015581991269183545,
+        "riskUp": 30.037946307389845,
+        "riskDown": 25.395773337576323,
+        "signalsSeen": 397,
+        "accepted": 311,
+        "holding": -0.143,
+        "pnl": 0,
+        "protected": true,
         "heldMin": 0,
-        "lastRefusal": "Neither side is meaningfully more exposed than the other right now.",
+        "lastRefusal": "sized out (down): no free collateral",
         "dislocation": {
           "warm": false,
           "coupled": false,
@@ -46,50 +46,44 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": null,
-      "biasSummary": "Neither side is meaningfully more exposed than the other right now.",
+      "biasDirection": "up",
+      "biasSummary": "Least resistance is upward — 50,564,281 to set off the downside vs 22,345,808 upside — cheaper to push up; 0.28% below, 0.07% above",
       "sides": [
         {
           "direction": "up",
-          "ok": false,
-          "stopPct": null,
-          "target": null,
-          "rewardRisk": null,
-          "notionalUsd": null,
-          "marginUsd": null,
-          "leverage": null,
-          "riskUsd": null,
-          "sizeRetained": null,
-          "reasons": [
-            "no free collateral"
-          ]
+          "ok": true,
+          "stopPct": 0.5,
+          "target": 65000,
+          "rewardRisk": 2.5658865023338113,
+          "notionalUsd": 1385.1027522026097,
+          "marginUsd": 346.27568805065243,
+          "leverage": 4,
+          "riskUsd": 6.925513761013049,
+          "sizeRetained": 0.4806794296451304,
+          "reasons": []
         },
         {
           "direction": "down",
-          "ok": false,
-          "stopPct": null,
-          "target": null,
-          "rewardRisk": null,
-          "notionalUsd": null,
-          "marginUsd": null,
-          "leverage": null,
-          "riskUsd": null,
-          "sizeRetained": null,
-          "reasons": [
-            "no free collateral"
-          ]
+          "ok": true,
+          "stopPct": 0.5,
+          "target": 63473.022113130646,
+          "rewardRisk": 2.1927847180223585,
+          "notionalUsd": 1385.1027522026097,
+          "marginUsd": 346.27568805065243,
+          "leverage": 4,
+          "riskUsd": 6.925513761013049,
+          "sizeRetained": 0.4806794296451304,
+          "reasons": []
         }
       ],
-      "tradeable": false
+      "tradeable": true
     },
     "readiness": {
-      "ready": false,
+      "ready": true,
       "armed": true,
-      "blockers": [
-        "the exchange is not answering — The operation was aborted due to timeout"
-      ],
+      "blockers": [],
       "waiting": [],
-      "summary": "the exchange is not answering — The operation was aborted due to timeout"
+      "summary": "armed — orders go out when a setup passes every check"
     },
     "orderVenue": {
       "url": "https://demo-fapi.binance.com",
@@ -99,7 +93,7 @@
     },
     "engine": {
       "running": true,
-      "uptimeSec": 1260,
+      "uptimeSec": 1380,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -119,16 +113,16 @@
       "snapshotAgeMs": 2
     },
     "market": {
-      "mid": 64108.55,
+      "mid": 64176.649999999994,
       "mark": null,
-      "spreadBps": 0.015598543407789569,
-      "lwi": 1.1544046601840463,
-      "lwiBid": 1.1050204921067717,
-      "lwiAsk": 1.1985364019343803,
+      "spreadBps": 0.015581991269183545,
+      "lwi": 1.0983057012192918,
+      "lwiBid": 0.8815641658741649,
+      "lwiAsk": 1.2890204916917227,
       "warm": true,
-      "riskUp": 22.666045530202876,
-      "riskDown": 26.043510088300252,
-      "nearestAbove": 64223.93537764978,
+      "riskUp": 30.037946307389845,
+      "riskDown": 25.395773337576323,
+      "nearestAbove": 64223.93533946913,
       "nearestBelow": 64000,
       "session": "pre-market",
       "flow": {
@@ -140,7 +134,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 698,
+      "staleForMs": 9287,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -151,13 +145,24 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1786532288947,
-      "error": "The operation was aborted due to timeout",
-      "availableBalance": null,
-      "walletBalance": null,
-      "unrealizedPnl": null,
-      "marginRatio": null,
-      "positions": []
+      "at": 1786532400407,
+      "error": null,
+      "availableBalance": 360.19399489,
+      "walletBalance": 2655.18801932,
+      "unrealizedPnl": -2.74093954,
+      "marginRatio": 0.013827250175729047,
+      "positions": [
+        {
+          "symbol": "BTCUSDT",
+          "amt": -0.143,
+          "entry": 64099.8,
+          "mark": 0,
+          "pnl": -2.74093954,
+          "liquidation": 0,
+          "leverage": 4,
+          "notional": -9169.01233954
+        }
+      ]
     },
     "limits": {
       "maxPositionUsd": 32590,
@@ -186,7 +191,7 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1786532260349,
+      "at": 1786532402912,
       "realisedPnl": 0,
       "drawdown": 3.66650856,
       "trades": 0,
@@ -200,16 +205,16 @@
     },
     "loop": {
       "attached": true,
-      "signalsSeen": 372,
-      "seen": 323,
-      "accepted": 289,
+      "signalsSeen": 397,
+      "seen": 348,
+      "accepted": 311,
       "rejected": 0,
-      "declined": 18,
+      "declined": 21,
       "notReady": 16,
-      "lastAcceptedAt": 1786532287532,
+      "lastAcceptedAt": 1786532409218,
       "lastRefusal": {
-        "at": 1786532166234,
-        "reason": "Neither side is meaningfully more exposed than the other right now."
+        "at": 1786532393186,
+        "reason": "sized out (down): no free collateral"
       },
       "refusals": [
         {
@@ -218,7 +223,7 @@
         },
         {
           "reason": "no free collateral",
-          "count": 4
+          "count": 7
         }
       ]
     },
@@ -229,171 +234,171 @@
       "reason": "armed — orders will be placed when a setup passes every check",
       "history": [
         {
-          "at": 1786532288944,
-          "intentId": "intent:cluster-approach:1786532287530:ad",
+          "at": 1786532409516,
+          "intentId": "intent:cluster-approach:1786532409216:b2",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532279001,
-          "intentId": "intent:cluster-approach:1786532278708:ac",
+          "at": 1786532408562,
+          "intentId": "intent:cluster-approach:1786532408257:b1",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532275988,
-          "intentId": "intent:cluster-approach:1786532275681:ab",
+          "at": 1786532408331,
+          "intentId": "intent:withdrawal:1786532407958:b0",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532274442,
-          "intentId": "intent:cluster-approach:1786532272519:aa",
+          "at": 1786532407481,
+          "intentId": "intent:cluster-approach:1786532407178:az",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532266621,
-          "intentId": "intent:cluster-approach:1786532256608:a7",
+          "at": 1786532405511,
+          "intentId": "intent:cluster-approach:1786532405221:ay",
+          "outcome": "refused",
+          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
+          "symbol": "BTCUSDT"
+        },
+        {
+          "at": 1786532405224,
+          "intentId": "intent:cascade-risk:1786532403319:ax",
+          "outcome": "refused",
+          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
+          "symbol": "BTCUSDT"
+        },
+        {
+          "at": 1786532405108,
+          "intentId": "intent:cluster-approach:1786532403211:aw",
+          "outcome": "refused",
+          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
+          "symbol": "BTCUSDT"
+        },
+        {
+          "at": 1786532404582,
+          "intentId": "intent:cascade-risk:1786532403211:av",
+          "outcome": "refused",
+          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
+          "symbol": "BTCUSDT"
+        },
+        {
+          "at": 1786532388097,
+          "intentId": "intent:cluster-approach:1786532378089:ar",
           "outcome": "failed",
           "detail": "The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532261163,
-          "intentId": "intent:cluster-approach:1786532260600:a9",
+          "at": 1786532382513,
+          "intentId": "intent:cluster-approach:1786532381155:as",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532259349,
-          "intentId": "intent:cluster-approach:1786532257423:a8",
+          "at": 1786532366605,
+          "intentId": "intent:cluster-approach:1786532366054:aq",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532245907,
-          "intentId": "intent:cluster-approach:1786532245598:a6",
+          "at": 1786532364894,
+          "intentId": "intent:cluster-approach:1786532362994:ap",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532244304,
-          "intentId": "intent:cluster-approach:1786532242353:a5",
+          "at": 1786532351254,
+          "intentId": "intent:cluster-approach:1786532350958:ao",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532230814,
-          "intentId": "intent:cluster-approach:1786532230497:a4",
+          "at": 1786532348191,
+          "intentId": "intent:cluster-approach:1786532347897:an",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532227627,
-          "intentId": "intent:cluster-approach:1786532227308:a3",
+          "at": 1786532346308,
+          "intentId": "intent:cluster-approach:1786532344940:am",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532226905,
-          "intentId": "intent:cluster-approach:1786532225502:a2",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786532212510,
-          "intentId": "intent:cluster-approach:1786532212212:a1",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786532211802,
-          "intentId": "intent:cluster-approach:1786532210405:a0",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786532210417,
-          "intentId": "intent:cluster-approach:1786532208452:9z",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786532207153,
-          "intentId": "intent:cluster-approach:1786532197150:9y",
+          "at": 1786532342806,
+          "intentId": "intent:cluster-approach:1786532332801:al",
           "outcome": "failed",
           "detail": "The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532198217,
-          "intentId": "intent:cluster-approach:1786532196332:9x",
+          "at": 1786532340898,
+          "intentId": "intent:cluster-approach:1786532330877:ak",
+          "outcome": "failed",
+          "detail": "The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.",
+          "symbol": "BTCUSDT"
+        },
+        {
+          "at": 1786532319629,
+          "intentId": "intent:cluster-approach:1786532317706:aj",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532183905,
-          "intentId": "intent:cluster-approach:1786532182051:9w",
+          "at": 1786532318814,
+          "intentId": "intent:cluster-approach:1786532316890:ai",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         },
         {
-          "at": 1786532183100,
-          "intentId": "intent:cluster-approach:1786532181235:9v",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786532168820,
-          "intentId": "intent:cluster-approach:1786532166950:9u",
+          "at": 1786532311188,
+          "intentId": "intent:cluster-approach:1786532310874:ah",
           "outcome": "refused",
           "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
           "symbol": "BTCUSDT"
         }
       ],
       "stats": {
-        "seen": 323,
-        "accepted": 289,
+        "seen": 348,
+        "accepted": 311,
         "rejected": 0,
-        "declined": 18,
+        "declined": 21,
         "notReady": 16,
-        "lastAcceptedAt": 1786532287532
+        "lastAcceptedAt": 1786532409218
       }
     },
     "protection": {
-      "at": 1786532288947,
-      "error": "The operation was aborted due to timeout",
-      "flat": null,
-      "protected": null,
-      "stopPrice": null,
-      "stopDistancePct": null,
-      "targetPrice": null,
-      "targetDistancePct": null,
-      "entryPrice": null,
-      "markPrice": null,
-      "side": null,
+      "at": 1786532402601,
+      "error": null,
+      "flat": false,
+      "protected": true,
+      "stopPrice": 64420.3,
+      "stopDistancePct": 0.4637328022481334,
+      "targetPrice": 63191.25,
+      "targetDistancePct": 1.4529759184595217,
+      "entryPrice": 64099.8,
+      "markPrice": 64122.94088933,
+      "side": "short",
       "heldMin": 0,
       "ratcheted": false,
       "hold": null,
-      "reason": null
+      "reason": "stop resting at 64420.3 (0.46% away), target at 63191.25 (1.45% away)"
     }
   },
   "desired": {
@@ -423,10 +428,9 @@
       },
       {
         "name": "exchange reachable",
-        "ok": false,
-        "severity": "bad",
-        "detail": "The operation was aborted due to timeout",
-        "fix": "npm run sweep:check names the specific cause."
+        "ok": true,
+        "severity": "ok",
+        "detail": "balance 360.19 USDT"
       },
       {
         "name": "contracts tradeable here",
@@ -438,7 +442,7 @@
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 1260s"
+        "detail": "1/1 — BTCUSDT up 1380s"
       },
       {
         "name": "feed: BTCUSDT",
@@ -506,7 +510,7 @@
         "name": "loop accounting",
         "ok": true,
         "severity": "ok",
-        "detail": "323 seen = 289 placed + 18 no side + 0 refused + 16 while the feed was warming"
+        "detail": "348 seen = 311 placed + 21 no side + 0 refused + 16 while the feed was warming"
       },
       {
         "name": "position cap",
@@ -522,8 +526,8 @@
         "fix": "Fine for testing that orders place. The leverage ladder, maintenance rate, session weights and earnings calendar are all built for an equity perp on Nasdaq and mean nothing on a crypto pair or a contract on another exchange's clock — do not read a strategy result off those."
       }
     ],
-    "verdict": "1 thing broken",
-    "worst": "bad"
+    "verdict": "nothing broken; 1 thing would stop a trade",
+    "worst": "warn"
   },
   "errors": [],
   "notes": [],
@@ -534,7 +538,7 @@
     },
     {
       "reason": "no free collateral",
-      "count": 4
+      "count": 7
     }
   ],
   "limits": {
@@ -566,7 +570,7 @@
   "ledger": {
     "epoch": 1786519512530,
     "balance": 2655.18801932,
-    "at": 1786532259228,
+    "at": 1786532400407,
     "reason": "reset by hand from the dashboard"
   },
   "learn": {
@@ -3114,7 +3118,31 @@
     },
     {
       "t": 1786532274442,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×4 since 11:57:54 AM)"
+      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×7 since 11:57:54 AM)"
+    },
+    {
+      "t": 1786532315250,
+      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
+    },
+    {
+      "t": 1786532318815,
+      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×2 since 11:58:38 AM)"
+    },
+    {
+      "t": 1786532340898,
+      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 11:59:00 AM)"
+    },
+    {
+      "t": 1786532346308,
+      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×6 since 11:59:06 AM)"
+    },
+    {
+      "t": 1786532388098,
+      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
+    },
+    {
+      "t": 1786532404582,
+      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×8 since 12:00:04 PM)"
     }
   ],
   "news": {
@@ -3125,12 +3153,12 @@
     ],
     "poller": {
       "recorded": 1,
-      "cycles": 44,
+      "cycles": 50,
       "sources": 14,
       "unavailable": "x,linkedin",
       "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found",
       "velocity": "BNBUSDT 1.0x BTCUSDT 1.0x ETHUSDT 1.0x",
-      "lastPollAt": 1786532280742
+      "lastPollAt": 1786532405897
     }
   }
 }
