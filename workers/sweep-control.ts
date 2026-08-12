@@ -3938,7 +3938,17 @@ const server = createServer(async (req, res) => {
         if (preview.leverage > limits.maxLeverage) {
           breaches.push(`leverage ${preview.leverage}x exceeds max ${limits.maxLeverage}x`);
         }
-        if ((account.risk?.openPositions.length ?? 0) >= limits.maxOpenPositions) {
+        /*
+         * Zero means no limit, the same as everywhere else in this file.
+         *
+         * The fourth instance of this bug, and the most expensive: with the cap
+         * at 0 and no position open, `0 >= 0` is true, so the account read as
+         * permanently at its maximum. The execution loop never attached, the
+         * self-check reported "not attached" with no cause, and 413 signals
+         * were seen with 0 accepted while the agent looked armed and healthy.
+         * The guard eleven hundred lines above already reads it correctly.
+         */
+        if (limits.maxOpenPositions > 0 && (account.risk?.openPositions.length ?? 0) >= limits.maxOpenPositions) {
           breaches.push(`already at max open positions (${limits.maxOpenPositions})`);
         }
         send(res, 200, { preview, breaches, usedEntry: entry, accountKnown: account.risk !== null });
