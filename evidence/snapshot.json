@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1786534840145,
+    "at": 1786534936180,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -14,20 +14,20 @@
         "focused": true,
         "calibrated": false,
         "running": true,
-        "attached": true,
-        "tradeable": true,
-        "warm": true,
-        "mid": 64180.05,
-        "spreadBps": 0.015581165798179464,
-        "riskUp": 30.017129828477014,
-        "riskDown": 21.555514677954957,
-        "signalsSeen": 966,
-        "accepted": 855,
-        "holding": -0.143,
-        "pnl": 0,
-        "protected": true,
-        "heldMin": 5,
-        "lastRefusal": "sized out (up): no free collateral",
+        "attached": false,
+        "tradeable": false,
+        "warm": null,
+        "mid": null,
+        "spreadBps": null,
+        "riskUp": null,
+        "riskDown": null,
+        "signalsSeen": 0,
+        "accepted": 0,
+        "holding": 0,
+        "pnl": null,
+        "protected": null,
+        "heldMin": 0,
+        "lastRefusal": null,
         "dislocation": {
           "warm": false,
           "coupled": false,
@@ -46,54 +46,66 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": "up",
-      "biasSummary": "Least resistance is upward — 61,762,732 to set off the downside vs 22,342,855 upside — cheaper to push up; 0.28% below, 0.07% above",
+      "biasDirection": null,
+      "biasSummary": "Neither side is meaningfully more exposed than the other right now.",
       "sides": [
         {
           "direction": "up",
-          "ok": true,
-          "stopPct": 0.5,
-          "target": 65000,
-          "rewardRisk": 2.5551553792806234,
-          "notionalUsd": 1382.6370412676765,
-          "marginUsd": 345.65926031691913,
-          "leverage": 4,
-          "riskUsd": 6.913185206338383,
-          "sizeRetained": 0.485287596955451,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         },
         {
           "direction": "down",
-          "ok": true,
-          "stopPct": 0.5,
-          "target": 63473.022184633875,
-          "rewardRisk": 2.2032635230609117,
-          "notionalUsd": 1382.6370412676765,
-          "marginUsd": 345.65926031691913,
-          "leverage": 4,
-          "riskUsd": 6.913185206338383,
-          "sizeRetained": 0.485287596955451,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         }
       ],
-      "tradeable": true
+      "tradeable": false
     },
     "readiness": {
-      "ready": true,
+      "ready": false,
       "armed": true,
-      "blockers": [],
-      "waiting": [],
-      "summary": "armed — orders go out when a setup passes every check"
+      "blockers": [
+        "the exchange is not answering"
+      ],
+      "waiting": [
+        "BTCUSDT: starting up"
+      ],
+      "summary": "the exchange is not answering"
     },
     "orderVenue": {
-      "url": "https://demo-fapi.binance.com",
-      "checked": true,
+      "url": "",
+      "checked": false,
       "error": null,
       "untradeable": []
     },
     "engine": {
       "running": true,
-      "uptimeSec": 3811,
+      "uptimeSec": 0,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -106,25 +118,31 @@
     "mode": "testnet",
     "hasCredentials": true,
     "health": {
-      "level": "ok",
-      "tradeable": true,
-      "reasons": [],
-      "summary": "live",
-      "snapshotAgeMs": 1
+      "level": "blind",
+      "tradeable": false,
+      "reasons": [
+        {
+          "code": "snapshot-stale",
+          "severity": "blind",
+          "detail": "the engine has not published yet"
+        }
+      ],
+      "summary": "starting up",
+      "snapshotAgeMs": 0
     },
     "market": {
-      "mid": 64180.05,
+      "mid": null,
       "mark": null,
-      "spreadBps": 0.015581165798179464,
-      "lwi": 1.0403042756947782,
-      "lwiBid": 0.9500185629128105,
-      "lwiAsk": 1.110155124287268,
-      "warm": true,
-      "riskUp": 30.017129828477014,
-      "riskDown": 21.555514677954957,
-      "nearestAbove": 64223.935334116344,
-      "nearestBelow": 64000,
-      "session": "pre-market",
+      "spreadBps": null,
+      "lwi": null,
+      "lwiBid": null,
+      "lwiAsk": null,
+      "warm": null,
+      "riskUp": null,
+      "riskDown": null,
+      "nearestAbove": null,
+      "nearestBelow": null,
+      "session": "closed",
       "flow": {
         "buy": 0,
         "sell": 0
@@ -134,7 +152,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 85,
+      "staleForMs": null,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,24 +163,13 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1786534840060,
+      "at": 0,
       "error": null,
-      "availableBalance": 356.13856864,
-      "walletBalance": 2655.18801932,
-      "unrealizedPnl": -5.98528054,
-      "marginRatio": 0.013849082285373102,
-      "positions": [
-        {
-          "symbol": "BTCUSDT",
-          "amt": -0.143,
-          "entry": 64099.8,
-          "mark": 0,
-          "pnl": -5.98528054,
-          "liquidation": 0,
-          "leverage": 4,
-          "notional": -9172.25668054
-        }
-      ]
+      "availableBalance": null,
+      "walletBalance": null,
+      "unrealizedPnl": null,
+      "marginRatio": null,
+      "positions": []
     },
     "limits": {
       "maxPositionUsd": 32590,
@@ -191,221 +198,52 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1786534823444,
-      "realisedPnl": 0,
-      "drawdown": 3.66650856,
-      "trades": 0,
-      "fees": 3.66650856,
-      "funding": 0,
-      "lastLossAt": 0,
-      "cooldownLeftMin": 0,
-      "countingFrom": 1786519512530,
-      "rebased": true,
-      "rebaseReason": "reset by hand from the dashboard"
+      "at": 0,
+      "error": null
     },
     "loop": {
-      "attached": true,
-      "signalsSeen": 966,
-      "seen": 917,
-      "accepted": 855,
+      "attached": false,
+      "signalsSeen": 0,
+      "seen": 0,
+      "accepted": 0,
       "rejected": 0,
-      "declined": 46,
-      "notReady": 16,
-      "lastAcceptedAt": 1786534836376,
-      "lastRefusal": {
-        "at": 1786534560499,
-        "reason": "sized out (up): no free collateral"
-      },
-      "refusals": [
-        {
-          "reason": "bias called no side",
-          "count": 29
-        },
-        {
-          "reason": "no free collateral",
-          "count": 17
-        }
-      ]
+      "declined": 0,
+      "notReady": 0,
+      "lastAcceptedAt": 0,
+      "lastRefusal": null,
+      "refusals": []
     },
     "execution": {
       "available": true,
       "armed": true,
-      "running": true,
+      "running": false,
       "reason": "armed — orders will be placed when a setup passes every check",
-      "history": [
-        {
-          "at": 1786534836683,
-          "intentId": "intent:cluster-approach:1786534836376:qv",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534836353,
-          "intentId": "intent:cascade-risk:1786534836057:qu",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534833396,
-          "intentId": "intent:cluster-approach:1786534833099:qt",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534830152,
-          "intentId": "intent:cascade-risk:1786534828243:qs",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534821682,
-          "intentId": "intent:cluster-approach:1786534821369:qr",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534821378,
-          "intentId": "intent:cluster-approach:1786534811372:qo",
-          "outcome": "failed",
-          "detail": "The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534819951,
-          "intentId": "intent:cascade-risk:1786534819656:qq",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534819385,
-          "intentId": "intent:cluster-approach:1786534818000:qp",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534805623,
-          "intentId": "intent:cluster-approach:1786534805318:qn",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534803197,
-          "intentId": "intent:cluster-approach:1786534802905:qm",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534801729,
-          "intentId": "intent:cluster-approach:1786534801375:ql",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534799647,
-          "intentId": "intent:cluster-approach:1786534799355:qk",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534798836,
-          "intentId": "intent:cascade-risk:1786534798528:qj",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534797588,
-          "intentId": "intent:cluster-approach:1786534797299:qi",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534797230,
-          "intentId": "intent:cluster-approach:1786534795359:qh",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534796515,
-          "intentId": "intent:cascade-risk:1786534794626:qg",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534789860,
-          "intentId": "intent:cluster-approach:1786534787895:qf",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534789120,
-          "intentId": "intent:cluster-approach:1786534787243:qe",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534783229,
-          "intentId": "intent:cluster-approach:1786534773225:qa",
-          "outcome": "failed",
-          "detail": "The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786534783142,
-          "intentId": "intent:cluster-approach:1786534781224:qd",
-          "outcome": "refused",
-          "detail": "already holding -0.143 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        }
-      ],
+      "history": [],
       "stats": {
-        "seen": 917,
-        "accepted": 855,
+        "seen": 0,
+        "accepted": 0,
         "rejected": 0,
-        "declined": 46,
-        "notReady": 16,
-        "lastAcceptedAt": 1786534836376
+        "declined": 0,
+        "notReady": 0,
+        "lastAcceptedAt": 0
       }
     },
     "protection": {
-      "at": 1786534823157,
+      "at": 0,
       "error": null,
-      "flat": false,
-      "protected": true,
-      "stopPrice": 64420.3,
-      "stopDistancePct": 0.4282666735382175,
-      "targetPrice": 63191.25,
-      "targetDistancePct": 1.4877654026103324,
-      "entryPrice": 64099.8,
-      "markPrice": 64145.58583333,
-      "side": "short",
-      "heldMin": 5,
+      "flat": null,
+      "protected": null,
+      "stopPrice": null,
+      "stopDistancePct": null,
+      "targetPrice": null,
+      "targetDistancePct": null,
+      "entryPrice": null,
+      "markPrice": null,
+      "side": null,
+      "heldMin": 0,
       "ratcheted": false,
-      "hold": {
-        "close": false,
-        "reason": "0% to target, thesis 100% intact, 116 min left",
-        "thesisHealth": 1,
-        "progress": 0,
-        "deadlineMs": 7200000,
-        "notes": []
-      },
-      "reason": "stop resting at 64420.3 (0.43% away), target at 63191.25 (1.49% away)"
+      "hold": null,
+      "reason": null
     }
   },
   "desired": {
@@ -425,7 +263,7 @@
         "name": "clock in sync with Binance",
         "ok": true,
         "severity": "ok",
-        "detail": "behind by 380ms (round trip 278ms, window 5000ms, corrected on every request)"
+        "detail": "not checked yet"
       },
       {
         "name": "credentials present",
@@ -435,27 +273,30 @@
       },
       {
         "name": "exchange reachable",
-        "ok": true,
-        "severity": "ok",
-        "detail": "balance 356.14 USDT"
+        "ok": false,
+        "severity": "bad",
+        "detail": "no account read yet",
+        "fix": "npm run sweep:check names the specific cause."
       },
       {
         "name": "contracts tradeable here",
-        "ok": true,
-        "severity": "ok",
-        "detail": "BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT all listed at https://demo-fapi.binance.com"
+        "ok": false,
+        "severity": "warn",
+        "detail": "not checked yet",
+        "fix": "Without this, a symbol the demo account cannot trade is indistinguishable from a quiet market."
       },
       {
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 3811s"
+        "detail": "1/1 — BTCUSDT up 0s"
       },
       {
         "name": "feed: BTCUSDT",
-        "ok": true,
-        "severity": "ok",
-        "detail": "ok"
+        "ok": false,
+        "severity": "bad",
+        "detail": "blind — starting up",
+        "fix": "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance is blocked or BTCUSDT is not a listed contract — npm run sweep:symbols says which."
       },
       {
         "name": "max position set",
@@ -491,33 +332,28 @@
       },
       {
         "name": "execution loop attached",
-        "ok": true,
-        "severity": "ok",
-        "detail": "1/1 listening — BTCUSDT"
+        "ok": false,
+        "severity": "bad",
+        "detail": "not attached",
+        "fix": "Needs the engine running and credentials. Disarm and re-arm."
       },
       {
         "name": "evidence sampler",
         "ok": true,
         "severity": "ok",
-        "detail": "3s since its last beat"
+        "detail": "9s since its last beat"
       },
       {
         "name": "shadow run",
         "ok": true,
         "severity": "ok",
-        "detail": "4s since its last beat"
+        "detail": "10s since its last beat"
       },
       {
         "name": "news + social feeds",
         "ok": true,
         "severity": "ok",
-        "detail": "6/14 sources live (in this process), 4 headlines recorded · 8 erroring: reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 "
-      },
-      {
-        "name": "loop accounting",
-        "ok": true,
-        "severity": "ok",
-        "detail": "917 seen = 855 placed + 46 no side + 0 refused + 16 while the feed was warming"
+        "detail": "6/14 sources live (standalone sweep:news), 4 headlines recorded · 8 erroring: reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 "
       },
       {
         "name": "position cap",
@@ -533,21 +369,12 @@
         "fix": "Fine for testing that orders place. The leverage ladder, maintenance rate, session weights and earnings calendar are all built for an equity perp on Nasdaq and mean nothing on a crypto pair or a contract on another exchange's clock — do not read a strategy result off those."
       }
     ],
-    "verdict": "nothing broken; 1 thing would stop a trade",
-    "worst": "warn"
+    "verdict": "3 things broken",
+    "worst": "bad"
   },
   "errors": [],
   "notes": [],
-  "refusals": [
-    {
-      "reason": "bias called no side",
-      "count": 29
-    },
-    {
-      "reason": "no free collateral",
-      "count": 17
-    }
-  ],
+  "refusals": [],
   "limits": {
     "maxPositionUsd": 32590,
     "maxLeverage": 10,
@@ -577,7 +404,7 @@
   "ledger": {
     "epoch": 1786519512530,
     "balance": 2655.18801932,
-    "at": 1786534821177,
+    "at": 1786534921159,
     "reason": "reset by hand from the dashboard"
   },
   "learn": {
@@ -2563,7 +2390,7 @@
     }
   ],
   "shadow": {
-    "rows": 1630,
+    "rows": 1632,
     "horizons": [
       "t300",
       "t60",
@@ -2572,27 +2399,27 @@
     "overall": {
       "t300": {
         "label": "all",
-        "n": 1624,
+        "n": 1626,
         "wins": 128,
-        "meanPct": -0.0006452740256436207,
-        "netUsd": -893.1156271660403,
-        "sePct": 0.0024656760696620335
+        "meanPct": -0.0005618333472519576,
+        "netUsd": -893.4614538772372,
+        "sePct": 0.0024633486295573483
       },
       "t60": {
         "label": "all",
-        "n": 1628,
+        "n": 1630,
         "wins": 28,
-        "meanPct": -0.00304274965379156,
-        "netUsd": -953.4098732248133,
-        "sePct": 0.001073586058172383
+        "meanPct": -0.0030016212412921624,
+        "netUsd": -954.1427109759327,
+        "sePct": 0.0010727284948106892
       },
       "t900": {
         "label": "all",
-        "n": 1618,
+        "n": 1620,
         "wins": 305,
-        "meanPct": 0.0014882403929212587,
-        "netUsd": -902.561792394021,
-        "sePct": 0.004029053322127605
+        "meanPct": 0.0015337507459895578,
+        "netUsd": -903.2116233096538,
+        "sePct": 0.004024213084295971
       }
     },
     "byEntryDepth": [
@@ -2632,11 +2459,11 @@
     "bySignal": [
       {
         "label": "cluster-approach",
-        "n": 1001,
+        "n": 1003,
         "wins": 194,
-        "meanPct": -0.004542201565639168,
-        "netUsd": -682.1227208379756,
-        "sePct": 0.005001518861885203
+        "meanPct": -0.004456670502939502,
+        "netUsd": -682.7725517536084,
+        "sePct": 0.004991921186041424
       },
       {
         "label": "withdrawal",
@@ -2664,812 +2491,20 @@
       }
     ],
     "resolved": {
-      "open": 1623,
+      "open": 1625,
       "unscored": 7
     },
-    "feesUsd": 918.5026088371324,
-    "grossUsd": 15.940816443116377
+    "feesUsd": 919.5567013905218,
+    "grossUsd": 16.34507808087319
   },
   "log": [
     {
-      "t": 1786532832143,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
+      "t": 1786534936170,
+      "text": "engine started — BTCUSDT"
     },
     {
-      "t": 1786532833007,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×4 since 12:07:13 PM)"
-    },
-    {
-      "t": 1786532854955,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786532857301,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×7 since 12:07:37 PM)"
-    },
-    {
-      "t": 1786532879028,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786532881365,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:08:01 PM)"
-    },
-    {
-      "t": 1786532897101,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786532899137,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:08:19 PM)"
-    },
-    {
-      "t": 1786532909217,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786532913203,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×10 since 12:08:33 PM)"
-    },
-    {
-      "t": 1786532956284,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786532967749,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×9 since 12:09:27 PM)"
-    },
-    {
-      "t": 1786532999494,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533012449,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×16 since 12:10:12 PM)"
-    },
-    {
-      "t": 1786533080196,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533087727,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×15 since 12:11:27 PM)"
-    },
-    {
-      "t": 1786533181970,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533182580,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×4 since 12:13:02 PM)"
-    },
-    {
-      "t": 1786533204344,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533207653,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786533216379,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 12:13:36 PM)"
-    },
-    {
-      "t": 1786533223260,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×18 since 12:13:43 PM)"
-    },
-    {
-      "t": 1786533328736,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533332955,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533343384,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×5 since 12:15:43 PM)"
-    },
-    {
-      "t": 1786533375991,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533387577,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786533397212,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533403131,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×5 since 12:16:43 PM)"
-    },
-    {
-      "t": 1786533429484,
-      "text": "update 69a7d87 is waiting for the open position to close"
-    },
-    {
-      "t": 1786533436256,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533446281,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:17:26 PM)"
-    },
-    {
-      "t": 1786533452904,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533462762,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×10 since 12:17:42 PM)"
-    },
-    {
-      "t": 1786533521562,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533539045,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786533545670,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×3 since 12:19:05 PM)"
-    },
-    {
-      "t": 1786533567703,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×4 since 12:19:27 PM)"
-    },
-    {
-      "t": 1786533595066,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533595066,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21049 ms: Could not connect to server"
-    },
-    {
-      "t": 1786533595172,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1786533595172,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1786533595173,
-      "text": "^"
-    },
-    {
-      "t": 1786533595173,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1786533595173,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1786533595173,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1786533595173,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1786533595173,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1786533595173,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1786533595173,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1786533595173,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1786533595173,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1786533595174,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1786533595174,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1786533595174,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1786533595174,
-      "text": "pid: 36748,"
-    },
-    {
-      "t": 1786533595174,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1786533595174,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1786533595174,
-      "text": "}"
-    },
-    {
-      "t": 1786533595174,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786533595218,
-      "text": "share: exited (1) — restarting, attempt 1"
-    },
-    {
-      "t": 1786533597772,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×4 since 12:19:57 PM)"
-    },
-    {
-      "t": 1786533610705,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786533610706,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786533611005,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786533611005,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533611006,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1786533611006,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1786533611006,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1786533611006,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1786533613864,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×6 since 12:20:13 PM)"
-    },
-    {
-      "t": 1786533633425,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533633425,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21113 ms: Could not connect to server"
-    },
-    {
-      "t": 1786533633541,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1786533633541,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1786533633542,
-      "text": "^"
-    },
-    {
-      "t": 1786533633542,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1786533633542,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1786533633542,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1786533633543,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1786533633543,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1786533633543,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1786533633543,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1786533633543,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1786533633543,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5)"
-    },
-    {
-      "t": 1786533633543,
-      "text": "at sleep (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:293:1)"
-    },
-    {
-      "t": 1786533633543,
-      "text": "at Object.<anonymous> (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:293:6)"
-    },
-    {
-      "t": 1786533633543,
-      "text": "at Module._compile (node:internal/modules/cjs/loader:1830:14) {"
-    },
-    {
-      "t": 1786533633543,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1786533633543,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1786533633543,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1786533633544,
-      "text": "pid: 35712,"
-    },
-    {
-      "t": 1786533633544,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1786533633544,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1786533633544,
-      "text": "}"
-    },
-    {
-      "t": 1786533633544,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786533633583,
-      "text": "share: exited (1) — restarting, attempt 2"
-    },
-    {
-      "t": 1786533644528,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786533646106,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533654035,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786533655799,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786533655799,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786533656144,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786533656144,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533656145,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1786533656145,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1786533656145,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1786533656145,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1786533660069,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786533661153,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533669202,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×2 since 12:21:09 PM)"
-    },
-    {
-      "t": 1786533679428,
-      "text": "share: push failed, retrying in 2s"
-    },
-    {
-      "t": 1786533683835,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533684176,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×2 since 12:21:24 PM)"
-    },
-    {
-      "t": 1786533698304,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533703769,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:21:43 PM)"
-    },
-    {
-      "t": 1786533718417,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533720375,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786533728410,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533729478,
-      "text": "update 2fefd65 is waiting for the open position to close"
-    },
-    {
-      "t": 1786533734882,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786533743510,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533750382,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×11 since 12:22:30 PM)"
-    },
-    {
-      "t": 1786533798709,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533799074,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786533802779,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533807863,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533810692,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:23:30 PM)"
-    },
-    {
-      "t": 1786533816758,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 12:23:36 PM)"
-    },
-    {
-      "t": 1786533825600,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:23:45 PM)"
-    },
-    {
-      "t": 1786533842943,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 12:24:02 PM)"
-    },
-    {
-      "t": 1786533868048,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×9 since 12:24:28 PM)"
-    },
-    {
-      "t": 1786533909065,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533909513,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×7 since 12:25:09 PM)"
-    },
-    {
-      "t": 1786533931902,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786533933539,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×2 since 12:25:33 PM)"
-    },
-    {
-      "t": 1786533936248,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786533937637,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×26 since 12:25:37 PM)"
-    },
-    {
-      "t": 1786534029486,
-      "text": "update 1d59d57 is waiting for the open position to close"
-    },
-    {
-      "t": 1786534031862,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×11 since 12:27:11 PM)"
-    },
-    {
-      "t": 1786534055735,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786534061554,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×10 since 12:27:41 PM)"
-    },
-    {
-      "t": 1786534096839,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 12:28:16 PM)"
-    },
-    {
-      "t": 1786534110371,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×8 since 12:28:30 PM)"
-    },
-    {
-      "t": 1786534141643,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534142002,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×7 since 12:29:02 PM)"
-    },
-    {
-      "t": 1786534158147,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534165480,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×5 since 12:29:25 PM)"
-    },
-    {
-      "t": 1786534179685,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786534185009,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:29:45 PM)"
-    },
-    {
-      "t": 1786534193229,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534203188,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×4 since 12:30:03 PM)"
-    },
-    {
-      "t": 1786534210259,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534214169,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×10 since 12:30:14 PM)"
-    },
-    {
-      "t": 1786534285564,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534292553,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×5 since 12:31:32 PM)"
-    },
-    {
-      "t": 1786534322509,
-      "text": "share: push failed, retrying in 2s"
-    },
-    {
-      "t": 1786534323590,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×2 since 12:32:03 PM)"
-    },
-    {
-      "t": 1786534326707,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786534329482,
-      "text": "update 1c92bc6 is waiting for the open position to close"
-    },
-    {
-      "t": 1786534330794,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 12:32:10 PM)"
-    },
-    {
-      "t": 1786534333519,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×6 since 12:32:13 PM)"
-    },
-    {
-      "t": 1786534356569,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534368529,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×4 since 12:32:48 PM)"
-    },
-    {
-      "t": 1786534375965,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 12:32:55 PM)"
-    },
-    {
-      "t": 1786534381117,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:33:01 PM)"
-    },
-    {
-      "t": 1786534391696,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534393658,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×11 since 12:33:13 PM)"
-    },
-    {
-      "t": 1786534436290,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534436422,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:33:56 PM)"
-    },
-    {
-      "t": 1786534450815,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786534452251,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:34:12 PM)"
-    },
-    {
-      "t": 1786534466463,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534468954,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×8 since 12:34:28 PM)"
-    },
-    {
-      "t": 1786534496625,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534500079,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×15 since 12:35:00 PM)"
-    },
-    {
-      "t": 1786534540308,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534546102,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×5 since 12:35:46 PM)"
-    },
-    {
-      "t": 1786534571930,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534578888,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×6 since 12:36:18 PM)"
-    },
-    {
-      "t": 1786534593812,
-      "text": "share: push failed, retrying in 2s"
-    },
-    {
-      "t": 1786534598035,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786534598538,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534608553,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×7 since 12:36:48 PM)"
-    },
-    {
-      "t": 1786534629500,
-      "text": "update 2cd0a33 is waiting for the open position to close"
-    },
-    {
-      "t": 1786534638175,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:37:18 PM)"
-    },
-    {
-      "t": 1786534642721,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534649609,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×19 since 12:37:29 PM)"
-    },
-    {
-      "t": 1786534721882,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786534729439,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×8 since 12:38:49 PM)"
-    },
-    {
-      "t": 1786534748139,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534749442,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×3 since 12:39:09 PM)"
-    },
-    {
-      "t": 1786534767805,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534775278,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×2 since 12:39:35 PM)"
-    },
-    {
-      "t": 1786534782821,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534783142,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add"
-    },
-    {
-      "t": 1786534783229,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534789120,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×12 since 12:39:49 PM)"
-    },
-    {
-      "t": 1786534821379,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786534821682,
-      "text": "execution BTCUSDT refused: already holding -0.143 BTCUSDT — this adapter opens, it does not add  (×5 since 12:40:21 PM)"
+      "t": 1786534936172,
+      "text": "resumed armed: this process restarted itself to take an update, and was armed before it did"
     }
   ],
   "news": {
@@ -3478,14 +2513,6 @@
       "x",
       "linkedin"
     ],
-    "poller": {
-      "recorded": 4,
-      "cycles": 152,
-      "sources": 14,
-      "unavailable": "x,linkedin",
-      "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found",
-      "velocity": "BNBUSDT 1.4x BTCUSDT 1.1x ETHUSDT 1.1x XRPUSDT 1.0x",
-      "lastPollAt": 1786534829086
-    }
+    "poller": null
   }
 }
