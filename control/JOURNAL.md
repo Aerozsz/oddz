@@ -114,3 +114,49 @@ from a stop distance.
 2. Entry gate. 1717 of 1816 signals refused as "bias called no side"; the ones
    that passed entered at 0.54x–0.93x, several inside the series' own noise.
 3. Maker path, 0 fills in 552 shadow trades, ~$4.87 a round trip.
+
+## 2026-08-12 — the walk is symmetric; direction is not there at this resolution
+
+513,000 samples, 365 days, 14 features × 5 horizons, Bonferroni bar 3.40σ.
+
+**Twenty-one findings clear the bar. Not one clears the fee.** Largest directional
+decile spread anywhere: 1.74bp (`sweepSignal` t60) against a 7bp round trip.
+
+The reason is in the excursions, and it is the same in every bucket of every
+feature: **MFE ≈ −MAE**. `thinAskUp` t15 top decile: +18.2 / −18.8. `volatility`
+t60 top decile: +64.0 / −66.3. The largest asymmetry found anywhere is `mom30`
+at t15, +1.77 top against −2.02 bottom — under 4bp of edge against 7bp of cost.
+
+So: every feature predicts **how far** price moves. None predicts **which way**.
+Conditioned on any of them, the next hour is a fair coin with a known step size.
+
+Robust and real, but sub-fee:
+- `revert5` +6.7σ / `mom5` −6.7σ at t5 — five-minute mean reversion (these are
+  the same feature mirrored; the feature set has redundancy worth pruning)
+- `ofiVsVol` −4 to −6σ at *every* horizon — aggressive taker flow anti-predicts.
+  Heavy buying precedes falls. Consistent t1 through t60.
+- `thinAskUp` +3.5 to +4.2σ — the original premise, directionally real at last
+
+Magnitude prediction is enormous and unexploited: `volatility` t60 top decile has
+**49.0%** chance of a ≥50bp favourable excursion against 2.6% in the bottom — an
+18.8× lift. `thinAskUp` t5 gives 4.63×.
+
+**Why a breakout does not rescue this.** A magnitude signal is only tradeable if
+the move continues after the breach. `mom5` is significantly *negative* — moves
+revert — so a stop-entry breakout gets faded. Magnitude plus mean reversion means
+fade-the-extension, not follow-it.
+
+**What I got wrong.** I tested a mechanism whose own description is "works in
+seconds" at one-minute resolution, on aggregated bars. If the sweep edge exists
+it is likely inside the minute, and averaging over it is exactly how it would
+disappear. That is the next thing to fix, not another feature.
+
+**Next, in order:**
+1. `aggTrades` — tick resolution. The archive publishes it; the fetcher already
+   has the code path. Test the mechanism at the timescale it claims.
+2. Percentile tails, not deciles. A top decile is 51,000 samples averaged over a
+   very wide range; if the edge is concentrated in the top 0.1% no decile can see it.
+3. Interactions. Single features cap at 3.8bp; conjunctions may not.
+4. Maker/maker execution takes the round trip from ~7bp to ~4bp. Not sufficient
+   alone — it halves the hurdle rather than clearing it — but it is a multiplier
+   on whatever the three above find.
