@@ -163,10 +163,41 @@ async function grab(kind: string, date: string, subpath: string): Promise<Fetche
  * both ways but daily keeps one code path and the volume is manageable.
  */
 const KINDS: { kind: string; subpath: string; why: string }[] = [
-  { kind: "bookDepth", subpath: `bookDepth/${symbol}`, why: "depth per side per minute — the entry rule's input" },
-  { kind: "1m", subpath: `klines/${symbol}/1m`, why: "forward returns, highs and lows for stop/target resolution" },
-  { kind: "liquidationSnapshot", subpath: `liquidationSnapshot/${symbol}`, why: "the forced closes the cascade model predicts" },
+  { kind: "bookDepth", subpath: `bookDepth/${symbol}`, why: "depth per side per minute" },
+  { kind: "1m", subpath: `klines/${symbol}/1m`, why: "returns, excursions, and taker flow" },
+  /*
+   * Positioning, which nothing in this project has ever looked at.
+   *
+   * `metrics` carries open interest and three separate long/short ratios —
+   * accounts, positions, and top traders. Where the book says what is resting
+   * right now, these say who is already committed and how leveraged they are,
+   * which is a different question and the one a squeeze is actually about. The
+   * search that ran without them scored fourteen features of which eleven were
+   * restatements of the same depth reading.
+   */
+  { kind: "metrics", subpath: `metrics/${symbol}`, why: "open interest and long/short positioning" },
+  /*
+   * Funding and basis: the only genuinely structural edge a perpetual has.
+   *
+   * A perp is pinned to spot by a payment that changes hands every eight hours.
+   * That is a carry, it is observable in advance, and harvesting it needs no
+   * directional opinion at all — which matters enormously here, because 513,000
+   * samples just said this market has no predictable direction at these
+   * horizons and does have a predictable step size.
+   */
+  { kind: "premiumIndexKlines", subpath: `premiumIndexKlines/${symbol}/1m`, why: "basis against spot; funding carry" },
+  /*
+   * Ticks, because the mechanism claims to work in seconds.
+   *
+   * The first replay tested a seconds-scale hypothesis on one-minute bars,
+   * which is how such an effect disappears. Large and optional — it is roughly
+   * a gigabyte a month — so it is fetched last and its absence is not fatal.
+   */
+  { kind: "aggTrades", subpath: `aggTrades/${symbol}`, why: "tick tape; sub-minute mechanics" },
 ];
+
+/** Skipped unless asked for: it is orders of magnitude larger than the rest. */
+const HEAVY = new Set(["aggTrades"]);
 
 async function main() {
   const dates = dateRange();
@@ -186,7 +217,12 @@ async function main() {
    * look like an attack on a public endpoint. The archive is a courtesy and
    * hammering it is how it stops being one.
    */
-  const queue = dates.flatMap((date) => KINDS.map((k) => ({ date, ...k })));
+  const wanted = process.argv.includes("--ticks") ? KINDS : KINDS.filter((k) => !HEAVY.has(k.kind));
+  if (wanted.length < KINDS.length) {
+    console.error("[history] skipping aggTrades — pass --ticks to include it (about 1 GB a month)");
+    console.error("");
+  }
+  const queue = dates.flatMap((date) => wanted.map((k) => ({ date, ...k })));
   const CONCURRENCY = 4;
   let cursor = 0;
   let done = 0;
@@ -231,7 +267,7 @@ async function main() {
    * A missing kind is worth saying loudly rather than leaving to be inferred
    * from a backtest with no signals in it.
    */
-  for (const k of KINDS) {
+  for (const k of wanted) {
     const got = results.filter((r) => r.kind === k.kind && (r.status === "downloaded" || r.status === "cached"));
     if (got.length === 0) {
       console.error(`[history] !! nothing for ${k.kind} — the replay cannot run without it`);
@@ -242,7 +278,7 @@ async function main() {
     at: Date.now(),
     symbol,
     dates,
-    kinds: KINDS.map((k) => k.kind),
+    kinds: wanted.map((k) => k.kind),
     files: results.map((r) => ({ kind: r.kind, date: r.date, bytes: r.bytes, status: r.status })),
     totalBytes: results.reduce((a, r) => a + r.bytes, 0),
   };

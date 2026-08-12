@@ -24,6 +24,17 @@ export interface Minute {
   /** Notional resting within 1% of mid, per side. */
   bid1: number;
   ask1: number;
+  /* ---- positioning and carry: who is committed, and what it costs to stay */
+  /** Open interest in contracts, from the metrics file. */
+  oi?: number;
+  /** Long/short ratio of top traders by position, not by account. */
+  topPosRatio?: number;
+  /** Long/short ratio across all accounts — the crowd, equally weighted. */
+  accountRatio?: number;
+  /** Taker buy/sell volume ratio as the venue computes it. */
+  takerRatio?: number;
+  /** Premium of the perpetual over the index, in basis points. */
+  basisBps?: number;
   close: number;
   high: number;
   low: number;
@@ -61,6 +72,8 @@ interface Roll {
   vol: number;
   trades: number;
   absRet: number;
+  oi: number;
+  basis: number;
   n: number;
 }
 
@@ -85,6 +98,8 @@ export function featuresFor(
     roll.vol = m.volume;
     roll.trades = m.trades;
     roll.absRet = 0;
+    roll.oi = m.oi ?? 0;
+    roll.basis = m.basisBps ?? 0;
     return null;
   }
 
@@ -94,6 +109,8 @@ export function featuresFor(
   roll.vol += ALPHA * (m.volume - roll.vol);
   roll.trades += ALPHA * (m.trades - roll.trades);
   roll.absRet += ALPHA * (Math.abs(ret1) - roll.absRet);
+  if (typeof m.oi === "number") roll.oi += ALPHA * (m.oi - roll.oi);
+  if (typeof m.basisBps === "number") roll.basis += ALPHA * (m.basisBps - roll.basis);
 
   if (roll.n < 60 || !(roll.bid > 0) || !(roll.ask > 0) || !(roll.vol > 0)) return null;
 
@@ -164,11 +181,70 @@ export function featuresFor(
     tradeSurge: Math.min(5, m.trades / Math.max(1, roll.trades)) - 1,
     volatility: roll.absRet,
     spreadProxy: (m.high - m.low) / Math.max(1e-9, m.close) * 10_000,
+
+    /* --------------------------------------------------- positioning */
+
+    /*
+     * Open interest against price, which is the oldest positioning read there
+     * is and one this project has never computed. Rising OI into a rising price
+     * is new longs being added; rising OI into a falling price is new shorts.
+     * Falling OI either way is unwinding, and an unwind is the thing a squeeze
+     * is made of.
+     */
+    oiChange: roll.oi > 0 && typeof m.oi === "number" ? (m.oi / roll.oi - 1) * 100 : 0,
+    oiUpPriceUp:
+      roll.oi > 0 && typeof m.oi === "number" ? (m.oi / roll.oi - 1) * Math.sign(retAgo(5)) * 100 : 0,
+
+    /*
+     * The crowd, oriented to fade it.
+     *
+     * A ratio above 1 means more accounts are long than short. Retail
+     * positioning is the classic contrarian read, so this is signed negative:
+     * a crowded long should mean down. Whether that is true here is exactly
+     * what the ranking is for — it has never been measured on this venue.
+     */
+    crowdFade: typeof m.accountRatio === "number" ? -(m.accountRatio - 1) : 0,
+    /*
+     * The same question asked of the traders who are actually large. Kept apart
+     * from the crowd deliberately: if the two disagree, that disagreement is
+     * the signal, and averaging them together would erase it.
+     */
+    topTraderFollow: typeof m.topPosRatio === "number" ? m.topPosRatio - 1 : 0,
+    takerRatioFade: typeof m.takerRatio === "number" ? -(m.takerRatio - 1) : 0,
+
+    /* --------------------------------------------------------- carry */
+
+    /*
+     * Basis, and how stretched it is against its own recent level.
+     *
+     * A perpetual is pinned to spot by a payment that changes hands every eight
+     * hours, so the premium is a carry rather than an opinion. It is the one
+     * structurally persistent edge this instrument has, and it needs no view on
+     * direction at all — which is the entire point given that 513,000 samples
+     * just said direction is not predictable here and step size is.
+     */
+    basis: typeof m.basisBps === "number" ? m.basisBps : 0,
+    basisStretch: typeof m.basisBps === "number" ? m.basisBps - roll.basis : 0,
+    /** Signed to fade: an expensive perp should fall against the index. */
+    basisFade: typeof m.basisBps === "number" ? -(m.basisBps - roll.basis) : 0,
+
+    /* -------------------------------------------------------- session */
+
+    /*
+     * Time of day, as two coordinates rather than one number.
+     *
+     * An hour index would tell a decile split that 23:00 and 00:00 are at
+     * opposite ends of the range when they are one minute apart. Sine and
+     * cosine of the daily angle keep the wrap-around intact, which is what lets
+     * a bucket mean anything at the boundary.
+     */
+    hourSin: Math.sin((2 * Math.PI * ((m.ts / 3_600_000) % 24)) / 24),
+    hourCos: Math.cos((2 * Math.PI * ((m.ts / 3_600_000) % 24)) / 24),
   };
 }
 
 export function emptyRoll(): Roll {
-  return { bid: 0, ask: 0, vol: 0, trades: 0, absRet: 0, n: 0 };
+  return { bid: 0, ask: 0, vol: 0, trades: 0, absRet: 0, oi: 0, basis: 0, n: 0 };
 }
 
 /* --------------------------------------------------------------- scoring */

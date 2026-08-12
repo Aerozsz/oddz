@@ -85,6 +85,43 @@ function loadMinutes(): Minute[] {
     }
   });
 
+  /*
+   * Positioning, on the metrics file's own five-minute grid.
+   *
+   * Written every five minutes rather than every one, so each row is carried
+   * forward to the minutes after it. Forward-fill and never backward: a value
+   * stamped 12:05 was not knowable at 12:03, and filling it backwards would
+   * hand the replay information the live agent could not have had. That is the
+   * single easiest way to manufacture an edge that evaporates in production.
+   */
+  const metrics = new Map<number, { oi: number; topPos: number; account: number; taker: number }>();
+  eachZip(join(histDir, "metrics"), (rows) => {
+    for (const r of rows) {
+      // create_time,symbol,sum_open_interest,sum_open_interest_value,
+      // count_toptrader_long_short_ratio,sum_toptrader_long_short_ratio,
+      // count_long_short_ratio,sum_taker_long_short_vol_ratio
+      const ts = parseTs(r[0] ?? "");
+      if (!Number.isFinite(ts)) continue;
+      metrics.set(Math.floor(ts / 60_000) * 60_000, {
+        oi: Number(r[2]) || 0,
+        topPos: Number(r[5]) || 0,
+        account: Number(r[6]) || 0,
+        taker: Number(r[7]) || 0,
+      });
+    }
+  });
+
+  /** Perp premium over the index, in basis points, per minute. */
+  const basis = new Map<number, number>();
+  eachZip(join(histDir, "premiumIndexKlines"), (rows) => {
+    for (const r of rows) {
+      const ts = parseTs(r[0] ?? "");
+      const close = Number(r[4]);
+      if (!Number.isFinite(ts) || !Number.isFinite(close)) continue;
+      basis.set(Math.floor(ts / 60_000) * 60_000, close * 10_000);
+    }
+  });
+
   const out: Minute[] = [];
   eachZip(join(histDir, "1m"), (rows) => {
     for (const r of rows) {
@@ -107,10 +144,39 @@ function loadMinutes(): Minute[] {
         // Column 9 is taker_buy_base_asset_volume — the aggressive buying that
         // makes order-flow imbalance computable with no extra download.
         takerBuy: Number(r[9]) || 0,
+        basisBps: basis.get(slot),
       });
     }
   });
-  return out.sort((a, b) => a.ts - b.ts);
+  out.sort((a, b) => a.ts - b.ts);
+
+  /*
+   * Carry the last positioning reading forward, and only forward.
+   *
+   * Anything older than fifteen minutes is dropped rather than stretched: a
+   * stale open-interest number is not a current one, and letting it persist
+   * across a gap in the archive would quietly turn missing data into a
+   * confident feature value.
+   */
+  let last: { at: number; v: NonNullable<ReturnType<typeof metrics.get>> } | null = null;
+  for (const m of out) {
+    const fresh = metrics.get(m.ts);
+    if (fresh) last = { at: m.ts, v: fresh };
+    if (last && m.ts - last.at <= 15 * 60_000) {
+      m.oi = last.v.oi;
+      m.topPosRatio = last.v.topPos;
+      m.accountRatio = last.v.account;
+      m.takerRatio = last.v.taker;
+    }
+  }
+
+  const withPositioning = out.filter((m) => typeof m.oi === "number").length;
+  const withBasis = out.filter((m) => typeof m.basisBps === "number").length;
+  console.error(
+    `[backtest] positioning on ${withPositioning} minutes · basis on ${withBasis} · ` +
+      `depth+price on ${out.length}`,
+  );
+  return out;
 }
 
 /* ------------------------------------------------------------------- main */
