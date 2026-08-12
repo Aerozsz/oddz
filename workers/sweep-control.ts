@@ -25,7 +25,7 @@ import { randomBytes } from "node:crypto";
 import { execFileSync, spawn, type ChildProcess } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
-import { dirname, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 import { attachCalendar } from "../lib/sweep/metrics/event-store";
 import { dropEngine, getEngine } from "../lib/sweep/engine";
 import { attachNews } from "../lib/sweep/agent/feed";
@@ -5249,6 +5249,63 @@ function resumeAfterUpdate() {
   }
 }
 
+/**
+ * Put the dashboard one double-click away.
+ *
+ * The URL carries a token, and the token is regenerated on every start unless
+ * SWEEP_CONTROL_TOKEN is set — so a bookmark saved once is stale by the next
+ * session, and the only current copy of the address is a line of terminal
+ * output that scrolls away behind the log. That is a poor place to keep the
+ * only control surface of something holding a position.
+ *
+ * A shortcut rewritten at every boot always points at the session that is
+ * actually running. Written to the desktop where it can be found, and to a file
+ * beside the code as a fallback for when the desktop cannot be located.
+ *
+ * Never throws: this is a convenience, and a convenience that can stop a
+ * trading process from starting is a defect. Every failure is swallowed and
+ * noted.
+ */
+function writeShortcut(url: string) {
+  /*
+   * A .url file rather than a .lnk.
+   *
+   * The shortcut format Explorer uses for the Start Menu is a binary blob that
+   * needs COM to write. A .url is three lines of text, opens in the default
+   * browser on a double-click, and works the same whether it is on the desktop
+   * or anywhere else.
+   */
+  const body = ["[InternetShortcut]", `URL=${url}`, "IconIndex=0", ""].join("\r\n");
+  const targets: string[] = [resolve("data", "Sweep dashboard.url")];
+
+  const home = process.env.USERPROFILE ?? process.env.HOME;
+  if (home) {
+    targets.push(join(home, "Desktop", "Sweep dashboard.url"));
+    // OneDrive redirects the desktop on many Windows installs, and writing only
+    // to the real path puts the shortcut somewhere the operator never looks.
+    if (process.env.OneDrive) targets.push(join(process.env.OneDrive, "Desktop", "Sweep dashboard.url"));
+  }
+
+  const written: string[] = [];
+  for (const target of targets) {
+    try {
+      mkdirSync(dirname(target), { recursive: true });
+      writeFileSync(target, body);
+      written.push(target);
+    } catch {
+      /* a desktop that does not exist is not an error worth reporting twice */
+    }
+  }
+  if (written.length) log(`dashboard shortcut: ${written.join(" · ")}`);
+  else log("could not write a dashboard shortcut anywhere — the address is in the banner above");
+
+  // Also as plain text, so anything scripted can read the current address
+  // without parsing terminal output.
+  try {
+    writeFileSync(resolve("data", "sweep-url.txt"), `${url}\n`);
+  } catch { /* the shortcut above is the one that matters */ }
+}
+
 /* --------------------------------------------------------------- snapshot */
 
 /**
@@ -5458,6 +5515,7 @@ server.listen(PORT, HOST, () => {
     setInterval(markExcursions, 1_000).unref?.();
   })();
   const url = `http://${HOST}:${PORT}/?token=${TOKEN}`;
+  writeShortcut(url);
   console.log("");
   console.log("  Sweep agent control");
   console.log(`  ${url}`);
