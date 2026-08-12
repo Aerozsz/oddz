@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1786522176336,
+    "at": 1786522212472,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -15,17 +15,17 @@
         "calibrated": false,
         "running": true,
         "attached": false,
-        "tradeable": true,
-        "warm": true,
-        "mid": 63805.55,
-        "spreadBps": 0.01567261782063548,
-        "riskUp": 37.8722104881073,
-        "riskDown": 30.76822208735002,
-        "signalsSeen": 352,
+        "tradeable": false,
+        "warm": null,
+        "mid": null,
+        "spreadBps": null,
+        "riskUp": null,
+        "riskDown": null,
+        "signalsSeen": 0,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
-        "protected": true,
+        "protected": null,
         "heldMin": 0,
         "lastRefusal": null,
         "dislocation": {
@@ -51,49 +51,61 @@
       "sides": [
         {
           "direction": "up",
-          "ok": true,
-          "stopPct": 0.5,
-          "target": 64502.21762202872,
-          "rewardRisk": 2.183721077645186,
-          "notionalUsd": 9728.547743434945,
-          "marginUsd": 2432.1369358587363,
-          "leverage": 4,
-          "riskUsd": 48.64273871717472,
-          "sizeRetained": 0.4573655516606932,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         },
         {
           "direction": "down",
-          "ok": true,
-          "stopPct": 0.5,
-          "target": 63000,
-          "rewardRisk": 2.525015457119335,
-          "notionalUsd": 9728.547743434945,
-          "marginUsd": 2432.1369358587363,
-          "leverage": 4,
-          "riskUsd": 48.64273871717472,
-          "sizeRetained": 0.4573655516606932,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         }
       ],
       "tradeable": false
     },
     "readiness": {
-      "ready": true,
+      "ready": false,
       "armed": true,
-      "blockers": [],
-      "waiting": [],
-      "summary": "armed — orders go out when a setup passes every check"
+      "blockers": [
+        "the exchange is not answering"
+      ],
+      "waiting": [
+        "BTCUSDT: starting up"
+      ],
+      "summary": "the exchange is not answering"
     },
     "orderVenue": {
-      "url": "https://demo-fapi.binance.com",
-      "checked": true,
+      "url": "",
+      "checked": false,
       "error": null,
       "untradeable": []
     },
     "engine": {
       "running": true,
-      "uptimeSec": 270,
+      "uptimeSec": 0,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -106,25 +118,31 @@
     "mode": "testnet",
     "hasCredentials": true,
     "health": {
-      "level": "ok",
-      "tradeable": true,
-      "reasons": [],
-      "summary": "live",
-      "snapshotAgeMs": 1
+      "level": "blind",
+      "tradeable": false,
+      "reasons": [
+        {
+          "code": "snapshot-stale",
+          "severity": "blind",
+          "detail": "the engine has not published yet"
+        }
+      ],
+      "summary": "starting up",
+      "snapshotAgeMs": 0
     },
     "market": {
-      "mid": 63805.55,
+      "mid": null,
       "mark": null,
-      "spreadBps": 0.01567261782063548,
-      "lwi": 1.369701334971088,
-      "lwiBid": 1.3817197401725332,
-      "lwiAsk": 1.3587939992040863,
-      "warm": true,
-      "riskUp": 37.8722104881073,
-      "riskDown": 30.76822208735002,
-      "nearestAbove": 63865.87878590842,
-      "nearestBelow": 63750,
-      "session": "pre-market",
+      "spreadBps": null,
+      "lwi": null,
+      "lwiBid": null,
+      "lwiAsk": null,
+      "warm": null,
+      "riskUp": null,
+      "riskDown": null,
+      "nearestAbove": null,
+      "nearestBelow": null,
+      "session": "closed",
       "flow": {
         "buy": 0,
         "sell": 0
@@ -134,7 +152,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 2201,
+      "staleForMs": null,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,12 +163,12 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1786522174136,
+      "at": 0,
       "error": null,
-      "availableBalance": 2658.85452788,
-      "walletBalance": 2658.85452788,
-      "unrealizedPnl": 0,
-      "marginRatio": 0,
+      "availableBalance": null,
+      "walletBalance": null,
+      "unrealizedPnl": null,
+      "marginRatio": null,
       "positions": []
     },
     "limits": {
@@ -180,21 +198,12 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1786522156615,
-      "realisedPnl": 0,
-      "drawdown": 0,
-      "trades": 0,
-      "fees": 0,
-      "funding": 0,
-      "lastLossAt": 0,
-      "cooldownLeftMin": 0,
-      "countingFrom": 1786519512530,
-      "rebased": true,
-      "rebaseReason": "reset by hand from the dashboard"
+      "at": 0,
+      "error": null
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 352,
+      "signalsSeen": 0,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -220,10 +229,10 @@
       }
     },
     "protection": {
-      "at": 1786522156310,
+      "at": 0,
       "error": null,
-      "flat": true,
-      "protected": true,
+      "flat": null,
+      "protected": null,
       "stopPrice": null,
       "stopDistancePct": null,
       "targetPrice": null,
@@ -234,7 +243,7 @@
       "heldMin": 0,
       "ratcheted": false,
       "hold": null,
-      "reason": "flat"
+      "reason": null
     }
   },
   "desired": {
@@ -258,27 +267,30 @@
       },
       {
         "name": "exchange reachable",
-        "ok": true,
-        "severity": "ok",
-        "detail": "balance 2658.85 USDT"
+        "ok": false,
+        "severity": "bad",
+        "detail": "no account read yet",
+        "fix": "npm run sweep:check names the specific cause."
       },
       {
         "name": "contracts tradeable here",
-        "ok": true,
-        "severity": "ok",
-        "detail": "BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT all listed at https://demo-fapi.binance.com"
+        "ok": false,
+        "severity": "warn",
+        "detail": "not checked yet",
+        "fix": "Without this, a symbol the demo account cannot trade is indistinguishable from a quiet market."
       },
       {
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 270s"
+        "detail": "1/1 — BTCUSDT up 0s"
       },
       {
         "name": "feed: BTCUSDT",
-        "ok": true,
-        "severity": "ok",
-        "detail": "ok"
+        "ok": false,
+        "severity": "bad",
+        "detail": "blind — starting up",
+        "fix": "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance is blocked or BTCUSDT is not a listed contract — npm run sweep:symbols says which."
       },
       {
         "name": "max position set",
@@ -323,19 +335,19 @@
         "name": "evidence sampler",
         "ok": true,
         "severity": "ok",
-        "detail": "2s since its last beat"
+        "detail": "8s since its last beat"
       },
       {
         "name": "shadow run",
         "ok": true,
         "severity": "ok",
-        "detail": "1s since its last beat"
+        "detail": "7s since its last beat"
       },
       {
         "name": "news + social feeds",
         "ok": true,
         "severity": "ok",
-        "detail": "6/14 sources live (in this process), 0 headlines recorded · 8 erroring: reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 "
+        "detail": "6/14 sources live (standalone sweep:news), 0 headlines recorded · 8 erroring: reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 "
       },
       {
         "name": "position cap",
@@ -351,7 +363,7 @@
         "fix": "Fine for testing that orders place. The leverage ladder, maintenance rate, session weights and earnings calendar are all built for an equity perp on Nasdaq and mean nothing on a crypto pair or a contract on another exchange's clock — do not read a strategy result off those."
       }
     ],
-    "verdict": "1 thing broken",
+    "verdict": "3 things broken",
     "worst": "bad"
   },
   "errors": [],
@@ -386,7 +398,7 @@
   "ledger": {
     "epoch": 1786519512530,
     "balance": 2658.85452788,
-    "at": 1786522174136,
+    "at": 1786522194715,
     "reason": "reset by hand from the dashboard"
   },
   "learn": {
@@ -2481,804 +2493,12 @@
   },
   "log": [
     {
-      "t": 1786521964994,
-      "text": "at Module.load (node:internal/modules/cjs/loader:1553:32)"
+      "t": 1786522212459,
+      "text": "engine started — BTCUSDT"
     },
     {
-      "t": 1786521964994,
-      "text": "at Module._load (node:internal/modules/cjs/loader:1355:12)"
-    },
-    {
-      "t": 1786521964994,
-      "text": "at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)"
-    },
-    {
-      "t": 1786521964995,
-      "text": "at loadCJSModuleWithModuleLoad (node:internal/modules/esm/translators:326:3)"
-    },
-    {
-      "t": 1786521964995,
-      "text": "at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:231:7)"
-    },
-    {
-      "t": 1786521964995,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786521965063,
-      "text": "research: SOLUSDT: the replay refused — see its message above; nothing was written"
-    },
-    {
-      "t": 1786521965064,
-      "text": "research: BNBUSDT: fetching up to 365 days"
-    },
-    {
-      "t": 1786521965360,
-      "text": "> oddz@0.1.0 sweep:history"
-    },
-    {
-      "t": 1786521965360,
-      "text": "> tsx workers/sweep-history.ts --symbol BNBUSDT --days 365"
-    },
-    {
-      "t": 1786521965654,
-      "text": "[history] BNBUSDT · 2025-08-12 to 2026-08-11 · 365 days"
-    },
-    {
-      "t": 1786521965655,
-      "text": "[history] into C:\\Users\\Aero\\oddz\\data\\history\\BNBUSDT"
-    },
-    {
-      "t": 1786521965656,
-      "text": "[history] public archive, no API key, nothing here touches the trading path"
-    },
-    {
-      "t": 1786521965656,
-      "text": "[history]   bookDepth: depth per side per minute"
-    },
-    {
-      "t": 1786521965656,
-      "text": "[history]   1m: returns, excursions, and taker flow"
-    },
-    {
-      "t": 1786521965656,
-      "text": "[history]   metrics: open interest and long/short positioning"
-    },
-    {
-      "t": 1786521965656,
-      "text": "[history]   premiumIndexKlines: basis against spot; funding carry"
-    },
-    {
-      "t": 1786521965656,
-      "text": "[history]   aggTrades: tick tape; sub-minute mechanics"
-    },
-    {
-      "t": 1786521965656,
-      "text": "[history] skipping aggTrades — pass --ticks to include it (about 1 GB a month)"
-    },
-    {
-      "t": 1786521965660,
-      "text": "[history] 25/1460 · 4 MB"
-    },
-    {
-      "t": 1786521965662,
-      "text": "[history] 50/1460 · 7 MB"
-    },
-    {
-      "t": 1786521965665,
-      "text": "[history] 75/1460 · 10 MB"
-    },
-    {
-      "t": 1786521965668,
-      "text": "[history] 100/1460 · 13 MB"
-    },
-    {
-      "t": 1786521965672,
-      "text": "[history] 125/1460 · 17 MB"
-    },
-    {
-      "t": 1786521965675,
-      "text": "[history] 150/1460 · 20 MB"
-    },
-    {
-      "t": 1786521965678,
-      "text": "[history] 175/1460 · 23 MB"
-    },
-    {
-      "t": 1786521965681,
-      "text": "[history] 200/1460 · 26 MB"
-    },
-    {
-      "t": 1786521965684,
-      "text": "[history] 225/1460 · 30 MB"
-    },
-    {
-      "t": 1786521965688,
-      "text": "[history] 250/1460 · 33 MB"
-    },
-    {
-      "t": 1786521965694,
-      "text": "[history] 275/1460 · 36 MB"
-    },
-    {
-      "t": 1786521965697,
-      "text": "[history] 300/1460 · 39 MB"
-    },
-    {
-      "t": 1786521965700,
-      "text": "[history] 325/1460 · 43 MB"
-    },
-    {
-      "t": 1786521965703,
-      "text": "[history] 350/1460 · 46 MB"
-    },
-    {
-      "t": 1786521965706,
-      "text": "[history] 375/1460 · 49 MB"
-    },
-    {
-      "t": 1786521965709,
-      "text": "[history] 400/1460 · 52 MB"
-    },
-    {
-      "t": 1786521965712,
-      "text": "[history] 425/1460 · 56 MB"
-    },
-    {
-      "t": 1786521965715,
-      "text": "[history] 450/1460 · 59 MB"
-    },
-    {
-      "t": 1786521965717,
-      "text": "[history] 475/1460 · 62 MB"
-    },
-    {
-      "t": 1786521965721,
-      "text": "[history] 500/1460 · 65 MB"
-    },
-    {
-      "t": 1786521965723,
-      "text": "[history] 525/1460 · 68 MB"
-    },
-    {
-      "t": 1786521965726,
-      "text": "[history] 550/1460 · 72 MB"
-    },
-    {
-      "t": 1786521965729,
-      "text": "[history] 575/1460 · 75 MB"
-    },
-    {
-      "t": 1786521965732,
-      "text": "[history] 600/1460 · 78 MB"
-    },
-    {
-      "t": 1786521965735,
-      "text": "[history] 625/1460 · 81 MB"
-    },
-    {
-      "t": 1786521965738,
-      "text": "[history] 650/1460 · 85 MB"
-    },
-    {
-      "t": 1786521965740,
-      "text": "[history] 675/1460 · 89 MB"
-    },
-    {
-      "t": 1786521965743,
-      "text": "[history] 700/1460 · 92 MB"
-    },
-    {
-      "t": 1786521965746,
-      "text": "[history] 725/1460 · 96 MB"
-    },
-    {
-      "t": 1786521965750,
-      "text": "[history] 750/1460 · 100 MB"
-    },
-    {
-      "t": 1786521965752,
-      "text": "[history] 775/1460 · 103 MB"
-    },
-    {
-      "t": 1786521965755,
-      "text": "[history] 800/1460 · 107 MB"
-    },
-    {
-      "t": 1786521965758,
-      "text": "[history] 825/1460 · 111 MB"
-    },
-    {
-      "t": 1786521965760,
-      "text": "[history] 850/1460 · 115 MB"
-    },
-    {
-      "t": 1786521965763,
-      "text": "[history] 875/1460 · 118 MB"
-    },
-    {
-      "t": 1786521965767,
-      "text": "[history] 900/1460 · 121 MB"
-    },
-    {
-      "t": 1786521965770,
-      "text": "[history] 925/1460 · 125 MB"
-    },
-    {
-      "t": 1786521965773,
-      "text": "[history] 950/1460 · 129 MB"
-    },
-    {
-      "t": 1786521965775,
-      "text": "[history] 975/1460 · 132 MB"
-    },
-    {
-      "t": 1786521965778,
-      "text": "[history] 1000/1460 · 136 MB"
-    },
-    {
-      "t": 1786521965781,
-      "text": "[history] 1025/1460 · 140 MB"
-    },
-    {
-      "t": 1786521965783,
-      "text": "[history] 1050/1460 · 143 MB"
-    },
-    {
-      "t": 1786521965787,
-      "text": "[history] 1075/1460 · 147 MB"
-    },
-    {
-      "t": 1786521965789,
-      "text": "[history] 1100/1460 · 150 MB"
-    },
-    {
-      "t": 1786521965792,
-      "text": "[history] 1125/1460 · 154 MB"
-    },
-    {
-      "t": 1786521965795,
-      "text": "[history] 1150/1460 · 158 MB"
-    },
-    {
-      "t": 1786521965798,
-      "text": "[history] 1175/1460 · 161 MB"
-    },
-    {
-      "t": 1786521965801,
-      "text": "[history] 1200/1460 · 165 MB"
-    },
-    {
-      "t": 1786521965804,
-      "text": "[history] 1225/1460 · 169 MB"
-    },
-    {
-      "t": 1786521965807,
-      "text": "[history] 1250/1460 · 173 MB"
-    },
-    {
-      "t": 1786521965810,
-      "text": "[history] 1275/1460 · 177 MB"
-    },
-    {
-      "t": 1786521965813,
-      "text": "[history] 1300/1460 · 180 MB"
-    },
-    {
-      "t": 1786521965816,
-      "text": "[history] 1325/1460 · 184 MB"
-    },
-    {
-      "t": 1786521965818,
-      "text": "[history] 1350/1460 · 188 MB"
-    },
-    {
-      "t": 1786521965821,
-      "text": "[history] 1375/1460 · 192 MB"
-    },
-    {
-      "t": 1786521965824,
-      "text": "[history] 1400/1460 · 195 MB"
-    },
-    {
-      "t": 1786521965827,
-      "text": "[history] 1425/1460 · 200 MB"
-    },
-    {
-      "t": 1786521965830,
-      "text": "[history] 1450/1460 · 203 MB"
-    },
-    {
-      "t": 1786521966668,
-      "text": "[history] 1460/1460 · 204 MB"
-    },
-    {
-      "t": 1786521966668,
-      "text": "[history] 0 downloaded · 1458 already here · 2 not published · 0 failed"
-    },
-    {
-      "t": 1786521966671,
-      "text": "[history] manifest: C:\\Users\\Aero\\oddz\\data\\history\\BNBUSDT\\manifest.json"
-    },
-    {
-      "t": 1786521966671,
-      "text": "[history] next:     npm run sweep:backtest"
-    },
-    {
-      "t": 1786521966750,
-      "text": "research: BNBUSDT: replaying"
-    },
-    {
-      "t": 1786521967030,
-      "text": "> oddz@0.1.0 sweep:backtest"
-    },
-    {
-      "t": 1786521967030,
-      "text": "> tsx workers/sweep-backtest.ts --symbol BNBUSDT"
-    },
-    {
-      "t": 1786521984209,
-      "text": "[backtest] positioning on 511620 minutes · basis on 511625 · depth+price on 511625"
-    },
-    {
-      "t": 1786521984210,
-      "text": "[backtest] BNBUSDT · 511625 minutes with both depth and price"
-    },
-    {
-      "t": 1786521984289,
-      "text": "C:\\Users\\Aero\\oddz\\workers\\sweep-backtest.ts:222"
-    },
-    {
-      "t": 1786521984292,
-      "text": "const lo = Math.min(...closes);"
-    },
-    {
-      "t": 1786521984294,
-      "text": "^"
-    },
-    {
-      "t": 1786521984294,
-      "text": "RangeError: Maximum call stack size exceeded"
-    },
-    {
-      "t": 1786521984294,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-backtest.ts:222:19)"
-    },
-    {
-      "t": 1786521984294,
-      "text": "at lo (C:\\Users\\Aero\\oddz\\workers\\sweep-backtest.ts:366:1)"
-    },
-    {
-      "t": 1786521984294,
-      "text": "at Object.<anonymous> (C:\\Users\\Aero\\oddz\\workers\\sweep-backtest.ts:366:6)"
-    },
-    {
-      "t": 1786521984294,
-      "text": "at Module._compile (node:internal/modules/cjs/loader:1830:14)"
-    },
-    {
-      "t": 1786521984295,
-      "text": "at Object.transformer (C:\\Users\\Aero\\oddz\\node_modules\\tsx\\dist\\register-D46fvsV_.cjs:3:1104)"
-    },
-    {
-      "t": 1786521984295,
-      "text": "at Module.load (node:internal/modules/cjs/loader:1553:32)"
-    },
-    {
-      "t": 1786521984295,
-      "text": "at Module._load (node:internal/modules/cjs/loader:1355:12)"
-    },
-    {
-      "t": 1786521984295,
-      "text": "at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)"
-    },
-    {
-      "t": 1786521984295,
-      "text": "at loadCJSModuleWithModuleLoad (node:internal/modules/esm/translators:326:3)"
-    },
-    {
-      "t": 1786521984295,
-      "text": "at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:231:7)"
-    },
-    {
-      "t": 1786521984295,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786521984425,
-      "text": "research: BNBUSDT: the replay refused — see its message above; nothing was written"
-    },
-    {
-      "t": 1786521984425,
-      "text": "research: XRPUSDT: fetching up to 365 days"
-    },
-    {
-      "t": 1786521984781,
-      "text": "> oddz@0.1.0 sweep:history"
-    },
-    {
-      "t": 1786521984781,
-      "text": "> tsx workers/sweep-history.ts --symbol XRPUSDT --days 365"
-    },
-    {
-      "t": 1786521985075,
-      "text": "[history] XRPUSDT · 2025-08-12 to 2026-08-11 · 365 days"
-    },
-    {
-      "t": 1786521985076,
-      "text": "[history] into C:\\Users\\Aero\\oddz\\data\\history\\XRPUSDT"
-    },
-    {
-      "t": 1786521985077,
-      "text": "[history] public archive, no API key, nothing here touches the trading path"
-    },
-    {
-      "t": 1786521985077,
-      "text": "[history]   bookDepth: depth per side per minute"
-    },
-    {
-      "t": 1786521985077,
-      "text": "[history]   1m: returns, excursions, and taker flow"
-    },
-    {
-      "t": 1786521985077,
-      "text": "[history]   metrics: open interest and long/short positioning"
-    },
-    {
-      "t": 1786521985077,
-      "text": "[history]   premiumIndexKlines: basis against spot; funding carry"
-    },
-    {
-      "t": 1786521985077,
-      "text": "[history]   aggTrades: tick tape; sub-minute mechanics"
-    },
-    {
-      "t": 1786521985077,
-      "text": "[history] skipping aggTrades — pass --ticks to include it (about 1 GB a month)"
-    },
-    {
-      "t": 1786521985081,
-      "text": "[history] 25/1460 · 4 MB"
-    },
-    {
-      "t": 1786521985084,
-      "text": "[history] 50/1460 · 7 MB"
-    },
-    {
-      "t": 1786521985087,
-      "text": "[history] 75/1460 · 11 MB"
-    },
-    {
-      "t": 1786521985090,
-      "text": "[history] 100/1460 · 14 MB"
-    },
-    {
-      "t": 1786521985094,
-      "text": "[history] 125/1460 · 18 MB"
-    },
-    {
-      "t": 1786521985097,
-      "text": "[history] 150/1460 · 22 MB"
-    },
-    {
-      "t": 1786521985100,
-      "text": "[history] 175/1460 · 25 MB"
-    },
-    {
-      "t": 1786521985103,
-      "text": "[history] 200/1460 · 29 MB"
-    },
-    {
-      "t": 1786521985106,
-      "text": "[history] 225/1460 · 33 MB"
-    },
-    {
-      "t": 1786521985109,
-      "text": "[history] 250/1460 · 36 MB"
-    },
-    {
-      "t": 1786521985113,
-      "text": "[history] 275/1460 · 39 MB"
-    },
-    {
-      "t": 1786521985116,
-      "text": "[history] 300/1460 · 42 MB"
-    },
-    {
-      "t": 1786521985119,
-      "text": "[history] 325/1460 · 46 MB"
-    },
-    {
-      "t": 1786521985121,
-      "text": "[history] 350/1460 · 49 MB"
-    },
-    {
-      "t": 1786521985124,
-      "text": "[history] 375/1460 · 53 MB"
-    },
-    {
-      "t": 1786521985127,
-      "text": "[history] 400/1460 · 56 MB"
-    },
-    {
-      "t": 1786521985130,
-      "text": "[history] 425/1460 · 60 MB"
-    },
-    {
-      "t": 1786521985133,
-      "text": "[history] 450/1460 · 63 MB"
-    },
-    {
-      "t": 1786521985135,
-      "text": "[history] 475/1460 · 67 MB"
-    },
-    {
-      "t": 1786521985138,
-      "text": "[history] 500/1460 · 70 MB"
-    },
-    {
-      "t": 1786521985141,
-      "text": "[history] 525/1460 · 74 MB"
-    },
-    {
-      "t": 1786521985144,
-      "text": "[history] 550/1460 · 77 MB"
-    },
-    {
-      "t": 1786521985146,
-      "text": "[history] 575/1460 · 81 MB"
-    },
-    {
-      "t": 1786521985149,
-      "text": "[history] 600/1460 · 84 MB"
-    },
-    {
-      "t": 1786521985190,
-      "text": "[history] 625/1460 · 88 MB"
-    },
-    {
-      "t": 1786521985193,
-      "text": "[history] 650/1460 · 92 MB"
-    },
-    {
-      "t": 1786521985196,
-      "text": "[history] 675/1460 · 96 MB"
-    },
-    {
-      "t": 1786521985198,
-      "text": "[history] 700/1460 · 100 MB"
-    },
-    {
-      "t": 1786521985201,
-      "text": "[history] 725/1460 · 104 MB"
-    },
-    {
-      "t": 1786521985204,
-      "text": "[history] 750/1460 · 108 MB"
-    },
-    {
-      "t": 1786521985208,
-      "text": "[history] 775/1460 · 112 MB"
-    },
-    {
-      "t": 1786521985210,
-      "text": "[history] 800/1460 · 116 MB"
-    },
-    {
-      "t": 1786521985213,
-      "text": "[history] 825/1460 · 120 MB"
-    },
-    {
-      "t": 1786521985216,
-      "text": "[history] 850/1460 · 124 MB"
-    },
-    {
-      "t": 1786521985219,
-      "text": "[history] 875/1460 · 128 MB"
-    },
-    {
-      "t": 1786521985223,
-      "text": "[history] 900/1460 · 132 MB"
-    },
-    {
-      "t": 1786521985226,
-      "text": "[history] 925/1460 · 136 MB"
-    },
-    {
-      "t": 1786521985229,
-      "text": "[history] 950/1460 · 140 MB"
-    },
-    {
-      "t": 1786521985232,
-      "text": "[history] 975/1460 · 144 MB"
-    },
-    {
-      "t": 1786521985235,
-      "text": "[history] 1000/1460 · 148 MB"
-    },
-    {
-      "t": 1786521985238,
-      "text": "[history] 1025/1460 · 152 MB"
-    },
-    {
-      "t": 1786521985240,
-      "text": "[history] 1050/1460 · 155 MB"
-    },
-    {
-      "t": 1786521985243,
-      "text": "[history] 1075/1460 · 159 MB"
-    },
-    {
-      "t": 1786521985246,
-      "text": "[history] 1100/1460 · 164 MB"
-    },
-    {
-      "t": 1786521985249,
-      "text": "[history] 1125/1460 · 167 MB"
-    },
-    {
-      "t": 1786521985252,
-      "text": "[history] 1150/1460 · 171 MB"
-    },
-    {
-      "t": 1786521985255,
-      "text": "[history] 1175/1460 · 175 MB"
-    },
-    {
-      "t": 1786521985258,
-      "text": "[history] 1200/1460 · 180 MB"
-    },
-    {
-      "t": 1786521985262,
-      "text": "[history] 1225/1460 · 184 MB"
-    },
-    {
-      "t": 1786521985265,
-      "text": "[history] 1250/1460 · 188 MB"
-    },
-    {
-      "t": 1786521985270,
-      "text": "[history] 1275/1460 · 192 MB"
-    },
-    {
-      "t": 1786521985274,
-      "text": "[history] 1300/1460 · 196 MB"
-    },
-    {
-      "t": 1786521985277,
-      "text": "[history] 1325/1460 · 200 MB"
-    },
-    {
-      "t": 1786521985280,
-      "text": "[history] 1350/1460 · 204 MB"
-    },
-    {
-      "t": 1786521985283,
-      "text": "[history] 1375/1460 · 208 MB"
-    },
-    {
-      "t": 1786521985286,
-      "text": "[history] 1400/1460 · 213 MB"
-    },
-    {
-      "t": 1786521985289,
-      "text": "[history] 1425/1460 · 217 MB"
-    },
-    {
-      "t": 1786521985293,
-      "text": "[history] 1450/1460 · 221 MB"
-    },
-    {
-      "t": 1786521986086,
-      "text": "[history] 1460/1460 · 222 MB"
-    },
-    {
-      "t": 1786521986087,
-      "text": "[history] 0 downloaded · 1457 already here · 3 not published · 0 failed"
-    },
-    {
-      "t": 1786521986089,
-      "text": "[history] manifest: C:\\Users\\Aero\\oddz\\data\\history\\XRPUSDT\\manifest.json"
-    },
-    {
-      "t": 1786521986089,
-      "text": "[history] next:     npm run sweep:backtest"
-    },
-    {
-      "t": 1786521986123,
-      "text": "research: XRPUSDT: replaying"
-    },
-    {
-      "t": 1786521986410,
-      "text": "> oddz@0.1.0 sweep:backtest"
-    },
-    {
-      "t": 1786521986410,
-      "text": "> tsx workers/sweep-backtest.ts --symbol XRPUSDT"
-    },
-    {
-      "t": 1786522004155,
-      "text": "[backtest] positioning on 510192 minutes · basis on 510197 · depth+price on 510197"
-    },
-    {
-      "t": 1786522004156,
-      "text": "[backtest] XRPUSDT · 510197 minutes with both depth and price"
-    },
-    {
-      "t": 1786522004179,
-      "text": "C:\\Users\\Aero\\oddz\\workers\\sweep-backtest.ts:222"
-    },
-    {
-      "t": 1786522004179,
-      "text": "const lo = Math.min(...closes);"
-    },
-    {
-      "t": 1786522004179,
-      "text": "^"
-    },
-    {
-      "t": 1786522004179,
-      "text": "RangeError: Maximum call stack size exceeded"
-    },
-    {
-      "t": 1786522004179,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-backtest.ts:222:19)"
-    },
-    {
-      "t": 1786522004179,
-      "text": "at lo (C:\\Users\\Aero\\oddz\\workers\\sweep-backtest.ts:366:1)"
-    },
-    {
-      "t": 1786522004179,
-      "text": "at Object.<anonymous> (C:\\Users\\Aero\\oddz\\workers\\sweep-backtest.ts:366:6)"
-    },
-    {
-      "t": 1786522004179,
-      "text": "at Module._compile (node:internal/modules/cjs/loader:1830:14)"
-    },
-    {
-      "t": 1786522004180,
-      "text": "at Object.transformer (C:\\Users\\Aero\\oddz\\node_modules\\tsx\\dist\\register-D46fvsV_.cjs:3:1104)"
-    },
-    {
-      "t": 1786522004180,
-      "text": "at Module.load (node:internal/modules/cjs/loader:1553:32)"
-    },
-    {
-      "t": 1786522004180,
-      "text": "at Module._load (node:internal/modules/cjs/loader:1355:12)"
-    },
-    {
-      "t": 1786522004180,
-      "text": "at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)"
-    },
-    {
-      "t": 1786522004180,
-      "text": "at loadCJSModuleWithModuleLoad (node:internal/modules/esm/translators:326:3)"
-    },
-    {
-      "t": 1786522004180,
-      "text": "at ModuleWrap.<anonymous> (node:internal/modules/esm/translators:231:7)"
-    },
-    {
-      "t": 1786522004180,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786522004242,
-      "text": "research: XRPUSDT: the replay refused — see its message above; nothing was written"
-    },
-    {
-      "t": 1786522004243,
-      "text": "research: watching — another pass every 6h. Ctrl-C to stop."
-    },
-    {
-      "t": 1786522026270,
-      "text": "news: collecting from 14 sources in-process (2 unavailable: x, linkedin)"
-    },
-    {
-      "t": 1786522055551,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
+      "t": 1786522212461,
+      "text": "resumed armed: this process restarted itself to take an update, and was armed before it did"
     }
   ],
   "news": {
@@ -3287,14 +2507,6 @@
       "x",
       "linkedin"
     ],
-    "poller": {
-      "recorded": 0,
-      "cycles": 9,
-      "sources": 14,
-      "unavailable": "x,linkedin",
-      "errors": "reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found",
-      "velocity": "BNBUSDT 1.0x BTCUSDT 1.0x ETHUSDT 1.0x XRPUSDT 1.0x",
-      "lastPollAt": 1786522156405
-    }
+    "poller": null
   }
 }
