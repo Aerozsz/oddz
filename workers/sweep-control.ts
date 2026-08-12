@@ -5005,10 +5005,21 @@ function superviseResearch() {
     shell: isWindows,
   });
   researchChild = child;
+  /*
+   * Only the lines that conclude something.
+   *
+   * The research worker prints a banner and a progress line per file, and the
+   * share worker relays npm's own output too — together they filled the
+   * 200-line ring within seconds and pushed out the log that says why arming
+   * failed. Observability was destroyed by the process added to improve it, and
+   * the failure it hid took three passes to find because the evidence for it
+   * was being overwritten every snapshot.
+   */
+  const KEEP = /(ranking written|replay refused|could not|refus|error|!!|span \d+ days)/i;
   const relay = (buf: Buffer) => {
     for (const line of String(buf).split("\n")) {
       const t = line.trim();
-      if (t) log(t.replace(/^\[research\]\s*/, "research: "));
+      if (t && KEEP.test(t)) log(t.replace(/^\[research\]\s*/, "research: ").slice(0, 200));
     }
   };
   child.stdout?.on("data", relay);
