@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1786517482343,
+    "at": 1786517613538,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -15,19 +15,19 @@
         "calibrated": false,
         "running": true,
         "attached": false,
-        "tradeable": true,
-        "warm": true,
-        "mid": 63636.05,
-        "spreadBps": 0.015714363163418347,
-        "riskUp": 25.264516609895743,
-        "riskDown": 33.16557624505098,
-        "signalsSeen": 11767,
+        "tradeable": false,
+        "warm": null,
+        "mid": null,
+        "spreadBps": null,
+        "riskUp": null,
+        "riskDown": null,
+        "signalsSeen": 0,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
-        "protected": true,
+        "protected": null,
         "heldMin": 0,
-        "lastRefusal": "another contract just entered — 57s of burst guard left",
+        "lastRefusal": null,
         "dislocation": {
           "warm": false,
           "coupled": false,
@@ -46,54 +46,66 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": "down",
-      "biasSummary": "Least resistance is downward — 8,438,850 to set off the downside vs 47,768,695 upside — cheaper to push down; 0.06% below, 0.21% above",
+      "biasDirection": null,
+      "biasSummary": "Neither side is meaningfully more exposed than the other right now.",
       "sides": [
         {
           "direction": "up",
-          "ok": true,
-          "stopPct": 0.5,
-          "target": 64340.578239473674,
-          "rewardRisk": 2.21424252282683,
-          "notionalUsd": 10305.777481613639,
-          "marginUsd": 2576.4443704034097,
-          "leverage": 4,
-          "riskUsd": 51.528887408068194,
-          "sizeRetained": 0.4845026953125,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         },
         {
           "direction": "down",
-          "ok": true,
-          "stopPct": 0.5,
-          "target": 62800,
-          "rewardRisk": 2.6275986645934273,
-          "notionalUsd": 10305.777481613639,
-          "marginUsd": 2576.4443704034097,
-          "leverage": 4,
-          "riskUsd": 51.528887408068194,
-          "sizeRetained": 0.4845026953125,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         }
       ],
-      "tradeable": true
+      "tradeable": false
     },
     "readiness": {
-      "ready": true,
+      "ready": false,
       "armed": false,
-      "blockers": [],
-      "waiting": [],
-      "summary": "ready — press Start trading"
+      "blockers": [
+        "the exchange is not answering"
+      ],
+      "waiting": [
+        "BTCUSDT: starting up"
+      ],
+      "summary": "the exchange is not answering"
     },
     "orderVenue": {
-      "url": "https://demo-fapi.binance.com",
-      "checked": true,
+      "url": "",
+      "checked": false,
       "error": null,
       "untradeable": []
     },
     "engine": {
       "running": true,
-      "uptimeSec": 58094,
+      "uptimeSec": 0,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -106,24 +118,30 @@
     "mode": "testnet",
     "hasCredentials": true,
     "health": {
-      "level": "ok",
-      "tradeable": true,
-      "reasons": [],
-      "summary": "live",
-      "snapshotAgeMs": 1
+      "level": "blind",
+      "tradeable": false,
+      "reasons": [
+        {
+          "code": "snapshot-stale",
+          "severity": "blind",
+          "detail": "the engine has not published yet"
+        }
+      ],
+      "summary": "starting up",
+      "snapshotAgeMs": 0
     },
     "market": {
-      "mid": 63636.05,
+      "mid": null,
       "mark": null,
-      "spreadBps": 0.015714363163418347,
-      "lwi": 1.0332503797180144,
-      "lwiBid": 1.1232877347456194,
-      "lwiAsk": 0.9179565566428759,
-      "warm": true,
-      "riskUp": 25.264516609895743,
-      "riskDown": 33.16557624505098,
-      "nearestAbove": 63772.22222222222,
-      "nearestBelow": 63600,
+      "spreadBps": null,
+      "lwi": null,
+      "lwiBid": null,
+      "lwiAsk": null,
+      "warm": null,
+      "riskUp": null,
+      "riskDown": null,
+      "nearestAbove": null,
+      "nearestBelow": null,
       "session": "closed",
       "flow": {
         "buy": 0,
@@ -134,7 +152,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 3444,
+      "staleForMs": null,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,16 +163,15 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1786517478899,
+      "at": 0,
       "error": null,
-      "availableBalance": 2658.85452788,
-      "walletBalance": 2658.85452788,
-      "unrealizedPnl": 0,
-      "marginRatio": 0,
+      "availableBalance": null,
+      "walletBalance": null,
+      "unrealizedPnl": null,
+      "marginRatio": null,
       "positions": []
     },
     "limits": {
-      "capsDerivedAt": 1786377791176,
       "maxPositionUsd": 32590,
       "maxLeverage": 10,
       "maxDailyLossUsd": 0,
@@ -172,219 +189,36 @@
       "minRewardOverFees": 2,
       "autoTune": false,
       "marginHeadroomPct": 5,
+      "burstGuardSec": 60,
+      "biasDeadZone": 0.12,
+      "desiredAppliedAt": 0,
+      "capsDerivedAt": 1786377791176,
       "trailArmsAtR": 1,
       "scaleOutAtR": 1.5,
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1786517481448,
-      "realisedPnl": 0,
-      "drawdown": 0,
-      "trades": 0,
-      "fees": 0,
-      "funding": 0,
-      "lastLossAt": 0,
-      "cooldownLeftMin": 0,
-      "countingFrom": 1786442084062,
-      "rebased": false,
-      "rebaseReason": "reset by hand from the dashboard"
+      "at": 0,
+      "error": null
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 11767,
+      "signalsSeen": 0,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
       "declined": 0,
       "notReady": 0,
       "lastAcceptedAt": 0,
-      "lastRefusal": {
-        "at": 1786465931735,
-        "reason": "another contract just entered — 57s of burst guard left"
-      },
-      "refusals": [
-        {
-          "reason": "bias called no side",
-          "count": 1759
-        }
-      ]
+      "lastRefusal": null,
+      "refusals": []
     },
     "execution": {
       "available": false,
       "armed": false,
       "running": false,
       "reason": "trading is disarmed; set your caps and arm it to allow orders",
-      "history": [
-        {
-          "at": 1786465935428,
-          "intentId": "intent:cascade-risk:1786465928704:1i2",
-          "outcome": "failed",
-          "detail": "400 {\"code\":-1021,\"msg\":\"Timestamp for this request is outside of the recvWindow.\"} (system clock is out of sync with Binance — resync NTP)\n    → The request timestamp was outside Binance's window — this machine's clock has drifted.\n    → Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm.",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465828221,
-          "intentId": "intent:cascade-risk:1786465826313:1h6",
-          "outcome": "refused",
-          "detail": "already holding 0.192 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465766135,
-          "intentId": "intent:cluster-approach:1786465764757:1gv",
-          "outcome": "refused",
-          "detail": "already holding 0.192 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465705950,
-          "intentId": "intent:cluster-approach:1786465704605:1ge",
-          "outcome": "refused",
-          "detail": "already holding 0.192 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465647802,
-          "intentId": "intent:cluster-approach:1786465644353:1fz",
-          "outcome": "submitted",
-          "detail": "BUY 0.192 BTCUSDT at market (~12228 notional), protective stop resting at 63295.47. Reason: price 0.12% from a $339k amplifying cluster at 63500 (round, confidence 28%) | Least resistance is upward — 24,901,765 to set off the downside vs 6,260,622 upside — cheaper to push up; 0.12% below, 0.04% above",
-          "entry": {
-            "orderId": 28537904829,
-            "symbol": "BTCUSDT",
-            "side": "BUY",
-            "type": "MARKET",
-            "stopPrice": 0,
-            "closePosition": false,
-            "reduceOnly": false,
-            "quantity": 0.192,
-            "executedQty": 0,
-            "avgPrice": 0,
-            "price": 0,
-            "status": "NEW"
-          },
-          "stop": {
-            "orderId": 1000000164042962,
-            "isAlgo": true,
-            "symbol": "BTCUSDT",
-            "side": "SELL",
-            "type": "STOP_MARKET",
-            "stopPrice": 63295.47,
-            "closePosition": true,
-            "reduceOnly": true,
-            "quantity": 0,
-            "executedQty": 0,
-            "avgPrice": 0,
-            "price": 0,
-            "status": "NEW"
-          },
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465585479,
-          "intentId": "intent:cluster-approach:1786465584081:1fr",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465525317,
-          "intentId": "intent:cluster-approach:1786465523930:1fj",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465465149,
-          "intentId": "intent:cluster-approach:1786465463798:1ff",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465405557,
-          "intentId": "intent:cluster-approach:1786465403603:1f1",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465344837,
-          "intentId": "intent:cluster-approach:1786465343407:1ex",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465283519,
-          "intentId": "intent:cluster-approach:1786465283193:1et",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465224436,
-          "intentId": "intent:cluster-approach:1786465223091:1en",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465164323,
-          "intentId": "intent:cluster-approach:1786465162883:1eg",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465104085,
-          "intentId": "intent:cluster-approach:1786465102729:1e8",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786465039234,
-          "intentId": "intent:cluster-approach:1786465037467:1dw",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786464977433,
-          "intentId": "intent:withdrawal:1786464975965:1dl",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786464909002,
-          "intentId": "intent:cluster-approach:1786464907033:1d0",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786464848717,
-          "intentId": "intent:cluster-approach:1786464846796:1ck",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786464773481,
-          "intentId": "intent:cluster-approach:1786464771477:1c8",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786464712562,
-          "intentId": "intent:cluster-approach:1786464711169:1c1",
-          "outcome": "refused",
-          "detail": "already holding -0.16 BTCUSDT — this adapter opens, it does not add",
-          "symbol": "BTCUSDT"
-        }
-      ],
+      "history": [],
       "stats": {
         "seen": 0,
         "accepted": 0,
@@ -395,10 +229,10 @@
       }
     },
     "protection": {
-      "at": 1786517481149,
+      "at": 0,
       "error": null,
-      "flat": true,
-      "protected": true,
+      "flat": null,
+      "protected": null,
       "stopPrice": null,
       "stopDistancePct": null,
       "targetPrice": null,
@@ -409,12 +243,12 @@
       "heldMin": 0,
       "ratcheted": false,
       "hold": null,
-      "reason": "flat"
+      "reason": null
     }
   },
   "desired": {
     "path": "C:\\Users\\Aero\\oddz\\control\\limits.json",
-    "appliedAt": 1786470000000
+    "appliedAt": 0
   },
   "diagnose": {
     "checks": [
@@ -433,27 +267,30 @@
       },
       {
         "name": "exchange reachable",
-        "ok": true,
-        "severity": "ok",
-        "detail": "balance 2658.85 USDT"
+        "ok": false,
+        "severity": "bad",
+        "detail": "no account read yet",
+        "fix": "npm run sweep:check names the specific cause."
       },
       {
         "name": "contracts tradeable here",
-        "ok": true,
-        "severity": "ok",
-        "detail": "BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT all listed at https://demo-fapi.binance.com"
+        "ok": false,
+        "severity": "warn",
+        "detail": "not checked yet",
+        "fix": "Without this, a symbol the demo account cannot trade is indistinguishable from a quiet market."
       },
       {
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 58094s"
+        "detail": "1/1 — BTCUSDT up 0s"
       },
       {
         "name": "feed: BTCUSDT",
-        "ok": true,
-        "severity": "ok",
-        "detail": "ok"
+        "ok": false,
+        "severity": "bad",
+        "detail": "blind — starting up",
+        "fix": "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance is blocked or BTCUSDT is not a listed contract — npm run sweep:symbols says which."
       },
       {
         "name": "max position set",
@@ -499,19 +336,19 @@
         "name": "evidence sampler",
         "ok": true,
         "severity": "ok",
-        "detail": "2s since its last beat"
+        "detail": "3s since its last beat"
       },
       {
         "name": "shadow run",
         "ok": true,
         "severity": "ok",
-        "detail": "0s since its last beat"
+        "detail": "1s since its last beat"
       },
       {
         "name": "news + social feeds",
         "ok": true,
         "severity": "ok",
-        "detail": "6/14 sources live (in this process), 43 headlines recorded · 8 erroring: reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 "
+        "detail": "6/14 sources live (standalone sweep:news), 43 headlines recorded · 8 erroring: reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 "
       },
       {
         "name": "position cap",
@@ -527,19 +364,13 @@
         "fix": "Fine for testing that orders place. The leverage ladder, maintenance rate, session weights and earnings calendar are all built for an equity perp on Nasdaq and mean nothing on a crypto pair or a contract on another exchange's clock — do not read a strategy result off those."
       }
     ],
-    "verdict": "nothing broken; 3 things would stop a trade",
-    "worst": "warn"
+    "verdict": "2 things broken",
+    "worst": "bad"
   },
   "errors": [],
   "notes": [],
-  "refusals": [
-    {
-      "reason": "bias called no side",
-      "count": 1759
-    }
-  ],
+  "refusals": [],
   "limits": {
-    "capsDerivedAt": 1786377791176,
     "maxPositionUsd": 32590,
     "maxLeverage": 10,
     "maxDailyLossUsd": 0,
@@ -557,6 +388,10 @@
     "minRewardOverFees": 2,
     "autoTune": false,
     "marginHeadroomPct": 5,
+    "burstGuardSec": 60,
+    "biasDeadZone": 0.12,
+    "desiredAppliedAt": 0,
+    "capsDerivedAt": 1786377791176,
     "trailArmsAtR": 1,
     "scaleOutAtR": 1.5,
     "scaleOutFraction": 40
@@ -564,7 +399,7 @@
   "ledger": {
     "epoch": 1786442084062,
     "balance": 2658.85452788,
-    "at": 1786517478899,
+    "at": 1786517599207,
     "reason": "reset by hand from the dashboard"
   },
   "learn": {
@@ -2549,806 +2384,118 @@
       }
     }
   ],
+  "shadow": {
+    "rows": 1575,
+    "horizons": [
+      "t300",
+      "t60",
+      "t900"
+    ],
+    "overall": {
+      "t300": {
+        "label": "all",
+        "n": 1569,
+        "wins": 127,
+        "meanPct": -0.0006053103660505082,
+        "netUsd": -851.5579571838865,
+        "sePct": 0.0025416456694102247
+      },
+      "t60": {
+        "label": "all",
+        "n": 1573,
+        "wins": 28,
+        "meanPct": -0.0030486111181263925,
+        "netUsd": -912.0172225645344,
+        "sePct": 0.0011014714788885618
+      },
+      "t900": {
+        "label": "all",
+        "n": 1563,
+        "wins": 303,
+        "meanPct": 0.002901462125308261,
+        "netUsd": -843.5258664306659,
+        "sePct": 0.004140495041560037
+      }
+    },
+    "byEntryDepth": [
+      {
+        "label": "very thin <0.70",
+        "n": 0,
+        "wins": 0,
+        "meanPct": 0,
+        "netUsd": 0,
+        "sePct": null
+      },
+      {
+        "label": "thin 0.70-0.85",
+        "n": 0,
+        "wins": 0,
+        "meanPct": 0,
+        "netUsd": 0,
+        "sePct": null
+      },
+      {
+        "label": "marginal 0.85-1.00",
+        "n": 0,
+        "wins": 0,
+        "meanPct": 0,
+        "netUsd": 0,
+        "sePct": null
+      },
+      {
+        "label": "at or above baseline >=1.00",
+        "n": 0,
+        "wins": 0,
+        "meanPct": 0,
+        "netUsd": 0,
+        "sePct": null
+      }
+    ],
+    "bySignal": [
+      {
+        "label": "cluster-approach",
+        "n": 952,
+        "wins": 192,
+        "meanPct": -0.0027571327371265835,
+        "netUsd": -627.1363735509465,
+        "sePct": 0.0052006622634062525
+      },
+      {
+        "label": "withdrawal",
+        "n": 307,
+        "wins": 36,
+        "meanPct": -0.004463419392640478,
+        "netUsd": -112.99318196499631,
+        "sePct": 0.007562186078978978
+      },
+      {
+        "label": "cascade-risk",
+        "n": 209,
+        "wins": 38,
+        "meanPct": 0.007042289572769345,
+        "netUsd": -74.26627041059105,
+        "sePct": 0.011236982012414864
+      },
+      {
+        "label": "wall-pulled",
+        "n": 95,
+        "wins": 37,
+        "meanPct": 0.07429691474140161,
+        "netUsd": -29.13004050413107,
+        "sePct": 0.02585900408987597
+      }
+    ],
+    "resolved": {
+      "open": 1568,
+      "unscored": 7
+    },
+    "feesUsd": 878.7182668129857,
+    "grossUsd": 35.19240038232449
+  },
   "log": [
     {
-      "t": 1786509573223,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786509573223,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786509574174,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786509574174,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786509574176,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1786509574181,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1786509574182,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1786509574182,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1786509578113,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 5:39:38 AM)"
-    },
-    {
-      "t": 1786509843026,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786509843026,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21119 ms: Could not connect to server"
-    },
-    {
-      "t": 1786509846318,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786509970181,
-      "text": "share: sent 2 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786510102233,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×5 since 5:48:22 AM)"
-    },
-    {
-      "t": 1786510618919,
-      "text": "news: HIGH Cointelegraph — CFTC invokes emergency powers to keep Kalshi operating in New York fight"
-    },
-    {
-      "t": 1786510727359,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 5:58:47 AM)"
-    },
-    {
-      "t": 1786510995018,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786510995019,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21108 ms: Could not connect to server"
-    },
-    {
-      "t": 1786510995142,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1786510995142,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1786510995144,
-      "text": "^"
-    },
-    {
-      "t": 1786510995145,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1786510995146,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1786510995146,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1786510995147,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1786510995147,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1786510995148,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1786510995149,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1786510995149,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1786510995150,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1786510995150,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1786510995151,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1786510995152,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1786510995152,
-      "text": "pid: 24872,"
-    },
-    {
-      "t": 1786510995153,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1786510995154,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1786510995154,
-      "text": "}"
-    },
-    {
-      "t": 1786510995157,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786510995177,
-      "text": "share: exited (1) — restarting, attempt 2"
-    },
-    {
-      "t": 1786511026615,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786511026616,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786511026928,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786511026929,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786511026931,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1786511026932,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1786511026933,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1786511026934,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1786511031169,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 6:03:51 AM)"
-    },
-    {
-      "t": 1786511288211,
-      "text": "config: refused burstGuardSec — not a setting that can be changed remotely"
-    },
-    {
-      "t": 1786511288211,
-      "text": "config: refused maxTradesPerDay — this stopping rule is the operator's and is deliberately switched off"
-    },
-    {
-      "t": 1786511288214,
-      "text": "config: refused maxDailyLossUsd — this stopping rule is the operator's and is deliberately switched off"
-    },
-    {
-      "t": 1786511288215,
-      "text": "config: refused lossCooldownMin — this stopping rule is the operator's and is deliberately switched off"
-    },
-    {
-      "t": 1786511288216,
-      "text": "config: refused biasDeadZone — not a setting that can be changed remotely"
-    },
-    {
-      "t": 1786511288220,
-      "text": "config: applied maxOpenPositions 1 → 0 — Testnet: throughput over caution. Nothing throttles the sample rate while the search for a positive path is running."
-    },
-    {
-      "t": 1786511299091,
-      "text": "share: push failed, retrying in 2s"
-    },
-    {
-      "t": 1786511303670,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×3 since 6:08:23 AM)"
-    },
-    {
-      "t": 1786511695120,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786511695120,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21084 ms: Could not connect to server"
-    },
-    {
-      "t": 1786511695328,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1786511695328,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1786511695332,
-      "text": "^"
-    },
-    {
-      "t": 1786511695333,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1786511695334,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1786511695336,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1786511695337,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1786511695338,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1786511695342,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1786511695344,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1786511695345,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1786511695346,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1786511695346,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1786511695348,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1786511695348,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1786511695349,
-      "text": "pid: 27260,"
-    },
-    {
-      "t": 1786511695350,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1786511695351,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1786511695352,
-      "text": "}"
-    },
-    {
-      "t": 1786511695353,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786511695419,
-      "text": "share: exited (1) — restarting, attempt 3"
-    },
-    {
-      "t": 1786511747033,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786511747034,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786511747414,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786511747415,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786511747417,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1786511747418,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1786511747419,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1786511747419,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1786511751976,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×5 since 6:15:51 AM)"
-    },
-    {
-      "t": 1786512374484,
-      "text": "share: sent 2 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786512499074,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×5 since 6:28:19 AM)"
-    },
-    {
-      "t": 1786513138563,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786513138563,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21126 ms: Could not connect to server"
-    },
-    {
-      "t": 1786513141560,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 6:39:01 AM)"
-    },
-    {
-      "t": 1786513407598,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786513407598,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21078 ms: Could not connect to server"
-    },
-    {
-      "t": 1786513407694,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1786513407694,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1786513407697,
-      "text": "^"
-    },
-    {
-      "t": 1786513407698,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1786513407699,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1786513407700,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1786513407701,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1786513407701,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1786513407701,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1786513407702,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1786513407703,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1786513407703,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1786513407704,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1786513407704,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1786513407705,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1786513407706,
-      "text": "pid: 14640,"
-    },
-    {
-      "t": 1786513407706,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1786513407707,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1786513407707,
-      "text": "}"
-    },
-    {
-      "t": 1786513407708,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786513407726,
-      "text": "share: exited (1) — restarting, attempt 4"
-    },
-    {
-      "t": 1786513502551,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786513502551,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786513502832,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786513502833,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786513502834,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1786513502834,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1786513502835,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1786513502836,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1786513506885,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 6:45:06 AM)"
-    },
-    {
-      "t": 1786513772107,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786513772107,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21096 ms: Could not connect to server"
-    },
-    {
-      "t": 1786513775203,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 6:49:35 AM)"
-    },
-    {
-      "t": 1786514040404,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786514040405,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21140 ms: Could not connect to server"
-    },
-    {
-      "t": 1786514043426,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 6:54:03 AM)"
-    },
-    {
-      "t": 1786514291057,
-      "text": "share: sent 2 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786514415123,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×3 since 7:00:15 AM)"
-    },
-    {
-      "t": 1786514818702,
-      "text": "share: push failed, retrying in 2s"
-    },
-    {
-      "t": 1786514822786,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786514859539,
-      "text": "news: HIGH Cointelegraph — Harmony considers rollback after suspected exploit inflates ONE supply"
-    },
-    {
-      "t": 1786514950502,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786515091739,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786515091739,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21128 ms: Could not connect to server"
-    },
-    {
-      "t": 1786515094917,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×4 since 7:11:34 AM)"
-    },
-    {
-      "t": 1786515619554,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786515619554,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21112 ms: Could not connect to server"
-    },
-    {
-      "t": 1786515622817,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×3 since 7:20:22 AM)"
-    },
-    {
-      "t": 1786515965479,
-      "text": "news: HIGH The Block — Harmony confirms exploit involving unauthorized minting of 4 billion ONE tokens"
-    },
-    {
-      "t": 1786516010173,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×3 since 7:26:50 AM)"
-    },
-    {
-      "t": 1786516402697,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786516402697,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21071 ms: Could not connect to server"
-    },
-    {
-      "t": 1786516402789,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1786516402789,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1786516402795,
-      "text": "^"
-    },
-    {
-      "t": 1786516402796,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1786516402796,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1786516402797,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1786516402798,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1786516402798,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1786516402799,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1786516402799,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1786516402800,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1786516402800,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1786516402801,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1786516402802,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1786516402802,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1786516402803,
-      "text": "pid: 7480,"
-    },
-    {
-      "t": 1786516402803,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1786516402804,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1786516402805,
-      "text": "}"
-    },
-    {
-      "t": 1786516402805,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786516402821,
-      "text": "share: exited (1) — restarting, attempt 5"
-    },
-    {
-      "t": 1786516563698,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786516563698,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786516563987,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786516563987,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786516563989,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1786516563989,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1786516563990,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1786516563990,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1786516568504,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×5 since 7:36:08 AM)"
-    },
-    {
-      "t": 1786517207419,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786517207419,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21070 ms: Could not connect to server"
-    },
-    {
-      "t": 1786517207529,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1786517207529,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1786517207530,
-      "text": "^"
-    },
-    {
-      "t": 1786517207531,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1786517207533,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1786517207533,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1786517207534,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1786517207535,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1786517207536,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1786517207536,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1786517207537,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1786517207538,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1786517207538,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1786517207539,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1786517207540,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1786517207541,
-      "text": "pid: 11512,"
-    },
-    {
-      "t": 1786517207542,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1786517207542,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1786517207543,
-      "text": "}"
-    },
-    {
-      "t": 1786517207543,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786517207563,
-      "text": "share: exited (1) — restarting, attempt 6"
+      "t": 1786517613529,
+      "text": "engine started — BTCUSDT"
     }
   ],
   "news": {
@@ -3357,14 +2504,6 @@
       "x",
       "linkedin"
     ],
-    "poller": {
-      "recorded": 43,
-      "cycles": 2919,
-      "sources": 14,
-      "unavailable": "x,linkedin",
-      "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found | rsshub-twitter-keyword-binance: 404 Not Found",
-      "velocity": "BNBUSDT 1.1x BTCUSDT 1.2x XRPUSDT 1.0x ETHUSDT 1.0x SOLUSDT 1.0x",
-      "lastPollAt": 1786517467438
-    }
+    "poller": null
   }
 }
