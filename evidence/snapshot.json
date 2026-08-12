@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1786530303176,
+    "at": 1786530363191,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -17,11 +17,11 @@
         "attached": false,
         "tradeable": true,
         "warm": true,
-        "mid": 64051.55,
-        "spreadBps": 0.015612424679581495,
-        "riskUp": 23.433966999223006,
-        "riskDown": 30.90530869836212,
-        "signalsSeen": 286,
+        "mid": 64040.75,
+        "spreadBps": 0.015615057600952638,
+        "riskUp": 21.48148990259698,
+        "riskDown": 31.837376135463945,
+        "signalsSeen": 293,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
@@ -47,19 +47,19 @@
       "known": true,
       "symbol": "BTCUSDT",
       "biasDirection": "down",
-      "biasSummary": "Least resistance is downward — 17,878,108 to set off the downside vs 53,803,220 upside — cheaper to push down; 0.08% below, 0.23% above",
+      "biasSummary": "Least resistance is downward — 13,839,481 to set off the downside vs 59,353,109 upside — cheaper to push down; 0.06% below, 0.25% above",
       "sides": [
         {
           "direction": "up",
           "ok": true,
           "stopPct": 0.5,
-          "target": 64772.222222222226,
-          "rewardRisk": 2.2502881576549614,
-          "notionalUsd": 9646.613008928887,
-          "marginUsd": 2411.653252232222,
-          "leverage": 4,
-          "riskUsd": 48.233065044644434,
-          "sizeRetained": 0.4535135764187745,
+          "target": 64750,
+          "rewardRisk": 2.214995920566202,
+          "notionalUsd": 11723.651079816878,
+          "marginUsd": 2344.7302159633755,
+          "leverage": 5,
+          "riskUsd": 58.61825539908439,
+          "sizeRetained": 0.5511607986111111,
           "reasons": []
         },
         {
@@ -67,12 +67,12 @@
           "ok": true,
           "stopPct": 0.5,
           "target": 63400,
-          "rewardRisk": 2.034455060025879,
-          "notionalUsd": 9646.613008928887,
-          "marginUsd": 2411.653252232222,
-          "leverage": 4,
-          "riskUsd": 48.233065044644434,
-          "sizeRetained": 0.4535135764187745,
+          "rewardRisk": 2.0010696314456027,
+          "notionalUsd": 11723.651079816878,
+          "marginUsd": 2344.7302159633755,
+          "leverage": 5,
+          "riskUsd": 58.61825539908439,
+          "sizeRetained": 0.5511607986111111,
           "reasons": []
         }
       ],
@@ -80,10 +80,10 @@
     },
     "readiness": {
       "ready": true,
-      "armed": false,
+      "armed": true,
       "blockers": [],
       "waiting": [],
-      "summary": "ready — press Start trading"
+      "summary": "armed — orders go out when a setup passes every check"
     },
     "orderVenue": {
       "url": "https://demo-fapi.binance.com",
@@ -93,7 +93,7 @@
     },
     "engine": {
       "running": true,
-      "uptimeSec": 1080,
+      "uptimeSec": 1140,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -110,18 +110,18 @@
       "tradeable": true,
       "reasons": [],
       "summary": "live",
-      "snapshotAgeMs": 1
+      "snapshotAgeMs": 2
     },
     "market": {
-      "mid": 64051.55,
+      "mid": 64040.75,
       "mark": null,
-      "spreadBps": 0.015612424679581495,
-      "lwi": 1.0633121511568595,
-      "lwiBid": 1.2042989168751814,
-      "lwiAsk": 0.9425215919489403,
+      "spreadBps": 0.015615057600952638,
+      "lwi": 1.093355605865596,
+      "lwiBid": 1.2184837405115085,
+      "lwiAsk": 0.984514458297021,
       "warm": true,
-      "riskUp": 23.433966999223006,
-      "riskDown": 30.90530869836212,
+      "riskUp": 21.48148990259698,
+      "riskDown": 31.837376135463945,
       "nearestAbove": 64200,
       "nearestBelow": 64000,
       "session": "pre-market",
@@ -134,7 +134,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 12567,
+      "staleForMs": 13006,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,7 +145,7 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1786530290609,
+      "at": 1786530350185,
       "error": null,
       "availableBalance": 2658.85452788,
       "walletBalance": 2658.85452788,
@@ -154,11 +154,15 @@
       "positions": []
     },
     "limits": {
+      "capsDerivedAt": 1786377791176,
+      "desiredAppliedAt": 1786470000000,
+      "burstGuardSec": 0,
+      "biasDeadZone": 0.02,
       "maxPositionUsd": 32590,
       "maxLeverage": 10,
       "maxDailyLossUsd": 0,
       "maxOpenPositions": 0,
-      "tradingEnabled": false,
+      "tradingEnabled": true,
       "stopLossPct": 0.5,
       "maxTradesPerDay": 0,
       "lossCooldownMin": 0,
@@ -171,16 +175,12 @@
       "minRewardOverFees": 2,
       "autoTune": false,
       "marginHeadroomPct": 5,
-      "burstGuardSec": 0,
-      "biasDeadZone": 0.02,
-      "desiredAppliedAt": 1786470000000,
-      "capsDerivedAt": 1786377791176,
       "trailArmsAtR": 1,
       "scaleOutAtR": 1.5,
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1786530291438,
+      "at": 1786530352137,
       "realisedPnl": 0,
       "drawdown": 0,
       "trades": 0,
@@ -194,7 +194,7 @@
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 286,
+      "signalsSeen": 293,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -213,10 +213,10 @@
       ]
     },
     "execution": {
-      "available": false,
-      "armed": false,
+      "available": true,
+      "armed": true,
       "running": false,
-      "reason": "trading is disarmed; set your caps and arm it to allow orders",
+      "reason": "armed — orders will be placed when a setup passes every check",
       "history": [
         {
           "at": 1786529415453,
@@ -369,7 +369,7 @@
       }
     },
     "protection": {
-      "at": 1786530291165,
+      "at": 1786530351849,
       "error": null,
       "flat": true,
       "protected": true,
@@ -421,7 +421,7 @@
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 1080s"
+        "detail": "1/1 — BTCUSDT up 1140s"
       },
       {
         "name": "feed: BTCUSDT",
@@ -457,15 +457,14 @@
       },
       {
         "name": "armed",
-        "ok": false,
-        "severity": "warn",
-        "detail": "disarmed — nothing will be sent",
-        "fix": "Press Start trading. It always boots disarmed by design."
+        "ok": true,
+        "severity": "ok",
+        "detail": "orders will be placed when a setup passes"
       },
       {
         "name": "execution loop attached",
         "ok": false,
-        "severity": "warn",
+        "severity": "bad",
         "detail": "not attached",
         "fix": "Needs the engine running and credentials. Disarm and re-arm."
       },
@@ -501,8 +500,8 @@
         "fix": "Fine for testing that orders place. The leverage ladder, maintenance rate, session weights and earnings calendar are all built for an equity perp on Nasdaq and mean nothing on a crypto pair or a contract on another exchange's clock — do not read a strategy result off those."
       }
     ],
-    "verdict": "nothing broken; 3 things would stop a trade",
-    "worst": "warn"
+    "verdict": "1 thing broken",
+    "worst": "bad"
   },
   "errors": [],
   "notes": [],
@@ -513,11 +512,15 @@
     }
   ],
   "limits": {
+    "capsDerivedAt": 1786377791176,
+    "desiredAppliedAt": 1786470000000,
+    "burstGuardSec": 0,
+    "biasDeadZone": 0.02,
     "maxPositionUsd": 32590,
     "maxLeverage": 10,
     "maxDailyLossUsd": 0,
     "maxOpenPositions": 0,
-    "tradingEnabled": false,
+    "tradingEnabled": true,
     "stopLossPct": 0.5,
     "maxTradesPerDay": 0,
     "lossCooldownMin": 0,
@@ -530,10 +533,6 @@
     "minRewardOverFees": 2,
     "autoTune": false,
     "marginHeadroomPct": 5,
-    "burstGuardSec": 0,
-    "biasDeadZone": 0.02,
-    "desiredAppliedAt": 1786470000000,
-    "capsDerivedAt": 1786377791176,
     "trailArmsAtR": 1,
     "scaleOutAtR": 1.5,
     "scaleOutFraction": 40
@@ -541,7 +540,7 @@
   "ledger": {
     "epoch": 1786519512530,
     "balance": 2658.85452788,
-    "at": 1786530290609,
+    "at": 1786530350185,
     "reason": "reset by hand from the dashboard"
   },
   "learn": {
@@ -3026,6 +3025,122 @@
     {
       "t": 1786530269650,
       "text": "news: HIGH Cointelegraph — Binance, RedotPay clash over fate of Singapore lawsuit"
+    },
+    {
+      "t": 1786530312114,
+      "text": "limits updated: {\"capsDerivedAt\":1786377791176,\"desiredAppliedAt\":1786470000000,\"burstGuardSec\":0,\"biasDeadZone\":0.02,\"maxPositionUsd\":32590,\"maxLeverage\":10,\"maxDailyLossUsd\":0,\"maxOpenPositions\":0,\"tradingEnabled\":true,\"stopLossPct\":0.5,\"maxTradesPerDay\":0,\"lossCooldownMin\":0,\"requireCashOpen\":false,\"minRewardRisk\":2,\"maxHoldMinutes\":120,\"riskPerTradePct\":4,\"sizeDerateStrength\":0.5,\"breakEvenAtPct\":60,\"minRewardOverFees\":2,\"autoTune\":false,\"marginHeadroomPct\":5,\"trailArmsAtR\":1,\"scaleOutAtR\":1.5,\"scaleOutFraction\":40}"
+    },
+    {
+      "t": 1786530312115,
+      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
+    },
+    {
+      "t": 1786530323285,
+      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
+    },
+    {
+      "t": 1786530323285,
+      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
+    },
+    {
+      "t": 1786530330894,
+      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
+    },
+    {
+      "t": 1786530330894,
+      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21111 ms: Could not connect to server"
+    },
+    {
+      "t": 1786530330990,
+      "text": "node:internal/errors:985"
+    },
+    {
+      "t": 1786530330990,
+      "text": "const err = new Error(message);"
+    },
+    {
+      "t": 1786530330990,
+      "text": "^"
+    },
+    {
+      "t": 1786530330990,
+      "text": "Error: Command failed: git rebase --abort"
+    },
+    {
+      "t": 1786530330991,
+      "text": "fatal: no rebase in progress"
+    },
+    {
+      "t": 1786530330991,
+      "text": "at genericNodeError (node:internal/errors:985:15)"
+    },
+    {
+      "t": 1786530330991,
+      "text": "at wrappedFn (node:internal/errors:539:14)"
+    },
+    {
+      "t": 1786530330991,
+      "text": "at checkExecSyncError (node:child_process:925:11)"
+    },
+    {
+      "t": 1786530330991,
+      "text": "at execFileSync (node:child_process:961:15)"
+    },
+    {
+      "t": 1786530330991,
+      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
+    },
+    {
+      "t": 1786530330991,
+      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
+    },
+    {
+      "t": 1786530330991,
+      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
+    },
+    {
+      "t": 1786530330991,
+      "text": "status: 128,"
+    },
+    {
+      "t": 1786530330991,
+      "text": "signal: null,"
+    },
+    {
+      "t": 1786530330991,
+      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
+    },
+    {
+      "t": 1786530330991,
+      "text": "pid: 37604,"
+    },
+    {
+      "t": 1786530330992,
+      "text": "stdout: '',"
+    },
+    {
+      "t": 1786530330992,
+      "text": "stderr: 'fatal: no rebase in progress\\n'"
+    },
+    {
+      "t": 1786530330992,
+      "text": "}"
+    },
+    {
+      "t": 1786530330992,
+      "text": "Node.js v24.15.0"
+    },
+    {
+      "t": 1786530331016,
+      "text": "share: exited (1) — restarting, attempt 2"
+    },
+    {
+      "t": 1786530343287,
+      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
+    },
+    {
+      "t": 1786530343288,
+      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
     }
   ],
   "news": {
@@ -3036,12 +3151,12 @@
     ],
     "poller": {
       "recorded": 3,
-      "cycles": 41,
+      "cycles": 43,
       "sources": 14,
       "unavailable": "x,linkedin",
       "errors": "reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found",
       "velocity": "BNBUSDT 1.0x BTCUSDT 1.0x ETHUSDT 1.0x XRPUSDT 1.0x",
-      "lastPollAt": 1786530279572
+      "lastPollAt": 1786530344680
     }
   }
 }
