@@ -42,6 +42,8 @@ import {
   transferUsdt,
   transfersAllowed,
   type AccountRisk,
+  syncClock,
+  clockState,
 } from "../lib/sweep/exchange/binance";
 import { previewPosition } from "../lib/sweep/exchange/preview";
 import { proposePosition } from "../lib/sweep/agent/sizing";
@@ -4611,6 +4613,29 @@ function diagnose() {
             : "On Windows, Notepad saves it as .env.txt unless you set Save as type to All Files.",
         );
 
+        /*
+         * Drift, named and bounded.
+         *
+         * Warned at half the receive window and failed at the window itself,
+         * because at that point every signed request is already being rejected.
+         */
+        const clock = clockState();
+        const recvWindow = Number(process.env.BINANCE_RECV_WINDOW ?? 5_000);
+        const drift = Math.abs(clock.offsetMs);
+        add(
+          "clock in sync with Binance",
+          drift < recvWindow / 2,
+          clock.syncedAt === 0
+            ? "not checked yet"
+            : `${clock.offsetMs > 0 ? "behind" : "ahead"} by ${drift}ms ` +
+              `(round trip ${clock.roundTripMs}ms, window ${recvWindow}ms, corrected on every request)`,
+          drift < recvWindow / 2
+            ? undefined
+            : "Every signed request is corrected by this offset, so orders still place — but drift this " +
+              "large means the host clock is wrong. Resync NTP.",
+          drift < recvWindow / 2 ? "ok" : drift < recvWindow ? "warn" : "bad",
+        );
+
         const creds = hasCredentials();
         add("credentials present", creds,
           creds ? (process.env.BINANCE_LIVE === "1" ? "LIVE — real money" : "demo trading") : "none",
@@ -5379,6 +5404,16 @@ server.listen(PORT, HOST, () => {
   void (async () => {
     // First, because it decides whether anything else can possibly work and
     // needs no credentials to answer.
+    /*
+     * Before anything signed, and then on a timer.
+     *
+     * A drifted clock rejects every order with -1021 while the agent reports
+     * armed, healthy and warm — the rejection happens below the strategy, so
+     * nothing is tallied as a refusal and the signal count keeps climbing. It
+     * is indistinguishable from a quiet market unless the offset is measured.
+     */
+    await syncClock(loadConfig());
+    setInterval(() => { void syncClock(loadConfig()); }, 15 * 60_000).unref?.();
     await checkOrderVenue();
     await reconcileOnStart();
     await refreshAccount();

@@ -154,16 +154,68 @@ function sign(query: string, secret: string): string {
  * it receives, so the string that was hashed is the one sent — built once and
  * reused rather than re-serialised, which is where signature bugs come from.
  */
+/**
+ * How far this machine's clock sits from Binance's, in milliseconds.
+ *
+ * Every signed request carries a timestamp, and Binance rejects anything more
+ * than `recvWindow` away from its own clock with -1021. The error was already
+ * recognised here and turned into a helpful sentence — which is not a fix. A
+ * laptop that has slept, or a VM whose host paused it, drifts by seconds, and
+ * the consequence is that every order fails while the agent looks armed and
+ * healthy: the rejection happens below the strategy, so no refusal is tallied
+ * and no signal count changes.
+ *
+ * Correcting for it is one subtraction and removes the whole class.
+ */
+let clockOffsetMs = 0;
+let clockSyncedAt = 0;
+let lastRoundTripMs = 0;
+
+export function clockState(): { offsetMs: number; syncedAt: number; roundTripMs: number } {
+  return { offsetMs: clockOffsetMs, syncedAt: clockSyncedAt, roundTripMs: lastRoundTripMs };
+}
+
+/**
+ * Ask the venue what time it is, and remember the difference.
+ *
+ * The round trip is halved and taken off, on the assumption that the reply was
+ * generated midway — the standard correction, and worth making because a 200ms
+ * link would otherwise be recorded as 200ms of drift and eat into a 5s window
+ * that is already being consumed by real skew.
+ *
+ * Unsigned, so it works before credentials are known to be good, and failure is
+ * swallowed: an unreachable venue is a different problem with its own alarm,
+ * and a clock sync that throws would take down whatever called it.
+ */
+export async function syncClock(cfg: BinanceConfig): Promise<number> {
+  const before = Date.now();
+  try {
+    const res = await fetch(`${cfg.baseUrl}/fapi/v1/time`, { signal: AbortSignal.timeout(10_000) });
+    if (!res.ok) return clockOffsetMs;
+    const { serverTime } = (await res.json()) as { serverTime: number };
+    if (!Number.isFinite(serverTime)) return clockOffsetMs;
+    const after = Date.now();
+    lastRoundTripMs = after - before;
+    clockOffsetMs = Math.round(serverTime - (before + lastRoundTripMs / 2));
+    clockSyncedAt = after;
+  } catch {
+    /* leave the previous offset in place; it is better than none */
+  }
+  return clockOffsetMs;
+}
+
 export async function signedRequest<T>(
   cfg: BinanceConfig,
   method: "GET" | "POST" | "DELETE",
   path: string,
   params: Record<string, string | number | boolean> = {},
+  retried = false,
 ): Promise<T> {
   const query = new URLSearchParams({
     ...Object.fromEntries(Object.entries(params).map(([k, v]) => [k, String(v)])),
     recvWindow: String(cfg.recvWindowMs),
-    timestamp: String(Date.now()),
+    // Corrected to the venue's clock, not this machine's.
+    timestamp: String(Date.now() + clockOffsetMs),
   }).toString();
 
   const signature = sign(query, cfg.apiSecret);
@@ -176,11 +228,27 @@ export async function signedRequest<T>(
   });
 
   const body = await res.text();
+
+  /*
+   * A skew rejection resyncs and retries, once.
+   *
+   * Drift is not static: a machine that resumes from sleep jumps, and the next
+   * order after that jump would fail even though the offset can be corrected in
+   * one round trip. Retrying once turns a run-ending fault into a hiccup. Only
+   * once, and only on -1021, so a genuinely wrong clock still surfaces rather
+   * than being retried forever.
+   */
+  if (!res.ok && body.includes("-1021") && !retried) {
+    await syncClock(cfg);
+    return signedRequest<T>(cfg, method, path, params, true);
+  }
+
   if (!res.ok) {
     // -1021 is a clock-skew rejection and is common on a laptop that has slept;
     // naming it saves a long detour into signature debugging.
     const hint = body.includes("-1021")
-      ? " (system clock is out of sync with Binance — resync NTP)"
+      ? ` (clock skew: this machine is ${clockOffsetMs}ms from Binance and a resync did not close it — ` +
+        "the drift is larger than the receive window, so resync NTP on the host)"
       : body.includes("-4411")
         ? " (INTCUSDT is a TradFi perpetual — it tracks a stock, and Binance requires a separate " +
           "agreement for those on top of the normal futures one. Open the INTCUSDT page in the " +
