@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1786530903267,
+    "at": 1786531029303,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -15,19 +15,19 @@
         "calibrated": false,
         "running": true,
         "attached": false,
-        "tradeable": true,
-        "warm": true,
-        "mid": 64088.95,
-        "spreadBps": 0.015603313831564538,
-        "riskUp": 24.7892040277661,
-        "riskDown": 27.38274948038392,
-        "signalsSeen": 358,
+        "tradeable": false,
+        "warm": null,
+        "mid": null,
+        "spreadBps": null,
+        "riskUp": null,
+        "riskDown": null,
+        "signalsSeen": 0,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
-        "protected": true,
+        "protected": null,
         "heldMin": 0,
-        "lastRefusal": "sized out (down): no free collateral",
+        "lastRefusal": null,
         "dislocation": {
           "warm": false,
           "coupled": false,
@@ -51,49 +51,61 @@
       "sides": [
         {
           "direction": "up",
-          "ok": true,
-          "stopPct": 0.5,
-          "target": 64772.22222222221,
-          "rewardRisk": 2.1322621831757727,
-          "notionalUsd": 9488.606957200638,
-          "marginUsd": 2372.1517393001595,
-          "leverage": 4,
-          "riskUsd": 47.44303478600319,
-          "sizeRetained": 0.44608528116646556,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         },
         {
           "direction": "down",
-          "ok": true,
-          "stopPct": 0.5,
-          "target": 63250,
-          "rewardRisk": 2.618080027836303,
-          "notionalUsd": 9488.606957200638,
-          "marginUsd": 2372.1517393001595,
-          "leverage": 4,
-          "riskUsd": 47.44303478600319,
-          "sizeRetained": 0.44608528116646556,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         }
       ],
       "tradeable": false
     },
     "readiness": {
-      "ready": true,
+      "ready": false,
       "armed": true,
-      "blockers": [],
-      "waiting": [],
-      "summary": "armed — orders go out when a setup passes every check"
+      "blockers": [
+        "the exchange is not answering"
+      ],
+      "waiting": [
+        "BTCUSDT: starting up"
+      ],
+      "summary": "the exchange is not answering"
     },
     "orderVenue": {
-      "url": "https://demo-fapi.binance.com",
-      "checked": true,
+      "url": "",
+      "checked": false,
       "error": null,
       "untradeable": []
     },
     "engine": {
       "running": true,
-      "uptimeSec": 1680,
+      "uptimeSec": 0,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -106,25 +118,31 @@
     "mode": "testnet",
     "hasCredentials": true,
     "health": {
-      "level": "ok",
-      "tradeable": true,
-      "reasons": [],
-      "summary": "live",
-      "snapshotAgeMs": 1
+      "level": "blind",
+      "tradeable": false,
+      "reasons": [
+        {
+          "code": "snapshot-stale",
+          "severity": "blind",
+          "detail": "the engine has not published yet"
+        }
+      ],
+      "summary": "starting up",
+      "snapshotAgeMs": 0
     },
     "market": {
-      "mid": 64088.95,
+      "mid": null,
       "mark": null,
-      "spreadBps": 0.015603313831564538,
-      "lwi": 1.016796678842868,
-      "lwiBid": 1.1164050613554648,
-      "lwiAsk": 0.9271816596826272,
-      "warm": true,
-      "riskUp": 24.7892040277661,
-      "riskDown": 27.38274948038392,
-      "nearestAbove": 64227.777777777774,
-      "nearestBelow": 64000,
-      "session": "pre-market",
+      "spreadBps": null,
+      "lwi": null,
+      "lwiBid": null,
+      "lwiAsk": null,
+      "warm": null,
+      "riskUp": null,
+      "riskDown": null,
+      "nearestAbove": null,
+      "nearestBelow": null,
+      "session": "closed",
       "flow": {
         "buy": 0,
         "sell": 0
@@ -134,7 +152,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 12953,
+      "staleForMs": null,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,19 +163,15 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1786530890314,
+      "at": 0,
       "error": null,
-      "availableBalance": 2658.85452788,
-      "walletBalance": 2658.85452788,
-      "unrealizedPnl": 0,
-      "marginRatio": 0,
+      "availableBalance": null,
+      "walletBalance": null,
+      "unrealizedPnl": null,
+      "marginRatio": null,
       "positions": []
     },
     "limits": {
-      "capsDerivedAt": 1786377791176,
-      "desiredAppliedAt": 1786470000000,
-      "burstGuardSec": 0,
-      "biasDeadZone": 0.02,
       "maxPositionUsd": 32590,
       "maxLeverage": 10,
       "maxDailyLossUsd": 0,
@@ -175,190 +189,36 @@
       "minRewardOverFees": 2,
       "autoTune": false,
       "marginHeadroomPct": 5,
+      "burstGuardSec": 0,
+      "biasDeadZone": 0.02,
+      "desiredAppliedAt": 1786470000000,
+      "capsDerivedAt": 1786377791176,
       "trailArmsAtR": 1,
       "scaleOutAtR": 1.5,
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1786530892738,
-      "realisedPnl": 0,
-      "drawdown": 0,
-      "trades": 0,
-      "fees": 0,
-      "funding": 0,
-      "lastLossAt": 0,
-      "cooldownLeftMin": 0,
-      "countingFrom": 1786519512530,
-      "rebased": true,
-      "rebaseReason": "reset by hand from the dashboard"
+      "at": 0,
+      "error": null
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 358,
+      "signalsSeen": 0,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
       "declined": 0,
       "notReady": 0,
       "lastAcceptedAt": 0,
-      "lastRefusal": {
-        "at": 1786529349191,
-        "reason": "sized out (down): no free collateral"
-      },
-      "refusals": [
-        {
-          "reason": "no free collateral",
-          "count": 6
-        }
-      ]
+      "lastRefusal": null,
+      "refusals": []
     },
     "execution": {
       "available": true,
       "armed": true,
       "running": false,
       "reason": "armed — orders will be placed when a setup passes every check",
-      "history": [
-        {
-          "at": 1786529415453,
-          "intentId": "intent:wall-pulled:1786529406884:42",
-          "outcome": "failed",
-          "detail": "400 {\"code\":-1021,\"msg\":\"Timestamp for this request is outside of the recvWindow.\"} (system clock is out of sync with Binance — resync NTP)\n    → The request timestamp was outside Binance's window — this machine's clock has drifted.\n    → Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm.",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529411955,
-          "intentId": "intent:cluster-approach:1786529410359:44",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529411371,
-          "intentId": "intent:cluster-approach:1786529409436:43",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529410977,
-          "intentId": "intent:wall-pulled:1786529401685:41",
-          "outcome": "failed",
-          "detail": "400 {\"code\":-1021,\"msg\":\"Timestamp for this request is outside of the recvWindow.\"} (system clock is out of sync with Binance — resync NTP)\n    → The request timestamp was outside Binance's window — this machine's clock has drifted.\n    → Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm.",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529403589,
-          "intentId": "intent:wall-pulled:1786529401685:40",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529401083,
-          "intentId": "intent:wall-pulled:1786529391073:3x",
-          "outcome": "failed",
-          "detail": "The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529397682,
-          "intentId": "intent:cluster-approach:1786529397382:3z",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529395657,
-          "intentId": "intent:cluster-approach:1786529395358:3y",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529392984,
-          "intentId": "intent:wall-pulled:1786529391073:3w",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529392235,
-          "intentId": "intent:wall-pulled:1786529390261:3u",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529392139,
-          "intentId": "intent:wall-pulled:1786529390261:3v",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529389247,
-          "intentId": "intent:cluster-approach:1786529387300:3t",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529388340,
-          "intentId": "intent:cluster-approach:1786529378324:3r",
-          "outcome": "failed",
-          "detail": "The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529380564,
-          "intentId": "intent:cluster-approach:1786529380262:3s",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529379325,
-          "intentId": "intent:wall-pulled:1786529377351:3q",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529379315,
-          "intentId": "intent:wall-pulled:1786529377351:3p",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529367628,
-          "intentId": "intent:wall-pulled:1786529357620:3i",
-          "outcome": "failed",
-          "detail": "The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529367545,
-          "intentId": "intent:wall-pulled:1786529365576:3n",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529367533,
-          "intentId": "intent:wall-pulled:1786529365576:3o",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        },
-        {
-          "at": 1786529367080,
-          "intentId": "intent:cluster-approach:1786529365167:3m",
-          "outcome": "refused",
-          "detail": "at the 0-position limit",
-          "symbol": "BTCUSDT"
-        }
-      ],
+      "history": [],
       "stats": {
         "seen": 0,
         "accepted": 0,
@@ -369,10 +229,10 @@
       }
     },
     "protection": {
-      "at": 1786530892457,
+      "at": 0,
       "error": null,
-      "flat": true,
-      "protected": true,
+      "flat": null,
+      "protected": null,
       "stopPrice": null,
       "stopDistancePct": null,
       "targetPrice": null,
@@ -383,7 +243,7 @@
       "heldMin": 0,
       "ratcheted": false,
       "hold": null,
-      "reason": "flat"
+      "reason": null
     }
   },
   "desired": {
@@ -400,6 +260,12 @@
         "fix": "Check the key names are exactly BINANCE_API_KEY and BINANCE_API_SECRET."
       },
       {
+        "name": "clock in sync with Binance",
+        "ok": true,
+        "severity": "ok",
+        "detail": "not checked yet"
+      },
+      {
         "name": "credentials present",
         "ok": true,
         "severity": "ok",
@@ -407,27 +273,30 @@
       },
       {
         "name": "exchange reachable",
-        "ok": true,
-        "severity": "ok",
-        "detail": "balance 2658.85 USDT"
+        "ok": false,
+        "severity": "bad",
+        "detail": "no account read yet",
+        "fix": "npm run sweep:check names the specific cause."
       },
       {
         "name": "contracts tradeable here",
-        "ok": true,
-        "severity": "ok",
-        "detail": "BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT all listed at https://demo-fapi.binance.com"
+        "ok": false,
+        "severity": "warn",
+        "detail": "not checked yet",
+        "fix": "Without this, a symbol the demo account cannot trade is indistinguishable from a quiet market."
       },
       {
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 1680s"
+        "detail": "1/1 — BTCUSDT up 0s"
       },
       {
         "name": "feed: BTCUSDT",
-        "ok": true,
-        "severity": "ok",
-        "detail": "ok"
+        "ok": false,
+        "severity": "bad",
+        "detail": "blind — starting up",
+        "fix": "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance is blocked or BTCUSDT is not a listed contract — npm run sweep:symbols says which."
       },
       {
         "name": "max position set",
@@ -472,19 +341,19 @@
         "name": "evidence sampler",
         "ok": true,
         "severity": "ok",
-        "detail": "10s since its last beat"
+        "detail": "6s since its last beat"
       },
       {
         "name": "shadow run",
         "ok": true,
         "severity": "ok",
-        "detail": "10s since its last beat"
+        "detail": "6s since its last beat"
       },
       {
         "name": "news + social feeds",
         "ok": true,
         "severity": "ok",
-        "detail": "6/14 sources live (in this process), 4 headlines recorded · 8 erroring: reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 "
+        "detail": "6/14 sources live (standalone sweep:news), 4 headlines recorded · 8 erroring: reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 "
       },
       {
         "name": "position cap",
@@ -500,22 +369,13 @@
         "fix": "Fine for testing that orders place. The leverage ladder, maintenance rate, session weights and earnings calendar are all built for an equity perp on Nasdaq and mean nothing on a crypto pair or a contract on another exchange's clock — do not read a strategy result off those."
       }
     ],
-    "verdict": "1 thing broken",
+    "verdict": "3 things broken",
     "worst": "bad"
   },
   "errors": [],
   "notes": [],
-  "refusals": [
-    {
-      "reason": "no free collateral",
-      "count": 6
-    }
-  ],
+  "refusals": [],
   "limits": {
-    "capsDerivedAt": 1786377791176,
-    "desiredAppliedAt": 1786470000000,
-    "burstGuardSec": 0,
-    "biasDeadZone": 0.02,
     "maxPositionUsd": 32590,
     "maxLeverage": 10,
     "maxDailyLossUsd": 0,
@@ -533,6 +393,10 @@
     "minRewardOverFees": 2,
     "autoTune": false,
     "marginHeadroomPct": 5,
+    "burstGuardSec": 0,
+    "biasDeadZone": 0.02,
+    "desiredAppliedAt": 1786470000000,
+    "capsDerivedAt": 1786377791176,
     "trailArmsAtR": 1,
     "scaleOutAtR": 1.5,
     "scaleOutFraction": 40
@@ -540,7 +404,7 @@
   "ledger": {
     "epoch": 1786519512530,
     "balance": 2658.85452788,
-    "at": 1786530890314,
+    "at": 1786531010954,
     "reason": "reset by hand from the dashboard"
   },
   "learn": {
@@ -2526,7 +2390,7 @@
     }
   ],
   "shadow": {
-    "rows": 1617,
+    "rows": 1619,
     "horizons": [
       "t300",
       "t60",
@@ -2535,27 +2399,27 @@
     "overall": {
       "t300": {
         "label": "all",
-        "n": 1611,
+        "n": 1613,
         "wins": 128,
-        "meanPct": -0.0008867251223164454,
-        "netUsd": -886.9412611960923,
-        "sePct": 0.0024830574247638854
+        "meanPct": -0.000788615245046595,
+        "netUsd": -887.1706434266945,
+        "sePct": 0.002480987138611408
       },
       "t60": {
         "label": "all",
-        "n": 1615,
+        "n": 1617,
         "wins": 28,
-        "meanPct": -0.0031024638694289,
-        "netUsd": -945.0551996256337,
-        "sePct": 0.0010804792176440615
+        "meanPct": -0.0031018232357997795,
+        "netUsd": -946.1365353231324,
+        "sePct": 0.0010798287563513543
       },
       "t900": {
         "label": "all",
-        "n": 1605,
+        "n": 1607,
         "wins": 305,
-        "meanPct": 0.001581009056874511,
-        "netUsd": -893.005098102195,
-        "sePct": 0.004059981780653258
+        "meanPct": 0.0015838829975845107,
+        "netUsd": -894.0181841318546,
+        "sePct": 0.0040551121472571765
       }
     },
     "byEntryDepth": [
@@ -2595,11 +2459,11 @@
     "bySignal": [
       {
         "label": "cluster-approach",
-        "n": 988,
+        "n": 990,
         "wins": 194,
-        "meanPct": -0.004470847354926937,
-        "netUsd": -672.5660265461496,
-        "sePct": 0.005063865236170413
+        "meanPct": -0.0044539563089223185,
+        "netUsd": -673.5791125758092,
+        "sePct": 0.005054033923399239
       },
       {
         "label": "withdrawal",
@@ -2627,808 +2491,20 @@
       }
     ],
     "resolved": {
-      "open": 1610,
+      "open": 1612,
       "unscored": 7
     },
-    "feesUsd": 909.2321460701852,
-    "grossUsd": 16.22704796799526
+    "feesUsd": 910.2862386235746,
+    "grossUsd": 16.26805449172508
   },
   "log": [
     {
-      "t": 1786529222808,
+      "t": 1786531029294,
       "text": "engine started — BTCUSDT"
     },
     {
-      "t": 1786529222812,
+      "t": 1786531029296,
       "text": "resumed armed: this process restarted itself to take an update, and was armed before it did"
-    },
-    {
-      "t": 1786529223329,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786529223330,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786529223802,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786529223802,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786529223803,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1786529223804,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1786529223804,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1786529223804,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1786529224511,
-      "text": "order venue https://demo-fapi.binance.com lists all 5 configured contract(s)"
-    },
-    {
-      "t": 1786529225074,
-      "text": "startup: flat on BTCUSDT, nothing to reconcile"
-    },
-    {
-      "t": 1786529228463,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786529242893,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786529242895,
-      "text": "execution loop attached — BTCUSDT (binance-testnet)"
-    },
-    {
-      "t": 1786529252112,
-      "text": "RangeError: Maximum call stack size exceeded"
-    },
-    {
-      "t": 1786529252212,
-      "text": "research: BTCUSDT: the replay refused — see its message above; nothing was written"
-    },
-    {
-      "t": 1786529261900,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×9 since 11:07:41 AM)"
-    },
-    {
-      "t": 1786529272985,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786529274350,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×2 since 11:07:54 AM)"
-    },
-    {
-      "t": 1786529275759,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 11:07:55 AM)"
-    },
-    {
-      "t": 1786529278560,
-      "text": "execution BTCUSDT refused: at the 0-position limit"
-    },
-    {
-      "t": 1786529279376,
-      "text": "RangeError: Maximum call stack size exceeded"
-    },
-    {
-      "t": 1786529279470,
-      "text": "research: ETHUSDT: the replay refused — see its message above; nothing was written"
-    },
-    {
-      "t": 1786529279583,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×4 since 11:07:59 AM)"
-    },
-    {
-      "t": 1786529288473,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786529291243,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×2 since 11:08:11 AM)"
-    },
-    {
-      "t": 1786529300090,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 11:08:20 AM)"
-    },
-    {
-      "t": 1786529305143,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×2 since 11:08:25 AM)"
-    },
-    {
-      "t": 1786529307395,
-      "text": "RangeError: Maximum call stack size exceeded"
-    },
-    {
-      "t": 1786529307506,
-      "text": "research: SOLUSDT: the replay refused — see its message above; nothing was written"
-    },
-    {
-      "t": 1786529308098,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786529311023,
-      "text": "execution BTCUSDT refused: at the 0-position limit"
-    },
-    {
-      "t": 1786529313184,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786529317793,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×5 since 11:08:37 AM)"
-    },
-    {
-      "t": 1786529325120,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 11:08:45 AM)"
-    },
-    {
-      "t": 1786529328914,
-      "text": "execution BTCUSDT refused: at the 0-position limit"
-    },
-    {
-      "t": 1786529333956,
-      "text": "RangeError: Maximum call stack size exceeded"
-    },
-    {
-      "t": 1786529334052,
-      "text": "research: BNBUSDT: the replay refused — see its message above; nothing was written"
-    },
-    {
-      "t": 1786529335146,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786529336574,
-      "text": "execution BTCUSDT refused: at the 0-position limit"
-    },
-    {
-      "t": 1786529337739,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly.  (×2 since 11:08:57 AM)"
-    },
-    {
-      "t": 1786529342832,
-      "text": "news: collecting from 14 sources in-process (2 unavailable: x, linkedin)"
-    },
-    {
-      "t": 1786529352077,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×2 since 11:09:12 AM)"
-    },
-    {
-      "t": 1786529353288,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786529358602,
-      "text": "execution BTCUSDT refused: at the 0-position limit"
-    },
-    {
-      "t": 1786529362306,
-      "text": "RangeError: Maximum call stack size exceeded"
-    },
-    {
-      "t": 1786529362400,
-      "text": "research: XRPUSDT: the replay refused — see its message above; nothing was written"
-    },
-    {
-      "t": 1786529365237,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×6 since 11:09:25 AM)"
-    },
-    {
-      "t": 1786529367628,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786529379315,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×3 since 11:09:39 AM)"
-    },
-    {
-      "t": 1786529388340,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786529389247,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×6 since 11:09:49 AM)"
-    },
-    {
-      "t": 1786529401083,
-      "text": "execution BTCUSDT failed: The operation was aborted due to timeout\n    → An error this build does not recognise. The order was abandoned rather than retried blindly."
-    },
-    {
-      "t": 1786529403589,
-      "text": "execution BTCUSDT refused: at the 0-position limit"
-    },
-    {
-      "t": 1786529410977,
-      "text": "execution BTCUSDT failed: 400 {\"code\":-1021,\"msg\":\"Timestamp for this request is outside of the recvWindow.\"} (system clock is out of sync with Binance — resync NTP)\n    → The request timestamp was outside Binance's window — this machine's clock has drifted.\n    → Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm.\n    → The request timestamp was outside Binance's window — this machine's clock has drifted. Sync it (Windows: Settings > Time & language > Date & time > Sync now)."
-    },
-    {
-      "t": 1786529410980,
-      "text": "!! HALTED — trading disarmed. The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786529411371,
-      "text": "execution BTCUSDT refused: at the 0-position limit  (×2 since 11:10:11 AM)"
-    },
-    {
-      "t": 1786529415453,
-      "text": "execution BTCUSDT failed: 400 {\"code\":-1021,\"msg\":\"Timestamp for this request is outside of the recvWindow.\"} (system clock is out of sync with Binance — resync NTP)\n    → The request timestamp was outside Binance's window — this machine's clock has drifted.\n    → Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm.\n    → The request timestamp was outside Binance's window — this machine's clock has drifted. Sync it (Windows: Settings > Time & language > Date & time > Sync now)."
-    },
-    {
-      "t": 1786529478231,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 11:11:18 AM)"
-    },
-    {
-      "t": 1786529744184,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786529744184,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21118 ms: Could not connect to server"
-    },
-    {
-      "t": 1786529748033,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×3 since 11:15:48 AM)"
-    },
-    {
-      "t": 1786530137277,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530137277,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21153 ms: Could not connect to server"
-    },
-    {
-      "t": 1786530158772,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530158773,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21084 ms: Could not connect to server"
-    },
-    {
-      "t": 1786530158872,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1786530158873,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1786530158874,
-      "text": "^"
-    },
-    {
-      "t": 1786530158874,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1786530158874,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1786530158874,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1786530158874,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1786530158874,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1786530158875,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1786530158875,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1786530158875,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1786530158875,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1786530158875,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1786530158875,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1786530158875,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1786530158875,
-      "text": "pid: 30916,"
-    },
-    {
-      "t": 1786530158875,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1786530158875,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1786530158875,
-      "text": "}"
-    },
-    {
-      "t": 1786530158876,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786530158906,
-      "text": "share: exited (1) — restarting, attempt 1"
-    },
-    {
-      "t": 1786530184096,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786530184096,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786530184400,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786530184401,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530184401,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1786530184401,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1786530184401,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1786530184402,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1786530188667,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530269650,
-      "text": "news: HIGH Cointelegraph — Binance, RedotPay clash over fate of Singapore lawsuit"
-    },
-    {
-      "t": 1786530312114,
-      "text": "limits updated: {\"capsDerivedAt\":1786377791176,\"desiredAppliedAt\":1786470000000,\"burstGuardSec\":0,\"biasDeadZone\":0.02,\"maxPositionUsd\":32590,\"maxLeverage\":10,\"maxDailyLossUsd\":0,\"maxOpenPositions\":0,\"tradingEnabled\":true,\"stopLossPct\":0.5,\"maxTradesPerDay\":0,\"lossCooldownMin\":0,\"requireCashOpen\":false,\"minRewardRisk\":2,\"maxHoldMinutes\":120,\"riskPerTradePct\":4,\"sizeDerateStrength\":0.5,\"breakEvenAtPct\":60,\"minRewardOverFees\":2,\"autoTune\":false,\"marginHeadroomPct\":5,\"trailArmsAtR\":1,\"scaleOutAtR\":1.5,\"scaleOutFraction\":40}"
-    },
-    {
-      "t": 1786530312115,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530323285,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530323285,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530330894,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530330894,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21111 ms: Could not connect to server"
-    },
-    {
-      "t": 1786530330990,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1786530330990,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1786530330990,
-      "text": "^"
-    },
-    {
-      "t": 1786530330990,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1786530330991,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1786530330991,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1786530330991,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1786530330991,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1786530330991,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1786530330991,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1786530330991,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1786530330991,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1786530330991,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1786530330991,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1786530330991,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1786530330991,
-      "text": "pid: 37604,"
-    },
-    {
-      "t": 1786530330992,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1786530330992,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1786530330992,
-      "text": "}"
-    },
-    {
-      "t": 1786530330992,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786530331016,
-      "text": "share: exited (1) — restarting, attempt 2"
-    },
-    {
-      "t": 1786530343287,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530343288,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530363297,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530363298,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530364142,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786530364142,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786530364409,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786530364410,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530364411,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1786530364411,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1786530364411,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1786530364411,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1786530365488,
-      "text": "limits updated: {\"capsDerivedAt\":1786377791176,\"desiredAppliedAt\":1786470000000,\"burstGuardSec\":0,\"biasDeadZone\":0.02,\"maxPositionUsd\":32590,\"maxLeverage\":10,\"maxDailyLossUsd\":0,\"maxOpenPositions\":100000,\"tradingEnabled\":true,\"stopLossPct\":0.5,\"maxTradesPerDay\":100000,\"lossCooldownMin\":0,\"requireCashOpen\":false,\"minRewardRisk\":2,\"maxHoldMinutes\":120,\"riskPerTradePct\":4,\"sizeDerateStrength\":0.5,\"breakEvenAtPct\":60,\"minRewardOverFees\":2,\"autoTune\":false,\"marginHeadroomPct\":5,\"trailArmsAtR\":1,\"scaleOutAtR\":1.5,\"scaleOutFraction\":40}"
-    },
-    {
-      "t": 1786530365488,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530383312,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530383312,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530387420,
-      "text": "share: push failed, retrying in 2s"
-    },
-    {
-      "t": 1786530391720,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530403323,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530403324,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530423323,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530423325,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530443332,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530443332,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530463334,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530463334,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530483348,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530483348,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530503354,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530503354,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530515819,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530523364,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530523365,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530543369,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530543369,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530563379,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530563379,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530583385,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530583385,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530603389,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530603389,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530623397,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530623397,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530643399,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530643399,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530657061,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530657061,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21125 ms: Could not connect to server"
-    },
-    {
-      "t": 1786530660351,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530663408,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530663408,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530683414,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530683414,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530703422,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530703422,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530723428,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530723428,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530743435,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530743436,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530763446,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530763447,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530783454,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530783454,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530784765,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786530803463,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530803463,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530823464,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530823464,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530843474,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530843475,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530863475,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530863475,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530883481,
-      "text": "arming BTCUSDT: the limits say trading is on and no loop was attached"
-    },
-    {
-      "t": 1786530883481,
-      "text": "cannot arm BTCUSDT: The request timestamp was outside Binance's window — this machine's clock has drifted. Sync the system clock (Windows: Settings > Time & language > Date & time > Sync now; Linux: sudo systemctl restart systemd-timesyncd), then re-arm."
-    },
-    {
-      "t": 1786530890986,
-      "text": "news: HIGH CoinDesk — Bitcoin holds near $64,000 as U.S. inflation data looms, Harmony exploit rattles altcoins"
     }
   ],
   "news": {
@@ -3437,14 +2513,6 @@
       "x",
       "linkedin"
     ],
-    "poller": {
-      "recorded": 4,
-      "cycles": 68,
-      "sources": 14,
-      "unavailable": "x,linkedin",
-      "errors": "reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found",
-      "velocity": "BNBUSDT 1.0x BTCUSDT 1.0x ETHUSDT 1.0x XRPUSDT 1.0x",
-      "lastPollAt": 1786530900285
-    }
+    "poller": null
   }
 }
