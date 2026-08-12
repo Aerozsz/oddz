@@ -5032,6 +5032,35 @@ function superviseResearch() {
   });
 }
 
+/**
+ * Make the desks match what the limits say, continuously.
+ *
+ * `tradingEnabled` is a flag; arming is an action, and nothing kept them in
+ * step. `resumeAfterUpdate` set the flag after a self-restart and never called
+ * `armDesk`, so the agent reported armed — the button, the panel and the
+ * self-check all agreed — while no execution loop was attached to anything. It
+ * saw 444 signals and accepted none, with no refusal recorded, because there
+ * was nothing there to refuse them.
+ *
+ * A reconciler rather than another call at the one site that was missing it.
+ * Arming already happens from the button, a limits save, a restart and now a
+ * resume, and the next path added will forget too. This asks the only question
+ * that matters — does the world match the intent — and fixes it if not.
+ */
+function reconcileArming() {
+  for (const desk of allDesks()) {
+    if (limits.tradingEnabled && desk.feed && !desk.runner) {
+      log(`arming ${desk.symbol}: the limits say trading is on and no loop was attached`);
+      armDesk(desk);
+    }
+    if (!limits.tradingEnabled && desk.runner) {
+      log(`disarming ${desk.symbol}: the limits say trading is off`);
+      desk.runner.stop?.();
+      desk.runner = null;
+    }
+  }
+}
+
 /* ----------------------------------------------------------- self-update */
 
 /**
@@ -5338,6 +5367,7 @@ server.listen(PORT, HOST, () => {
   setInterval(superviseShare, 15_000).unref?.();
   superviseResearch();
   setInterval(superviseResearch, 60_000).unref?.();
+  setInterval(reconcileArming, 20_000).unref?.();
   setInterval(checkForUpdate, 5 * 60_000).unref?.();
   console.log(`  snapshot:    ${snapshotPath()} (refreshed every 30s — npm run sweep:share to send it)`);
   console.log(`  config in:   ${desiredPath()} (applied within 20s; cannot arm, disarm or touch a position)`);
