@@ -50,7 +50,30 @@ export const REMOTE_LIMITS: Record<string, { min: number; max: number; dp: numbe
   marginHeadroomPct: { min: 0, max: 40, dp: 1, what: "collateral kept uncommitted" },
   maxLeverage: { min: 1, max: 20, dp: 0, what: "leverage ceiling" },
   maxPositionUsd: { min: 0, max: 1_000_000, dp: 0, what: "notional ceiling; 0 means none" },
-  maxOpenPositions: { min: 0, max: 4, dp: 0, what: "concurrent positions" },
+  maxOpenPositions: { min: 0, max: 20, dp: 0, what: "concurrent positions; 0 means no limit" },
+  burstGuardSec: { min: 0, max: 600, dp: 0, what: "enforced gap between entries; 0 means none" },
+  biasDeadZone: { min: 0, max: 0.6, dp: 3, what: "conviction below which no side is called; 0 means call every one" },
+
+  /*
+   * The stopping rules, and the two behavioural switches.
+   *
+   * These were reserved because three separate code paths had put a daily loss
+   * budget back onto an account that switched it off on purpose, and a
+   * whitelist was the only thing that reliably stopped a fourth. The operator
+   * has since asked for every setting to be reachable without them touching the
+   * machine, and the original hazard is unchanged in kind but not in
+   * consequence: the danger was code silently reverting a decision, and a file
+   * with a reason string and an audit line is the opposite of silent.
+   *
+   * Booleans are 0 and 1 here. The parser takes numbers only — deliberately,
+   * because `Number(null)` is 0 and a coerced null once set the stop to its
+   * floor — so a flag arrives as a number and is converted at the edge.
+   */
+  maxDailyLossUsd: { min: 0, max: 1_000_000, dp: 2, what: "daily loss budget; 0 means none" },
+  maxTradesPerDay: { min: 0, max: 100_000, dp: 0, what: "trades per day; 0 means no limit" },
+  lossCooldownMin: { min: 0, max: 240, dp: 0, what: "wait after a loss; 0 means none" },
+  requireCashOpen: { min: 0, max: 1, dp: 0, what: "1 trades only while the cash market is open" },
+  autoTune: { min: 0, max: 1, dp: 0, what: "1 lets the tuner apply its own recommendations" },
 };
 
 /**
@@ -61,14 +84,7 @@ export const REMOTE_LIMITS: Record<string, { min: number; max: number; dp: numbe
  * three separate code paths have already put back once, which is reason enough
  * to keep a fourth from being able to.
  */
-export const RESERVED = [
-  "tradingEnabled",
-  "requireCashOpen",
-  "autoTune",
-  "maxDailyLossUsd",
-  "maxTradesPerDay",
-  "lossCooldownMin",
-] as const;
+export const RESERVED = ["tradingEnabled"] as const;
 
 export interface DesiredFile {
   /** When it was written, so an unchanged file is not reapplied. */
@@ -117,10 +133,7 @@ export function planDesired(
     if ((RESERVED as readonly string[]).includes(key)) {
       rejected.push({
         key,
-        why:
-          key === "tradingEnabled" || key === "requireCashOpen" || key === "autoTune"
-            ? "arming is the operator's, and is never set from a file"
-            : "this stopping rule is the operator's and is deliberately switched off",
+        why: "arming is the operator's, and is never set from a file",
       });
       continue;
     }

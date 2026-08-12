@@ -1,44 +1,48 @@
 /**
- * Score the entry hypothesis against years, and write the answer where it can
- * be read from off the machine.
+ * Search a year of real book and tape for anything that predicts, and rank it.
  *
- *   npm run sweep:backtest                       # whatever sweep:history fetched
- *   npm run sweep:backtest -- --symbol BTCUSDT
+ *   npm run sweep:history -- --days 365
+ *   npm run sweep:backtest
  *
- * ## The question
+ * ## What changed, and why
  *
- * The strategy's premise is one sentence: when the depth on the side price would
- * have to travel through is below its own recent baseline, price is more likely
- * to travel that way. Everything else — the cluster map, the cascade model, the
- * hold engine, the fee accounting — is downstream of that being true.
+ * The first version tested one hypothesis with one statistic, and both were
+ * wrong in the same direction.
  *
- * It has never been measured. `DEAD_ZONE = 0.12` in bias.ts is the threshold the
- * premise is traded on, and it was chosen rather than fitted. Twenty-eight live
- * trades cannot move it; four hundred thousand minutes can.
+ * It tested only the incumbent signal — thin book, price travels that way —
+ * because that is what the agent already trades. On 780,000 minutes the answer
+ * came back mixed in a way that condemned the formula rather than the idea:
+ * a genuinely thin travel side predicted at 3.5-4.4 sigma across every horizon,
+ * while the traded band at 0.25-0.50 predicted *negatively* at 3 sigma. The
+ * signal multiplies thinness by asymmetry, and those two point opposite ways.
+ * That is only visible if the components are scored separately, so now they are,
+ * alongside every other candidate the same files can produce.
  *
- * ## What this is, precisely
+ * It also measured close-to-close means, which is a drift statistic. This is an
+ * event strategy: the claim is that a condition raises the odds of a large fast
+ * move, not that the average minute afterwards drifts. A run of +80bp that
+ * retraces reads as zero in a close-to-close mean while a resting target would
+ * have filled. So the primary measurements here are excursions — the best and
+ * worst reached inside the window — and the probability of clearing 25, 50 and
+ * 100bp, which is the shape a bracket order actually harvests.
  *
- * Not a simulation of the agent. Deliberately not — a full replay would carry
- * the sizer, the hold engine, the burst guard and the fee model, and every one
- * of those is a place for a bug to manufacture an edge that is not there. This
- * measures the signal and nothing else: at each minute, compute the depth
- * asymmetry, then look at what price did over the next hour. If the buckets do
- * not separate, no exit rule and no fee saving can rescue it, and that is worth
- * knowing before another line of either is written.
+ * ## Multiplicity is paid for, not ignored
  *
- * ## The one honest caveat, stated up front
- *
- * `bookDepth` is a one-minute snapshot of notional resting within 1% of mid.
- * The live tracker reads the full book continuously and can see depth *pulled*
- * as distinct from depth *traded through*. This cannot: it sees the level, not
- * the mechanism. So a null result here is strong — if the level does not predict
- * over any horizon, the finer measurement is unlikely to rescue it — while a
- * positive result is a floor rather than a ceiling.
+ * Fourteen features across five horizons is seventy comparisons, and at the
+ * conventional threshold three or four come back "significant" on pure noise
+ * every time, guaranteed by arithmetic rather than by the market. The ranking
+ * reports the Bonferroni bar it has to clear and marks each row against it. A
+ * feature that does not clear it is not a finding, however good the story.
  */
 
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { unzipEntries, csvRows, parseTs } from "../lib/sweep/backtest/zip";
+import {
+  emptyRoll, featuresFor, scoreFeature, edge,
+  type Minute, type Sample, type Score,
+} from "../lib/sweep/backtest/features";
+import { familyZ } from "../lib/sweep/agent/learn";
 
 const arg = (name: string, fallback: string): string => {
   const i = process.argv.indexOf(`--${name}`);
@@ -48,267 +52,209 @@ const arg = (name: string, fallback: string): string => {
 const symbol = arg("symbol", "BTCUSDT").toUpperCase();
 const histDir = resolve(arg("in", "data/history"));
 const outPath = resolve(arg("out", `evidence/backtest-${symbol}.json`));
-
-/** Matches the live tracker's half-life, so the ratio means the same thing. */
-const BASELINE_HALF_LIFE_MIN = 30;
-/** Minutes of baseline before a reading is used at all. */
-const WARMUP_MIN = 60;
-/** Horizons in minutes, scored forward from each snapshot. */
 const HORIZONS = [1, 5, 15, 30, 60];
 
 /* ------------------------------------------------------------------ input */
 
-interface Minute {
-  ts: number;
-  bid1: number;
-  ask1: number;
-}
-
-/** Notional within 1% of mid, per side, per minute. */
-function readBookDepth(dir: string): Minute[] {
-  if (!existsSync(dir)) return [];
-  const byTs = new Map<number, { bid: number; ask: number }>();
+function eachZip(dir: string, onRows: (rows: string[][]) => void) {
+  if (!existsSync(dir)) return;
   for (const file of readdirSync(dir).filter((f) => f.endsWith(".zip")).sort()) {
-    let entries;
     try {
-      entries = unzipEntries(readFileSync(join(dir, file)));
+      for (const e of unzipEntries(readFileSync(join(dir, file)))) onRows(csvRows(e.data));
     } catch (err) {
       console.error(`[backtest] skipping ${file}: ${err instanceof Error ? err.message : String(err)}`);
-      continue;
-    }
-    for (const e of entries) {
-      for (const row of csvRows(e.data)) {
-        // timestamp,percentage,depth,notional
-        const ts = parseTs(row[0] ?? "");
-        const pct = Number(row[1]);
-        const notional = Number(row[3]);
-        if (!Number.isFinite(ts) || !Number.isFinite(pct) || !Number.isFinite(notional)) continue;
-        /*
-         * The 1% band only.
-         *
-         * The wider bands are dominated by resting size nobody intends to
-         * defend, and the entry rule is about the depth immediately in front of
-         * price. Using ±1% keeps this comparable to the live primary band.
-         */
-        if (Math.abs(pct) !== 1) continue;
-        const slot = byTs.get(ts) ?? { bid: 0, ask: 0 };
-        if (pct < 0) slot.bid += notional;
-        else slot.ask += notional;
-        byTs.set(ts, slot);
-      }
     }
   }
-  return [...byTs.entries()]
-    .map(([ts, v]) => ({ ts, bid1: v.bid, ask1: v.ask }))
-    .sort((a, b) => a.ts - b.ts);
 }
 
-interface Bar {
-  ts: number;
-  close: number;
-  high: number;
-  low: number;
-}
-
-function readKlines(dir: string): Map<number, Bar> {
-  const out = new Map<number, Bar>();
-  if (!existsSync(dir)) return out;
-  for (const file of readdirSync(dir).filter((f) => f.endsWith(".zip")).sort()) {
-    let entries;
-    try {
-      entries = unzipEntries(readFileSync(join(dir, file)));
-    } catch (err) {
-      console.error(`[backtest] skipping ${file}: ${err instanceof Error ? err.message : String(err)}`);
-      continue;
+function loadMinutes(): Minute[] {
+  const depth = new Map<number, { bid: number; ask: number }>();
+  eachZip(join(histDir, "bookDepth"), (rows) => {
+    for (const r of rows) {
+      const ts = parseTs(r[0] ?? "");
+      const pct = Number(r[1]);
+      const notional = Number(r[3]);
+      // The 1% band only: the entry rule is about depth immediately in front of
+      // price, and the wider bands are dominated by size nobody intends to defend.
+      if (!Number.isFinite(ts) || Math.abs(pct) !== 1 || !Number.isFinite(notional)) continue;
+      const slot = Math.floor(ts / 60_000) * 60_000;
+      const cur = depth.get(slot) ?? { bid: 0, ask: 0 };
+      if (pct < 0) cur.bid += notional;
+      else cur.ask += notional;
+      depth.set(slot, cur);
     }
-    for (const e of entries) {
-      for (const row of csvRows(e.data)) {
-        // open_time,open,high,low,close,volume,close_time,...
-        const ts = parseTs(row[0] ?? "");
-        const high = Number(row[2]);
-        const low = Number(row[3]);
-        const close = Number(row[4]);
-        if (!Number.isFinite(ts) || !Number.isFinite(close)) continue;
-        out.set(Math.floor(ts / 60_000) * 60_000, { ts, close, high, low });
-      }
+  });
+
+  const out: Minute[] = [];
+  eachZip(join(histDir, "1m"), (rows) => {
+    for (const r of rows) {
+      const ts = parseTs(r[0] ?? "");
+      if (!Number.isFinite(ts)) continue;
+      const slot = Math.floor(ts / 60_000) * 60_000;
+      const d = depth.get(slot);
+      if (!d) continue;
+      const close = Number(r[4]);
+      if (!(close > 0)) continue;
+      out.push({
+        ts: slot,
+        bid1: d.bid,
+        ask1: d.ask,
+        close,
+        high: Number(r[2]) || close,
+        low: Number(r[3]) || close,
+        volume: Number(r[5]) || 0,
+        trades: Number(r[8]) || 0,
+        // Column 9 is taker_buy_base_asset_volume — the aggressive buying that
+        // makes order-flow imbalance computable with no extra download.
+        takerBuy: Number(r[9]) || 0,
+      });
     }
-  }
-  return out;
-}
-
-/* --------------------------------------------------------------- buckets */
-
-interface Bucket {
-  label: string;
-  n: number;
-  /** Mean forward move in the signalled direction, in basis points. */
-  meanBps: Record<string, number>;
-  seBps: Record<string, number>;
-  /** Share of snapshots where the move was favourable, per horizon. */
-  hitRate: Record<string, number>;
-}
-
-function summarise(label: string, rows: { by: Record<string, number> }[]): Bucket {
-  const meanBps: Record<string, number> = {};
-  const seBps: Record<string, number> = {};
-  const hitRate: Record<string, number> = {};
-  for (const h of HORIZONS) {
-    const key = `t${h}`;
-    const xs = rows.map((r) => r.by[key]).filter((x) => Number.isFinite(x));
-    const n = xs.length;
-    const mean = n ? xs.reduce((a, b) => a + b, 0) / n : 0;
-    const varr = n > 1 ? xs.reduce((a, b) => a + (b - mean) ** 2, 0) / (n - 1) : 0;
-    meanBps[key] = mean;
-    seBps[key] = n > 1 ? Math.sqrt(varr / n) : Infinity;
-    hitRate[key] = n ? xs.filter((x) => x > 0).length / n : 0;
-  }
-  return { label, n: rows.length, meanBps, seBps, hitRate };
+  });
+  return out.sort((a, b) => a.ts - b.ts);
 }
 
 /* ------------------------------------------------------------------- main */
 
 function main() {
-  const minutes = readBookDepth(join(histDir, "bookDepth"));
-  const bars = readKlines(join(histDir, "1m"));
-
+  const minutes = loadMinutes();
   console.error("");
-  console.error(`[backtest] ${symbol}`);
-  console.error(`[backtest] ${minutes.length} depth snapshots · ${bars.size} price bars`);
-  if (minutes.length === 0 || bars.size === 0) {
-    console.error("[backtest] nothing to work with — run npm run sweep:history first");
+  console.error(`[backtest] ${symbol} · ${minutes.length} minutes with both depth and price`);
+  if (minutes.length < 1000) {
+    console.error("[backtest] not enough overlap — run npm run sweep:history first");
     process.exit(1);
   }
 
-  /*
-   * The baseline, built the same way the live tracker builds it: an EWMA of the
-   * side's own recent notional. The ratio against it — not the raw notional — is
-   * what the entry rule reads, because absolute depth varies by an order of
-   * magnitude between a Sunday night and an FOMC minute and would otherwise be
-   * measuring the clock.
-   */
-  const alpha = 1 - Math.pow(0.5, 1 / BASELINE_HALF_LIFE_MIN);
-  let bidBase = 0;
-  let askBase = 0;
-  let seen = 0;
-
-  const rows: { signal: number; thin: number; by: Record<string, number> }[] = [];
-  let skippedNoBar = 0;
+  const byTs = new Map(minutes.map((m) => [m.ts, m]));
+  const roll = emptyRoll();
+  const history: Minute[] = [];
+  const samples: Sample[] = [];
 
   for (const m of minutes) {
-    if (seen === 0) {
-      bidBase = m.bid1;
-      askBase = m.ask1;
-    } else {
-      bidBase += alpha * (m.bid1 - bidBase);
-      askBase += alpha * (m.ask1 - askBase);
-    }
-    seen++;
-    if (seen < WARMUP_MIN || !(bidBase > 0) || !(askBase > 0)) continue;
-
-    const lwiBid = m.bid1 / bidBase;
-    const lwiAsk = m.ask1 / askBase;
+    const prev = history[history.length - 1] ?? null;
+    const f = featuresFor(m, prev, roll, history);
+    history.push(m);
+    if (history.length > 120) history.shift();
+    if (!f) continue;
 
     /*
-     * The same composite the live bias computes for this factor: which side is
-     * thinner, scaled by how far below its own baseline the travel side sits.
-     * Positive means up — the ask is the thin side and price should travel
-     * through it.
+     * Excursions from the highs and lows inside the window, not from the close.
+     *
+     * A resting target fills on the high; a resting stop fills on the low.
+     * Close-to-close cannot see either, which makes it the wrong instrument for
+     * a strategy whose whole expression is a bracket.
      */
-    const denom = lwiBid + lwiAsk;
-    if (!(denom > 0)) continue;
-    const asymmetry = (lwiBid - lwiAsk) / denom;
-    const travelSide = asymmetry > 0 ? lwiAsk : lwiBid;
-    const thin = Math.max(0, Math.min(1, (1 - travelSide) / 0.3));
-    const signal = asymmetry * thin;
-    if (signal === 0) continue;
-
-    const slot = Math.floor(m.ts / 60_000) * 60_000;
-    const entry = bars.get(slot);
-    if (!entry) {
-      skippedNoBar++;
-      continue;
-    }
-
-    const by: Record<string, number> = {};
+    const mfe: Record<string, number> = {};
+    const mae: Record<string, number> = {};
+    const ret: Record<string, number> = {};
     let usable = false;
     for (const h of HORIZONS) {
-      const later = bars.get(slot + h * 60_000);
-      if (!later) continue;
-      const raw = ((later.close - entry.close) / entry.close) * 10_000;
-      // Signed so that positive is a win for the side the signal called.
-      by[`t${h}`] = signal > 0 ? raw : -raw;
+      let hi = -Infinity;
+      let lo = Infinity;
+      let last: Minute | null = null;
+      for (let k = 1; k <= h; k++) {
+        const b = byTs.get(m.ts + k * 60_000);
+        if (!b) continue;
+        hi = Math.max(hi, b.high);
+        lo = Math.min(lo, b.low);
+        last = b;
+      }
+      if (!last || !Number.isFinite(hi)) continue;
+      const key = `t${h}`;
+      mfe[key] = ((hi - m.close) / m.close) * 10_000;
+      mae[key] = ((lo - m.close) / m.close) * 10_000;
+      ret[key] = ((last.close - m.close) / m.close) * 10_000;
       usable = true;
     }
-    if (usable) rows.push({ signal, thin: travelSide, by });
+    if (usable) samples.push({ ts: m.ts, features: f, mfe, mae, ret });
   }
 
-  console.error(`[backtest] ${rows.length} scored snapshots · ${skippedNoBar} with no matching bar`);
-  if (rows.length === 0) {
-    console.error("[backtest] the depth and price files do not overlap in time — check the manifest dates");
+  console.error(`[backtest] ${samples.length} scored samples`);
+  if (samples.length < 1000) {
+    console.error("[backtest] too few to say anything — check the manifest dates overlap");
     process.exit(1);
   }
 
-  /*
-   * Bands on the signal's magnitude, straddling the live threshold.
-   *
-   * 0.12 is DEAD_ZONE: everything below it is refused in production. If the
-   * bands below 0.12 predict as well as the bands above it, the threshold is
-   * discarding trades for nothing. If nothing predicts anywhere, the premise is
-   * wrong and no threshold saves it. Both answers are actionable and neither is
-   * available from live trading at twenty-eight samples.
-   */
-  const bands: [string, (s: number) => boolean][] = [
-    ["|signal| 0.00-0.06 (refused today)", (s) => s < 0.06],
-    ["|signal| 0.06-0.12 (refused today)", (s) => s >= 0.06 && s < 0.12],
-    ["|signal| 0.12-0.25 (traded today)", (s) => s >= 0.12 && s < 0.25],
-    ["|signal| 0.25-0.50 (traded today)", (s) => s >= 0.25 && s < 0.5],
-    ["|signal| >=0.50 (traded today)", (s) => s >= 0.5],
-  ];
-  const bySignal = bands.map(([label, test]) => summarise(label, rows.filter((r) => test(Math.abs(r.signal)))));
+  const names = Object.keys(samples[0].features);
+  const tests = names.length * HORIZONS.length;
+  const bar = familyZ(tests);
+  console.error(`[backtest] ${names.length} features × ${HORIZONS.length} horizons = ${tests} tests`);
+  console.error(`[backtest] a finding must clear ${bar.toFixed(2)} sigma to survive that many looks`);
 
-  const depthBands: [string, (x: number) => boolean][] = [
-    ["travel side <0.70x", (x) => x < 0.7],
-    ["travel side 0.70-0.85x", (x) => x >= 0.7 && x < 0.85],
-    ["travel side 0.85-1.00x", (x) => x >= 0.85 && x < 1],
-    ["travel side >=1.00x", (x) => x >= 1],
-  ];
-  const byDepth = depthBands.map(([label, test]) => summarise(label, rows.filter((r) => test(r.thin))));
+  interface Ranked {
+    feature: string;
+    horizon: string;
+    sigma: number;
+    spreadBps: number;
+    tailLift: number;
+    survives: boolean;
+    top: Score;
+    bottom: Score;
+  }
+  const ranked: Ranked[] = [];
+  const detail: Record<string, Score[]> = {};
+
+  for (const name of names) {
+    for (const h of HORIZONS) {
+      const key = `t${h}`;
+      const scores = scoreFeature(samples, name, key);
+      if (scores.length < 2) continue;
+      const e = edge(scores);
+      ranked.push({
+        feature: name,
+        horizon: key,
+        sigma: e.sigma,
+        spreadBps: e.spreadBps,
+        tailLift: e.tailLift,
+        survives: Math.abs(e.sigma) >= bar,
+        top: scores[scores.length - 1],
+        bottom: scores[0],
+      });
+      // Only the deciles of things worth looking at, or the file is unreadable.
+      if (Math.abs(e.sigma) >= bar) detail[`${name}@${key}`] = scores;
+    }
+  }
+  ranked.sort((a, b) => Math.abs(b.sigma) - Math.abs(a.sigma));
+
+  /*
+   * The cost line, stated in the same units as the edge.
+   *
+   * Everything above is gross. A round trip on this account has been running
+   * around 7bp of notional, so a decile spread under that is a finding about the
+   * market and not a strategy. Printing it beside the spread is the difference
+   * between "we found something" and "we found something we can trade".
+   */
+  const ROUND_TRIP_BPS = 7;
 
   const report = {
     at: Date.now(),
     symbol,
-    method:
-      "bookDepth 1% band vs a 30-minute EWMA of itself; signal = depth asymmetry scaled by how far " +
-      "below baseline the travel side sits; forward close-to-close returns signed by the called side. " +
-      "The signal only — no sizer, no hold engine, no fees.",
-    caveat:
-      "bookDepth is a 1-minute snapshot of resting notional and cannot separate depth pulled from " +
-      "depth traded through. A null result here is therefore strong and a positive one is a floor.",
-    snapshots: minutes.length,
-    scored: rows.length,
+    samples: samples.length,
     spanDays: Math.round((minutes[minutes.length - 1].ts - minutes[0].ts) / 86_400_000),
     horizons: HORIZONS,
-    overall: summarise("all", rows),
-    bySignal,
-    byDepth,
+    method:
+      "Every feature bucketed into deciles; each decile scored on close-to-close return, on best and " +
+      "worst excursion inside the window, and on the probability of clearing 25/50/100bp. Ranked by the " +
+      "separation between the top and bottom deciles in standard errors of the difference.",
+    multiplicity: { tests, bonferroniSigma: bar },
+    roundTripBps: ROUND_TRIP_BPS,
+    ranked: ranked.slice(0, 40),
+    deciles: detail,
   };
 
   mkdirSync(resolve(outPath, ".."), { recursive: true });
   writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`);
 
   console.error("");
-  console.error(`[backtest] span ${report.spanDays} days`);
-  console.error("");
-  console.error("  signal band                              n      15m bps     ±se    hit%");
-  for (const b of bySignal) {
+  console.error("  feature            horizon      σ    spread bp   tail50 lift   clears bar");
+  for (const r of ranked.slice(0, 18)) {
     console.error(
-      `  ${b.label.padEnd(38)} ${String(b.n).padStart(7)}  ${b.meanBps.t15.toFixed(2).padStart(9)}  ` +
-        `${b.seBps.t15.toFixed(2).padStart(6)}  ${(b.hitRate.t15 * 100).toFixed(1).padStart(5)}`,
+      `  ${r.feature.padEnd(18)} ${r.horizon.padEnd(7)} ${r.sigma.toFixed(1).padStart(6)}  ` +
+        `${r.spreadBps.toFixed(2).padStart(9)}  ${(Number.isFinite(r.tailLift) ? r.tailLift.toFixed(2) : "inf").padStart(11)}   ` +
+        `${r.survives ? (Math.abs(r.spreadBps) > ROUND_TRIP_BPS ? "yes, and beats fees" : "yes, but under fees") : "no"}`,
     );
   }
   console.error("");
-  console.error(`[backtest] written to ${outPath}`);
-  console.error("[backtest] commit evidence/ and it travels with the next snapshot push");
+  console.error(`[backtest] written to ${outPath} — it rides the next snapshot push`);
   console.error("");
 }
 

@@ -236,6 +236,21 @@ interface Limits {
   /** Minutes to wait after a loss before another entry. */
   lossCooldownMin: number;
   /**
+   * Enforced gap between entries across all desks, in seconds. Zero disables it.
+   *
+   * A guard against one burst of correlated signals opening everything at once.
+   * It was a constant, which made it invisible and unmovable; on a testnet run
+   * whose purpose is collecting samples it is pure throughput loss.
+   */
+  burstGuardSec: number;
+  /**
+   * Conviction below which the bias calls no side. Zero calls every one.
+   *
+   * The number that refused 1,717 of 1,816 signals, and which a year of history
+   * says was not selecting for anything.
+   */
+  biasDeadZone: number;
+  /**
    * When the balance-derived caps were filled in, or 0 if they never were.
    *
    * Exists so that a cap of zero can mean one thing instead of two. It used to
@@ -422,6 +437,8 @@ const DEFAULT_LIMITS: Limits = {
   // Enough to cover a taker commission on both legs plus the exchange's own
   // initial-margin rounding, which is what the boundary case was short of.
   marginHeadroomPct: 5,
+  burstGuardSec: 60,
+  biasDeadZone: 0.12,
   capsDerivedAt: 0,
   trailArmsAtR: 1,
   scaleOutAtR: 1.5,
@@ -2408,7 +2425,7 @@ function pooledRefusals() {
  * took one trade and then rejected every signal for fifteen minutes while
  * saying so once a second.
  */
-const BURST_GUARD_MS = 60_000;
+const burstGuardMs = () => Math.max(0, limits.burstGuardSec) * 1000;
 
 /**
  * When any desk last accepted an entry.
@@ -2638,7 +2655,7 @@ function armDesk(desk: Desk) {
 
   desk.runner = attachExecution(feed, {
     adapter,
-    minIntervalMs: BURST_GUARD_MS,
+    minIntervalMs: burstGuardMs(),
     /*
      * A burst ceiling, not the daily cap.
      *
@@ -2684,14 +2701,14 @@ function armDesk(desk: Desk) {
       }
       const lastEntry = lastAcceptedAnywhere();
       const sinceEntry = Date.now() - lastEntry;
-      if (lastEntry > 0 && sinceEntry < BURST_GUARD_MS) {
+      if (burstGuardMs() > 0 && lastEntry > 0 && sinceEntry < burstGuardMs()) {
         desk.runner?.noteDecline(
-          `another contract just entered — ${Math.ceil((BURST_GUARD_MS - sinceEntry) / 1000)}s of burst guard left`,
+          `another contract just entered — ${Math.ceil((burstGuardMs() - sinceEntry) / 1000)}s of burst guard left`,
         );
         return null;
       }
 
-      const bias = directionalBias(state, { dislocation: dislocationFor(desk.symbol) });
+      const bias = directionalBias(state, { dislocation: dislocationFor(desk.symbol), deadZone: limits.biasDeadZone });
       if (!bias.direction) {
         desk.runner?.noteDecline(bias.summary);
         return null;
@@ -3419,6 +3436,8 @@ const server = createServer(async (req, res) => {
            * the setting most likely to be zeroed on purpose.
            */
           capsDerivedAt: limits.capsDerivedAt || Date.now(),
+          burstGuardSec: n("burstGuardSec", limits.burstGuardSec),
+          biasDeadZone: n("biasDeadZone", limits.biasDeadZone),
           maxPositionUsd: n("maxPositionUsd", limits.maxPositionUsd),
           maxLeverage: Math.max(1, n("maxLeverage", limits.maxLeverage)),
           maxDailyLossUsd: n("maxDailyLossUsd", limits.maxDailyLossUsd),
@@ -3619,7 +3638,7 @@ const server = createServer(async (req, res) => {
         const state = desk.feed?.getState() ?? null;
         if (!state) { send(res, 200, { error: "engine is not running" }); return; }
         const totals = dayTotals();
-        const bias = directionalBias(state, { dislocation: dislocationFor(desk.symbol) });
+        const bias = directionalBias(state, { dislocation: dislocationFor(desk.symbol), deadZone: limits.biasDeadZone });
         // "auto" hands the choice to the bias read; an explicit side overrides it.
         const chosen =
           body.direction === "auto" || body.direction === undefined
@@ -4425,6 +4444,9 @@ function superviseNews() {
  */
 let desiredAppliedAt = 0;
 
+/** Fields held as booleans but carried over the wire as 0 and 1. */
+const BOOLEAN_LIMITS = new Set(["requireCashOpen", "autoTune", "tradingEnabled"]);
+
 function applyDesired() {
   const file = readDesired();
   if (!file) return;
@@ -4474,7 +4496,16 @@ function applyDesired() {
       log(`config: could not record ${c.key} in the audit, so it was not applied`);
       continue;
     }
-    next[c.key] = c.to;
+    /*
+     * Booleans arrive as 0 and 1 and are converted here, at the edge.
+     *
+     * The parser accepts numbers only, on purpose — `Number(null)`, `Number("")`
+     * and `Number(false)` are all 0, and a coerced null once set the stop
+     * distance to its floor without anybody writing a value. Rather than widen
+     * that parser to admit booleans, the two flags travel as numbers and are
+     * turned back into flags at the one place that knows which fields they are.
+     */
+    next[c.key] = BOOLEAN_LIMITS.has(c.key) ? c.to !== 0 : c.to;
     applied.push(`${c.key} ${c.from} → ${c.to}${c.clamped ? " (clamped)" : ""}`);
   }
 

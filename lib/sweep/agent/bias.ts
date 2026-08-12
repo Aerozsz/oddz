@@ -42,8 +42,17 @@ export interface DirectionalBias {
   caveat: string;
 }
 
-/** Below this the two sides are too close to call. */
-const DEAD_ZONE = 0.12;
+/**
+ * Below this the two sides are too close to call.
+ *
+ * Chosen, never measured — and it refused 1,717 of 1,816 signals in a single
+ * session. A year of book history says the bands below it predict forward
+ * returns no worse than the bands above it, so as a filter it was discarding
+ * 95% of the sample for nothing. It is an option now rather than a constant
+ * because the number that belongs here is an empirical one, and the only way to
+ * find it is to be able to move it without a deploy.
+ */
+export const DEAD_ZONE = 0.12;
 /** No combination of these inputs justifies more than this. */
 const MAX_CONVICTION = 0.75;
 
@@ -65,6 +74,14 @@ const norm = (a: number, b: number): number => {
 };
 
 export interface BiasContext {
+  /**
+   * Override the dead zone. Below this magnitude no side is called.
+   *
+   * Passed in rather than read from a module constant so the threshold can be
+   * moved from the remote configuration file while the agent runs, which is the
+   * only practical way to fit it.
+   */
+  deadZone?: number;
   /**
    * How this contract sits against the others being watched.
    *
@@ -248,7 +265,8 @@ export function directionalBias(state: AgentState, ctx: BiasContext = {}): Direc
   quality *= 0.5 + 0.5 * behaviouralConfidence;
 
   const magnitude = Math.abs(composite);
-  const direction: Direction | null = magnitude < DEAD_ZONE ? null : composite > 0 ? "up" : "down";
+  const deadZone = typeof ctx.deadZone === "number" && ctx.deadZone >= 0 ? ctx.deadZone : DEAD_ZONE;
+  const direction: Direction | null = magnitude < deadZone ? null : composite > 0 ? "up" : "down";
   const conviction = direction ? Math.min(MAX_CONVICTION, magnitude * quality) : 0;
 
   const leaders = [...factors].sort((a, b) => Math.abs(b.score * b.weight) - Math.abs(a.score * a.weight)).slice(0, 2);
