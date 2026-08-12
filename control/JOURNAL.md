@@ -160,3 +160,37 @@ disappear. That is the next thing to fix, not another feature.
 4. Maker/maker execution takes the round trip from ~7bp to ~4bp. Not sufficient
    alone — it halves the hurdle rather than clearing it — but it is a multiplier
    on whatever the three above find.
+
+## 2026-08-12 — I broke it, then found four faults behind one symptom
+
+Self-update shipped and immediately caused a restart loop, then hid three more
+faults behind it. All four were mine. Recorded because each is a pattern, not an
+incident.
+
+1. **Restart loop.** The updater compared HEAD to the boot revision, and the
+   share worker commits a snapshot every two minutes — so every heartbeat read
+   as a deployment. Fixed by diffing paths and ignoring `evidence/`, `data/`,
+   `control/`, plus a circuit breaker: two self-updates inside ten minutes
+   disables self-update and keeps trading.
+2. **`maxOpenPositions: 0` blocked everything.** `0 >= 0` read as "at maximum".
+   Fourth instance of zero-means-off in this codebase; the equivalent guard 1,100
+   lines earlier already handled it.
+3. **The research worker destroyed observability.** It relayed every line of its
+   own and npm's output into the 200-line ring, so the log that says why arming
+   failed was overwritten within seconds of each pass. The process added to
+   improve visibility is what hid the fault, and three diagnostic passes went to
+   a cause that was being erased every thirty seconds.
+4. **The real fault: `tradingEnabled` is a flag, arming is an action.**
+   `resumeAfterUpdate` set the flag and never called `armDesk`. Every surface
+   said armed — button, panel, self-check — with no execution loop attached to
+   anything. 444 signals seen, 0 accepted, no refusal recorded, because nothing
+   was there to refuse them. Fixed with a reconciler on a 20s timer rather than
+   a fifth call site, because the next path added would forget too.
+
+Verified live rather than assumed: `attached: true`, 119 seen, 41 accepted.
+
+**The lesson worth keeping.** Every one of these was invisible in the aggregate
+and obvious in the raw state. "Armed, healthy, warm, 0 accepted, no refusals" is
+not a market condition — a refusal tally that does not sum to the signal count
+means the loop is not running. That reconciliation belongs in `diagnose` as a
+check, not as something a person notices.
