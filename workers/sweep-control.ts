@@ -5033,8 +5033,33 @@ const bootRevision = (() => {
   }
 })();
 
+/** When this process last restarted itself, so a loop cannot go unbounded. */
+let updatesLately: number[] = (() => {
+  try {
+    const m = JSON.parse(readFileSync(resolve("data/sweep-restart-log.json"), "utf8")) as number[];
+    return Array.isArray(m) ? m.filter((t) => Date.now() - t < 10 * 60_000) : [];
+  } catch {
+    return [];
+  }
+})();
+
 /** Marks a restart this process chose, so arming can survive it. */
 const restartMarker = () => resolve("data/sweep-restart.json");
+
+/**
+ * Paths whose movement is not new code.
+ *
+ * The share worker commits a state snapshot every two minutes and pushes it, so
+ * HEAD moves continuously on a healthy machine. Comparing revisions alone made
+ * every one of those commits look like a deployment: the server exited,
+ * keepalive restarted it, the next snapshot landed two minutes later and it
+ * exited again. A restart loop, caused by the mechanism meant to remove restarts
+ * from the operator's hands.
+ *
+ * So the question is not "has HEAD moved" but "has anything that changes
+ * behaviour moved".
+ */
+const GENERATED = /^(evidence|data|control)\//;
 
 function checkForUpdate() {
   if (!bootRevision) return;
@@ -5047,12 +5072,54 @@ function checkForUpdate() {
   if (!head || head === bootRevision) return;
 
   /*
+   * What actually changed between the two revisions.
+   *
+   * `control/` is excluded along with the generated directories: configuration
+   * arriving through that file is applied live within twenty seconds and has
+   * never needed a restart, so treating it as a deployment would restart the
+   * agent every time a setting was tuned.
+   */
+  let changed: string[] = [];
+  try {
+    changed = execFileSync("git", ["diff", "--name-only", bootRevision, head], {
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .split("\n")
+      .map((x) => x.trim())
+      .filter(Boolean)
+      .filter((x) => !GENERATED.test(x));
+  } catch {
+    // Cannot tell what moved, so assume nothing did. A missed deployment costs
+    // one cycle; a wrong one costs a restart loop.
+    return;
+  }
+  if (changed.length === 0) return;
+
+  /*
+   * A circuit breaker on the mechanism itself.
+   *
+   * If self-updating ever starts a restart loop again — for any reason, not
+   * only the one already fixed — it must stop on its own rather than cycle the
+   * agent until somebody notices. Two updates inside ten minutes is not a
+   * deployment pattern, it is a fault, and the correct response to a fault in
+   * the redeploy mechanism is to stop redeploying and keep trading.
+   */
+  updatesLately = updatesLately.filter((t) => Date.now() - t < 10 * 60_000);
+  if (updatesLately.length >= 2) {
+    log(
+      `refusing to restart for ${head.slice(0, 7)}: ${updatesLately.length} updates in the last ten minutes. ` +
+        `Self-update is off until this process is restarted by hand — the agent keeps running.`,
+    );
+    return;
+  }
+
+  /*
    * Not while holding something.
    *
    * The position keeps its exchange stop across a restart, so this is not about
    * safety — it is about the excursion tracker, which cannot observe what
-   * happened while the process was down and marks the trade incomplete. Waiting
-   * for flat costs a few minutes and keeps the record clean.
+   * happened while the process was down and marks the trade incomplete.
    */
   const holding = allDesks().some((d) => (d.protection.state?.position?.positionAmt ?? 0) !== 0);
   if (holding) {
@@ -5063,19 +5130,27 @@ function checkForUpdate() {
   /*
    * Arming survives an update, and only an update.
    *
-   * Booting disarmed is deliberate and stays: a crash, a power cut or a reboot
-   * must never resume placing orders on a decision nobody was present to make.
-   * A restart this process chose, seconds ago, having been armed, is a
-   * different event — the operator's instruction to trade has not changed, and
-   * dropping it would mean every deployment silently stops the agent. The
-   * marker is timestamped and only honoured for five minutes, so it cannot
-   * outlive the restart it describes.
+   * Booting disarmed stays exactly as it was for a crash, a power cut or a
+   * reboot: those must never resume placing orders on a decision nobody was
+   * present to make. A restart this process chose, seconds ago, having been
+   * armed, is a different event. The marker is timestamped and honoured for
+   * five minutes so it cannot outlive the restart it describes.
    */
   try {
     writeFileSync(restartMarker(), JSON.stringify({ at: Date.now(), wasArmed: limits.tradingEnabled, to: head }));
   } catch { /* the restart still happens; it just comes back disarmed */ }
 
-  log(`new code on the branch (${bootRevision.slice(0, 7)} → ${head.slice(0, 7)}) — restarting into it`);
+  // Written before exiting, and read back at boot: the counter has to survive
+  // the very restart it is counting, or it can never see a loop.
+  try {
+    updatesLately.push(Date.now());
+    writeFileSync(resolve("data/sweep-restart-log.json"), JSON.stringify(updatesLately));
+  } catch { /* the breaker degrades to off, which is the previous behaviour */ }
+
+  log(
+    `new code on the branch (${changed.slice(0, 4).join(", ")}${changed.length > 4 ? `, +${changed.length - 4} more` : ""}) ` +
+      `— restarting into it`,
+  );
   killTree(shareChild);
   killTree(researchChild);
   server.close();
