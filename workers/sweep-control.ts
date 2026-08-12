@@ -236,6 +236,14 @@ interface Limits {
   /** Minutes to wait after a loss before another entry. */
   lossCooldownMin: number;
   /**
+   * `at` of the last remote configuration applied, so it is applied once ever.
+   *
+   * Persisted rather than held in memory: a configuration file living in the
+   * repository would otherwise be reimposed on every restart, overriding the
+   * operator indefinitely.
+   */
+  desiredAppliedAt: number;
+  /**
    * Enforced gap between entries across all desks, in seconds. Zero disables it.
    *
    * A guard against one burst of correlated signals opening everything at once.
@@ -439,6 +447,7 @@ const DEFAULT_LIMITS: Limits = {
   marginHeadroomPct: 5,
   burstGuardSec: 60,
   biasDeadZone: 0.12,
+  desiredAppliedAt: 0,
   capsDerivedAt: 0,
   trailArmsAtR: 1,
   scaleOutAtR: 1.5,
@@ -3436,6 +3445,7 @@ const server = createServer(async (req, res) => {
            * the setting most likely to be zeroed on purpose.
            */
           capsDerivedAt: limits.capsDerivedAt || Date.now(),
+          desiredAppliedAt: limits.desiredAppliedAt,
           burstGuardSec: n("burstGuardSec", limits.burstGuardSec),
           biasDeadZone: n("biasDeadZone", limits.biasDeadZone),
           maxPositionUsd: n("maxPositionUsd", limits.maxPositionUsd),
@@ -4442,7 +4452,20 @@ function superviseNews() {
  * Every applied change goes through the same audit log as a hand edit, so the
  * record of who changed what does not depend on which channel was used.
  */
-let desiredAppliedAt = 0;
+/*
+ * The last remote configuration applied, remembered across restarts.
+ *
+ * This was in memory only, so a file committed to the repository was reapplied
+ * on every single boot — permanently overriding whatever the operator had since
+ * set through the dashboard, forever, with no way to countermand it except
+ * deleting the file. Exactly the failure mode of the migration that overwrote
+ * their settings once already.
+ *
+ * A desired state carries a timestamp so it can be applied once. Storing that
+ * timestamp beside the limits it changed is what makes "once" mean once, rather
+ * than once per process lifetime.
+ */
+let desiredAppliedAt = Number((limits as unknown as Record<string, unknown>).desiredAppliedAt) || 0;
 
 /** Fields held as booleans but carried over the wire as 0 and 1. */
 const BOOLEAN_LIMITS = new Set(["requireCashOpen", "autoTune", "tradingEnabled"]);
@@ -4456,6 +4479,19 @@ function applyDesired() {
 
   const plan = planDesired(limits as unknown as Record<string, number | boolean>, file);
   desiredAppliedAt = Number(file.at);
+  /*
+   * Recorded even when nothing changes, and before anything is applied.
+   *
+   * A file whose values already match produces no changes, and if the marker
+   * only moved on a successful change the same file would be reconsidered on
+   * every boot forever. The question this answers is "have I seen this
+   * instruction", not "did it do anything".
+   */
+  try {
+    writeLimits({ ...limits, desiredAppliedAt } as unknown as Limits);
+  } catch {
+    /* the in-memory marker still stops it repeating within this process */
+  }
 
   for (const r of plan.rejected) {
     log(`config: refused ${r.key} — ${r.why}`);
