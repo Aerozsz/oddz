@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1786583008769,
+    "at": 1786583128819,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -17,11 +17,11 @@
         "attached": false,
         "tradeable": true,
         "warm": true,
-        "mid": 63523.05,
-        "spreadBps": 0.015742317158660486,
-        "riskUp": 30.232080553283545,
-        "riskDown": 33.07371178929858,
-        "signalsSeen": 21493,
+        "mid": 63540.850000000006,
+        "spreadBps": 0.015737907188610917,
+        "riskUp": 30.374083388786836,
+        "riskDown": 33.10741701318743,
+        "signalsSeen": 21521,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
@@ -46,15 +46,15 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": "down",
-      "biasSummary": "Least resistance is downward — 11,431,085 to set off the downside vs 25,719,882 upside — cheaper to push down; 0.08% below, 0.12% above",
+      "biasDirection": null,
+      "biasSummary": "Neither side is meaningfully more exposed than the other right now.",
       "sides": [
         {
           "direction": "up",
           "ok": true,
           "stopPct": 0.5,
-          "target": 64221.33069688939,
-          "rewardRisk": 2.198511239272628,
+          "target": 64221.330688226364,
+          "rewardRisk": 2.14186838302087,
           "notionalUsd": 12404.712760605002,
           "marginUsd": 2480.9425521210005,
           "leverage": 5,
@@ -66,8 +66,8 @@
           "direction": "down",
           "ok": true,
           "stopPct": 0.5,
-          "target": 62772.222222222226,
-          "rewardRisk": 2.363953801896403,
+          "target": 62800,
+          "rewardRisk": 2.331885708170431,
           "notionalUsd": 12404.712760605002,
           "marginUsd": 2480.9425521210005,
           "leverage": 5,
@@ -76,7 +76,7 @@
           "reasons": []
         }
       ],
-      "tradeable": true
+      "tradeable": false
     },
     "readiness": {
       "ready": true,
@@ -93,7 +93,7 @@
     },
     "engine": {
       "running": true,
-      "uptimeSec": 48073,
+      "uptimeSec": 48193,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -113,17 +113,17 @@
       "snapshotAgeMs": 2
     },
     "market": {
-      "mid": 63523.05,
+      "mid": 63540.850000000006,
       "mark": null,
-      "spreadBps": 0.015742317158660486,
-      "lwi": 0.9543419821598544,
-      "lwiBid": 0.9811370867174366,
-      "lwiAsk": 0.9284021268651863,
+      "spreadBps": 0.015737907188610917,
+      "lwi": 0.9844507539152232,
+      "lwiBid": 0.9842357483672828,
+      "lwiAsk": 0.984660424095881,
       "warm": true,
-      "riskUp": 30.232080553283545,
-      "riskDown": 33.07371178929858,
+      "riskUp": 30.374083388786836,
+      "riskDown": 33.10741701318743,
       "nearestAbove": 63600,
-      "nearestBelow": 63474.050424094785,
+      "nearestBelow": 63484.43428455118,
       "session": "closed",
       "flow": {
         "buy": 0,
@@ -134,7 +134,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 5172,
+      "staleForMs": 4888,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,7 +145,7 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1786583003597,
+      "at": 1786583123932,
       "error": null,
       "availableBalance": 2756.60283569,
       "walletBalance": 2756.60283569,
@@ -180,7 +180,7 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1786583004789,
+      "at": 1786583125439,
       "realisedPnl": 0,
       "drawdown": 0,
       "trades": 0,
@@ -194,7 +194,7 @@
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 21493,
+      "signalsSeen": 21521,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -373,7 +373,7 @@
       }
     },
     "protection": {
-      "at": 1786583004550,
+      "at": 1786583125179,
       "error": null,
       "flat": true,
       "protected": true,
@@ -431,7 +431,7 @@
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 48073s"
+        "detail": "1/1 — BTCUSDT up 48193s"
       },
       {
         "name": "feed: BTCUSDT",
@@ -555,7 +555,7 @@
   "ledger": {
     "epoch": 1786577361621,
     "balance": 2756.60283569,
-    "at": 1786583003597,
+    "at": 1786583123932,
     "reason": "balance moved -100.51 with no ledger row behind it (expected 2857.11, saw 2756.60) — counting restarted here"
   },
   "learn": {
@@ -2650,18 +2650,6 @@
   },
   "log": [
     {
-      "t": 1786567277260,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1786567277550,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1786567277550,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
       "t": 1786567277551,
       "text": "share: credentials, signatures and the control token are redacted before writing,"
     },
@@ -3448,6 +3436,18 @@
     {
       "t": 1786582887846,
       "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
+    },
+    {
+      "t": 1786583029115,
+      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
+    },
+    {
+      "t": 1786583029115,
+      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21147 ms: Could not connect to server"
+    },
+    {
+      "t": 1786583032358,
+      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
     }
   ],
   "news": {
@@ -3458,12 +3458,12 @@
     ],
     "poller": {
       "recorded": 48,
-      "cycles": 2406,
+      "cycles": 2413,
       "sources": 14,
       "unavailable": "x,linkedin",
       "errors": "reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found",
-      "velocity": "BNBUSDT 1.0x BTCUSDT 0.8x ETHUSDT 1.0x XRPUSDT 0.6x SOLUSDT 1.0x",
-      "lastPollAt": 1786582978102
+      "velocity": "BNBUSDT 1.0x BTCUSDT 1.6x ETHUSDT 1.0x XRPUSDT 1.3x SOLUSDT 1.0x",
+      "lastPollAt": 1786583128350
     }
   }
 }
