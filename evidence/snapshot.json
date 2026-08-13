@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1786648132735,
+    "at": 1786648432791,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -17,11 +17,11 @@
         "attached": false,
         "tradeable": false,
         "warm": true,
-        "mid": 63384.95,
-        "spreadBps": 0.015776615742150907,
-        "riskUp": 34.19726514839121,
-        "riskDown": 56.85573484056382,
-        "signalsSeen": 54736,
+        "mid": 63436.45,
+        "spreadBps": 0.015763807715996846,
+        "riskUp": 30.032658030601105,
+        "riskDown": 33.875043159166,
+        "signalsSeen": 54931,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
@@ -46,8 +46,8 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": "up",
-      "biasSummary": "Least resistance is upward — 53,818,763 to set off the downside vs 3,706,538 upside — cheaper to push up; 0.32% below, 0.02% above",
+      "biasDirection": "down",
+      "biasSummary": "Least resistance is downward — 9,282,227 to set off the downside vs 24,819,444 upside — cheaper to push down; 0.06% below, 0.10% above",
       "sides": [
         {
           "direction": "up",
@@ -88,12 +88,12 @@
       "ready": false,
       "armed": false,
       "blockers": [
-        "the exchange is not answering — The operation was aborted due to timeout"
+        "the exchange is not answering — fetch failed"
       ],
       "waiting": [
         "BTCUSDT: not tradeable — stream closed: closed (1006)"
       ],
-      "summary": "the exchange is not answering — The operation was aborted due to timeout"
+      "summary": "the exchange is not answering — fetch failed"
     },
     "orderVenue": {
       "url": "https://demo-fapi.binance.com",
@@ -103,7 +103,7 @@
     },
     "engine": {
       "running": true,
-      "uptimeSec": 113197,
+      "uptimeSec": 113497,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -139,17 +139,17 @@
       "snapshotAgeMs": 1
     },
     "market": {
-      "mid": 63384.95,
+      "mid": 63436.45,
       "mark": null,
-      "spreadBps": 0.015776615742150907,
-      "lwi": 0.970479337941014,
-      "lwiBid": 0.8502378356742092,
-      "lwiAsk": 1.064126716545017,
+      "spreadBps": 0.015763807715996846,
+      "lwi": 0.946271508715239,
+      "lwiBid": 0.9397757656615346,
+      "lwiAsk": 0.9513265865629676,
       "warm": true,
-      "riskUp": 34.19726514839121,
-      "riskDown": 56.85573484056382,
-      "nearestAbove": 63400,
-      "nearestBelow": 63180.090929054204,
+      "riskUp": 30.032658030601105,
+      "riskDown": 33.875043159166,
+      "nearestAbove": 63500,
+      "nearestBelow": 63400,
       "session": "regular",
       "flow": {
         "buy": 0,
@@ -160,7 +160,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 3465,
+      "staleForMs": 13421,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -171,8 +171,8 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1786648129270,
-      "error": "The operation was aborted due to timeout",
+      "at": 1786648419370,
+      "error": "fetch failed",
       "availableBalance": null,
       "walletBalance": null,
       "unrealizedPnl": null,
@@ -206,7 +206,7 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1786648041725,
+      "at": 1786648341755,
       "realisedPnl": 0,
       "drawdown": 0,
       "trades": 0,
@@ -220,7 +220,7 @@
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 54736,
+      "signalsSeen": 54931,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -399,8 +399,8 @@
       }
     },
     "protection": {
-      "at": 1786648129270,
-      "error": "The operation was aborted due to timeout",
+      "at": 1786648419370,
+      "error": "fetch failed",
       "flat": null,
       "protected": null,
       "stopPrice": null,
@@ -433,7 +433,7 @@
         "name": "clock in sync with Binance",
         "ok": true,
         "severity": "ok",
-        "detail": "behind by 289ms (round trip 744ms, window 5000ms, corrected on every request)"
+        "detail": "behind by 302ms (round trip 762ms, window 5000ms, corrected on every request)"
       },
       {
         "name": "credentials present",
@@ -445,7 +445,7 @@
         "name": "exchange reachable",
         "ok": false,
         "severity": "bad",
-        "detail": "The operation was aborted due to timeout",
+        "detail": "fetch failed",
         "fix": "npm run sweep:check names the specific cause."
       },
       {
@@ -458,7 +458,7 @@
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 113197s"
+        "detail": "1/1 — BTCUSDT up 113497s"
       },
       {
         "name": "feed: BTCUSDT",
@@ -523,7 +523,7 @@
         "name": "news + social feeds",
         "ok": true,
         "severity": "ok",
-        "detail": "3/14 sources live (in this process), 114 headlines recorded · 11 erroring: reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: fetch failed | reddit-binance: 403"
+        "detail": "3/14 sources live (in this process), 114 headlines recorded · 11 erroring: reddit-CryptoCurrency: fetch failed | reddit-Bitcoin: fetch failed | reddit-CryptoMarkets: fetch failed | reddit-wallstreetbets: fetch failed | reddit-binance: "
       },
       {
         "name": "position cap",
@@ -583,7 +583,7 @@
   "ledger": {
     "epoch": 1786577361621,
     "balance": 2756.60283569,
-    "at": 1786648039953,
+    "at": 1786648339778,
     "reason": "balance moved -100.51 with no ledger row behind it (expected 2857.11, saw 2756.60) — counting restarted here"
   },
   "learn": {
@@ -2569,7 +2569,7 @@
     }
   ],
   "shadow": {
-    "rows": 2003,
+    "rows": 2005,
     "horizons": [
       "t300",
       "t60",
@@ -2578,27 +2578,27 @@
     "overall": {
       "t300": {
         "label": "all",
-        "n": 1996,
+        "n": 1998,
         "wins": 162,
-        "meanPct": -0.00046900744162046813,
-        "netUsd": -1217.356783287411,
-        "sePct": 0.0021969383281572907
+        "meanPct": -0.00044989602010776103,
+        "netUsd": -1218.7130615765848,
+        "sePct": 0.00219513006712983
       },
       "t60": {
         "label": "all",
-        "n": 1999,
+        "n": 2001,
         "wins": 32,
-        "meanPct": -0.002414107747649079,
-        "netUsd": -1257.875440292546,
-        "sePct": 0.0009609195007948915
+        "meanPct": -0.0024154126283009426,
+        "netUsd": -1259.60410097321,
+        "sePct": 0.000960259366556675
       },
       "t900": {
         "label": "all",
-        "n": 1986,
+        "n": 1988,
         "wins": 369,
-        "meanPct": -5.38213688335735e-7,
-        "netUsd": -1221.8886466852268,
-        "sePct": 0.003499956306198532
+        "meanPct": -0.00020495062357028324,
+        "netUsd": -1226.941754579166,
+        "sePct": 0.0034994198784733034
       }
     },
     "byEntryDepth": [
@@ -2638,11 +2638,11 @@
     "bySignal": [
       {
         "label": "cluster-approach",
-        "n": 1296,
+        "n": 1298,
         "wins": 245,
-        "meanPct": -0.005253310094166349,
-        "netUsd": -949.7827638870527,
-        "sePct": 0.0042082681640363915
+        "meanPct": -0.005558291856172786,
+        "netUsd": -954.8358717809917,
+        "sePct": 0.004207309034501229
       },
       {
         "label": "withdrawal",
@@ -2670,113 +2670,13 @@
       }
     ],
     "resolved": {
-      "open": 1996,
+      "open": 1998,
       "unscored": 7
     },
-    "feesUsd": 1215.8433416684818,
-    "grossUsd": -6.0453050167489515
+    "feesUsd": 1217.5100083351483,
+    "grossUsd": -9.431746244021355
   },
   "log": [
-    {
-      "t": 1786629811926,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1786629811927,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21074 ms: Could not connect to server"
-    },
-    {
-      "t": 1786629812084,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1786629812084,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1786629812086,
-      "text": "^"
-    },
-    {
-      "t": 1786629812087,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1786629812087,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1786629812087,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1786629812087,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1786629812087,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1786629812087,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1786629812087,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1786629812087,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1786629812088,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1786629812088,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1786629812088,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1786629812088,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1786629812088,
-      "text": "pid: 44112,"
-    },
-    {
-      "t": 1786629812089,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1786629812089,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1786629812089,
-      "text": "}"
-    },
-    {
-      "t": 1786629812089,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1786629812174,
-      "text": "share: exited (1) — restarting, attempt 38"
-    },
-    {
-      "t": 1786630116232,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1786630116233,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
     {
       "t": 1786630116694,
       "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
@@ -3476,6 +3376,106 @@
     {
       "t": 1786645521559,
       "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×21 since 7:25:21 PM)"
+    },
+    {
+      "t": 1786648153902,
+      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
+    },
+    {
+      "t": 1786648153905,
+      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Recv failure: Connection was reset"
+    },
+    {
+      "t": 1786648154749,
+      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
+    },
+    {
+      "t": 1786648154749,
+      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Could not resolve host: github.com"
+    },
+    {
+      "t": 1786648154969,
+      "text": "node:internal/errors:985"
+    },
+    {
+      "t": 1786648154969,
+      "text": "const err = new Error(message);"
+    },
+    {
+      "t": 1786648154971,
+      "text": "^"
+    },
+    {
+      "t": 1786648154971,
+      "text": "Error: Command failed: git rebase --abort"
+    },
+    {
+      "t": 1786648154971,
+      "text": "fatal: no rebase in progress"
+    },
+    {
+      "t": 1786648154971,
+      "text": "at genericNodeError (node:internal/errors:985:15)"
+    },
+    {
+      "t": 1786648154971,
+      "text": "at wrappedFn (node:internal/errors:539:14)"
+    },
+    {
+      "t": 1786648154972,
+      "text": "at checkExecSyncError (node:child_process:925:11)"
+    },
+    {
+      "t": 1786648154972,
+      "text": "at execFileSync (node:child_process:961:15)"
+    },
+    {
+      "t": 1786648154972,
+      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
+    },
+    {
+      "t": 1786648154972,
+      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
+    },
+    {
+      "t": 1786648154972,
+      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
+    },
+    {
+      "t": 1786648154973,
+      "text": "status: 128,"
+    },
+    {
+      "t": 1786648154973,
+      "text": "signal: null,"
+    },
+    {
+      "t": 1786648154973,
+      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
+    },
+    {
+      "t": 1786648154975,
+      "text": "pid: 47600,"
+    },
+    {
+      "t": 1786648154975,
+      "text": "stdout: '',"
+    },
+    {
+      "t": 1786648154976,
+      "text": "stderr: 'fatal: no rebase in progress\\n'"
+    },
+    {
+      "t": 1786648154976,
+      "text": "}"
+    },
+    {
+      "t": 1786648154982,
+      "text": "Node.js v24.15.0"
+    },
+    {
+      "t": 1786648155029,
+      "text": "share: exited (1) — restarting, attempt 43"
     }
   ],
   "news": {
@@ -3486,12 +3486,12 @@
     ],
     "poller": {
       "recorded": 114,
-      "cycles": 5682,
+      "cycles": 5696,
       "sources": 14,
       "unavailable": "x,linkedin",
-      "errors": "reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: fetch failed | reddit-binance: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found | binance-announce: fetch failed | 4chan-biz: fetch failed | theblock: fetch failed",
-      "velocity": "BNBUSDT 0.2x BTCUSDT 0.5x ETHUSDT 1.0x XRPUSDT 1.0x SOLUSDT 1.0x",
-      "lastPollAt": 1786648125434
+      "errors": "reddit-CryptoCurrency: fetch failed | reddit-Bitcoin: fetch failed | reddit-CryptoMarkets: fetch failed | reddit-wallstreetbets: fetch failed | reddit-binance: fetch failed | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found | theblock: fetch failed | hn: fetch failed | binance-announce: fetch failed",
+      "velocity": "BNBUSDT 0.7x BTCUSDT 0.9x ETHUSDT 1.0x XRPUSDT 1.0x SOLUSDT 1.0x",
+      "lastPollAt": 1786648425851
     }
   }
 }
