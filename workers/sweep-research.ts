@@ -40,6 +40,22 @@ const arg = (name: string, fallback: string): string => {
 const watch = process.argv.includes("--watch");
 const everyHours = Number(arg("every", "6"));
 const days = arg("days", "365");
+/*
+ * Tick data, on its own much shorter window.
+ *
+ * aggTrades is about a gigabyte a month, so it is fetched for a handful of
+ * recent days rather than the full year — enough to answer whether the
+ * mechanism exists below one minute, which is the resolution the sweep thesis
+ * actually claims and the only one never measured. Everything so far tested a
+ * seconds-scale hypothesis on one-minute bars.
+ *
+ * Off by default so a fresh install does not silently pull gigabytes; the
+ * control server turns it on, because on that machine it is the next
+ * experiment and waiting for someone to remember to pass a flag is how it went
+ * two days without running.
+ */
+const tickDays = arg("tick-days", process.env.SWEEP_TICK_DAYS ?? "7");
+const wantTicks = process.argv.includes("--ticks") || Number(tickDays) > 0;
 const symbols = (process.env.SWEEP_SYMBOLS ?? "BTCUSDT")
   .split(",")
   .map((s) => s.trim().toUpperCase())
@@ -82,6 +98,10 @@ async function pass() {
      * pass is a download and every one after it is a day or two.
      */
     await run("sweep:history", ["--symbol", symbol, "--days", days]);
+    if (wantTicks) {
+      note(`${symbol}: fetching ${tickDays} days of ticks`);
+      await run("sweep:history", ["--symbol", symbol, "--days", tickDays, "--ticks"]);
+    }
     note(`${symbol}: replaying`);
     const ok = await run("sweep:backtest", ["--symbol", symbol]);
     note(

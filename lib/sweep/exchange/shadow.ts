@@ -2,7 +2,7 @@ import type { AgentState, ExecutionAdapter, TradeIntent } from "../agent/types";
 import { proposePosition, type SizingConfig, type SizingLimits } from "../agent/sizing";
 import { roundTripCost, type FeeSchedule, type StylePair } from "../metrics/fees";
 import type { Cluster, CostPoint } from "../types";
-import type { EntryConditions } from "../agent/postmortem";
+import { captureConditions, type EntryConditions } from "../agent/postmortem";
 
 /**
  * The whole decision path, against real prices, without an order.
@@ -194,6 +194,25 @@ export function createShadowAdapter(options: ShadowOptions): ExecutionAdapter & 
         markoutInformed: state.markout.warm ? state.markout.informed : null,
         intraday: state.session.intraday,
         biasConviction: null,
+        /*
+         * The whole entry reading, captured with the function the live path uses.
+         *
+         * This field has existed on the type since the beginning, with a comment
+         * saying the conditional analysis cannot read a shadow row without it —
+         * and nothing ever assigned it. 2,052 rows were written with it absent,
+         * so every depth bucket in the summary reported n=0 while the four
+         * scalars above made the row look complete.
+         *
+         * The same `captureConditions` the live post-mortem calls, so a shadow
+         * row and a live row group by identical fields. Anything else would make
+         * the two pools uncomparable, which is the entire point of collecting
+         * both.
+         */
+        conditions: captureConditions(state, proposal.side, {
+          targetPrice: proposal.targetPrice,
+          signalKind: intent.signalKind,
+          sizeRetained: proposal.sizeRetained,
+        }),
         outcomes: {},
       });
 

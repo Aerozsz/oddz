@@ -79,6 +79,16 @@ function bucket(label: string, rows: ShadowRowLike[], horizon: string): Bucket {
 
 export interface ShadowSummary {
   rows: number;
+  /**
+   * How many rows carry an entry reading at all.
+   *
+   * Reported because its absence looked exactly like a measurement. The
+   * `conditions` field was never assigned by the producer, so every depth
+   * bucket came back n=0 with a mean of 0.0000 — which reads as "no effect"
+   * rather than "no data", and sat in the summary for two days being treated
+   * as the former.
+   */
+  withConditions: number;
   /** Horizons present in the file, so a reader knows what was measurable. */
   horizons: string[];
   /** Overall, per horizon. */
@@ -98,6 +108,8 @@ export interface ShadowSummary {
   /** Total modelled cost, against the total gross — the fee load, measured. */
   feesUsd: number;
   grossUsd: number;
+  /** Set only when the depth breakdown could not be computed at all. */
+  note?: string;
 }
 
 /** Which horizon to lead with when several are present. */
@@ -156,5 +168,26 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
     grossUsd += (o.pct / 100) * r.notionalUsd;
   }
 
-  return { rows: rows.length, horizons, overall, byEntryDepth, bySignal, resolved, feesUsd, grossUsd };
+  const withConditions = rows.filter((r) => typeof r.conditions?.lwiAdj === "number").length;
+  return {
+    rows: rows.length,
+    withConditions,
+    horizons,
+    overall,
+    byEntryDepth: withConditions > 0 ? byEntryDepth : [],
+    bySignal,
+    resolved,
+    feesUsd,
+    grossUsd,
+    /*
+     * Said in words, not left to be inferred from a count of zero.
+     *
+     * An empty bucket list is unambiguous; four buckets reading 0.0000 are not,
+     * and the difference is two days of believing a broken pipeline was a null
+     * result.
+     */
+    ...(withConditions === 0
+      ? { note: "no row carries an entry reading — the depth breakdown cannot be computed, this is missing data and not a null result" }
+      : {}),
+  };
 }
