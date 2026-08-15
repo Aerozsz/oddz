@@ -5086,6 +5086,58 @@ function reconcileArming() {
   }
 }
 
+/**
+ * The shadow run, supervised like everything else.
+ *
+ * It was the one long-lived process nobody owned: started by hand, never
+ * restarted, and therefore permanently pinned to whatever build was current the
+ * day it was launched. That is not a theoretical hazard — a fix to make shadow
+ * rows carry their entry conditions was deployed, the control server took it and
+ * restarted, and 240 more rows were written without conditions because the
+ * process actually writing them had not changed. The defect was reported as
+ * fixed while it was still producing bad data.
+ *
+ * Supervising it means it restarts when the control server does, which is when
+ * the branch moves — so a fix to the shadow path now reaches the shadow path.
+ *
+ * Set SWEEP_NO_SHADOW=1 to run without it.
+ */
+let shadowChild: ChildProcess | null = null;
+let shadowStoppedAt = 0;
+
+function superviseShadow() {
+  if (process.env.SWEEP_NO_SHADOW === "1" || shadowChild) return;
+  // Never from a test harness; a redirected snapshot is the marker they set.
+  if (process.env.SWEEP_SNAPSHOT) return;
+  if (shadowStoppedAt && Date.now() - shadowStoppedAt < 60_000) return;
+
+  const isWindows = process.platform === "win32";
+  const child = spawn(isWindows ? "npm.cmd" : "npm", ["run", "sweep:shadow"], {
+    cwd: process.cwd(),
+    stdio: ["ignore", "pipe", "pipe"],
+    env: process.env,
+    shell: isWindows,
+  });
+  shadowChild = child;
+  // Only conclusions, for the reason the research relay learned: a chatty child
+  // empties the log ring and takes the diagnosis of the next fault with it.
+  const KEEP = /(recorded|refus|could not|error|!!)/i;
+  const relay = (buf: Buffer) => {
+    for (const line of String(buf).split("\n")) {
+      const t = line.trim();
+      if (t && KEEP.test(t)) log(t.replace(/^\[shadow\]\s*/, "shadow: ").slice(0, 200));
+    }
+  };
+  child.stdout?.on("data", relay);
+  child.stderr?.on("data", relay);
+  child.on("exit", () => { shadowChild = null; shadowStoppedAt = Date.now(); });
+  child.on("error", (err) => {
+    shadowChild = null;
+    shadowStoppedAt = Date.now();
+    log(`shadow: could not start — ${err.message}`);
+  });
+}
+
 /* ----------------------------------------------------------- self-update */
 
 /**
@@ -5228,6 +5280,7 @@ function checkForUpdate() {
   );
   killTree(shareChild);
   killTree(researchChild);
+  killTree(shadowChild);
   server.close();
   process.exit(0);
 }
@@ -5449,6 +5502,8 @@ server.listen(PORT, HOST, () => {
   setInterval(superviseShare, 15_000).unref?.();
   superviseResearch();
   setInterval(superviseResearch, 60_000).unref?.();
+  superviseShadow();
+  setInterval(superviseShadow, 60_000).unref?.();
   setInterval(reconcileArming, 20_000).unref?.();
   setInterval(checkForUpdate, 5 * 60_000).unref?.();
   console.log(`  snapshot:    ${snapshotPath()} (refreshed every 30s — npm run sweep:share to send it)`);
@@ -5563,6 +5618,16 @@ for (const sig of ["SIGINT", "SIGTERM"] as const) {
     // it, and killing the shell alone leaves a share worker running git against
     // the branch with no server left to describe.
     killTree(shareChild);
+    /*
+     * And the other two, which this handler never touched.
+     *
+     * Research and shadow were spawned here and orphaned on Ctrl-C, so stopping
+     * the server left a downloader and a recorder running against a repository
+     * with nothing left to describe. Over a few restarts that is several of
+     * each, all writing the same files.
+     */
+    killTree(researchChild);
+    killTree(shadowChild);
     // Marks the heartbeat stopped rather than leaving it to go stale, so the
     // panel reads "not running" immediately instead of ninety seconds late.
     stopNewsBeat?.();
