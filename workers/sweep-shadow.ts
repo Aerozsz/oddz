@@ -69,7 +69,25 @@ const EQUITY = Number(arg("equity", "5000"));
 mkdirSync(dirname(OUT), { recursive: true });
 
 /** Scored at the same horizons the paper log uses, so the two are comparable. */
-const HORIZONS = [60, 300, 900] as const;
+/*
+ * Out to the hold limit, not to fifteen minutes.
+ *
+ * The window stopped at 900s while the live agent holds up to `maxHoldMinutes`
+ * — 120 by default. The consequence was not a rounding error: across 7,276
+ * recorded decisions, `resolved` was "open" on **every single one**. Not one
+ * trade in the entire shadow history ever reached its stop or its target inside
+ * the window it was scored in, so `resolveShadow` was dead code and every
+ * "net at 15m" was fifteen-minute drift rather than the outcome of a bracket.
+ *
+ * The shadow run was measuring a different strategy from the one that trades,
+ * and every conclusion drawn from it — including the negative verdicts — was
+ * drawn about that different strategy.
+ *
+ * The short horizons stay, because they answer a separate and useful question
+ * (does the mechanism act quickly, as it claims). 1800 and 7200 are the ones
+ * that make the record comparable to a live trade.
+ */
+const HORIZONS = [60, 300, 900, 1800, 7200] as const;
 
 const fees: FeeSchedule = {
   ...DEFAULT_FEES,
@@ -229,10 +247,20 @@ function startDesk(symbol: string): Desk {
 function flush(desk: Desk, trade: ShadowTrade) {
   appendFileSync(OUT, `${JSON.stringify(trade)}\n`);
   desk.written++;
-  const net = trade.outcomes.t900?.netUsd;
+  /*
+   * The longest horizon that actually scored, not a hard-coded one.
+   *
+   * This read `t900` while the label beside it said something else, and after
+   * the window was extended it would have gone on quoting the fifteen-minute
+   * figure for a two-hour trade. A readout naming a horizon it is not showing
+   * is how a wrong number survives being looked at every minute.
+   */
+  const longest = [...HORIZONS].reverse().find((h) => typeof trade.outcomes[`t${h}`]?.netUsd === "number");
+  const net = longest ? trade.outcomes[`t${longest}`].netUsd : null;
   console.error(
     `[shadow] ${desk.symbol} closed ${trade.intentId} — would have ${trade.resolved} · ` +
-      `net at 15m ${net === null || net === undefined ? "?" : `${net >= 0 ? "+" : ""}${net.toFixed(2)}`} · ` +
+      `net at ${longest ? (longest >= 3600 ? `${longest / 3600}h` : `${longest / 60}m`) : "?"} ` +
+      `${net === null || net === undefined ? "?" : `${net >= 0 ? "+" : ""}${net.toFixed(2)}`} · ` +
       `${totalWritten()} recorded`,
   );
 }

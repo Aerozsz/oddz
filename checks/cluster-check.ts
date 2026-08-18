@@ -18,7 +18,7 @@ const snap = (clusters: Cluster[]): Snapshot => {
       lwi: 1, lwiBid: 1, lwiAsk: 1, warm: true, baselineNotional: 1e6, fastNotional: 1e6,
       decomp: { windowSec: 10, consumedBid: 0, consumedAsk: 0, withdrawnBid: 0, withdrawnAsk: 0, addedBid: 0, addedAsk: 0 },
       imbalance: 0, spreadBps: 2 },
-    clusters } as Snapshot;
+    clusters } as unknown as Snapshot;
 };
 
 // Mirrors buildClusters: an observed cluster of 5M gross ends up notional=1M, spent=5M.

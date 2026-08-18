@@ -7,7 +7,7 @@ let fail=0; const ok=(c:boolean,m:string)=>{ if(!c){console.error("FAIL: "+m);fa
 
 const cfg={apiKey:"k",apiSecret:"s",baseUrl:"https://stub",live:false,recvWindowMs:5000} as BinanceConfig;
 const LIM={maxPositionUsd:4679,maxLeverage:8,maxDailyLossUsd:351,maxOpenPositions:1,
-  maxTradesPerDay:12,lossCooldownMin:15,stopLossPct:3,tradingEnabled:true};
+  maxTradesPerDay:12,lossCooldownMin:15,stopLossPct:3,tradingEnabled:true,marginHeadroomPct:5};
 const state={mid:101.58,health:{tradeable:true,summary:"live"}} as AgentState;
 const intent:TradeIntent={id:"i1",t:Date.now(),side:"sell",signalId:"s",signalKind:"withdrawal",
   reason:"test",confidence:.5,reference:{mid:101.58,trigger:null,invalidation:null}};

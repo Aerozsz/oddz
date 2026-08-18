@@ -22,6 +22,21 @@ after a suite overwrote `evidence/snapshot.json`, and after the repository's own
 `control/limits.json` reached into a test and zeroed the settings it was
 asserting.
 
+## They are excluded from `tsc`
+
+`tsconfig.json` excludes `checks/`. That is deliberate and it is not laziness.
+
+These are runtime programs, not application source. They construct partial
+objects on purpose — a feed with three of its eight methods, a snapshot with the
+four fields the function under test reads — and cast them, because the point is
+to exercise one path, not to satisfy an interface. Holding them to the app's
+strict config produces a stream of "property missing" errors on fields nothing
+in the test touches, and the only way to silence those is to pad fixtures with
+values that are never read, which makes them harder to understand and no safer.
+
+They are still verified, by being run. A fixture that has genuinely drifted away
+from reality fails when executed, which is the check that matters.
+
 ## Why they read the way they do
 
 Every one exists because something silently produced a plausible wrong number.

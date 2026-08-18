@@ -62,6 +62,14 @@ export type Question =
  * The whole rule, in one table, so a reader can check it at a glance and a
  * caller cannot get it subtly wrong.
  */
+/** How long this row was actually watched, from the horizons it carries. */
+function scoredWindowMs(t: { outcomes: Record<string, unknown> }): number {
+  const seconds = Object.keys(t.outcomes ?? {})
+    .map((k) => Number(k.replace(/^t/, "")))
+    .filter((n) => Number.isFinite(n) && n > 0);
+  return (seconds.length ? Math.max(...seconds) : 900) * 1000;
+}
+
 export function admissible(record: Partial<Pick<TradeRecord, "source">>, question: Question): boolean {
   /*
    * Absent means live, deliberately.
@@ -145,8 +153,15 @@ export function shadowToRecord(t: ShadowTrade, conditions: EntryConditions): Tra
     openedAt: t.at,
     // Shadow trades end when their scoring window does, not when a bracket
     // fires, so the held time is the window rather than a managed exit.
-    closedAt: t.at + 900_000,
-    heldMs: 900_000,
+    /*
+     * The end of the window that was actually scored.
+     *
+     * Hard-coded to fifteen minutes while the runner scored to fifteen; both
+     * now run to the live hold limit, and a record claiming a 15-minute hold
+     * for a two-hour observation would mis-file every loss the anatomy reads.
+     */
+    closedAt: t.at + scoredWindowMs(t),
+    heldMs: scoredWindowMs(t),
     entryPrice: entry,
     exitPrice: final.mid ?? entry,
     stopPrice: t.stopPrice,

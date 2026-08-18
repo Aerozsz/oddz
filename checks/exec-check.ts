@@ -11,13 +11,19 @@ function assert(cond: boolean, msg: string) {
 /** A feed whose signals we push by hand. */
 function fakeFeed() {
   const listeners = new Set<(s: Signal, st: AgentState) => void>();
-  const feed: SweepFeed = {
+  /*
+   * Deliberately partial: this exercises the signal plumbing, not the feed.
+   * Cast rather than stubbed out in full, so the day a caller starts reading a
+   * new feed method this fails at runtime where it matters instead of being
+   * silently satisfied by an empty implementation.
+   */
+  const feed = {
     getState: () => ({}) as AgentState,
     recentSignals: () => [],
     onSignal(cb) { listeners.add(cb); return () => listeners.delete(cb); },
     onState() { return () => {}; },
     close() { listeners.clear(); },
-  };
+  } as unknown as SweepFeed;
   return {
     feed,
     emit(signal: Signal, state: AgentState) { for (const cb of listeners) cb(signal, state); },
