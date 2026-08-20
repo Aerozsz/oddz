@@ -127,3 +127,53 @@ if (failures) {
   process.exit(1);
 }
 console.log("\nall good");
+
+/* -------------------------------------------- comparing like with like */
+
+/**
+ * A longer horizon can only be carried by an older trade.
+ *
+ * `overall` scores each horizon over whatever rows have it, so the two-hour
+ * bucket is built from a strictly older sample than the fifteen-minute one —
+ * different trades, different market. Holding two hours appeared to turn
+ * −$6,338 into +$670, and most of that gap could have been the subsets rather
+ * than the holding. Reading it as a finding would have been the fourth time in
+ * this project that a sampling artefact was mistaken for an edge.
+ */
+function matchedComparesTheSameTrades() {
+  /*
+   * Twenty rows reach both horizons and lose at each; eighty reach only the
+   * short one and win there. `overall` will therefore say the short horizon is
+   * excellent, while the matched view — the same twenty rows — says it is not.
+   */
+  const both = Array.from({ length: 20 }, () => ({
+    ...row(0.6, -0.5),
+    outcomes: {
+      t900: { pct: -0.5, netUsd: -50 },
+      t7200: { pct: -0.2, netUsd: -20 },
+    } as ShadowRowLike["outcomes"],
+  }));
+  const shortOnly = Array.from({ length: 80 }, () => ({
+    ...row(0.6, 1.0),
+    outcomes: { t900: { pct: 1.0, netUsd: 100 } } as ShadowRowLike["outcomes"],
+  }));
+  const s = summariseShadow([...both, ...shortOnly], "t900");
+
+  ok("overall t900 is dominated by the rows that only reached it",
+    s.overall.t900.n === 100 && s.overall.t900.netUsd > 0, JSON.stringify(s.overall.t900));
+  ok("the matched set is only the rows that reached the longest horizon",
+    s.matched.n === 20, String(s.matched.n));
+  ok("and it names that horizon", s.matched.horizon === "t7200", s.matched.horizon);
+  ok("the same trades lose at the short horizon too",
+    s.matched.byHorizon.t900.netUsd === -1000, String(s.matched.byHorizon.t900.netUsd));
+  ok("and the long horizon is compared against them, not against others",
+    s.matched.byHorizon.t7200.netUsd === -400, String(s.matched.byHorizon.t7200.netUsd));
+  ok("so the apparent improvement survives as a real one",
+    s.matched.byHorizon.t7200.netUsd > s.matched.byHorizon.t900.netUsd);
+}
+
+matchedComparesTheSameTrades();
+if (failures) {
+  console.error(`\n${failures} failure(s) in the matched comparison`);
+  process.exit(1);
+}

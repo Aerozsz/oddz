@@ -110,6 +110,20 @@ export interface ShadowSummary {
   grossUsd: number;
   /** Set only when the depth breakdown could not be computed at all. */
   note?: string;
+  /**
+   * Every horizon scored over the rows that reached the longest one.
+   *
+   * `overall` scores each horizon across whatever rows carry it, and a longer
+   * horizon can only be carried by an older trade — so comparing them there
+   * compares different samples and different market conditions. Holding two
+   * hours looked dramatically better than holding fifteen minutes, and most of
+   * that gap could have been the subsets rather than the holding.
+   *
+   * This restricts every horizon to the rows that reached the last one, so the
+   * comparison is the same trades measured at different times, which is the
+   * only version of the question worth answering.
+   */
+  matched: { n: number; horizon: string; byHorizon: Record<string, Bucket> };
 }
 
 /** Which horizon to lead with when several are present. */
@@ -169,6 +183,19 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
   }
 
   const withConditions = rows.filter((r) => typeof r.conditions?.lwiAdj === "number").length;
+
+  /*
+   * The longest horizon any row reached, and the rows that reached it.
+   */
+  const longest = horizons
+    .map((h) => ({ h, n: rows.filter((r) => typeof r.outcomes?.[h]?.netUsd === "number").length }))
+    .filter((x) => x.n > 0)
+    .sort((a, b) => Number(b.h.replace(/^t/, "")) - Number(a.h.replace(/^t/, "")))[0];
+  const matchedRows = longest
+    ? rows.filter((r) => typeof r.outcomes?.[longest.h]?.netUsd === "number")
+    : [];
+  const matchedByHorizon: Record<string, Bucket> = {};
+  for (const h of horizons) matchedByHorizon[h] = bucket(`matched ${h}`, matchedRows, h);
   return {
     rows: rows.length,
     withConditions,
@@ -179,6 +206,7 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
     resolved,
     feesUsd,
     grossUsd,
+    matched: { n: matchedRows.length, horizon: longest?.h ?? "", byHorizon: matchedByHorizon },
     /*
      * Said in words, not left to be inferred from a count of zero.
      *
