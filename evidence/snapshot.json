@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1787233413320,
+    "at": 1787233482623,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -15,17 +15,17 @@
         "calibrated": false,
         "running": true,
         "attached": false,
-        "tradeable": true,
-        "warm": true,
-        "mid": 71623.85,
-        "spreadBps": 0.013961829752417505,
-        "riskUp": 26.12441284594148,
-        "riskDown": 38.43810364016724,
-        "signalsSeen": 97243,
+        "tradeable": false,
+        "warm": null,
+        "mid": null,
+        "spreadBps": null,
+        "riskUp": null,
+        "riskDown": null,
+        "signalsSeen": 0,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
-        "protected": true,
+        "protected": null,
         "heldMin": 0,
         "lastRefusal": null,
         "dislocation": {
@@ -46,54 +46,66 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": "down",
-      "biasSummary": "Least resistance is downward — 3,793,642 to set off the downside vs 43,946,057 upside — cheaper to push down; 0.03% below, 0.21% above",
+      "biasDirection": null,
+      "biasSummary": "Neither side is meaningfully more exposed than the other right now.",
       "sides": [
         {
           "direction": "up",
-          "ok": true,
-          "stopPct": 1.0631755726883168,
-          "target": 73200,
-          "rewardRisk": 2.069831035578679,
-          "notionalUsd": 4767.3615206320665,
-          "marginUsd": 2383.6807603160332,
-          "leverage": 2,
-          "riskUsd": 50.68542314910242,
-          "sizeRetained": 0.459672885162068,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         },
         {
           "direction": "down",
-          "ok": true,
-          "stopPct": 1.0631755726883168,
-          "target": 70000,
-          "rewardRisk": 2.1324716093801115,
-          "notionalUsd": 4767.3615206320665,
-          "marginUsd": 2383.6807603160332,
-          "leverage": 2,
-          "riskUsd": 50.68542314910242,
-          "sizeRetained": 0.459672885162068,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
+          ]
         }
       ],
-      "tradeable": true
+      "tradeable": false
     },
     "readiness": {
-      "ready": true,
+      "ready": false,
       "armed": false,
-      "blockers": [],
-      "waiting": [],
-      "summary": "ready — press Start trading"
+      "blockers": [
+        "the exchange is not answering"
+      ],
+      "waiting": [
+        "BTCUSDT: starting up"
+      ],
+      "summary": "the exchange is not answering"
     },
     "orderVenue": {
-      "url": "https://demo-fapi.binance.com",
-      "checked": true,
+      "url": "",
+      "checked": false,
       "error": null,
       "untradeable": []
     },
     "engine": {
       "running": true,
-      "uptimeSec": 195265,
+      "uptimeSec": 0,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -106,25 +118,31 @@
     "mode": "testnet",
     "hasCredentials": true,
     "health": {
-      "level": "ok",
-      "tradeable": true,
-      "reasons": [],
-      "summary": "live",
-      "snapshotAgeMs": 5
+      "level": "blind",
+      "tradeable": false,
+      "reasons": [
+        {
+          "code": "snapshot-stale",
+          "severity": "blind",
+          "detail": "the engine has not published yet"
+        }
+      ],
+      "summary": "starting up",
+      "snapshotAgeMs": 0
     },
     "market": {
-      "mid": 71623.85,
+      "mid": null,
       "mark": null,
-      "spreadBps": 0.013961829752417505,
-      "lwi": 1.1392965776401853,
-      "lwiBid": 0.9306384422044687,
-      "lwiAsk": 1.3399908050382832,
-      "warm": true,
-      "riskUp": 26.12441284594148,
-      "riskDown": 38.43810364016724,
-      "nearestAbove": 71772.22222222222,
-      "nearestBelow": 71600,
-      "session": "regular",
+      "spreadBps": null,
+      "lwi": null,
+      "lwiBid": null,
+      "lwiAsk": null,
+      "warm": null,
+      "riskUp": null,
+      "riskDown": null,
+      "nearestAbove": null,
+      "nearestBelow": null,
+      "session": "closed",
       "flow": {
         "buy": 0,
         "sell": 0
@@ -134,7 +152,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 12266,
+      "staleForMs": null,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,12 +163,12 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1787233401054,
+      "at": 0,
       "error": null,
-      "availableBalance": 2756.60283569,
-      "walletBalance": 2756.60283569,
-      "unrealizedPnl": 0,
-      "marginRatio": 0,
+      "availableBalance": null,
+      "walletBalance": null,
+      "unrealizedPnl": null,
+      "marginRatio": null,
       "positions": []
     },
     "limits": {
@@ -180,21 +198,12 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1787233403142,
-      "realisedPnl": 0,
-      "drawdown": 0,
-      "trades": 0,
-      "fees": 0,
-      "funding": 0,
-      "lastLossAt": 0,
-      "cooldownLeftMin": 0,
-      "countingFrom": 1787025219557,
-      "rebased": false,
-      "rebaseReason": "balance moved -2243.40 with no ledger row behind it (expected 5000.00, saw 2756.60) — counting restarted here"
+      "at": 0,
+      "error": null
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 97243,
+      "signalsSeen": 0,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -220,10 +229,10 @@
       }
     },
     "protection": {
-      "at": 1787233402800,
+      "at": 0,
       "error": null,
-      "flat": true,
-      "protected": true,
+      "flat": null,
+      "protected": null,
       "stopPrice": null,
       "stopDistancePct": null,
       "targetPrice": null,
@@ -234,7 +243,7 @@
       "heldMin": 0,
       "ratcheted": false,
       "hold": null,
-      "reason": "flat"
+      "reason": null
     }
   },
   "desired": {
@@ -254,7 +263,7 @@
         "name": "clock in sync with Binance",
         "ok": true,
         "severity": "ok",
-        "detail": "behind by 755ms (round trip 1514ms, window 5000ms, corrected on every request)"
+        "detail": "not checked yet"
       },
       {
         "name": "credentials present",
@@ -264,27 +273,30 @@
       },
       {
         "name": "exchange reachable",
-        "ok": true,
-        "severity": "ok",
-        "detail": "balance 2756.60 USDT"
+        "ok": false,
+        "severity": "bad",
+        "detail": "no account read yet",
+        "fix": "npm run sweep:check names the specific cause."
       },
       {
         "name": "contracts tradeable here",
-        "ok": true,
-        "severity": "ok",
-        "detail": "BTCUSDT, ETHUSDT, SOLUSDT, BNBUSDT, XRPUSDT all listed at https://demo-fapi.binance.com"
+        "ok": false,
+        "severity": "warn",
+        "detail": "not checked yet",
+        "fix": "Without this, a symbol the demo account cannot trade is indistinguishable from a quiet market."
       },
       {
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 195265s"
+        "detail": "1/1 — BTCUSDT up 0s"
       },
       {
         "name": "feed: BTCUSDT",
-        "ok": true,
-        "severity": "ok",
-        "detail": "ok"
+        "ok": false,
+        "severity": "bad",
+        "detail": "blind — starting up",
+        "fix": "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance is blocked or BTCUSDT is not a listed contract — npm run sweep:symbols says which."
       },
       {
         "name": "max position set",
@@ -336,13 +348,13 @@
         "name": "shadow run",
         "ok": true,
         "severity": "ok",
-        "detail": "3s since its last beat"
+        "detail": "8s since its last beat"
       },
       {
         "name": "news + social feeds",
         "ok": true,
         "severity": "ok",
-        "detail": "6/14 sources live (in this process), 168 headlines recorded · 8 erroring: reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 "
+        "detail": "6/14 sources live (standalone sweep:news), 168 headlines recorded · 8 erroring: reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 "
       },
       {
         "name": "position cap",
@@ -358,8 +370,8 @@
         "fix": "Fine for testing that orders place. The leverage ladder, maintenance rate, session weights and earnings calendar are all built for an equity perp on Nasdaq and mean nothing on a crypto pair or a contract on another exchange's clock — do not read a strategy result off those."
       }
     ],
-    "verdict": "nothing broken; 3 things would stop a trade",
-    "worst": "warn"
+    "verdict": "2 things broken",
+    "worst": "bad"
   },
   "errors": [],
   "notes": [],
@@ -393,7 +405,7 @@
   "ledger": {
     "epoch": 1787025219557,
     "balance": 2756.60283569,
-    "at": 1787233401054,
+    "at": 1787233456655,
     "reason": "balance moved -2243.40 with no ledger row behind it (expected 5000.00, saw 2756.60) — counting restarted here"
   },
   "learn": {
@@ -2379,8 +2391,8 @@
     }
   ],
   "shadow": {
-    "rows": 11041,
-    "withConditions": 7242,
+    "rows": 11043,
+    "withConditions": 7244,
     "horizons": [
       "t1800",
       "t300",
@@ -2391,43 +2403,43 @@
     "overall": {
       "t1800": {
         "label": "all",
-        "n": 3093,
-        "wins": 1002,
-        "meanPct": 0.024207364974191115,
-        "netUsd": -1394.169295396893,
-        "sePct": 0.011094108921316634
+        "n": 3095,
+        "wins": 1003,
+        "meanPct": 0.024348403361125256,
+        "netUsd": -1396.058884818185,
+        "sePct": 0.011092431251122092
       },
       "t300": {
         "label": "all",
-        "n": 11019,
+        "n": 11021,
         "wins": 974,
-        "meanPct": 0.0014494184610272234,
-        "netUsd": -6177.881423678699,
-        "sePct": 0.0013657505540903548
+        "meanPct": 0.0014454980661457017,
+        "netUsd": -6179.193427875431,
+        "sePct": 0.0013655055678099988
       },
       "t60": {
         "label": "all",
-        "n": 11021,
+        "n": 11023,
         "wins": 267,
-        "meanPct": -0.00028697799189251116,
-        "netUsd": -6298.858603396735,
-        "sePct": 0.0005620356284324244
+        "meanPct": -0.00028198105490222035,
+        "netUsd": -6299.703440170848,
+        "sePct": 0.0005619470936135188
       },
       "t7200": {
         "label": "all",
-        "n": 3095,
-        "wins": 1395,
-        "meanPct": 0.10483123049218836,
-        "netUsd": 679.7752992139642,
-        "sePct": 0.02722304570289084
+        "n": 3097,
+        "wins": 1396,
+        "meanPct": 0.10485649684958123,
+        "netUsd": 675.5597120524432,
+        "sePct": 0.027209312046173797
       },
       "t900": {
         "label": "all",
-        "n": 11005,
-        "wins": 1909,
-        "meanPct": 0.0013431632935243854,
-        "netUsd": -6328.644837462599,
-        "sePct": 0.0023096569675053083
+        "n": 11007,
+        "wins": 1910,
+        "meanPct": 0.0013455738333110793,
+        "netUsd": -6331.446970726411,
+        "sePct": 0.002309813630570071
       }
     },
     "byEntryDepth": [
@@ -2449,37 +2461,37 @@
       },
       {
         "label": "marginal 0.85-1.00",
-        "n": 3514,
-        "wins": 566,
-        "meanPct": 0.000021992834175883895,
-        "netUsd": -1847.750640865933,
-        "sePct": 0.003767799446576126
+        "n": 3515,
+        "wins": 567,
+        "meanPct": 0.00014032353776628233,
+        "netUsd": -1846.7844443698443,
+        "sePct": 0.0037685855787655733
       },
       {
         "label": "at or above baseline >=1.00",
-        "n": 3061,
+        "n": 3062,
         "wins": 535,
-        "meanPct": 0.0017808835438877968,
-        "netUsd": -1685.8741186732266,
-        "sePct": 0.0049976030008320954
+        "meanPct": 0.001654000408198991,
+        "netUsd": -1689.6424484331267,
+        "sePct": 0.004997581569131225
       }
     ],
     "bySignal": [
       {
         "label": "cluster-approach",
-        "n": 7035,
+        "n": 7036,
         "wins": 1045,
-        "meanPct": -0.0009358118454702832,
-        "netUsd": -4160.660727306827,
-        "sePct": 0.0021877252210589695
+        "meanPct": -0.0009906440606621202,
+        "netUsd": -4164.429057066727,
+        "sePct": 0.0021881014012961907
       },
       {
         "label": "wall-pulled",
-        "n": 1929,
-        "wins": 489,
-        "meanPct": 0.009150968434078864,
-        "netUsd": -1144.595514658365,
-        "sePct": 0.00868484723998674
+        "n": 1930,
+        "wins": 490,
+        "meanPct": 0.009361747422431376,
+        "netUsd": -1143.6293181622761,
+        "sePct": 0.00868290487760244
       },
       {
         "label": "cascade-risk",
@@ -2499,814 +2511,64 @@
       }
     ],
     "resolved": {
-      "open": 10828,
+      "open": 10830,
       "unscored": 7,
       "target": 104,
       "stop": 102
     },
-    "feesUsd": 6296.591709507021,
-    "grossUsd": -32.05312795568742
+    "feesUsd": 6297.671717190066,
+    "grossUsd": -33.77525353645337,
+    "matched": {
+      "n": 3097,
+      "horizon": "t7200",
+      "byHorizon": {
+        "t1800": {
+          "label": "matched t1800",
+          "n": 3086,
+          "wins": 1002,
+          "meanPct": 0.024859740436112852,
+          "netUsd": -1376.6593635131994,
+          "sePct": 0.011120111495609142
+        },
+        "t300": {
+          "label": "matched t300",
+          "n": 3091,
+          "wins": 481,
+          "meanPct": 0.006025817762950655,
+          "netUsd": -1754.5419784387805,
+          "sePct": 0.004199900441006704
+        },
+        "t60": {
+          "label": "matched t60",
+          "n": 3086,
+          "wins": 172,
+          "meanPct": 0.00032188964511803387,
+          "netUsd": -1893.1549246849358,
+          "sePct": 0.0016960546417008988
+        },
+        "t7200": {
+          "label": "matched t7200",
+          "n": 3097,
+          "wins": 1396,
+          "meanPct": 0.10485649684958123,
+          "netUsd": 675.5597120524432,
+          "sePct": 0.027209312046173797
+        },
+        "t900": {
+          "label": "matched t900",
+          "n": 3089,
+          "wins": 768,
+          "meanPct": 0.007724381231152775,
+          "netUsd": -1811.394173730338,
+          "sePct": 0.007081304551389385
+        }
+      }
+    }
   },
   "log": [
     {
-      "t": 1787224330031,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787224407517,
-      "text": "shadow: ETHUSDT closed intent:withdrawal:1787217207453:329z — would have open · net at 2h +0.78 · 2966 recorded"
-    },
-    {
-      "t": 1787224455059,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787224461587,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787217261583:1zfm — would have open · net at 2h -1.01 · 2967 recorded"
-    },
-    {
-      "t": 1787224476555,
-      "text": "shadow: ETHUSDT closed intent:wall-pulled:1787217276553:32be — would have open · net at 2h +1.14 · 2968 recorded"
-    },
-    {
-      "t": 1787224566849,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787217366815:14kk — would have open · net at 2h +0.27 · 2969 recorded"
-    },
-    {
-      "t": 1787224579551,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787224606844,
-      "text": "shadow: SOLUSDT closed intent:wall-pulled:1787217406830:z09 — would have open · net at 2h -4.10 · 2970 recorded"
-    },
-    {
-      "t": 1787224639534,
-      "text": "shadow: ETHUSDT closed intent:cascade-risk:1787217439528:32em — would have open · net at 2h -0.34 · 2971 recorded"
-    },
-    {
-      "t": 1787224673100,
-      "text": "shadow: SOLUSDT closed intent:cascade-risk:1787217473081:z10 — would have open · net at 2h +3.23 · 2972 recorded"
-    },
-    {
-      "t": 1787224703975,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787224749542,
-      "text": "shadow: BTCUSDT closed intent:cascade-risk:1787217549519:1zia — would have open · net at 2h -0.96 · 2973 recorded"
-    },
-    {
-      "t": 1787224828475,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 12:20:28 PM)"
-    },
-    {
-      "t": 1787225053971,
-      "text": "shadow: XRPUSDT closed intent:withdrawal:1787217853913:1tso — would have open · net at 2h -4.98 · 2974 recorded"
-    },
-    {
-      "t": 1787225077771,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 12:24:37 PM)"
-    },
-    {
-      "t": 1787225215027,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787218014990:1zn7 — would have open · net at 2h -0.82 · 2975 recorded"
-    },
-    {
-      "t": 1787225326807,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 12:28:46 PM)"
-    },
-    {
-      "t": 1787225538901,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787218338897:14qg — would have open · net at 2h -0.11 · 2976 recorded"
-    },
-    {
-      "t": 1787225570117,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787218370091:1zqh — would have open · net at 2h +0.29 · 2977 recorded"
-    },
-    {
-      "t": 1787225575849,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787225637232,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787218437227:1u3y — would have open · net at 2h -11.84 · 2978 recorded"
-    },
-    {
-      "t": 1787225700398,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787225723400,
-      "text": "shadow: BTCUSDT closed intent:cascade-risk:1787218523353:1zrh — would have open · net at 2h +1.86 · 2979 recorded"
-    },
-    {
-      "t": 1787225734516,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787218534506:1u5r — would have open · net at 2h -13.26 · 2980 recorded"
-    },
-    {
-      "t": 1787225824877,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787225894357,
-      "text": "shadow: ETHUSDT closed intent:cascade-risk:1787218694314:331w — would have open · net at 2h -4.72 · 2981 recorded"
-    },
-    {
-      "t": 1787225949378,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 12:39:09 PM)"
-    },
-    {
-      "t": 1787226114547,
-      "text": "shadow: SOLUSDT closed intent:wall-pulled:1787218914538:zdq — would have open · net at 2h -2.36 · 2982 recorded"
-    },
-    {
-      "t": 1787226147977,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787218947970:14st — would have open · net at 2h +1.71 · 2983 recorded"
-    },
-    {
-      "t": 1787226195717,
-      "text": "shadow: SOLUSDT closed intent:cascade-risk:1787218995708:zef — would have open · net at 2h +0.87 · 2984 recorded"
-    },
-    {
-      "t": 1787226198341,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787226210799,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787219010672:1ud7 — would have stop · net at 2h -17.84 · 2985 recorded"
-    },
-    {
-      "t": 1787226247616,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787219047565:1zvm — would have open · net at 2h +1.07 · 2986 recorded"
-    },
-    {
-      "t": 1787226258221,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787219058201:14tb — would have open · net at 2h -3.09 · 2987 recorded"
-    },
-    {
-      "t": 1787226322868,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787226432560,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787219232547:1zx2 — would have open · net at 2h +1.19 · 2988 recorded"
-    },
-    {
-      "t": 1787226447460,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787226492931,
-      "text": "shadow: BNBUSDT closed intent:cascade-risk:1787219292915:14u1 — would have open · net at 2h +2.13 · 2989 recorded"
-    },
-    {
-      "t": 1787226516577,
-      "text": "shadow: BTCUSDT closed intent:withdrawal:1787219316523:1zxp — would have open · net at 2h +1.10 · 2990 recorded"
-    },
-    {
-      "t": 1787226572126,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787226572493,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787219372480:14u7 — would have open · net at 2h +2.16 · 2991 recorded"
-    },
-    {
-      "t": 1787226578622,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787219378614:1zy3 — would have open · net at 2h +1.10 · 2992 recorded"
-    },
-    {
-      "t": 1787226602403,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787219402384:33eo — would have open · net at 2h -8.10 · 2993 recorded"
-    },
-    {
-      "t": 1787226641139,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787219441103:14uf — would have open · net at 2h +6.09 · 2994 recorded"
-    },
-    {
-      "t": 1787226681122,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1787219481065:zhu — would have open · net at 2h +1.01 · 2995 recorded"
-    },
-    {
-      "t": 1787226694530,
-      "text": "shadow: ETHUSDT closed intent:wall-pulled:1787219494518:33gf — would have open · net at 2h -6.48 · 2996 recorded"
-    },
-    {
-      "t": 1787226696657,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787226756501,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1787219556483:zis — would have open · net at 2h +2.71 · 2997 recorded"
-    },
-    {
-      "t": 1787226785545,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787219585515:14us — would have open · net at 2h +5.11 · 2998 recorded"
-    },
-    {
-      "t": 1787226796614,
-      "text": "shadow: XRPUSDT closed intent:cluster-approach:1787219596612:1un6 — would have target · net at 2h +19.46 · 2999 recorded"
-    },
-    {
-      "t": 1787226821198,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787226880121,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787219680116:14vc — would have open · net at 2h +1.77 · 3000 recorded"
-    },
-    {
-      "t": 1787226945910,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787226975699,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1787219775662:zkh — would have open · net at 2h +2.57 · 3001 recorded"
-    },
-    {
-      "t": 1787227048265,
-      "text": "shadow: BTCUSDT closed intent:cascade-risk:1787219848244:201o — would have open · net at 2h +0.65 · 3002 recorded"
-    },
-    {
-      "t": 1787227052522,
-      "text": "shadow: BNBUSDT closed intent:cascade-risk:1787219852488:14w6 — would have open · net at 2h -6.10 · 3003 recorded"
-    },
-    {
-      "t": 1787227070338,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787227120330,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787219920301:33qi — would have open · net at 2h +3.45 · 3004 recorded"
-    },
-    {
-      "t": 1787227160340,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787219960317:14wo — would have open · net at 2h -2.22 · 3005 recorded"
-    },
-    {
-      "t": 1787227194818,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787227210147,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1787220010104:zmt — would have open · net at 2h +0.17 · 3006 recorded"
-    },
-    {
-      "t": 1787227270269,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1787220070256:zno — would have open · net at 2h -0.38 · 3007 recorded"
-    },
-    {
-      "t": 1787227311411,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787220111397:14xe — would have open · net at 2h -1.94 · 3008 recorded"
-    },
-    {
-      "t": 1787227319392,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787227398625,
-      "text": "shadow: XRPUSDT closed intent:cluster-approach:1787220198600:1uw2 — would have target · net at 2h +20.47 · 3009 recorded"
-    },
-    {
-      "t": 1787227403012,
-      "text": "shadow: SOLUSDT closed intent:wall-pulled:1787220202979:zp2 — would have open · net at 2h -3.09 · 3010 recorded"
-    },
-    {
-      "t": 1787227444227,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787227468485,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787220268475:1ux4 — would have target · net at 2h +17.30 · 3011 recorded"
-    },
-    {
-      "t": 1787227490799,
-      "text": "shadow: ETHUSDT closed intent:cascade-risk:1787220290770:33z5 — would have open · net at 2h -2.60 · 3012 recorded"
-    },
-    {
-      "t": 1787227564233,
-      "text": "shadow: XRPUSDT closed intent:cluster-approach:1787220364219:1uyh — would have stop · net at 2h -42.66 · 3013 recorded"
-    },
-    {
-      "t": 1787227569250,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787227630269,
-      "text": "shadow: BTCUSDT closed intent:cascade-risk:1787220430264:2073 — would have open · net at 2h +1.66 · 3014 recorded"
-    },
-    {
-      "t": 1787227636813,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787220436797:1uzq — would have stop · net at 2h -16.07 · 3015 recorded"
-    },
-    {
-      "t": 1787227693699,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787227699578,
-      "text": "shadow: XRPUSDT closed intent:cluster-approach:1787220499560:1v0n — would have stop · net at 2h -16.70 · 3016 recorded"
-    },
-    {
-      "t": 1787227716141,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787220516137:3447 — would have open · net at 2h +1.26 · 3017 recorded"
-    },
-    {
-      "t": 1787227741580,
-      "text": "shadow: SOLUSDT closed intent:wall-pulled:1787220541567:zsf — would have open · net at 2h -13.14 · 3018 recorded"
-    },
-    {
-      "t": 1787227782382,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787220582332:345w — would have open · net at 2h +1.81 · 3019 recorded"
-    },
-    {
-      "t": 1787227802099,
-      "text": "shadow: SOLUSDT closed intent:cascade-risk:1787220602067:zt4 — would have open · net at 2h -5.08 · 3020 recorded"
-    },
-    {
-      "t": 1787227805004,
-      "text": "shadow: XRPUSDT closed intent:cluster-approach:1787220604984:1v1w — would have stop · net at 2h -13.67 · 3021 recorded"
-    },
-    {
-      "t": 1787227818360,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787227842617,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787220642558:3479 — would have open · net at 2h +0.87 · 3022 recorded"
-    },
-    {
-      "t": 1787227854904,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787220654899:2092 — would have open · net at 2h +0.51 · 3023 recorded"
-    },
-    {
-      "t": 1787227869795,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787220669789:1v2h — would have stop · net at 2h -12.94 · 3024 recorded"
-    },
-    {
-      "t": 1787227942810,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787227960372,
-      "text": "shadow: ETHUSDT closed intent:wall-pulled:1787220760354:349e — would have open · net at 2h -6.71 · 3025 recorded"
-    },
-    {
-      "t": 1787228022469,
-      "text": "shadow: ETHUSDT closed intent:wall-pulled:1787220822448:34b9 — would have open · net at 2h -1.59 · 3026 recorded"
-    },
-    {
-      "t": 1787228064523,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787220864416:20aw — would have open · net at 2h -1.06 · 3027 recorded"
-    },
-    {
-      "t": 1787228069618,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787228083096,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787220882984:34cc — would have open · net at 2h -1.93 · 3028 recorded"
-    },
-    {
-      "t": 1787228171501,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787220971494:151j — would have open · net at 2h +0.55 · 3029 recorded"
-    },
-    {
-      "t": 1787228194470,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787228210076,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1787221010046:zw5 — would have open · net at 2h +4.86 · 3030 recorded"
-    },
-    {
-      "t": 1787228242304,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787221042277:34gs — would have open · net at 2h -1.86 · 3031 recorded"
-    },
-    {
-      "t": 1787228284504,
-      "text": "shadow: SOLUSDT closed intent:cascade-risk:1787221084452:zwq — would have open · net at 2h -3.47 · 3032 recorded"
-    },
-    {
-      "t": 1787228318932,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787228357894,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787221157887:20en — would have open · net at 2h -2.50 · 3033 recorded"
-    },
-    {
-      "t": 1787228443355,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 1:20:43 PM)"
-    },
-    {
-      "t": 1787228654254,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787221454251:1vmq — would have stop · net at 2h -7.82 · 3034 recorded"
-    },
-    {
-      "t": 1787228693238,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787228817166,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787221617111:20io — would have open · net at 2h -1.90 · 3035 recorded"
-    },
-    {
-      "t": 1787228817731,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×3 since 1:26:57 PM)"
-    },
-    {
-      "t": 1787229172861,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787221972857:156k — would have open · net at 2h +0.17 · 3036 recorded"
-    },
-    {
-      "t": 1787229191880,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787229215069,
-      "text": "shadow: BTCUSDT closed intent:wall-pulled:1787222015019:20mo — would have open · net at 2h -0.35 · 3037 recorded"
-    },
-    {
-      "t": 1787229241076,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787222041041:1vx4 — would have open · net at 2h +9.54 · 3038 recorded"
-    },
-    {
-      "t": 1787229316443,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787229328541,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787222128517:20nx — would have open · net at 2h +0.38 · 3039 recorded"
-    },
-    {
-      "t": 1787229348731,
-      "text": "shadow: XRPUSDT closed intent:cluster-approach:1787222148667:1vyw — would have open · net at 2h +8.90 · 3040 recorded"
-    },
-    {
-      "t": 1787229441451,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787229498521,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787222298496:35b7 — would have open · net at 2h -1.96 · 3041 recorded"
-    },
-    {
-      "t": 1787229566076,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 1:39:26 PM)"
-    },
-    {
-      "t": 1787229722189,
-      "text": "shadow: SOLUSDT closed intent:wall-pulled:1787222522165:10a3 — would have open · net at 2h -1.76 · 3042 recorded"
-    },
-    {
-      "t": 1787229748243,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787222548192:1593 — would have open · net at 2h +3.03 · 3043 recorded"
-    },
-    {
-      "t": 1787229796769,
-      "text": "shadow: SOLUSDT closed intent:cascade-risk:1787222596651:10aj — would have open · net at 2h -2.26 · 3044 recorded"
-    },
-    {
-      "t": 1787229812964,
-      "text": "shadow: XRPUSDT closed intent:cascade-risk:1787222612931:1w71 — would have stop · net at 2h -12.02 · 3045 recorded"
-    },
-    {
-      "t": 1787229815819,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787229855577,
-      "text": "shadow: BTCUSDT closed intent:cascade-risk:1787222655511:20rh — would have open · net at 2h -1.02 · 3046 recorded"
-    },
-    {
-      "t": 1787229899969,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787222699955:159m — would have open · net at 2h +2.55 · 3047 recorded"
-    },
-    {
-      "t": 1787229940479,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787230034303,
-      "text": "shadow: BTCUSDT closed intent:wall-pulled:1787222834298:20ss — would have open · net at 2h +1.21 · 3048 recorded"
-    },
-    {
-      "t": 1787230065101,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787230095123,
-      "text": "shadow: BNBUSDT closed intent:withdrawal:1787222895072:15aj — would have open · net at 2h +1.85 · 3049 recorded"
-    },
-    {
-      "t": 1787230133054,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787222933013:20tc — would have open · net at 2h -1.67 · 3050 recorded"
-    },
-    {
-      "t": 1787230173685,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787222973653:15aw — would have open · net at 2h -6.31 · 3051 recorded"
-    },
-    {
-      "t": 1787230189589,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787230199029,
-      "text": "shadow: BTCUSDT closed intent:wall-pulled:1787222998969:20tk — would have open · net at 2h +0.79 · 3052 recorded"
-    },
-    {
-      "t": 1787230203224,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787223003215:35qe — would have open · net at 2h +1.04 · 3053 recorded"
-    },
-    {
-      "t": 1787230261555,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787223061516:15b6 — would have open · net at 2h -3.86 · 3054 recorded"
-    },
-    {
-      "t": 1787230296254,
-      "text": "shadow: ETHUSDT closed intent:wall-pulled:1787223096249:35sh — would have open · net at 2h -0.26 · 3055 recorded"
-    },
-    {
-      "t": 1787230314403,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787230331586,
-      "text": "shadow: SOLUSDT closed intent:cascade-risk:1787223131567:10eu — would have open · net at 2h -1.79 · 3056 recorded"
-    },
-    {
-      "t": 1787230385892,
-      "text": "shadow: BNBUSDT closed intent:cascade-risk:1787223185883:15bx — would have open · net at 2h -1.92 · 3057 recorded"
-    },
-    {
-      "t": 1787230392249,
-      "text": "shadow: SOLUSDT closed intent:wall-pulled:1787223192231:10fp — would have open · net at 2h -3.24 · 3058 recorded"
-    },
-    {
-      "t": 1787230397744,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787223197723:1wk0 — would have open · net at 2h +32.74 · 3059 recorded"
-    },
-    {
-      "t": 1787230438749,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787230487646,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787223287639:15cb — would have open · net at 2h -0.58 · 3060 recorded"
-    },
-    {
-      "t": 1787230563658,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787230576136,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1787223376030:10h5 — would have open · net at 2h -1.37 · 3061 recorded"
-    },
-    {
-      "t": 1787230652730,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787223452688:15cn — would have open · net at 2h -0.28 · 3062 recorded"
-    },
-    {
-      "t": 1787230653800,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787223453768:20wa — would have open · net at 2h -0.49 · 3063 recorded"
-    },
-    {
-      "t": 1787230688343,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787230720893,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787223520873:362z — would have open · net at 2h -1.74 · 3064 recorded"
-    },
-    {
-      "t": 1787230772957,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787223572769:15d6 — would have open · net at 2h +0.00 · 3065 recorded"
-    },
-    {
-      "t": 1787230813236,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787230813654,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1787223613612:10jz — would have open · net at 2h +0.83 · 3066 recorded"
-    },
-    {
-      "t": 1787230873905,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1787223673877:10kq — would have open · net at 2h +1.01 · 3067 recorded"
-    },
-    {
-      "t": 1787230912224,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787223712152:15dt — would have open · net at 2h +0.55 · 3068 recorded"
-    },
-    {
-      "t": 1787230937671,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787230999276,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787223799248:1wui — would have open · net at 2h +15.78 · 3069 recorded"
-    },
-    {
-      "t": 1787231003241,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1787223803185:10m6 — would have open · net at 2h +0.22 · 3070 recorded"
-    },
-    {
-      "t": 1787231062157,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787231069525,
-      "text": "shadow: XRPUSDT closed intent:cascade-risk:1787223869500:1ww0 — would have stop · net at 2h -15.41 · 3071 recorded"
-    },
-    {
-      "t": 1787231096475,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787223896457:36ch — would have open · net at 2h +0.19 · 3072 recorded"
-    },
-    {
-      "t": 1787231168933,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787223968927:1wxy — would have open · net at 2h +13.49 · 3073 recorded"
-    },
-    {
-      "t": 1787231186802,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787231237987,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787224037981:1wzl — would have stop · net at 2h -34.91 · 3074 recorded"
-    },
-    {
-      "t": 1787231264506,
-      "text": "shadow: BTCUSDT closed intent:cascade-risk:1787224064486:210n — would have open · net at 2h -2.19 · 3075 recorded"
-    },
-    {
-      "t": 1787231301759,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787224101753:1x0z — would have open · net at 2h +13.54 · 3076 recorded"
-    },
-    {
-      "t": 1787231311511,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787231318056,
-      "text": "shadow: ETHUSDT closed intent:wall-pulled:1787224118036:36he — would have open · net at 2h +0.51 · 3077 recorded"
-    },
-    {
-      "t": 1787231341619,
-      "text": "shadow: SOLUSDT closed intent:cascade-risk:1787224141608:10pv — would have open · net at 2h -0.34 · 3078 recorded"
-    },
-    {
-      "t": 1787231382536,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787224182522:36j2 — would have open · net at 2h -0.77 · 3079 recorded"
-    },
-    {
-      "t": 1787231406804,
-      "text": "shadow: SOLUSDT closed intent:wall-pulled:1787224206781:10qk — would have open · net at 2h +0.05 · 3080 recorded"
-    },
-    {
-      "t": 1787231406936,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787224206903:1x33 — would have open · net at 2h +14.42 · 3081 recorded"
-    },
-    {
-      "t": 1787231438224,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787231442777,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787224242757:36k5 — would have open · net at 2h +0.53 · 3082 recorded"
-    },
-    {
-      "t": 1787231455900,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787224255870:212f — would have open · net at 2h -0.73 · 3083 recorded"
-    },
-    {
-      "t": 1787231470428,
-      "text": "shadow: XRPUSDT closed intent:cascade-risk:1787224270390:1x40 — would have open · net at 2h +13.23 · 3084 recorded"
-    },
-    {
-      "t": 1787231561472,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787224361440:36me — would have open · net at 2h +0.13 · 3085 recorded"
-    },
-    {
-      "t": 1787231563111,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787231623558,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787224423490:36nh — would have open · net at 2h +0.44 · 3086 recorded"
-    },
-    {
-      "t": 1787231683729,
-      "text": "shadow: ETHUSDT closed intent:cluster-approach:1787224483706:36oc — would have open · net at 2h +0.75 · 3087 recorded"
-    },
-    {
-      "t": 1787231687681,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787231691310,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787224491274:2148 — would have open · net at 2h +0.09 · 3088 recorded"
-    },
-    {
-      "t": 1787231795143,
-      "text": "shadow: BNBUSDT closed intent:cascade-risk:1787224595081:15gt — would have open · net at 2h -0.66 · 3089 recorded"
-    },
-    {
-      "t": 1787231812112,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787231829709,
-      "text": "shadow: SOLUSDT closed intent:cascade-risk:1787224629645:10tl — would have open · net at 2h +0.07 · 3090 recorded"
-    },
-    {
-      "t": 1787231842455,
-      "text": "shadow: ETHUSDT closed intent:cascade-risk:1787224642414:36r3 — would have open · net at 2h +0.21 · 3091 recorded"
-    },
-    {
-      "t": 1787231936233,
-      "text": "shadow: SOLUSDT closed intent:cascade-risk:1787224736216:10u6 — would have open · net at 2h +0.26 · 3092 recorded"
-    },
-    {
-      "t": 1787231936829,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787232008754,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787224808621:216b — would have open · net at 2h -1.74 · 3093 recorded"
-    },
-    {
-      "t": 1787232061918,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 2:21:01 PM)"
-    },
-    {
-      "t": 1787232260007,
-      "text": "shadow: XRPUSDT closed intent:cluster-approach:1787225059966:1xia — would have stop · net at 2h -15.85 · 3094 recorded"
-    },
-    {
-      "t": 1787232312029,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787232423294,
-      "text": "shadow: BTCUSDT closed intent:cascade-risk:1787225223084:2194 — would have open · net at 2h -0.45 · 3095 recorded"
-    },
-    {
-      "t": 1787232437054,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×3 since 2:27:17 PM)"
-    },
-    {
-      "t": 1787232774148,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787225574110:15kh — would have open · net at 2h -4.30 · 3096 recorded"
-    },
-    {
-      "t": 1787232811728,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787232829636,
-      "text": "shadow: BTCUSDT closed intent:cascade-risk:1787225629603:21c9 — would have open · net at 2h +1.48 · 3097 recorded"
-    },
-    {
-      "t": 1787232841792,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787225641725:1y90 — would have open · net at 2h +7.07 · 3098 recorded"
-    },
-    {
-      "t": 1787232930141,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787225730132:21dc — would have open · net at 2h +2.24 · 3099 recorded"
-    },
-    {
-      "t": 1787232936730,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787232948759,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787225748689:1yfn — would have open · net at 2h +6.18 · 3100 recorded"
-    },
-    {
-      "t": 1787233062825,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787233101373,
-      "text": "shadow: ETHUSDT closed intent:withdrawal:1787225901305:37mn — would have open · net at 2h -6.21 · 3101 recorded"
-    },
-    {
-      "t": 1787233188299,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 2:39:48 PM)"
-    },
-    {
-      "t": 1787233351824,
-      "text": "shadow: BNBUSDT closed intent:cascade-risk:1787226151807:15mu — would have open · net at 2h -3.83 · 3102 recorded"
-    },
-    {
-      "t": 1787233379420,
-      "text": "shadow: SOLUSDT closed intent:wall-pulled:1787226179398:119j — would have open · net at 2h +3.70 · 3103 recorded"
-    },
-    {
-      "t": 1787233413126,
-      "text": "shadow: XRPUSDT closed intent:wall-pulled:1787226213094:1z2m — would have open · net at 2h +3.49 · 3104 recorded"
+      "t": 1787233482615,
+      "text": "engine started — BTCUSDT"
     }
   ],
   "news": {
@@ -3315,14 +2577,6 @@
       "x",
       "linkedin"
     ],
-    "poller": {
-      "recorded": 168,
-      "cycles": 10183,
-      "sources": 14,
-      "unavailable": "x,linkedin",
-      "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found",
-      "velocity": "BNBUSDT 0.9x BTCUSDT 0.9x ETHUSDT 0.8x XRPUSDT 1.1x SOLUSDT 0.9x",
-      "lastPollAt": 1787233406711
-    }
+    "poller": null
   }
 }
