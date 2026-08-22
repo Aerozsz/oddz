@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1787414806075,
+    "at": 1787414926127,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -17,11 +17,11 @@
         "attached": false,
         "tradeable": true,
         "warm": true,
-        "mid": 77033.85,
-        "spreadBps": 0.012981306268772605,
-        "riskUp": 34.7376220059891,
-        "riskDown": 34.28849729078311,
-        "signalsSeen": 194078,
+        "mid": 77072.55,
+        "spreadBps": 0.012974788041374105,
+        "riskUp": 34.11276397590426,
+        "riskDown": 32.622911397643165,
+        "signalsSeen": 194143,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
@@ -46,15 +46,15 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": null,
-      "biasSummary": "Neither side is meaningfully more exposed than the other right now.",
+      "biasDirection": "up",
+      "biasSummary": "Least resistance is upward — 13,685,814 to set off the downside vs 8,065,255 upside — cheaper to push up; 0.09% below, 0.04% above",
       "sides": [
         {
           "direction": "up",
           "ok": true,
           "stopPct": 0.5,
-          "target": 77878.44414904222,
-          "rewardRisk": 2.192787064497521,
+          "target": 77911.77965981924,
+          "rewardRisk": 2.1777653907110466,
           "notionalUsd": 12129.052477036003,
           "marginUsd": 2425.8104954072005,
           "leverage": 5,
@@ -67,7 +67,7 @@
           "ok": true,
           "stopPct": 0.5,
           "target": 76250,
-          "rewardRisk": 2.0350793839331818,
+          "rewardRisk": 2.134482380562218,
           "notionalUsd": 12129.052477036003,
           "marginUsd": 2425.8104954072005,
           "leverage": 5,
@@ -76,7 +76,7 @@
           "reasons": []
         }
       ],
-      "tradeable": false
+      "tradeable": true
     },
     "readiness": {
       "ready": true,
@@ -93,7 +93,7 @@
     },
     "engine": {
       "running": true,
-      "uptimeSec": 181323,
+      "uptimeSec": 181444,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -113,16 +113,16 @@
       "snapshotAgeMs": 3
     },
     "market": {
-      "mid": 77033.85,
+      "mid": 77072.55,
       "mark": null,
-      "spreadBps": 0.012981306268772605,
-      "lwi": 1.0728989600881815,
-      "lwiBid": 1.015346064310741,
-      "lwiAsk": 1.133932492066113,
+      "spreadBps": 0.012974788041374105,
+      "lwi": 1.0241952136319925,
+      "lwiBid": 1.006082586348676,
+      "lwiAsk": 1.0429923223881676,
       "warm": true,
-      "riskUp": 34.7376220059891,
-      "riskDown": 34.28849729078311,
-      "nearestAbove": 77072.366925,
+      "riskUp": 34.11276397590426,
+      "riskDown": 32.622911397643165,
+      "nearestAbove": 77106.984225,
       "nearestBelow": 77000,
       "session": "weekend",
       "flow": {
@@ -134,7 +134,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 14670,
+      "staleForMs": 15628,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,7 +145,7 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1787414791405,
+      "at": 1787414910499,
       "error": null,
       "availableBalance": 2756.60283569,
       "walletBalance": 2756.60283569,
@@ -180,7 +180,7 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1787414792650,
+      "at": 1787414911971,
       "realisedPnl": 0,
       "drawdown": 0,
       "trades": 0,
@@ -194,7 +194,7 @@
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 194078,
+      "signalsSeen": 194143,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -220,7 +220,7 @@
       }
     },
     "protection": {
-      "at": 1787414792403,
+      "at": 1787414911724,
       "error": null,
       "flat": true,
       "protected": true,
@@ -278,7 +278,7 @@
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 181323s"
+        "detail": "1/1 — BTCUSDT up 181444s"
       },
       {
         "name": "feed: BTCUSDT",
@@ -330,7 +330,7 @@
         "name": "evidence sampler",
         "ok": true,
         "severity": "ok",
-        "detail": "1s since its last beat"
+        "detail": "0s since its last beat"
       },
       {
         "name": "shadow run",
@@ -393,7 +393,7 @@
   "ledger": {
     "epoch": 1787025219557,
     "balance": 2756.60283569,
-    "at": 1787414791405,
+    "at": 1787414910499,
     "reason": "balance moved -2243.40 with no ledger row behind it (expected 5000.00, saw 2756.60) — counting restarted here"
   },
   "learn": {
@@ -2555,10 +2555,6 @@
   },
   "log": [
     {
-      "t": 1787407447275,
-      "text": "shadow: BNBUSDT closed intent:cluster-approach:1787400247172:2ar1 — would have open · net at 2h +0.07 · 2812 recorded"
-    },
-    {
       "t": 1787407452826,
       "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
     },
@@ -3353,6 +3349,10 @@
     {
       "t": 1787414778679,
       "text": "shadow: BTCUSDT closed intent:cluster-approach:1787407578677:410z — would have open · net at 2h -1.39 · 2936 recorded"
+    },
+    {
+      "t": 1787414816073,
+      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
     }
   ],
   "news": {
@@ -3363,12 +3363,12 @@
     ],
     "poller": {
       "recorded": 82,
-      "cycles": 9650,
+      "cycles": 9654,
       "sources": 14,
       "unavailable": "x,linkedin",
       "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-binance: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found",
-      "velocity": "BNBUSDT 1.2x SOLUSDT 1.2x BTCUSDT 1.4x ETHUSDT 1.2x XRPUSDT 1.5x",
-      "lastPollAt": 1787414782085
+      "velocity": "BNBUSDT 1.2x SOLUSDT 1.3x BTCUSDT 1.4x ETHUSDT 1.2x XRPUSDT 1.5x",
+      "lastPollAt": 1787414912362
     }
   }
 }
