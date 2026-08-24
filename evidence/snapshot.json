@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1787535719430,
+    "at": 1787536079560,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -15,17 +15,17 @@
         "calibrated": false,
         "running": true,
         "attached": false,
-        "tradeable": true,
+        "tradeable": false,
         "warm": true,
-        "mid": 77263.15,
-        "spreadBps": 0.012942780612914288,
-        "riskUp": 70.11901265832115,
-        "riskDown": 34.62868678367853,
-        "signalsSeen": 294449,
+        "mid": 77146.35,
+        "spreadBps": 0.012962376054248692,
+        "riskUp": 78.3112216382988,
+        "riskDown": 28.431445640414072,
+        "signalsSeen": 294633,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
-        "protected": true,
+        "protected": null,
         "heldMin": 0,
         "lastRefusal": null,
         "dislocation": {
@@ -46,44 +46,54 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": null,
-      "biasSummary": "Neither side is meaningfully more exposed than the other right now.",
+      "biasDirection": "up",
+      "biasSummary": "Least resistance is upward — 35,175,609 to set off the downside vs 3,958,905 upside — cheaper to push up; 0.19% below, 0.05% above",
       "sides": [
         {
           "direction": "up",
-          "ok": true,
-          "stopPct": 0.6547338752479027,
-          "target": 78327.79470090242,
-          "rewardRisk": 2.1045898672140084,
-          "notionalUsd": 9262.582047128357,
-          "marginUsd": 2315.645511782089,
-          "leverage": 4,
-          "riskUsd": 60.645262385180004,
-          "sizeRetained": 0.55,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: not tradeable — stream error: no data for 60s — cycling socket",
+            "no free collateral"
+          ]
         },
         {
           "direction": "down",
-          "ok": true,
-          "stopPct": 0.6547338752479027,
-          "target": 76250,
-          "rewardRisk": 2.0027951317096533,
-          "notionalUsd": 9262.582047128357,
-          "marginUsd": 2315.645511782089,
-          "leverage": 4,
-          "riskUsd": 60.645262385180004,
-          "sizeRetained": 0.55,
-          "reasons": []
+          "ok": false,
+          "stopPct": null,
+          "target": null,
+          "rewardRisk": null,
+          "notionalUsd": null,
+          "marginUsd": null,
+          "leverage": null,
+          "riskUsd": null,
+          "sizeRetained": null,
+          "reasons": [
+            "feed not tradeable: not tradeable — stream error: no data for 60s — cycling socket",
+            "no free collateral"
+          ]
         }
       ],
       "tradeable": false
     },
     "readiness": {
-      "ready": true,
+      "ready": false,
       "armed": false,
-      "blockers": [],
-      "waiting": [],
-      "summary": "ready — press Start trading"
+      "blockers": [
+        "the exchange is not answering — The operation was aborted due to timeout"
+      ],
+      "waiting": [
+        "BTCUSDT: not tradeable — stream error: no data for 60s — cycling socket"
+      ],
+      "summary": "the exchange is not answering — The operation was aborted due to timeout"
     },
     "orderVenue": {
       "url": "https://demo-fapi.binance.com",
@@ -93,7 +103,7 @@
     },
     "engine": {
       "running": true,
-      "uptimeSec": 302237,
+      "uptimeSec": 302597,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -106,24 +116,30 @@
     "mode": "testnet",
     "hasCredentials": true,
     "health": {
-      "level": "ok",
-      "tradeable": true,
-      "reasons": [],
-      "summary": "live",
-      "snapshotAgeMs": 3
+      "level": "blind",
+      "tradeable": false,
+      "reasons": [
+        {
+          "code": "socket-down",
+          "severity": "blind",
+          "detail": "stream error: no data for 60s — cycling socket"
+        }
+      ],
+      "summary": "not tradeable — stream error: no data for 60s — cycling socket",
+      "snapshotAgeMs": 2
     },
     "market": {
-      "mid": 77263.15,
+      "mid": 77146.35,
       "mark": null,
-      "spreadBps": 0.012942780612914288,
-      "lwi": 0.9990379177754094,
-      "lwiBid": 0.94109742887661,
-      "lwiAsk": 1.0692312421219843,
+      "spreadBps": 0.012962376054248692,
+      "lwi": 1.0053230765873404,
+      "lwiBid": 1.1006591184698389,
+      "lwiAsk": 0.8841884164253451,
       "warm": true,
-      "riskUp": 70.11901265832115,
-      "riskDown": 34.62868678367853,
-      "nearestAbove": 77301.45546377923,
-      "nearestBelow": 77200,
+      "riskUp": 78.3112216382988,
+      "riskDown": 28.431445640414072,
+      "nearestAbove": 77185.06498191123,
+      "nearestBelow": 77000,
       "session": "weekend",
       "flow": {
         "buy": 0,
@@ -134,7 +150,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 900,
+      "staleForMs": 11894,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,12 +161,12 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1787535718530,
-      "error": null,
-      "availableBalance": 2756.60283569,
-      "walletBalance": 2756.60283569,
-      "unrealizedPnl": 0,
-      "marginRatio": 0,
+      "at": 1787536067666,
+      "error": "The operation was aborted due to timeout",
+      "availableBalance": null,
+      "walletBalance": null,
+      "unrealizedPnl": null,
+      "marginRatio": null,
       "positions": []
     },
     "limits": {
@@ -180,7 +196,7 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1787535700841,
+      "at": 1787535997237,
       "realisedPnl": 0,
       "drawdown": 0,
       "trades": 0,
@@ -194,7 +210,7 @@
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 294449,
+      "signalsSeen": 294633,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -220,10 +236,10 @@
       }
     },
     "protection": {
-      "at": 1787535700572,
-      "error": null,
-      "flat": true,
-      "protected": true,
+      "at": 1787536067666,
+      "error": "The operation was aborted due to timeout",
+      "flat": null,
+      "protected": null,
       "stopPrice": null,
       "stopDistancePct": null,
       "targetPrice": null,
@@ -234,7 +250,7 @@
       "heldMin": 0,
       "ratcheted": false,
       "hold": null,
-      "reason": "flat"
+      "reason": null
     }
   },
   "desired": {
@@ -254,7 +270,7 @@
         "name": "clock in sync with Binance",
         "ok": true,
         "severity": "ok",
-        "detail": "behind by 484ms (round trip 757ms, window 5000ms, corrected on every request)"
+        "detail": "behind by 499ms (round trip 774ms, window 5000ms, corrected on every request)"
       },
       {
         "name": "credentials present",
@@ -264,9 +280,10 @@
       },
       {
         "name": "exchange reachable",
-        "ok": true,
-        "severity": "ok",
-        "detail": "balance 2756.60 USDT"
+        "ok": false,
+        "severity": "bad",
+        "detail": "The operation was aborted due to timeout",
+        "fix": "npm run sweep:check names the specific cause."
       },
       {
         "name": "contracts tradeable here",
@@ -278,13 +295,14 @@
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 302237s"
+        "detail": "1/1 — BTCUSDT up 302597s"
       },
       {
         "name": "feed: BTCUSDT",
-        "ok": true,
-        "severity": "ok",
-        "detail": "ok"
+        "ok": false,
+        "severity": "bad",
+        "detail": "blind — not tradeable — stream error: no data for 60s — cycling socket",
+        "fix": "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance is blocked or BTCUSDT is not a listed contract — npm run sweep:symbols says which."
       },
       {
         "name": "max position set",
@@ -342,7 +360,7 @@
         "name": "news + social feeds",
         "ok": true,
         "severity": "ok",
-        "detail": "6/14 sources live (in this process), 93 headlines recorded · 8 erroring: reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-binance: 403 "
+        "detail": "5/14 sources live (in this process), 93 headlines recorded · 9 erroring: reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-binance: 403 "
       },
       {
         "name": "position cap",
@@ -358,8 +376,8 @@
         "fix": "Fine for testing that orders place. The leverage ladder, maintenance rate, session weights and earnings calendar are all built for an equity perp on Nasdaq and mean nothing on a crypto pair or a contract on another exchange's clock — do not read a strategy result off those."
       }
     ],
-    "verdict": "nothing broken; 3 things would stop a trade",
-    "worst": "warn"
+    "verdict": "2 things broken",
+    "worst": "bad"
   },
   "errors": [],
   "notes": [],
@@ -393,7 +411,7 @@
   "ledger": {
     "epoch": 1787025219557,
     "balance": 2756.60283569,
-    "at": 1787535718530,
+    "at": 1787535986610,
     "reason": "balance moved -2243.40 with no ledger row behind it (expected 5000.00, saw 2756.60) — counting restarted here"
   },
   "learn": {
@@ -2379,8 +2397,8 @@
     }
   ],
   "shadow": {
-    "rows": 16966,
-    "withConditions": 12159,
+    "rows": 16968,
+    "withConditions": 12161,
     "horizons": [
       "t1800",
       "t300",
@@ -2391,43 +2409,43 @@
     "overall": {
       "t1800": {
         "label": "all",
-        "n": 8007,
-        "wins": 3263,
-        "meanPct": 0.04446717146305516,
-        "netUsd": -2067.4193646249632,
-        "sePct": 0.009430216784057872
+        "n": 8009,
+        "wins": 3264,
+        "meanPct": 0.04437423436041418,
+        "netUsd": -2069.821689019755,
+        "sePct": 0.009428613800508719
       },
       "t300": {
         "label": "all",
-        "n": 16943,
-        "wins": 2589,
-        "meanPct": -0.0003091676379279251,
-        "netUsd": -9409.787268771719,
-        "sePct": 0.001611103236279395
+        "n": 16945,
+        "wins": 2590,
+        "meanPct": -0.00030436773808393674,
+        "netUsd": -9410.106833827018,
+        "sePct": 0.0016109315638615886
       },
       "t60": {
         "label": "all",
-        "n": 16946,
+        "n": 16948,
         "wins": 1004,
-        "meanPct": 0.000227092023056263,
-        "netUsd": -9483.311227438742,
-        "sePct": 0.0006505794739161563
+        "meanPct": 0.0002209837895947996,
+        "netUsd": -9484.79032991474,
+        "sePct": 0.0006505176687266046
       },
       "t7200": {
         "label": "all",
-        "n": 8010,
+        "n": 8011,
         "wins": 4066,
-        "meanPct": 0.21106125757905347,
-        "netUsd": 5726.542437959149,
-        "sePct": 0.017853610688159386
+        "meanPct": 0.21099706494306894,
+        "netUsd": 5723.854531630528,
+        "sePct": 0.017851497328391454
       },
       "t900": {
         "label": "all",
-        "n": 16928,
-        "wins": 4154,
-        "meanPct": -0.0003847463405184733,
-        "netUsd": -9263.569569859157,
-        "sePct": 0.003280409366413855
+        "n": 16929,
+        "wins": 4155,
+        "meanPct": -0.0003666457905479828,
+        "netUsd": -9262.195973431757,
+        "sePct": 0.003280265526060926
       }
     },
     "byEntryDepth": [
@@ -2457,21 +2475,21 @@
       },
       {
         "label": "at or above baseline >=1.00",
-        "n": 5192,
-        "wins": 1370,
-        "meanPct": 0.01197151709079352,
-        "netUsd": -2255.174487408515,
-        "sePct": 0.0060605775918621645
+        "n": 5193,
+        "wins": 1371,
+        "meanPct": 0.012028144848740588,
+        "netUsd": -2253.8008909811156,
+        "sePct": 0.006059675012148826
       }
     ],
     "bySignal": [
       {
         "label": "cluster-approach",
-        "n": 11108,
-        "wins": 2543,
-        "meanPct": -0.0011109193209763541,
-        "netUsd": -6335.5813393702,
-        "sePct": 0.0033651615495067055
+        "n": 11109,
+        "wins": 2544,
+        "meanPct": -0.0010832705331978959,
+        "netUsd": -6334.207742942801,
+        "sePct": 0.0033649722058544723
       },
       {
         "label": "wall-pulled",
@@ -2499,237 +2517,61 @@
       }
     ],
     "resolved": {
-      "open": 16232,
+      "open": 16233,
       "unscored": 7,
       "target": 380,
-      "stop": 347
+      "stop": 348
     },
-    "feesUsd": 9580.824948418147,
-    "grossUsd": 317.2553785581178,
+    "feesUsd": 9581.491615084813,
+    "grossUsd": 319.2956416521839,
     "matched": {
-      "n": 8010,
+      "n": 8011,
       "horizon": "t7200",
       "byHorizon": {
         "t1800": {
           "label": "matched t1800",
-          "n": 7996,
-          "wins": 3261,
-          "meanPct": 0.04462641533155196,
-          "netUsd": -2048.662935675132,
-          "sePct": 0.009442101263116487
+          "n": 7997,
+          "wins": 3262,
+          "meanPct": 0.04465018364196293,
+          "netUsd": -2047.7649250505451,
+          "sePct": 0.009440950403174716
         },
         "t300": {
           "label": "matched t300",
-          "n": 8003,
-          "wins": 1864,
-          "meanPct": -0.0012609734683376149,
-          "netUsd": -4460.010204906487,
-          "sePct": 0.0031798728328196893
+          "n": 8004,
+          "wins": 1865,
+          "meanPct": -0.0012453968204992575,
+          "netUsd": -4459.854108134288,
+          "sePct": 0.003179513678280313
         },
         "t60": {
           "label": "matched t60",
-          "n": 7999,
+          "n": 8000,
           "wins": 822,
-          "meanPct": 0.00016468005754118186,
-          "netUsd": -4519.577782621676,
-          "sePct": 0.001261614410752323
+          "meanPct": 0.00015957664926642999,
+          "netUsd": -4520.515533195946,
+          "sePct": 0.001261467022344855
         },
         "t7200": {
           "label": "matched t7200",
-          "n": 8010,
+          "n": 8011,
           "wins": 4066,
-          "meanPct": 0.21106125757905347,
-          "netUsd": 5726.542437959149,
-          "sePct": 0.017853610688159386
+          "meanPct": 0.21099706494306894,
+          "netUsd": 5723.854531630528,
+          "sePct": 0.017851497328391454
         },
         "t900": {
           "label": "matched t900",
-          "n": 8001,
-          "wins": 2688,
-          "meanPct": -0.0008502032974312316,
-          "netUsd": -4343.975477834868,
-          "sePct": 0.006642707891343407
+          "n": 8002,
+          "wins": 2689,
+          "meanPct": -0.0008118516769104434,
+          "netUsd": -4342.601881407469,
+          "sePct": 0.006641988432814273
         }
       }
     }
   },
   "log": [
-    {
-      "t": 1787530081271,
-      "text": "shadow: SOLUSDT closed intent:cascade-risk:1787522881266:4yc1 — would have open · net at 2h -0.53 · 4846 recorded"
-    },
-    {
-      "t": 1787530149429,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787530149432,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 24279 ms: Could not connect to server"
-    },
-    {
-      "t": 1787530153479,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787530214547,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787523014531:617v — would have open · net at 2h -0.36 · 4847 recorded"
-    },
-    {
-      "t": 1787530279440,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787530368638,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1787523168635:61cj — would have open · net at 2h -0.40 · 4848 recorded"
-    },
-    {
-      "t": 1787530420771,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787530420772,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21131 ms: Could not connect to server"
-    },
-    {
-      "t": 1787530442538,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787530442538,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21103 ms: Could not connect to server"
-    },
-    {
-      "t": 1787530442708,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1787530442708,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1787530442709,
-      "text": "^"
-    },
-    {
-      "t": 1787530442709,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1787530442709,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1787530442709,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1787530442709,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1787530442709,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1787530442709,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1787530442710,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1787530442710,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1787530442710,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1787530442710,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1787530442710,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1787530442710,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1787530442710,
-      "text": "pid: 71816,"
-    },
-    {
-      "t": 1787530442710,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1787530442710,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1787530442710,
-      "text": "}"
-    },
-    {
-      "t": 1787530442711,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1787530442767,
-      "text": "share: exited (1) — restarting, attempt 78"
-    },
-    {
-      "t": 1787530464472,
-      "text": "shadow: BTCUSDT closed intent:wall-pulled:1787523264470:61fd — would have open · net at 2h -0.30 · 4849 recorded"
-    },
-    {
-      "t": 1787530749596,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1787530749597,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1787530750021,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1787530750021,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787530750022,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1787530750022,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1787530750023,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1787530750023,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1787530755631,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1787530859733,
-      "text": "shadow: BNBUSDT closed intent:wall-pulled:1787523659727:3p4y — would have open · net at 2h -1.42 · 4850 recorded"
-    },
-    {
-      "t": 1787530880745,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×4 since 1:21:20 AM)"
-    },
     {
       "t": 1787531340297,
       "text": "shadow: BNBUSDT closed intent:wall-pulled:1787524140287:3p4z — would have open · net at 2h -1.96 · 4851 recorded"
@@ -3353,6 +3195,182 @@
     {
       "t": 1787535706143,
       "text": "shadow: BNBUSDT closed intent:cluster-approach:1787528506131:3p9g — would have open · net at 2h -2.04 · 4915 recorded"
+    },
+    {
+      "t": 1787535747072,
+      "text": "> oddz@0.1.0 sweep:share"
+    },
+    {
+      "t": 1787535747072,
+      "text": "> tsx workers/sweep-share.ts --watch"
+    },
+    {
+      "t": 1787535747417,
+      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
+    },
+    {
+      "t": 1787535747418,
+      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
+    },
+    {
+      "t": 1787535747419,
+      "text": "share: credentials, signatures and the control token are redacted before writing,"
+    },
+    {
+      "t": 1787535747419,
+      "text": "share: and this refuses to push if that redaction did not run."
+    },
+    {
+      "t": 1787535747419,
+      "text": "share: watching — every 120s. Ctrl-C to stop."
+    },
+    {
+      "t": 1787535747419,
+      "text": "share: each pass takes any new configuration first, then sends the current state."
+    },
+    {
+      "t": 1787535770630,
+      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
+    },
+    {
+      "t": 1787535770630,
+      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21082 ms: Could not connect to server"
+    },
+    {
+      "t": 1787535770822,
+      "text": "node:internal/errors:985"
+    },
+    {
+      "t": 1787535770823,
+      "text": "const err = new Error(message);"
+    },
+    {
+      "t": 1787535770824,
+      "text": "^"
+    },
+    {
+      "t": 1787535770824,
+      "text": "Error: Command failed: git rebase --abort"
+    },
+    {
+      "t": 1787535770824,
+      "text": "fatal: no rebase in progress"
+    },
+    {
+      "t": 1787535770824,
+      "text": "at genericNodeError (node:internal/errors:985:15)"
+    },
+    {
+      "t": 1787535770824,
+      "text": "at wrappedFn (node:internal/errors:539:14)"
+    },
+    {
+      "t": 1787535770824,
+      "text": "at checkExecSyncError (node:child_process:925:11)"
+    },
+    {
+      "t": 1787535770824,
+      "text": "at execFileSync (node:child_process:961:15)"
+    },
+    {
+      "t": 1787535770824,
+      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
+    },
+    {
+      "t": 1787535770825,
+      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
+    },
+    {
+      "t": 1787535770825,
+      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5)"
+    },
+    {
+      "t": 1787535770825,
+      "text": "at sleep (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:293:1)"
+    },
+    {
+      "t": 1787535770825,
+      "text": "at Object.<anonymous> (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:293:6)"
+    },
+    {
+      "t": 1787535770825,
+      "text": "at Module._compile (node:internal/modules/cjs/loader:1830:14) {"
+    },
+    {
+      "t": 1787535770825,
+      "text": "status: 128,"
+    },
+    {
+      "t": 1787535770825,
+      "text": "signal: null,"
+    },
+    {
+      "t": 1787535770825,
+      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
+    },
+    {
+      "t": 1787535770825,
+      "text": "pid: 30148,"
+    },
+    {
+      "t": 1787535770825,
+      "text": "stdout: '',"
+    },
+    {
+      "t": 1787535770826,
+      "text": "stderr: 'fatal: no rebase in progress\\n'"
+    },
+    {
+      "t": 1787535770826,
+      "text": "}"
+    },
+    {
+      "t": 1787535770826,
+      "text": "Node.js v24.15.0"
+    },
+    {
+      "t": 1787535770902,
+      "text": "share: exited (1) — restarting, attempt 81"
+    },
+    {
+      "t": 1787535780834,
+      "text": "shadow: BNBUSDT closed intent:cluster-approach:1787528580820:3p9l — would have open · net at 2h -2.69 · 4916 recorded"
+    },
+    {
+      "t": 1787536024910,
+      "text": "shadow: XRPUSDT closed intent:cluster-approach:1787528824902:c6rw — would have stop · net at 30m -3.30 · 4917 recorded"
+    },
+    {
+      "t": 1787536077189,
+      "text": "> oddz@0.1.0 sweep:share"
+    },
+    {
+      "t": 1787536077189,
+      "text": "> tsx workers/sweep-share.ts --watch"
+    },
+    {
+      "t": 1787536077588,
+      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
+    },
+    {
+      "t": 1787536077589,
+      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
+    },
+    {
+      "t": 1787536077590,
+      "text": "share: credentials, signatures and the control token are redacted before writing,"
+    },
+    {
+      "t": 1787536077590,
+      "text": "share: and this refuses to push if that redaction did not run."
+    },
+    {
+      "t": 1787536077590,
+      "text": "share: watching — every 120s. Ctrl-C to stop."
+    },
+    {
+      "t": 1787536077590,
+      "text": "share: each pass takes any new configuration first, then sends the current state."
     }
   ],
   "news": {
@@ -3363,12 +3381,12 @@
     ],
     "poller": {
       "recorded": 93,
-      "cycles": 16120,
+      "cycles": 16142,
       "sources": 14,
       "unavailable": "x,linkedin",
-      "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-binance: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found",
+      "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-binance: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found | coindesk: fetch failed",
       "velocity": "BNBUSDT 1.0x SOLUSDT 1.0x BTCUSDT 1.1x ETHUSDT 1.0x XRPUSDT 1.0x",
-      "lastPollAt": 1787535677726
+      "lastPollAt": 1787536078394
     }
   }
 }
