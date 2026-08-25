@@ -286,3 +286,63 @@ if (failures) {
   console.error(`\n${failures} failure(s) in the mixed-symbol guard`);
   process.exit(1);
 }
+
+/* ------------------------------------------- an empty directory is not data */
+
+/**
+ * `existsSync` on the symbol directory was the wrong question.
+ *
+ * Files moved to data/history/<symbol>/<kind>/ after two instruments were found
+ * mixed in one folder. The fetcher creates those directories before it
+ * downloads anything, so a partial or failed fetch leaves an empty tree that
+ * exists — and the replay chose it over the populated old layout, refusing on
+ * every symbol on every pass for days while the research loop logged "the
+ * replay refused" and carried on.
+ */
+function prefersTheLayoutThatHasData() {
+  const dir = mkdtempSync(join(tmpdir(), "layout-"));
+
+  // The old flat layout, populated.
+  mkdirSync(join(dir, "bookDepth"), { recursive: true });
+  mkdirSync(join(dir, "1m"), { recursive: true });
+  // And an empty nested layout beside it, exactly as a failed fetch leaves it.
+  mkdirSync(join(dir, "BTCUSDT", "bookDepth"), { recursive: true });
+  mkdirSync(join(dir, "BTCUSDT", "1m"), { recursive: true });
+
+  const start = Date.UTC(2024, 0, 1);
+  const depth = ["timestamp,percentage,depth,notional"];
+  const bars: string[] = [];
+  for (let i = 0; i < 2000; i++) {
+    const ts = start + i * 60_000;
+    depth.push(`${ts},-1,100,9000000`);
+    depth.push(`${ts},1,100,${9_000_000 * (i % 20 === 0 ? 0.5 : 1)}`);
+    const c = 65_000 + i;
+    bars.push(`${ts},${c},${c * 1.0005},${c * 0.9995},${c},10,${ts + 59_999},0,0,0,0,0`);
+  }
+  writeFileSync(join(dir, "bookDepth", "BTCUSDT-bookDepth-2024-01-01.zip"),
+    makeZip("BTCUSDT-bookDepth-2024-01-01.csv", depth.join("\n")));
+  writeFileSync(join(dir, "1m", "BTCUSDT-1m-2024-01-01.zip"),
+    makeZip("BTCUSDT-1m-2024-01-01.csv", bars.join("\n")));
+
+  const out = join(dir, "report.json");
+  let stderr = "";
+  try {
+    execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--in", dir, "--out", out],
+      { cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000 });
+  } catch (err) {
+    const e = err as { stderr?: Buffer; stdout?: Buffer };
+    stderr = String(e.stderr ?? "") + String(e.stdout ?? "");
+  }
+  ok("an empty symbol directory does not hide the populated one", existsSync(out),
+    stderr.slice(-300));
+  if (existsSync(out)) {
+    const r = JSON.parse(readFileSync(out, "utf8"));
+    ok("and the data is actually read", r.samples > 500, String(r.samples));
+  }
+}
+
+prefersTheLayoutThatHasData();
+if (failures) {
+  console.error(`\n${failures} failure(s) in the layout selection`);
+  process.exit(1);
+}

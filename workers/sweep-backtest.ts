@@ -43,6 +43,7 @@ import {
   type Minute, type Sample, type Score,
 } from "../lib/sweep/backtest/features";
 import { familyZ } from "../lib/sweep/agent/learn";
+import { scoreFunding, type FundingPoint } from "../lib/sweep/backtest/funding";
 
 const arg = (name: string, fallback: string): string => {
   const i = process.argv.indexOf(`--${name}`);
@@ -58,7 +59,35 @@ const symbol = arg("symbol", "BTCUSDT").toUpperCase();
  * means an old flat layout, or a stray file, cannot do it again quietly.
  */
 const histRoot = resolve(arg("in", "data/history"));
-const histDir = existsSync(join(histRoot, symbol)) ? join(histRoot, symbol) : histRoot;
+
+/**
+ * The layout that actually holds this symbol's files.
+ *
+ * `existsSync` on the symbol directory is not the question, and asking it that
+ * way cost days. Files moved to `data/history/<symbol>/<kind>/` after two
+ * instruments were found mixed in one folder; the fetcher creates those
+ * directories with `mkdirSync` before it downloads anything, so a partial or
+ * failed fetch leaves an empty tree that exists. The replay then chose the empty
+ * new layout over the populated old one and refused on every symbol, every pass,
+ * while the research loop reported "the replay refused" and moved on.
+ *
+ * So the test is whether a directory contains this symbol's data, not whether
+ * something is there.
+ */
+function zipsUnder(dir: string): number {
+  if (!existsSync(dir)) return 0;
+  let n = 0;
+  for (const kind of readdirSync(dir, { withFileTypes: true })) {
+    if (!kind.isDirectory()) continue;
+    n += readdirSync(join(dir, kind.name)).filter(
+      (f) => f.endsWith(".zip") && f.startsWith(`${symbol}-`),
+    ).length;
+  }
+  return n;
+}
+
+const nested = join(histRoot, symbol);
+const histDir = zipsUnder(nested) > 0 ? nested : histRoot;
 const outPath = resolve(arg("out", `evidence/backtest-${symbol}.json`));
 const HORIZONS = [1, 5, 15, 30, 60];
 
@@ -330,9 +359,33 @@ function main() {
    */
   const ROUND_TRIP_BPS = 7;
 
+  /*
+   * Carry, scored alongside the directional search rather than instead of it.
+   *
+   * Every feature above tries to predict direction, and four separate
+   * measurements have said that is not available here. Funding is the one cash
+   * flow on this instrument that requires no view on direction at all, it is
+   * published in advance, and it has been sitting in premiumIndexKlines
+   * unexamined. It costs nothing to score it on the same pass.
+   */
+  const fundingPoints: FundingPoint[] = minutes
+    .filter((m) => typeof m.basisBps === "number")
+    .map((m) => ({ ts: m.ts, basisBps: m.basisBps as number, close: m.close }));
+  const funding = {
+    minutes: fundingPoints.length,
+    byHorizon: Object.fromEntries(
+      [60, 480, 1440].map((h) => [`m${h}`, scoreFunding(fundingPoints, h)]),
+    ),
+    note:
+      fundingPoints.length === 0
+        ? "no premium index data — the carry question cannot be asked, this is missing data and not a null result"
+        : undefined,
+  };
+
   const report = {
     at: Date.now(),
     symbol,
+    funding,
     samples: samples.length,
     spanDays: Math.round((minutes[minutes.length - 1].ts - minutes[0].ts) / 86_400_000),
     horizons: HORIZONS,
@@ -349,6 +402,24 @@ function main() {
   mkdirSync(resolve(outPath, ".."), { recursive: true });
   writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`);
 
+  console.error("");
+  if (fundingPoints.length === 0) {
+    console.error("[backtest] no premium index data, so carry was not scored");
+  } else {
+    const eight = funding.byHorizon.m480 ?? [];
+    if (eight.length) {
+      const top = eight[eight.length - 1];
+      const bot = eight[0];
+      console.error("  carry at 8h, most crowded deciles (collector = the paid side):");
+      for (const b of [bot, top]) {
+        console.error(
+          `    basis ${b.meanBasisBps.toFixed(1).padStart(7)}bp  n ${String(b.n).padStart(6)}  ` +
+            `price ${b.meanCollectorBps.toFixed(2).padStart(8)}bp ±${b.seBps.toFixed(2)}  ` +
+            `carry +${b.meanCarryBps.toFixed(2)}bp  total ${b.meanTotalBps.toFixed(2)}bp`,
+        );
+      }
+    }
+  }
   console.error("");
   console.error("  feature            horizon      σ    spread bp   tail50 lift   clears bar");
   for (const r of ranked.slice(0, 18)) {
