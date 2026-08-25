@@ -44,6 +44,7 @@ import {
 } from "../lib/sweep/backtest/features";
 import { familyZ } from "../lib/sweep/agent/learn";
 import { scoreFunding, type FundingPoint } from "../lib/sweep/backtest/funding";
+import { renderFindings, type RunSummary } from "../lib/sweep/backtest/findings";
 
 const arg = (name: string, fallback: string): string => {
   const i = process.argv.indexOf(`--${name}`);
@@ -401,6 +402,43 @@ function main() {
 
   mkdirSync(resolve(outPath, ".."), { recursive: true });
   writeFileSync(outPath, `${JSON.stringify(report, null, 2)}\n`);
+
+  /*
+   * A one-page verdict beside the raw report.
+   *
+   * The report is complete and unreadable; it exists to be queried. This exists
+   * to be read cold, by a session that has no memory and will otherwise spend
+   * its whole budget rebuilding context from a journal that is now thousands of
+   * words long. Fourteen days of scheduled firings produced no work at all, and
+   * orientation cost was a large part of why.
+   */
+  const eight = funding.byHorizon.m480 ?? [];
+  const run: RunSummary = {
+    symbol,
+    samples: samples.length,
+    spanDays: report.spanDays,
+    bonferroniSigma: bar,
+    roundTripBps: ROUND_TRIP_BPS,
+    survivors: ranked
+      .filter((r) => r.survives)
+      .slice(0, 12)
+      .map((r) => ({ feature: r.feature, horizon: r.horizon, sigma: r.sigma, spreadBps: r.spreadBps })),
+    carry: eight.length
+      ? [eight[0], eight[eight.length - 1]].map((b) => ({
+          basisBps: b.meanBasisBps,
+          collectorBps: b.meanCollectorBps,
+          seBps: b.seBps,
+          carryBps: b.meanCarryBps,
+          totalBps: b.meanTotalBps,
+        }))
+      : undefined,
+    carryNote: funding.note,
+  };
+  try {
+    writeFileSync(resolve("evidence", "FINDINGS.md"), renderFindings([run]));
+  } catch (err) {
+    console.error(`[backtest] could not write FINDINGS.md: ${err instanceof Error ? err.message : String(err)}`);
+  }
 
   console.error("");
   if (fundingPoints.length === 0) {
