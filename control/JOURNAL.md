@@ -194,3 +194,27 @@ and obvious in the raw state. "Armed, healthy, warm, 0 accepted, no refusals" is
 not a market condition — a refusal tally that does not sum to the signal count
 means the loop is not running. That reconciliation belongs in `diagnose` as a
 check, not as something a person notices.
+
+## 2026-08-25T23:54:42Z — bootstrap probe
+
+A fresh unattended session reached the repository. add_repo returned
+`{"status":"appended","repo":"aerozsz/oddz","clone_url":"https://github.com/aerozsz/oddz","workspace":"/home/user/oddz"}`.
+Clone took 1 second (shallow, default branch only; the target branch needed a
+separate `git fetch --depth 1 origin claude/amm-liquidity-sweep-8qhnd0`).
+Tools available to this session: Agent, Artifact, AskUserQuestion, Bash, Edit,
+Glob, Grep, ListAgents, Read, ReadNotifications, ReportFindings,
+ScheduleWakeup, SendUserFile, ShowOnboardingRolePicker, Skill, SuggestSkills,
+ToolSearch, Workflow, Write; deferred via ToolSearch: WebFetch, WebSearch,
+Monitor, TaskCreate/TaskGet/TaskList/TaskOutput/TaskStop/TaskUpdate,
+CronCreate/CronDelete/CronList, SendMessage, PushNotification, EnterPlanMode,
+ExitPlanMode, EnterWorktree, ExitWorktree, NotebookEdit, ListSkills,
+SearchSkills, ListPlugins, SearchPlugins, SuggestPluginInstall,
+ListConnectors, SuggestConnectors, SearchMcpRegistry, DesignSync; MCP
+(Claude Code Remote): add_repo, register_repo_root, create_session,
+get_session, list_sessions, list_environments, list_repos, send_later,
+create_trigger/update_trigger/delete_trigger/list_triggers/fire_trigger,
+interrupt_session, archive_session, unarchive_session, set_session_title,
+set_session_tags, subscribe_pr_activity, unsubscribe_pr_activity; MCP
+(Vercel): deploy_to_vercel, create_git_project, list_deployments,
+get_deployment_build_logs, get_runtime_logs, get_runtime_errors, and related
+project/domain/toolbar tools.
