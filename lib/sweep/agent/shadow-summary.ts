@@ -123,7 +123,22 @@ export interface ShadowSummary {
    * comparison is the same trades measured at different times, which is the
    * only version of the question worth answering.
    */
-  matched: { n: number; horizon: string; byHorizon: Record<string, Bucket> };
+  matched: {
+    n: number;
+    horizon: string;
+    byHorizon: Record<string, Bucket>;
+    /**
+     * The same matched trades split by side, at the longest horizon.
+     *
+     * The one thing that can still explain away a monotonic gain with holding
+     * time: a two-hour hold accumulates whatever the market did over two hours,
+     * so a long-biased strategy in a rising sample shows a rising edge that is
+     * beta rather than alpha. If longs and shorts are both positive the drift
+     * explanation is dead; if only one side carries it, the "edge" is the
+     * calendar and n=10,723 will not save it.
+     */
+    bySide: Record<string, Bucket>;
+  };
 }
 
 /** Which horizon to lead with when several are present. */
@@ -196,6 +211,13 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
     : [];
   const matchedByHorizon: Record<string, Bucket> = {};
   for (const h of horizons) matchedByHorizon[h] = bucket(`matched ${h}`, matchedRows, h);
+
+  const matchedBySide: Record<string, Bucket> = {};
+  if (longest) {
+    for (const side of ["long", "short"] as const) {
+      matchedBySide[side] = bucket(side, matchedRows.filter((r) => r.side === side), longest.h);
+    }
+  }
   return {
     rows: rows.length,
     withConditions,
@@ -206,7 +228,12 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
     resolved,
     feesUsd,
     grossUsd,
-    matched: { n: matchedRows.length, horizon: longest?.h ?? "", byHorizon: matchedByHorizon },
+    matched: {
+      n: matchedRows.length,
+      horizon: longest?.h ?? "",
+      byHorizon: matchedByHorizon,
+      bySide: matchedBySide,
+    },
     /*
      * Said in words, not left to be inferred from a count of zero.
      *

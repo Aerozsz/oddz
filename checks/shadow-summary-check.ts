@@ -177,3 +177,49 @@ if (failures) {
   console.error(`\n${failures} failure(s) in the matched comparison`);
   process.exit(1);
 }
+
+/* ------------------------------------------------- beta, or an edge */
+
+/**
+ * A monotonic gain with holding time can be drift rather than skill.
+ *
+ * Two hours of holding accumulates two hours of whatever the market did. A
+ * long-biased strategy in a rising sample therefore shows an edge that grows
+ * with the horizon and is entirely beta. The split by side is what separates
+ * them: if longs and shorts are both positive the drift explanation is dead,
+ * and if only one side carries it then n does not matter, because the sample
+ * size of the market period is one.
+ */
+function sideSplitSeparatesBetaFromEdge() {
+  const long = (pct: number) => ({ ...row(0.6, pct), side: "long" as const,
+    outcomes: { t7200: { pct, netUsd: pct * 100 } } as ShadowRowLike["outcomes"] });
+  const short = (pct: number) => ({ ...row(0.6, pct), side: "short" as const,
+    outcomes: { t7200: { pct, netUsd: pct * 100 } } as ShadowRowLike["outcomes"] });
+
+  // Pure drift: longs win exactly as much as shorts lose.
+  const drift = summariseShadow([
+    ...Array.from({ length: 100 }, () => long(1.0)),
+    ...Array.from({ length: 100 }, () => short(-1.0)),
+  ], "t7200");
+  ok("drift shows up as one side positive and the other negative",
+    drift.matched.bySide.long.meanPct > 0 && drift.matched.bySide.short.meanPct < 0,
+    JSON.stringify({ l: drift.matched.bySide.long.meanPct, s: drift.matched.bySide.short.meanPct }));
+
+  // A real edge: both sides make money.
+  const edge = summariseShadow([
+    ...Array.from({ length: 100 }, () => long(0.5)),
+    ...Array.from({ length: 100 }, () => short(0.5)),
+  ], "t7200");
+  ok("an edge shows up as both sides positive",
+    edge.matched.bySide.long.meanPct > 0 && edge.matched.bySide.short.meanPct > 0,
+    JSON.stringify({ l: edge.matched.bySide.long.meanPct, s: edge.matched.bySide.short.meanPct }));
+  ok("and both carry an error term so the difference can be judged",
+    Number.isFinite(edge.matched.bySide.long.sePct) && Number.isFinite(edge.matched.bySide.short.sePct));
+  ok("the split is taken at the longest horizon", edge.matched.horizon === "t7200");
+}
+
+sideSplitSeparatesBetaFromEdge();
+if (failures) {
+  console.error(`\n${failures} failure(s) in the side split`);
+  process.exit(1);
+}
