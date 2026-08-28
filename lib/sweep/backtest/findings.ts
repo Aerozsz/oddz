@@ -182,7 +182,7 @@ export const SETTLED: Verdict[] = [
   },
   {
     id: "long-bias",
-    status: "testing",
+    status: "rejected",
     claim: "The entry gate is long-biased, which is a defect rather than a market fact.",
     evidence:
       "16,425 longs against 7,455 shorts across the whole file — 2.20:1. The 3.6:1 figure repeated until now " +
@@ -196,8 +196,16 @@ export const SETTLED: Verdict[] = [
       "only input never recorded. Intents now carry the decomposition and the summary averages each factor " +
       "over every decision that recorded it, sorted by distance from zero. A factor comparing two sides of " +
       "a book should average near zero over thousands of decisions; whichever does not is either reading a " +
-      "real persistent asymmetry or is signed wrong. Needs new rows — the answer arrives as biasBalance " +
-      "fills, not from the existing file.",
+      "real persistent asymmetry or is signed wrong. ANSWERED 2026-08-28: it was the dead tape. With the tape " +
+      "restored the gate is balanced — 92 longs against 101 shorts on the rows written since, which is -0.65 " +
+      "sigma from an even book and -6.25 sigma from the old ratio. The skew did not drift, it ended. Two of six " +
+      "factors were absent, including 'who has been right', the only input scored against realised outcomes; " +
+      "take a quarter of the evidence from a directional read and the survivors lean. Rejected as a claim about " +
+      "the signal: it was never a market fact and never a property of the entry. It is also the explanation for " +
+      "the other three false positives here — hold-longer, depth-inverted and the two-hour gross were all killed " +
+      "by the same side split, all of them really the long book in a rising sample, and the long book was this. " +
+      "Separately kills the suspicion of a disabled dead zone: minAbsComposite came back 0.1202 against a " +
+      "threshold of 0.12, so the gate applies exactly as written.",
     n: 10_739,
   },
 ];

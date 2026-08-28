@@ -588,3 +588,59 @@ nothing populated them, a maker path "gated on toxicity" that never reached the
 gate, and a fee argument resting on a gross figure worth rescuing. Each read as a
 finding and was a defect. Before writing any sentence of that shape:
 **if a claim says the market refused, confirm the code asked.**
+
+## 2026-08-28T14:30Z — the long bias was the dead tape
+
+Five and a half hours with the tape connected. 385,573 prints polled, `tape via
+rest`, mark-out warm and stable at 6,362 resolved horizons.
+
+**The entry gate is balanced.**
+
+| | longs | shorts | ratio |
+|---|---|---|---|
+| every row ever written | 16,586 | 7,610 | 2.18:1 |
+| rows since the tape came up | 92 | 101 | 0.91:1 |
+
+Against an even book the new rows sit at −0.65 sigma: indistinguishable from
+even. Against the old ratio they sit at **−6.25 sigma**. The skew did not drift,
+it ended.
+
+So the 2.18:1 long bias was never a market fact and never a property of the
+signal. It was two missing factors. "Who has been right" — the only input in
+this project scored against realised outcomes rather than against the state of
+the book, weight 0.25 — has fired 59 times today and never once before. Take a
+quarter of the evidence away from a directional read and the four survivors lean;
+give it back and they stop.
+
+**This is the fourth false positive explained, and it explains the other three.**
+The two-hour "edge", the inverted depth signal, the two-hour gross that looked
+like it could cover its costs — every one of them was killed by the same side
+split, and every one of them was really the long book in a rising sample. The
+long book was the dead tape. Four separate results, one cause, and the cause was
+a stream that never arrived.
+
+**The maker path is open too.** 30 maker entries — the first in this project's
+history, against 24,166 taker entries. The gate opened on 30 of 60 warm
+decisions, and mean toxicity is 0.543 against a 0.6 threshold. That is the
+interesting part: the flow really does sit just under the line, so the threshold
+is doing real work rather than being unreachable. "Zero fills, gated on
+toxicity" was true about the gate and false about the reason for weeks.
+
+**One hypothesis killed on the way.** `minAbsComposite` came back 0.1202 against
+a dead zone of 0.12, so the gate is being applied exactly as written. The
+seventh zero-means-off I went looking for is not there.
+
+**What this does not mean.** The strategy is still not profitable and nothing
+here says it will be. The 513,000-sample historical result computed its own flow
+features from the archive, never touched this path, and still says there is no
+directional edge. A working tape does not turn a symmetric walk into one. What
+changed is that the live evidence is now a fair test of the design as written —
+and that every conclusion in FINDINGS drawn from the 24,196 rows written before
+today describes a version of the agent missing 0.45 of its directional weight
+and its entire maker path. Those need re-deriving on the new rows, not reusing.
+
+The honest summary of the day: I did not find an edge. I found that the thing
+that was supposed to be looking for one had been running with a quarter of its
+evidence disconnected, and the four most promising results it produced were all
+artefacts of that. It is now measuring what it was designed to measure, for the
+first time.
