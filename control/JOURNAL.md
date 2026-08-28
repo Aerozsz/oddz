@@ -218,3 +218,102 @@ set_session_tags, subscribe_pr_activity, unsubscribe_pr_activity; MCP
 (Vercel): deploy_to_vercel, create_git_project, list_deployments,
 get_deployment_build_logs, get_runtime_logs, get_runtime_errors, and related
 project/domain/toolbar tools.
+
+## 2026-08-28T03:35Z — why fourteen days of scheduled passes produced nothing
+
+Two walls, both now named. Neither was visible from inside a pass, which is why
+150 firings never reported them.
+
+**Wall 1: a trigger-fired session has no MCP tools.** The routine's step 1 is
+"call `add_repo`". `add_repo` is an MCP tool. Creating a trigger returns this
+warning verbatim:
+
+> this trigger stores no MCP connectors, so the sessions it fires will run
+> without connector (mcp__<server>__*) tools
+
+So step 1 of the prompt cannot be executed, and steps 2–4 depend on it. The
+prompt's only escape hatch — "journal what stopped you and push" — also needs
+the repository, so a blocked pass could not even report being blocked. That is a
+closed loop, and it explains the shape of the evidence exactly: the last run
+burned 19 minutes, $3.51 and 74,000 output tokens, exited SUCCEEDED, and left no
+commit. Roughly $500 of compute over two weeks, all of it spent failing at a
+step that was never possible.
+
+The lesson is not "fix the prompt". It is that **a channel that requires the
+thing being tested cannot report on it.** Every blocked-pass instruction in this
+project routes through git; if git is what is broken, nothing gets said.
+
+**Wall 2: this cloud container cannot reach Binance at all.** Not the archive,
+not the API:
+
+```
+$ curl https://data.binance.vision/... ; curl https://fapi.binance.com/fapi/v1/time
+CONNECT tunnel failed, response 403
+request blocked: no rule or allowlist entry allows host "data.binance.vision"
+```
+
+`sweep:history` returns `10 failed · 10x HTTP 403`. The environment's network
+policy allowlist does not include either host. So **no cloud pass can ever fetch
+market data or replay history** — every research instruction written into the
+routine prompt for the last two weeks was addressed to a session physically
+unable to carry it out. Item 1, the tick replay, is not slow or hard here; it is
+impossible here. It can only run on the operator's machine.
+
+**What follows.** Stop writing prompts that ask a cloud pass to fetch. The
+division is forced and it is fine: the machine has the network and no judgement,
+the cloud pass has judgement and no network, and `evidence/snapshot.json` is
+already a working pipe between them — it lands every two minutes and currently
+carries 23,854 scored shadow decisions with entry conditions on 17,881 of them.
+That is a large research dataset arriving over git, needing no allowlist. The
+right cloud pass reads it, writes the next measurement as code, and pushes; the
+machine's self-update picks it up and the answer comes back in the next
+snapshot. That loop needs no operator and no network on this side.
+
+## 2026-08-28T03:35Z — the depth signal may be running backwards
+
+Read off the live snapshot (23,854 shadow rows, 17,881 with entry conditions).
+
+**The thesis, at fifteen minutes, by book depth at entry:**
+
+| band | n | mean | sigma |
+|---|---|---|---|
+| very thin <0.70 | 532 | −0.0799% | −1.70 |
+| thin 0.70–0.85 | 1,786 | −0.0218% | −1.65 |
+| marginal 0.85–1.00 | 7,879 | +0.0048% | +1.13 |
+| at/above baseline ≥1.00 | 7,650 | +0.0116% | +2.48 |
+
+Monotone across all four bands, and pointing the **opposite** way to the
+strategy's core claim. The strategy enters because the book is thin on the side
+price must travel through; thin books are the bands that lose. Thinnest minus
+thickest is −0.0915%, or 9.2bp — larger than the 7bp round trip, which nothing
+in this project has previously cleared.
+
+**It is not a finding yet, and I am not going to let it be read as one.** The
+extreme-versus-extreme difference is 0.0915 against a difference-standard-error
+of 0.0472: **1.94 sigma**, on a thin bucket of 532. That does not clear any
+honest bar. Worse, it is exposed to the confound that has already killed two
+results in this project — the book is 3:1 long, and if thin entries skew short
+then "thin does worse" is only "shorts did worse", which is the calendar again.
+
+So I built the test rather than the conclusion. `depthContrast` now crosses
+depth against side at every horizon, with the standard error of the *difference*
+computed in code so nobody eyeballs a 9bp gap and calls it decisive. The short
+horizons are the sharp end of it: at t60 the overall mean is −0.0002%, so there
+is no drift there to mistake for a signal, and an effect that shows up at sixty
+seconds inside both sides has nowhere to hide. It ships disarmed and answers
+itself in the next snapshot after the machine self-updates.
+
+If it survives inside both sides, the strategy has been taking the wrong side of
+its own signal, and the fix is free — same gate, same infrastructure, opposite
+direction. If it does not, that is the third time this artefact has been caught,
+and the depth thesis is finished rather than merely unproven.
+
+**Also from the same snapshot, unchanged conclusions on more data:**
+
+- `hold-longer` stays REJECTED, now on 13,718 matched trades rather than 10,739.
+  At two hours: longs +0.2493% (18.9 sigma), shorts −0.2485% (−11.1 sigma). The
+  two sides sum to +0.0004%. That is drift measured to three decimal places.
+- Fees $13,865 against $563 of gross price contribution — a 25:1 cost load. The
+  loss has never been about being wrong.
+- 23,027 of 23,854 decisions reached neither stop nor target: 407 targets, 413
+  stops. The brackets are close to a coin flip and almost never reached.

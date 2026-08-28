@@ -77,6 +77,36 @@ function bucket(label: string, rows: ShadowRowLike[], horizon: string): Bucket {
   };
 }
 
+/**
+ * A difference between two buckets, with the error term that decides it.
+ *
+ * Buckets get compared by eye, and by eye a 9bp gap between two means looks
+ * decisive whether it is 1.9 standard errors or 19. Computing the contrast in
+ * code — including the standard error of the *difference*, which is not either
+ * bucket's own — means the comparison is made once, correctly, by whoever
+ * generated it rather than by whoever reads it.
+ */
+export interface Contrast {
+  label: string;
+  /**
+   * Thin minus thick, in percent.
+   *
+   * Sign convention matters here and is the whole point. The strategy claims a
+   * thin book on the side price must travel through predicts a *favourable*
+   * move, so the thesis predicts this is POSITIVE. Negative means the signal
+   * is real but pointing the wrong way, which is a different situation from
+   * the signal being absent — and a much more useful one, because the fix for
+   * a backwards signal is to take the other side.
+   */
+  deltaPct: number;
+  /** Standard error of the difference: sqrt(se_thin^2 + se_thick^2). */
+  sePct: number;
+  /** deltaPct / sePct. */
+  sigma: number;
+  nThin: number;
+  nThick: number;
+}
+
 export interface ShadowSummary {
   rows: number;
   /**
@@ -139,7 +169,46 @@ export interface ShadowSummary {
      */
     bySide: Record<string, Bucket>;
   };
+  /**
+   * The thesis, tested inside each side and at every horizon.
+   *
+   * Two separate results have now been explained away by the same thing. The
+   * two-hour "edge" was drift: the book is 3:1 long, the sample rose, longs
+   * collected it and shorts paid it, and equal-weighted the mean was zero. The
+   * depth breakdown is exposed to exactly that confound — if thin-book entries
+   * happen to skew short, "thin does worse" is only "shorts did worse" wearing
+   * a different label, and that would be the third time the same artifact was
+   * read as a finding.
+   *
+   * So the contrast is computed *within* long and *within* short, never only
+   * pooled. A depth effect that survives inside both sides cannot be the
+   * calendar, because both sides shared the same calendar.
+   *
+   * And it is computed at every horizon, not just the primary one, because the
+   * short horizons are the cleaner test rather than the weaker one: at sixty
+   * seconds the overall mean is indistinguishable from zero, so there is no
+   * drift there to mistake for a signal. An effect visible at t60 has nowhere
+   * to hide.
+   */
+  depthContrast: {
+    /** horizon -> "long" | "short" | "both" -> thin-minus-thick. */
+    byHorizon: Record<string, Record<string, Contrast>>;
+    /** The two thin bands pooled; the extreme band alone is too small to read. */
+    thinBelow: number;
+    thickAtOrAbove: number;
+  };
 }
+
+/*
+ * Where thin stops and thick starts.
+ *
+ * The two thin bands are pooled rather than compared at the extreme, because
+ * the extreme band carries a few hundred rows against several thousand and the
+ * question being asked is the *sign* of the effect, not its shape. A shape
+ * needs the bands; a sign needs samples.
+ */
+export const THIN_BELOW = 0.85;
+export const THICK_AT_OR_ABOVE = 1;
 
 /** Which horizon to lead with when several are present. */
 export const PRIMARY_HORIZON = "t900";
@@ -218,6 +287,52 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
       matchedBySide[side] = bucket(side, matchedRows.filter((r) => r.side === side), longest.h);
     }
   }
+
+  /*
+   * Thin minus thick, within each side, at every horizon.
+   *
+   * `bucket` already returns the standard error of each mean; the error of the
+   * difference is the root of the sum of squares, not either one of them. That
+   * distinction is what separates the 1.9 sigma this actually is from the
+   * "obviously significant" it looks like when the two means are 9bp apart.
+   */
+  const contrastByHorizon: Record<string, Record<string, Contrast>> = {};
+  for (const h of horizons) {
+    const cells: Record<string, Contrast> = {};
+    for (const side of ["long", "short", "both"] as const) {
+      const inSide = side === "both" ? rows : rows.filter((r) => r.side === side);
+      const depth = (r: ShadowRowLike) => r.conditions?.lwiAdj;
+      const thin = bucket(
+        "thin",
+        inSide.filter((r) => typeof depth(r) === "number" && depth(r)! < THIN_BELOW),
+        h,
+      );
+      const thick = bucket(
+        "thick",
+        inSide.filter((r) => typeof depth(r) === "number" && depth(r)! >= THICK_AT_OR_ABOVE),
+        h,
+      );
+      const deltaPct = thin.meanPct - thick.meanPct;
+      /*
+       * Infinity is what `bucket` reports for a standard error it cannot
+       * compute, and it propagates correctly here: a contrast against an
+       * unmeasurable end has an infinite error and a sigma of zero, which is
+       * exactly the claim "this says nothing". No special case needed, but the
+       * zero has to be produced deliberately rather than as Infinity/Infinity.
+       */
+      const sePct = Math.sqrt(thin.sePct ** 2 + thick.sePct ** 2);
+      cells[side] = {
+        label: `${side} · thin<${THIN_BELOW} minus thick>=${THICK_AT_OR_ABOVE} @ ${h}`,
+        deltaPct,
+        sePct,
+        sigma: Number.isFinite(sePct) && sePct > 0 ? deltaPct / sePct : 0,
+        nThin: thin.n,
+        nThick: thick.n,
+      };
+    }
+    contrastByHorizon[h] = cells;
+  }
+
   return {
     rows: rows.length,
     withConditions,
@@ -233,6 +348,11 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
       horizon: longest?.h ?? "",
       byHorizon: matchedByHorizon,
       bySide: matchedBySide,
+    },
+    depthContrast: {
+      byHorizon: contrastByHorizon,
+      thinBelow: THIN_BELOW,
+      thickAtOrAbove: THICK_AT_OR_ABOVE,
     },
     /*
      * Said in words, not left to be inferred from a count of zero.

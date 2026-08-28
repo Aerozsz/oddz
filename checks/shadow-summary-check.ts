@@ -223,3 +223,127 @@ if (failures) {
   console.error(`\n${failures} failure(s) in the side split`);
   process.exit(1);
 }
+
+/* ------------------------------ the depth effect, or the side effect again */
+
+/**
+ * The confound that has already explained away two results.
+ *
+ * The two-hour "edge" was drift: 3:1 long book, rising sample, longs collected
+ * what shorts paid, equal-weighted zero. The depth breakdown is exposed to the
+ * identical confound — if thin-book entries skew toward one side, then "thin
+ * does worse" is only "that side did worse" relabelled, and reading it as a
+ * finding would be the third time the same artefact was promoted.
+ *
+ * The contrast is therefore computed inside each side. Both sides shared the
+ * same calendar, so an effect present in both cannot be the calendar.
+ */
+function depthContrastSurvivesTheSideConfound() {
+  const at = (side: "long" | "short", lwi: number, pct: number) => ({
+    ...row(lwi, pct),
+    side,
+    outcomes: { t60: { pct, netUsd: pct * 100 } } as ShadowRowLike["outcomes"],
+  });
+
+  /*
+   * Pure confound. Depth carries no information at all: inside longs, thin and
+   * thick both return +1.0; inside shorts, both return -1.0. The only reason
+   * thin looks bad pooled is that thin rows are mostly shorts.
+   */
+  const confounded = summariseShadow([
+    ...Array.from({ length: 20 }, () => at("long", 0.6, 1.0)),
+    ...Array.from({ length: 180 }, () => at("short", 0.6, -1.0)),
+    ...Array.from({ length: 180 }, () => at("long", 1.2, 1.0)),
+    ...Array.from({ length: 20 }, () => at("short", 1.2, -1.0)),
+  ], "t60");
+  const c = confounded.depthContrast.byHorizon.t60;
+  ok("pooled, the confound looks like a large depth effect",
+    c.both.deltaPct < -1.0, String(c.both.deltaPct));
+  ok("inside longs it vanishes", Math.abs(c.long.deltaPct) < 1e-9, String(c.long.deltaPct));
+  ok("inside shorts it vanishes", Math.abs(c.short.deltaPct) < 1e-9, String(c.short.deltaPct));
+  ok("and the within-side sigma says nothing rather than something",
+    Math.abs(c.long.sigma) < 1e-6 && Math.abs(c.short.sigma) < 1e-6,
+    JSON.stringify({ l: c.long.sigma, s: c.short.sigma }));
+
+  /*
+   * A real inverted signal: inside BOTH sides, thin books do worse. This is the
+   * shape the live data hints at, and the one that would matter — a signal
+   * pointing the wrong way is fixable by taking the other side, where an absent
+   * signal is not fixable at all.
+   */
+  const real = summariseShadow([
+    ...Array.from({ length: 100 }, (_, i) => at("long", 0.6, -0.5 + (i % 5) * 0.01)),
+    ...Array.from({ length: 100 }, (_, i) => at("short", 0.6, -0.5 + (i % 5) * 0.01)),
+    ...Array.from({ length: 100 }, (_, i) => at("long", 1.2, 0.5 + (i % 5) * 0.01)),
+    ...Array.from({ length: 100 }, (_, i) => at("short", 1.2, 0.5 + (i % 5) * 0.01)),
+  ], "t60");
+  const r = real.depthContrast.byHorizon.t60;
+  ok("a real inverted effect survives inside longs", r.long.deltaPct < -0.9 && r.long.sigma < -10,
+    JSON.stringify({ d: r.long.deltaPct, sigma: r.long.sigma }));
+  ok("and inside shorts", r.short.deltaPct < -0.9 && r.short.sigma < -10,
+    JSON.stringify({ d: r.short.deltaPct, sigma: r.short.sigma }));
+  ok("the counts behind each end are carried", r.long.nThin === 100 && r.long.nThick === 100,
+    JSON.stringify({ thin: r.long.nThin, thick: r.long.nThick }));
+
+  /*
+   * The sign convention is the finding. The thesis says thin predicts a
+   * favourable move, so it predicts a POSITIVE delta; the test has to be able
+   * to tell "backwards" from "absent" rather than reporting both as "not
+   * significant".
+   */
+  const asThesisClaims = summariseShadow([
+    ...Array.from({ length: 100 }, (_, i) => at("long", 0.6, 0.5 + (i % 5) * 0.01)),
+    ...Array.from({ length: 100 }, (_, i) => at("long", 1.2, -0.5 + (i % 5) * 0.01)),
+  ], "t60");
+  ok("a signal pointing the way the thesis claims comes back positive",
+    asThesisClaims.depthContrast.byHorizon.t60.long.deltaPct > 0.9,
+    String(asThesisClaims.depthContrast.byHorizon.t60.long.deltaPct));
+}
+
+/**
+ * The contrast has to exist at the short horizons, not only the primary one.
+ *
+ * At sixty seconds the overall mean is indistinguishable from zero, so there is
+ * no drift there to mistake for a signal. That makes t60 the cleanest test in
+ * the set rather than the weakest, and it is only available if every horizon is
+ * crossed rather than just the one the summary leads with.
+ */
+function contrastCoversEveryHorizon() {
+  const s = summariseShadow([
+    { ...row(0.6, -0.5), outcomes: { t60: { pct: -0.5, netUsd: -50 }, t7200: { pct: -0.5, netUsd: -50 } } as ShadowRowLike["outcomes"] },
+    { ...row(1.2, 0.5), outcomes: { t60: { pct: 0.5, netUsd: 50 }, t7200: { pct: 0.5, netUsd: 50 } } as ShadowRowLike["outcomes"] },
+  ], "t900");
+  ok("every horizon present in the file gets a contrast",
+    Object.keys(s.depthContrast.byHorizon).sort().join(",") === "t60,t7200",
+    Object.keys(s.depthContrast.byHorizon).join(","));
+  ok("each carries all three splits",
+    Object.keys(s.depthContrast.byHorizon.t60).sort().join(",") === "both,long,short",
+    Object.keys(s.depthContrast.byHorizon.t60).join(","));
+  ok("the band edges are reported with the numbers they produced",
+    s.depthContrast.thinBelow === 0.85 && s.depthContrast.thickAtOrAbove === 1,
+    JSON.stringify(s.depthContrast));
+
+  /*
+   * An unmeasurable end must report a sigma of zero, not NaN and not Infinity.
+   * `bucket` returns an infinite standard error for n<=1, and Infinity/Infinity
+   * is NaN — which serialises to null, renders as blank, and reads as "no
+   * result" in exactly the place a reader is looking for one.
+   */
+  const oneSided = summariseShadow(
+    Array.from({ length: 30 }, () => row(0.6, 0.2)),
+    "t900",
+  );
+  const b = oneSided.depthContrast.byHorizon.t900.both;
+  ok("a contrast with no thick end is not NaN", Number.isFinite(b.sigma), String(b.sigma));
+  ok("and it claims nothing", b.sigma === 0, String(b.sigma));
+  ok("while still reporting the counts", b.nThin === 30 && b.nThick === 0,
+    JSON.stringify({ thin: b.nThin, thick: b.nThick }));
+}
+
+depthContrastSurvivesTheSideConfound();
+contrastCoversEveryHorizon();
+if (failures) {
+  console.error(`\n${failures} failure(s) in the depth contrast`);
+  process.exit(1);
+}
+console.log("\nall good — depth contrast");
