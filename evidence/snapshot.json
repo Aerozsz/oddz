@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1787891493428,
+    "at": 1787891613462,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -17,11 +17,11 @@
         "attached": false,
         "tradeable": true,
         "warm": true,
-        "mid": 79809.05,
-        "spreadBps": 0.012529907323269824,
-        "riskUp": 29.173049004302825,
-        "riskDown": 34.62449240553385,
-        "signalsSeen": 796,
+        "mid": 79701.25,
+        "spreadBps": 0.012546854661102651,
+        "riskUp": 34.55554148038838,
+        "riskDown": 33.58583889140636,
+        "signalsSeen": 858,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
@@ -46,15 +46,15 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": "down",
-      "biasSummary": "Least resistance is downward — 2,188,703 to set off the downside vs 35,333,872 upside — cheaper to push down; 0.01% below, 0.24% above",
+      "biasDirection": null,
+      "biasSummary": "Neither side is meaningfully more exposed than the other right now.",
       "sides": [
         {
           "direction": "up",
           "ok": true,
           "stopPct": 0.5,
-          "target": 80647.60365,
-          "rewardRisk": 2.1013999038956146,
+          "target": 80552.65802906893,
+          "rewardRisk": 2.1364985594803865,
           "notionalUsd": 12404.712760605002,
           "marginUsd": 2480.9425521210005,
           "leverage": 5,
@@ -66,8 +66,8 @@
           "direction": "down",
           "ok": true,
           "stopPct": 0.5,
-          "target": 79010.23800850935,
-          "rewardRisk": 2.0018080443023853,
+          "target": 78821.95971979658,
+          "rewardRisk": 2.2064654699980797,
           "notionalUsd": 12404.712760605002,
           "marginUsd": 2480.9425521210005,
           "leverage": 5,
@@ -76,7 +76,7 @@
           "reasons": []
         }
       ],
-      "tradeable": true
+      "tradeable": false
     },
     "readiness": {
       "ready": true,
@@ -93,7 +93,7 @@
     },
     "engine": {
       "running": true,
-      "uptimeSec": 751,
+      "uptimeSec": 871,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -110,20 +110,20 @@
       "tradeable": true,
       "reasons": [],
       "summary": "live",
-      "snapshotAgeMs": 0
+      "snapshotAgeMs": 1
     },
     "market": {
-      "mid": 79809.05,
+      "mid": 79701.25,
       "mark": null,
-      "spreadBps": 0.012529907323269824,
-      "lwi": 1.0967087592632567,
-      "lwiBid": 1.1587063305249123,
-      "lwiAsk": 1.0396714458003318,
+      "spreadBps": 0.012546854661102651,
+      "lwi": 1.1576663319691753,
+      "lwiBid": 1.3722306508377666,
+      "lwiAsk": 0.9471919196901241,
       "warm": true,
-      "riskUp": 29.173049004302825,
-      "riskDown": 34.62449240553385,
-      "nearestAbove": 80000,
-      "nearestBelow": 79800,
+      "riskUp": 34.55554148038838,
+      "riskDown": 33.58583889140636,
+      "nearestAbove": 79772.22222222222,
+      "nearestBelow": 79619.29727402823,
       "session": "closed",
       "flow": {
         "buy": 0,
@@ -134,7 +134,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 1274,
+      "staleForMs": 1160,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,7 +145,7 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1787891492154,
+      "at": 1787891612302,
       "error": null,
       "availableBalance": 2756.60283569,
       "walletBalance": 2756.60283569,
@@ -180,7 +180,7 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1787891474766,
+      "at": 1787891594797,
       "realisedPnl": 0,
       "drawdown": 0,
       "trades": 0,
@@ -194,7 +194,7 @@
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 796,
+      "signalsSeen": 858,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -220,7 +220,7 @@
       }
     },
     "protection": {
-      "at": 1787891474454,
+      "at": 1787891594509,
       "error": null,
       "flat": true,
       "protected": true,
@@ -278,7 +278,7 @@
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 751s"
+        "detail": "1/1 — BTCUSDT up 871s"
       },
       {
         "name": "feed: BTCUSDT",
@@ -290,7 +290,7 @@
         "name": "streams arriving: BTCUSDT",
         "ok": false,
         "severity": "bad",
-        "detail": "depthUpdate 7322 — nothing on aggTrade, markPriceUpdate, kline",
+        "detail": "depthUpdate 8498 — nothing on aggTrade, markPriceUpdate, kline",
         "fix": "The socket is up and the book may be fine; aggTrade, markPriceUpdate, kline is subscribed and delivering nothing, which silently disables every consumer of it. forceOrder is excluded from this check because liquidations are genuinely intermittent."
       },
       {
@@ -407,7 +407,7 @@
   "ledger": {
     "epoch": 1787025219557,
     "balance": 2756.60283569,
-    "at": 1787891492154,
+    "at": 1787891612302,
     "reason": "balance moved -2243.40 with no ledger row behind it (expected 5000.00, saw 2756.60) — counting restarted here"
   },
   "learn": {
@@ -2839,7 +2839,7 @@
     },
     {
       "t": 1787890873977,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×5 since 5:21:13 AM)"
+      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×6 since 5:21:13 AM)"
     }
   ],
   "news": {
@@ -2850,12 +2850,12 @@
     ],
     "poller": {
       "recorded": 2,
-      "cycles": 30,
+      "cycles": 33,
       "sources": 14,
       "unavailable": "x,linkedin",
       "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-binance: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | rsshub-twitter-keyword-bitcoin: 404 Not Found | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found",
       "velocity": "BNBUSDT 1.0x BTCUSDT 1.0x XRPUSDT 1.0x",
-      "lastPollAt": 1787891493244
+      "lastPollAt": 1787891578338
     }
   }
 }
