@@ -142,6 +142,9 @@ export class Engine {
     restVia: "unknown",
     error: null,
     byEvent: {},
+    lastControlFrame: null,
+    controlFrames: 0,
+    subscribed: [],
   };
 
   private msgCount = 0;
@@ -182,7 +185,15 @@ export class Engine {
         this.connection = { ...this.connection, socket: "error", error: err };
       },
       onMessage: (msg) => this.handle(msg),
+      onControlFrame: (raw) => {
+        this.connection = {
+          ...this.connection,
+          controlFrames: this.connection.controlFrames + 1,
+          lastControlFrame: raw.slice(0, 400),
+        };
+      },
     }, this.symbol);
+    this.connection = { ...this.connection, subscribed: this.stream.subscribedTo() };
     this.stream.start();
 
     // Coming back to the tab must not show whatever the polls last managed
@@ -723,6 +734,9 @@ export function emptySnapshot(): Snapshot {
       lastMessageAt: 0,
       messagesPerSec: 0,
       byEvent: {},
+      lastControlFrame: null,
+      controlFrames: 0,
+      subscribed: [],
       restVia: "unknown",
       error: null,
     },

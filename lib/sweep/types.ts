@@ -277,6 +277,19 @@ export interface ConnectionState {
    * different facts and only the second one is actionable.
    */
   byEvent: Record<string, number>;
+  /**
+   * The most recent frame that was not a stream payload, verbatim.
+   *
+   * Binance answers subscription problems on the market socket itself, in a
+   * frame with no `stream` field. Those were discarded, so the only message
+   * that could explain four silent streams was the only one guaranteed not to
+   * be kept. Truncated, because a stray large frame should not bloat every
+   * snapshot from here to the end of the run.
+   */
+  lastControlFrame: string | null;
+  controlFrames: number;
+  /** What was asked for, so it can be compared against what arrived. */
+  subscribed: string[];
 }
 
 export interface Snapshot {

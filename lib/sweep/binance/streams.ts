@@ -27,6 +27,8 @@ export interface StreamMessage {
 
 type Handlers = {
   onMessage: (msg: StreamMessage) => void;
+  /** Any frame that is not a stream payload — subscription replies and errors. */
+  onControlFrame?: (raw: string) => void;
   onOpen: () => void;
   onClose: (reason: string) => void;
   onError: (err: string) => void;
@@ -57,6 +59,11 @@ export class StreamClient {
     symbol: string = SYMBOL,
   ) {
     this.streams = streamsFor(symbol);
+  }
+
+  /** The stream names this socket asked for. */
+  subscribedTo(): string[] {
+    return [...this.streams];
   }
 
   start() {
@@ -116,7 +123,27 @@ export class StreamClient {
       this.lastMessageAt = Date.now();
       try {
         const parsed = JSON.parse(ev.data as string) as StreamMessage;
-        if (parsed && typeof parsed.stream === "string") this.handlers.onMessage(parsed);
+        if (parsed && typeof parsed.stream === "string") {
+          this.handlers.onMessage(parsed);
+          return;
+        }
+        /*
+         * Everything that is not a stream payload, kept rather than dropped.
+         *
+         * Binance answers a bad or rejected subscription on this same socket
+         * with a frame carrying no `stream` field — `{result, id}` on success,
+         * an error object otherwise. This branch used to be the implicit `else`
+         * of the line above and discarded them all without a trace, which meant
+         * the one message that could explain a subscription problem was the one
+         * message guaranteed to be thrown away.
+         *
+         * It mattered: four of five subscribed streams delivered nothing for
+         * weeks — no aggTrade, no markPrice, no kline, only depth — and every
+         * surface reported a healthy socket, because a healthy socket is
+         * exactly what it was. Whatever Binance said about the other four went
+         * into this branch and vanished.
+         */
+        this.handlers.onControlFrame?.(ev.data as string);
       } catch {
         /* a malformed frame is not worth tearing the socket down for */
       }

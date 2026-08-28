@@ -4729,10 +4729,17 @@ function diagnose() {
           const wanted = ["depthUpdate", "aggTrade", "markPriceUpdate", "kline"];
           const missing = wanted.filter((e) => !(seen[e] > 0));
           add(`streams arriving: ${d.symbol}`, missing.length === 0,
-            Object.keys(seen).length === 0
+            (Object.keys(seen).length === 0
               ? "no messages at all"
               : Object.entries(seen).map(([k, v]) => `${k} ${v}`).join(", ") +
-                (missing.length ? ` — nothing on ${missing.join(", ")}` : ""),
+                (missing.length ? ` — nothing on ${missing.join(", ")}` : "")) +
+              ` | asked for ${conn.subscribed.length}: ${conn.subscribed.join(" ")}` +
+              // Binance answers subscription problems here, in a frame with no
+              // stream field. These used to be discarded, so this line is the
+              // first time the exchange's own account of the problem is kept.
+              (conn.controlFrames > 0
+                ? ` | ${conn.controlFrames} control frame(s), last: ${conn.lastControlFrame}`
+                : " | no control frames — the exchange said nothing about the subscription"),
             missing.length === 0 ? undefined
               : `The socket is up and the book may be fine; ${missing.join(", ")} is subscribed and ` +
                 "delivering nothing, which silently disables every consumer of it. forceOrder is excluded " +
