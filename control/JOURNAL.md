@@ -418,3 +418,51 @@ that warms above the threshold (a market answer, and the lever does not exist),
 or a gate that opens with every entry still priced as a taker (plumbing). The
 summary now separates them and names which it found, from rows already written.
 Answer due in the next snapshot.
+
+## 2026-08-28T03:58Z — the maker path was never gated on toxicity
+
+`makerPath` landed and answered in one snapshot. Of 17,898 decisions carrying a
+mark-out reading, **warm: 0**. Not one. The toxicity test has run zero times.
+
+`canPostEntry` refuses on its first line when mark-out is cold. So the entire
+maker path — carried in FINDINGS for weeks as "gated behind canPostEntry on
+mark-out toxicity, worth about $4.87 a round trip, the largest unexplored lever
+in the project" — was never gated on toxicity. It was never reached. The
+sentence described a market condition; the reality was a warm-up that never
+completes, on a live BTC feed that has been up for two days.
+
+It is not a shadow artefact either: all 30 live trade records in the snapshot
+carry `markoutWarm: false` too.
+
+**The second casualty, which I had not connected.** The bias factor "who has
+been right" is guarded by `mk.warm` and carries weight 0.25 — a quarter of the
+directional read. It has therefore never once contributed to a side decision.
+Every long/short call this project has ever made was taken with a quarter of the
+bias weight absent, and the module's own comment calls that factor "the one
+input scored against realised outcomes rather than against the state of the
+book". The one factor with a track record has been dead the whole time, and it is
+a plausible piece of the 2.20:1 long skew.
+
+**Why it was invisible.** `warm` is an AND of three conditions reported as one
+boolean, so a cold tracker says nothing about which gate is shut. I cannot run
+the feed from here — this container cannot reach Binance — so the fix is to make
+the running thing report: `warmth` now carries `resolved`, `tradesSeen`,
+`sinceFirstTradeMs` and `mainWeight`, and a per-desk diagnose check names the
+unmet condition in words. The next snapshot says whether the trade stream reaches
+the tracker at all, or reaches it and fails to resolve.
+
+Found on the way: `firstTradeAt` starts at zero, so `now - firstTradeAt` is
+thirty years of milliseconds and the sixty-second gate passed vacuously on a
+tracker that had never seen a trade. Sixth zero-means-something-else in this
+codebase. It did not change the verdict — `resolved` was zero too — but the
+reason reported would have been the wrong one, which is how the last two days
+went.
+
+**The pattern, for whoever reads this next.** Three times today a sentence in
+FINDINGS asserted a market fact that was actually an unmeasured pipeline: depth
+buckets reading 0.0000 because nothing populated them, a maker path "gated on
+toxicity" that never reached the gate, and a fee argument that assumed the gross
+was worth rescuing. Every one of them read as a finding and was a defect. The
+check that catches this class is cheap and I should apply it before writing any
+sentence of that shape: **if a claim says the market refused, confirm the code
+asked.**

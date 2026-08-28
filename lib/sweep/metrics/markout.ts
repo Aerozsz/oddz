@@ -128,6 +128,31 @@ export type MarkoutRegime =
 
 export interface MarkoutRead {
   warm: boolean;
+  /**
+   * Which of the three warm-up conditions is unmet, and by how far.
+   *
+   * `warm` is an AND of three separate things and reports as one boolean, so a
+   * tracker that never warms gives no clue which gate is shut. That cost the
+   * project a genuinely expensive mistake: `canPostEntry` refuses on its first
+   * line when mark-out is cold, so the maker path — carried for weeks as "the
+   * largest unexplored lever, gated on toxicity" — was never gated on toxicity
+   * at all. It was never reached. 23,880 shadow decisions and every live record
+   * came back cold, and the toxicity test ran zero times.
+   *
+   * A boolean that is false for three possible reasons is not an observation.
+   * These are the three, so the next reading says which.
+   */
+  warmth: {
+    /** One-second horizons resolved. Needs 40. */
+    resolved: number;
+    resolvedNeeded: number;
+    /** Milliseconds since the first trade arrived. Needs 60,000. */
+    sinceFirstTradeMs: number | null;
+    /** Decayed weight behind the five-second horizon. Needs to be above zero. */
+    mainWeight: number;
+    /** Trades handed to the tracker at all — zero means it is not wired up. */
+    tradesSeen: number;
+  };
   horizons: HorizonRead[];
   /**
    * −1..1. Positive means aggressive buying has been the informed side over the
@@ -148,6 +173,7 @@ export interface MarkoutRead {
 
 export const EMPTY_MARKOUT: MarkoutRead = {
   warm: false,
+  warmth: { resolved: 0, resolvedNeeded: 40, sinceFirstTradeMs: null, mainWeight: 0, tradesSeen: 0 },
   horizons: HORIZONS.map((sec) => ({ sec, buyBps: null, sellBps: null, costToMakerBps: null, weight: 0 })),
   informed: 0,
   toxicity: 0,
@@ -188,6 +214,13 @@ export class MarkoutTracker {
   private lastMid = 0;
   private lastSpreadBps = 0;
   private firstTradeAt = 0;
+  /*
+   * Counted so a cold tracker can be told from an unwired one. Zero here means
+   * no trade stream reached this object at all, which is a different fault from
+   * a stream that arrived and did not resolve — and the two were previously
+   * indistinguishable from outside, both reporting warm:false.
+   */
+  private tradesSeen = 0;
   private resolved = 0;
 
   private ownFills: (OwnFill & { markBps: number | null; resolvedAt: number })[] = [];
@@ -202,6 +235,7 @@ export class MarkoutTracker {
   onTrade(trade: Trade, now = trade.t) {
     if (!Number.isFinite(trade.price) || trade.price <= 0) return;
     if (!this.firstTradeAt) this.firstTradeAt = now;
+    this.tradesSeen++;
 
     const slot = Math.floor(now / BUCKET_MS) * BUCKET_MS;
     if (!this.current || this.current.t !== slot) {
@@ -342,10 +376,28 @@ export class MarkoutTracker {
     // the touch that follows any print, short enough that it is still about
     // this flow rather than about the next thing that happened.
     const main = horizons[1];
-    const warm = this.resolved >= 40 && now - this.firstTradeAt >= 60_000 && main.weight > 0;
+    /*
+     * Null, not a huge number, when no trade has ever arrived.
+     *
+     * `firstTradeAt` starts at zero, so `now - 0` is thirty-odd years of
+     * milliseconds and this gate passed vacuously on a tracker that had never
+     * seen a trade — the sixth zero-means-something-else in this codebase. It
+     * did not change the verdict, because `resolved` was also zero, but it did
+     * mean the reported reason would have been wrong.
+     */
+    const sinceFirstTradeMs = this.firstTradeAt ? now - this.firstTradeAt : null;
+    const warmth = {
+      resolved: this.resolved,
+      resolvedNeeded: 40,
+      sinceFirstTradeMs,
+      mainWeight: main.weight,
+      tradesSeen: this.tradesSeen,
+    };
+    const warm =
+      this.resolved >= 40 && sinceFirstTradeMs !== null && sinceFirstTradeMs >= 60_000 && main.weight > 0;
 
     if (!warm) {
-      return { ...EMPTY_MARKOUT, horizons, referenceBps: reference, warm: false };
+      return { ...EMPTY_MARKOUT, horizons, warmth, referenceBps: reference, warm: false };
     }
 
     const buyBps = main.buyBps ?? 0;
@@ -389,7 +441,7 @@ export class MarkoutTracker {
       notes.push(`the move keeps going out to 30s (${slow.toFixed(2)}bp) — this is position-building, not a one-off print`);
     }
 
-    return { warm: true, horizons, informed, toxicity, regime, referenceBps: reference, notes };
+    return { warm: true, warmth, horizons, informed, toxicity, regime, referenceBps: reference, notes };
   }
 }
 

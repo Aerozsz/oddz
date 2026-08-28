@@ -4700,6 +4700,40 @@ function diagnose() {
             healthy ? "ok" : s?.health.level === "degraded" ? "warn" : "bad");
         }
 
+        /*
+         * Mark-out warm-up, named by which gate is shut.
+         *
+         * `canPostEntry` refuses on its first line when mark-out is cold, so a
+         * tracker that never warms silently disables the entire maker path —
+         * and reports it as toxicity, which is a market condition rather than a
+         * defect. That is what happened: 23,880 shadow decisions and every live
+         * record came back cold, the toxicity test ran zero times, and the maker
+         * path was carried for weeks as "gated on toxicity, worth $4.87 a round
+         * trip, unexplored". It was not gated on toxicity. It was never reached.
+         *
+         * Warm-up is an AND of three conditions reported as one boolean, so this
+         * says which one is unmet rather than that one is.
+         */
+        for (const d of allDesks()) {
+          const mk = d.feed?.getState()?.markout;
+          if (!mk) continue;
+          const w = mk.warmth;
+          const why = mk.warm
+            ? `resolved ${w.resolved}, weight ${w.mainWeight.toFixed(0)}`
+            : w.tradesSeen === 0
+              ? "no trade has reached the tracker at all — the aggTrade stream is not wired to it"
+              : w.resolved < w.resolvedNeeded
+                ? `only ${w.resolved} of ${w.resolvedNeeded} one-second horizons resolved from ${w.tradesSeen} trades`
+                : w.sinceFirstTradeMs !== null && w.sinceFirstTradeMs < 60_000
+                  ? `first trade was ${Math.round(w.sinceFirstTradeMs / 1000)}s ago and 60s is needed`
+                  : `the five-second horizon carries no weight (${w.mainWeight})`;
+          add(`mark-out warm: ${d.symbol}`, mk.warm, why,
+            mk.warm ? undefined
+              : "Until this warms, canPostEntry refuses every maker entry on its first line and the " +
+                "toxicity threshold is never consulted. Cold is a defect here, not a market reading.",
+            mk.warm ? "ok" : "bad");
+        }
+
         const st = focused().feed?.getState();
 
         add("max position set", limits.maxPositionUsd > 0,
