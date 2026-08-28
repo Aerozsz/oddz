@@ -268,6 +268,29 @@ export interface ShadowSummary {
     withFactors: number;
     /** Mean composite over rows that carry one; zero would be even-handed. */
     meanComposite: number;
+    /**
+     * The side split restricted to rows that carry a composite.
+     *
+     * The whole-file counts and the mean composite describe different samples —
+     * the counts span every row ever written, the mean only the recent ones
+     * that carry the decomposition — and comparing them produced a contradiction
+     * that is not in the data: a mean composite of -0.0016 against a book that
+     * is 2.19:1 long. Those two numbers cannot be reconciled because they are
+     * not about the same trades.
+     */
+    withFactorsLong: number;
+    withFactorsShort: number;
+    /**
+     * Mean magnitude, and the smallest one seen.
+     *
+     * Every recorded decision cleared the dead zone by construction, so the
+     * mean magnitude cannot be below it and the minimum states what the gate
+     * actually was. If that minimum comes back near zero the dead zone is not
+     * being applied — which would be the seventh zero-means-off in this
+     * codebase, since a configured 0 passes the `>= 0` guard and disables it.
+     */
+    meanAbsComposite: number;
+    minAbsComposite: number;
     /** factor name -> mean score across every decision that recorded it. */
     meanByFactor: Record<string, { mean: number; n: number; weight?: number }>;
   };
@@ -421,12 +444,18 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
    * project already had: a known 3:1 skew with no way to ask why.
    */
   const factorSums = new Map<string, { sum: number; n: number }>();
+  const withFactorRows: ShadowRowLike[] = [];
+  const absComposites: number[] = [];
   let compositeSum = 0;
   let withFactors = 0;
   for (const r of rows) {
     const f = r.conditions?.biasFactors;
     if (!f) continue;
     withFactors++;
+    withFactorRows.push(r);
+    if (typeof r.conditions?.biasComposite === "number") {
+      absComposites.push(Math.abs(r.conditions.biasComposite));
+    }
     compositeSum += r.conditions?.biasComposite ?? 0;
     for (const [name, score] of Object.entries(f)) {
       if (typeof score !== "number" || !Number.isFinite(score)) continue;
@@ -491,6 +520,12 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
       short: rows.filter((r) => r.side === "short").length,
       withFactors,
       meanComposite: withFactors > 0 ? compositeSum / withFactors : 0,
+      withFactorsLong: withFactorRows.filter((r) => r.side === "long").length,
+      withFactorsShort: withFactorRows.filter((r) => r.side === "short").length,
+      meanAbsComposite: absComposites.length
+        ? absComposites.reduce((a, b) => a + b, 0) / absComposites.length
+        : 0,
+      minAbsComposite: absComposites.length ? Math.min(...absComposites) : 0,
       meanByFactor,
     },
     horizons,
