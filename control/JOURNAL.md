@@ -317,3 +317,63 @@ and the depth thesis is finished rather than merely unproven.
   loss has never been about being wrong.
 - 23,027 of 23,854 decisions reached neither stop nor target: 407 targets, 413
   stops. The brackets are close to a coin flip and almost never reached.
+
+## 2026-08-28T03:50Z — the loop closed in twenty minutes, and the answer was no
+
+Wrote the depth-by-side cross at 03:36, pushed it, and the machine's self-update
+had it running by 03:43. The next snapshot carried the answer. That is the first
+time in this project a question has been asked and answered inside one pass
+without the operator touching anything — the cloud has judgement and no network,
+the machine has network and no judgement, and `evidence/snapshot.json` turns out
+to be a perfectly good wire between them. Seven minutes end to end.
+
+**The answer: thin books do not do worse. `depth-inverted` is REJECTED.**
+
+thin (<0.85) minus thick (>=1.00), by side, in percent:
+
+| horizon | long | short |
+|---|---|---|
+| t60 | +0.0028 (+0.78σ) | +0.0010 (+0.20σ) |
+| t300 | −0.0075 (−0.84σ) | +0.0063 (+0.45σ) |
+| t900 | −0.0597 (−3.14σ) | −0.0149 (−0.56σ) |
+| t1800 | −0.0670 (−2.36σ) | −0.0684 (−1.58σ) |
+| t7200 | −0.0125 (−0.28σ) | −0.0828 (−1.08σ) |
+
+Absent at one and five minutes — which is where it should be *strongest*, and
+where there is no drift available to explain anything away. Present at fifteen
+and thirty, carried mostly by longs. Gone again at two hours. A microstructure
+effect is strongest where the mechanism acts and decays with time; this is the
+opposite shape. Across fifteen cells, one reading −3.14σ is what noise looks
+like, and the strongest cell is 5.97bp — still under the 7bp round trip. The
+9.2bp that made this worth testing came from the extreme 532-row bucket, the
+widest and noisiest slice on offer.
+
+**I want to be exact about what I nearly did here.** Four bands running
+monotonically the wrong way, a spread wider than the round trip, the first thing
+in this project ever to clear that line — and a free fix, since inverting a gate
+costs nothing. Every part of that was true and the conclusion was still wrong.
+The thing that caught it was refusing to report the pooled number without
+crossing it against the confound that had already killed two earlier results.
+The 3:1 long book is now the single most dangerous object in this project: it
+has manufactured three separate false positives, and any result that does not
+survive a side split is not a result.
+
+So the depth thesis is now closed in both directions. Thin does not predict a
+favourable move (settled, 513,000 samples) and it does not predict an
+unfavourable one either — there is no free trade in flipping the sign. What is
+left open is unchanged and does not depend on depth: magnitude (a market-making
+mandate, 18.8x lift on large excursions), the maker path (zero fills in 23,876
+decisions, ~$4.87 a round trip, still entirely unmeasured), and carry.
+
+**Next, and it is now instrumented rather than argued about.** The bias read
+returns a signed composite and its factors; the strategy collapsed it to "buy"
+and the shadow row hardcoded `biasConviction: null`. The only input that decides
+the side was the only input never recorded, which is why the skew has been an
+open item for weeks with nothing to interrogate. Intents now carry the
+decomposition, both producers fill it, and the summary averages each factor over
+every decision that recorded it, sorted by distance from zero. Every factor
+compares two sides of a book and should average near zero over thousands of
+decisions. The one that does not is either reading a real persistent asymmetry —
+which would be the first genuine finding here — or is signed backwards, which is
+a defect worth catching. Unlike the depth cross this needs new rows, so it fills
+over the next few hours rather than in the next snapshot.

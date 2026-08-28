@@ -54,6 +54,23 @@ export const SETTLED: Verdict[] = [
     n: 513_000,
   },
   {
+    id: "depth-inverted",
+    status: "rejected",
+    claim:
+      "The depth signal is real but backwards — thin books do worse, so the fix is free: same gate, opposite side.",
+    evidence:
+      "Worth testing because the pooled fifteen-minute bands ran monotonically the wrong way and thinnest-minus-" +
+      "thickest was 9.2bp, wider than the 7bp round trip — the first thing in this project to clear it. It does " +
+      "not survive. Crossed against side at every horizon: t60 long +0.78 sigma and short +0.20, t300 long -0.84 " +
+      "and short +0.45, t900 long -3.14 and short -0.56, t1800 long -2.36 and short -1.58, t7200 long -0.28 and " +
+      "short -1.08. Absent at one and five minutes, where there is no drift to explain anything away; present " +
+      "only at fifteen and thirty, carried mostly by longs; gone again at two hours. A microstructure effect is " +
+      "strongest where the mechanism acts and decays with time — this is the opposite shape, and it is what noise " +
+      "looks like across fifteen cells. Even taking the best cell at face value it is 5.97bp, still under the " +
+      "round trip. The 9.2bp came from the extreme 532-row bucket, which is the widest and noisiest slice available.",
+    n: 23_876,
+  },
+  {
     id: "sweep-live-shadow",
     status: "rejected",
     claim: "The same signal, measured on live decisions rather than history, does better.",
@@ -112,12 +129,19 @@ export const SETTLED: Verdict[] = [
   },
   {
     id: "long-bias",
-    status: "open",
+    status: "testing",
     claim: "The entry gate is 3.6:1 long-biased, which is a defect rather than a market fact.",
     evidence:
       "8,396 longs against 2,343 shorts in the matched shadow set. A microstructure signal meant to be " +
       "symmetric should not take four longs for every short, and this is what made the two-hour result " +
-      "look spectacular before the side split.",
+      "look spectacular before the side split. It was undiagnosable by construction until now: the bias " +
+      "read returns a signed composite and its factors, the strategy collapsed it to buy or sell, and the " +
+      "shadow row set biasConviction to a hardcoded null — so the only input that picks the side was the " +
+      "only input never recorded. Intents now carry the decomposition and the summary averages each factor " +
+      "over every decision that recorded it, sorted by distance from zero. A factor comparing two sides of " +
+      "a book should average near zero over thousands of decisions; whichever does not is either reading a " +
+      "real persistent asymmetry or is signed wrong. Needs new rows — the answer arrives as biasBalance " +
+      "fills, not from the existing file.",
     n: 10_739,
   },
 ];
