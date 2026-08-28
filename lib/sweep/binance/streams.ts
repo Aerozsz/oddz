@@ -20,6 +20,9 @@ export function streamsFor(symbol: string): string[] {
 
 export const STREAMS = streamsFor(SYMBOL);
 
+/** Correlation id echoed back in Binance's acknowledgement. */
+const SUBSCRIBE_ID = 1;
+
 export interface StreamMessage {
   stream: string;
   data: Record<string, unknown>;
@@ -116,6 +119,34 @@ export class StreamClient {
     ws.onopen = () => {
       this.attempt = 0;
       this.lastMessageAt = Date.now();
+      /*
+       * Subscribe explicitly as well as by URL, because the URL alone did not
+       * work and gave no sign of it.
+       *
+       * The combined-stream endpoint takes the list as a query parameter with
+       * `/` between names, and a URL built that way is exactly what this client
+       * sent — verified offline, it round-trips through URL() unchanged. What
+       * arrived was 2,320 depth frames in 241 seconds and nothing whatever on
+       * aggTrade, markPrice or kline: the first name in the list honoured and
+       * the remaining four dropped, with no error frame, which is what a query
+       * truncated at its first `/` somewhere in transit looks like from here.
+       *
+       * A SUBSCRIBE frame carries the names in a JSON array, so no separator
+       * has to survive anything. It is idempotent for a stream already
+       * subscribed, so the URL is left in place rather than swapped out — if
+       * the query does arrive intact this changes nothing, and if it does not
+       * this is what makes the other four streams appear. Binance acknowledges
+       * with `{"result":null,"id":...}`, which the control-frame capture keeps,
+       * so the next snapshot says whether the request was received rather than
+       * leaving it to be inferred from the counts.
+       */
+      try {
+        ws.send(JSON.stringify({ method: "SUBSCRIBE", params: this.streams, id: SUBSCRIBE_ID }));
+      } catch (err) {
+        this.handlers.onError(
+          `subscribe frame failed: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
       this.handlers.onOpen();
     };
 
