@@ -54,6 +54,11 @@ export class StreamClient {
   private stopped = false;
   private staleCheck: ReturnType<typeof setInterval> | null = null;
   private lastMessageAt = 0;
+  /** Frames received per stream *name*, so a silent one can be identified. */
+  private seen = new Map<string, number>();
+  /** Per-stream sockets opened to rescue names the combined socket never sent. */
+  private fallbacks = new Map<string, WebSocket>();
+  private rescueTimer: ReturnType<typeof setTimeout> | null = null;
 
   private readonly streams: string[];
 
@@ -90,12 +95,96 @@ export class StreamClient {
         ws.close();
       }
     }, 15_000);
+
+    /*
+     * Rescue any stream the combined socket never delivered.
+     *
+     * The combined endpoint takes its stream list as a `streams=` query with
+     * `/` between names. Against this account only the first name in that list
+     * was ever honoured: 2,320 depth frames in 241 seconds and nothing at all
+     * on aggTrade, markPrice or kline, with no error frame and no reply to an
+     * explicit SUBSCRIBE. The URL is correct and round-trips through URL()
+     * unchanged, so whatever truncates it is not in this process and cannot be
+     * fixed from inside it.
+     *
+     * The single-stream endpoint has no list to truncate: the name is a path
+     * segment, one socket per stream. That is worse in the way the combined
+     * socket is better — two sockets can interleave, so a liquidation and the
+     * depth it removed may be seen out of order — which is why this is a
+     * fallback and not the default. It opens only for names that have proven
+     * silent, so a working combined socket never grows a second connection, and
+     * ordering is only given up where the alternative is no data at all.
+     *
+     * Sixty seconds because aggTrade on a liquid contract is hundreds a second
+     * and markPrice is one a second: any subscribed stream with nothing after a
+     * minute is not quiet, it is absent.
+     */
+    this.rescueTimer = setTimeout(() => this.rescueSilentStreams(), 60_000);
+  }
+
+  /** Frames received per stream name, for reporting which are silent. */
+  framesByStream(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const name of this.streams) out[name] = this.seen.get(name) ?? 0;
+    return out;
+  }
+
+  private rescueSilentStreams() {
+    if (this.stopped) return;
+    for (const name of this.streams) {
+      if ((this.seen.get(name) ?? 0) > 0) continue;
+      if (this.fallbacks.has(name)) continue;
+      this.openFallback(name);
+    }
+  }
+
+  private openFallback(name: string) {
+    // FAPI_WS ends in /stream; the single-stream endpoint is /ws/<name>.
+    const base = FAPI_WS.replace(/\/stream$/, "");
+    let ws: WebSocket;
+    try {
+      ws = new WebSocket(`${base}/ws/${name}`);
+    } catch (err) {
+      this.handlers.onError(
+        `fallback socket for ${name} failed: ${err instanceof Error ? err.message : String(err)}`,
+      );
+      return;
+    }
+    this.fallbacks.set(name, ws);
+    ws.onmessage = (ev) => {
+      this.lastMessageAt = Date.now();
+      try {
+        const data = JSON.parse(ev.data as string) as Record<string, unknown>;
+        /*
+         * The single-stream endpoint sends the payload bare, without the
+         * {stream, data} envelope the combined one uses. Wrapped here so every
+         * consumer downstream sees one shape and none of them has to know which
+         * socket a frame came from.
+         */
+        this.seen.set(name, (this.seen.get(name) ?? 0) + 1);
+        this.handlers.onMessage({ stream: name, data });
+      } catch {
+        /* as above: a malformed frame is not worth tearing anything down for */
+      }
+    };
+    ws.onclose = () => {
+      if (this.fallbacks.get(name) !== ws) return;
+      this.fallbacks.delete(name);
+      // Reopened on the same terms as the main socket: only while running, and
+      // only for a stream that is still silent.
+      if (!this.stopped) setTimeout(() => { if (!this.stopped) this.rescueSilentStreams(); }, 2_000);
+    };
+    ws.onerror = () => this.handlers.onError(`fallback socket error on ${name}`);
   }
 
   stop() {
     this.stopped = true;
     if (this.timer) clearTimeout(this.timer);
     if (this.staleCheck) clearInterval(this.staleCheck);
+    if (this.rescueTimer) clearTimeout(this.rescueTimer);
+    this.rescueTimer = null;
+    for (const ws of this.fallbacks.values()) ws.close();
+    this.fallbacks.clear();
     this.timer = null;
     this.staleCheck = null;
     const ws = this.ws;
@@ -155,6 +244,7 @@ export class StreamClient {
       try {
         const parsed = JSON.parse(ev.data as string) as StreamMessage;
         if (parsed && typeof parsed.stream === "string") {
+          this.seen.set(parsed.stream, (this.seen.get(parsed.stream) ?? 0) + 1);
           this.handlers.onMessage(parsed);
           return;
         }

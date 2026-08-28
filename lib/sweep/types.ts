@@ -290,6 +290,14 @@ export interface ConnectionState {
   controlFrames: number;
   /** What was asked for, so it can be compared against what arrived. */
   subscribed: string[];
+  /**
+   * Frames per stream *name*, which is the level the fault lives at.
+   *
+   * byEvent counts by event type and so cannot distinguish "not subscribed"
+   * from "subscribed and silent" — the two have opposite fixes and only this
+   * tells them apart.
+   */
+  framesByStream: Record<string, number>;
 }
 
 export interface Snapshot {

@@ -4733,7 +4733,7 @@ function diagnose() {
               ? "no messages at all"
               : Object.entries(seen).map(([k, v]) => `${k} ${v}`).join(", ") +
                 (missing.length ? ` — nothing on ${missing.join(", ")}` : "")) +
-              ` | asked for ${conn.subscribed.length}: ${conn.subscribed.join(" ")}` +
+              ` | per stream: ${Object.entries(conn.framesByStream ?? {}).map(([k, v]) => `${k}=${v}`).join(" ") || "(not sampled yet)"}` +
               // Binance answers subscription problems here, in a frame with no
               // stream field. These used to be discarded, so this line is the
               // first time the exchange's own account of the problem is kept.

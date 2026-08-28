@@ -145,6 +145,7 @@ export class Engine {
     lastControlFrame: null,
     controlFrames: 0,
     subscribed: [],
+    framesByStream: {},
   };
 
   private msgCount = 0;
@@ -194,6 +195,16 @@ export class Engine {
       },
     }, this.symbol);
     this.connection = { ...this.connection, subscribed: this.stream.subscribedTo() };
+    // Refreshed on a timer rather than per frame: this is read by a diagnostic
+    // once every couple of minutes and rebuilding the object on the hot path
+    // would cost far more than the question is worth.
+    this.timers.push(
+      setInterval(() => {
+        const stream = this.stream;
+        if (!stream) return;
+        this.connection = { ...this.connection, framesByStream: stream.framesByStream() };
+      }, 10_000),
+    );
     this.stream.start();
 
     // Coming back to the tab must not show whatever the polls last managed
@@ -737,6 +748,7 @@ export function emptySnapshot(): Snapshot {
       lastControlFrame: null,
       controlFrames: 0,
       subscribed: [],
+      framesByStream: {},
       restVia: "unknown",
       error: null,
     },
