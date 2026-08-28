@@ -487,6 +487,7 @@ export class Engine {
    * budget the order path needs.
    */
   private tapeNextAt = 0;
+  private tapeLastOkAt = 0;
 
   private async pollTapeIfSocketSilent() {
     const stream = this.stream;
@@ -535,6 +536,7 @@ export class Engine {
         });
       }
       if (rows.length) {
+        this.tapeLastOkAt = Date.now();
         this.connection = {
           ...this.connection,
           tapeVia: "rest",
@@ -544,9 +546,18 @@ export class Engine {
     } catch (err) {
       this.tapePollFailures++;
       this.tapeNextAt = Date.now() + Math.min(60_000, 4_000 * 2 ** this.tapePollFailures);
+      /*
+       * A single 429 inside a working backoff is not a failing tape.
+       *
+       * The first version flipped the label on any error and left it there, so
+       * a poller that had delivered 4,609 prints and warmed mark-out reported
+       * itself as failing — which would have been read, correctly by the rules
+       * this project keeps rediscovering, as "the tape does not work". Failing
+       * means nothing has arrived for half a minute.
+       */
       this.connection = {
         ...this.connection,
-        tapeVia: "rest-failing",
+        tapeVia: Date.now() - this.tapeLastOkAt < 30_000 ? "rest" : "rest-failing",
         error: `tape poll: ${err instanceof Error ? err.message : String(err)}`,
       };
     } finally {

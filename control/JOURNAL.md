@@ -523,3 +523,68 @@ missing input into something that looked like an answer. The check that would
 have caught it in a day is the one now in `diagnose`: a stream with subscribers
 and no messages is a fault, and no aggregate health reading should be able to
 report green while a subscribed stream has delivered zero.
+
+## 2026-08-28T09:00Z — the tape is connected, for the first time
+
+Mark-out is warm. `resolved 309, weight 20702276`. It has never been warm before
+in this project.
+
+**The chain, in order.** The maker path was carried for weeks as "gated behind
+canPostEntry on toxicity, worth $4.87 a round trip, the largest unexplored
+lever". Decomposing that zero showed the gate was never reached — `canPostEntry`
+refuses on its first line when mark-out is cold, and mark-out was cold on all
+17,898 decisions carrying a reading. Instrumenting the warm-up showed
+`tradesSeen: 0`. A second counter agreed: `state.flow` read `{buy: 0, sell: 0}`.
+The census showed why — 124,362 depth frames and nothing at all on aggTrade,
+markPrice or kline.
+
+**What it was not.** The URL is correct and round-trips through `URL()`
+unchanged. The stream names are standard. The frame parser passes every combined
+payload. An explicit SUBSCRIBE was acknowledged — `{"result":null,"id":1}` — so
+client-to-server frames land and the subscription is accepted for all five
+names. Per-stream rescue sockets to the single-stream endpoint all reported
+`open` and received nothing. Five separate connections to fstream, subscription
+accepted on all of them, one delivering. Nothing in this process can fix that,
+and I stopped trying to.
+
+**What worked.** Klines already come over REST, which is precisely why volatility
+survived a dead kline stream while the tape did not — so the tape now comes the
+same way. `fetchAggTrades` continues from the last print by id so polls neither
+duplicate nor skip; it arms only after ninety seconds of a genuinely silent
+stream, since aggTrade on a liquid contract runs at hundreds a second and
+silence that long is absence rather than quiet; and the WS and REST paths share
+one `ingestTrade`, because a tape feeding mark-out but not the participant model
+would be worse than no tape — every reading downstream would quietly describe a
+different market.
+
+First attempt polled every two seconds for a thousand prints and drew 429s. It
+still warmed mark-out, which is the part worth noticing: it worked immediately.
+It now honours the cooldown the client already tracks and backs off from four
+seconds to a minute. The tape is sampled rather than complete, and `tapeVia`
+says so in the snapshot, because a two-second poll cannot resolve a one-second
+mark-out horizon precisely and nobody should read those buckets as if they came
+off the wire. The five-second horizon — the one the toxicity read actually uses —
+is fine.
+
+**What this turns back on.** `canPostEntry` will consult the toxicity threshold
+for the first time, so the maker path becomes measurable instead of theoretical.
+The bias factor "who has been right" (weight 0.25) starts contributing — bias.ts
+calls it the only input scored against realised outcomes rather than against the
+state of the book, and it has never once fired. "Aggressive flow" (0.20) returns.
+The participant model, the shock tape and the large-trade tape come back.
+
+**What I am not claiming.** This does not make the strategy profitable and there
+is no evidence yet that it will. The 513,000-sample historical result computed
+its own flow features from the archive and never used this path; it stands, and
+it says there is no directional edge. A tape does not turn a symmetric random
+walk into one. What changed is narrower and still worth the day: for the first
+time the live evidence is a fair test of the design as written, rather than of a
+version missing 0.45 of its directional weight and its entire maker path. Every
+conclusion drawn from the 24,061 shadow rows describes the crippled version.
+
+**The rule this session earned.** Three separate sentences in FINDINGS asserted a
+market fact that was an unmeasured pipeline: depth buckets reading 0.0000 because
+nothing populated them, a maker path "gated on toxicity" that never reached the
+gate, and a fee argument resting on a gross figure worth rescuing. Each read as a
+finding and was a defect. Before writing any sentence of that shape:
+**if a claim says the market refused, confirm the code asked.**
