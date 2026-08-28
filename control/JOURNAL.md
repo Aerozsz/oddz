@@ -466,3 +466,60 @@ was worth rescuing. Every one of them read as a finding and was a defect. The
 check that catches this class is cheap and I should apply it before writing any
 sentence of that shape: **if a claim says the market refused, confirm the code
 asked.**
+
+## 2026-08-28T04:08Z — the tape has never been connected
+
+Two independent counters, live production feed, BTCUSDT, 241 seconds of healthy
+uptime, book synced, `feed: ok`:
+
+- mark-out tracker: `tradesSeen: 0`
+- `state.flow`: `{ buy: 0, sell: 0 }`
+
+Both are written inside the same `case "aggTrade"` block in the engine. The
+block does not execute. **The aggTrade stream reaches no consumer, and has not
+for as long as anyone has been looking at this.**
+
+Depth is fine. That is exactly why this survived: the health panel is green, the
+book syncs, `feed: BTCUSDT: ok`, and every depth-derived number is real. A dead
+tape on a live book looks like a working system from every surface this project
+had.
+
+**What it silently disables.**
+
+- Mark-out, entirely — and with it `canPostEntry`, which refuses on its first
+  line when mark-out is cold. The maker path was never gated on toxicity. It was
+  never reached. That is this morning's finding, and this is its cause.
+- The bias factor **"who has been right"**, weight 0.25 — which bias.ts itself
+  calls "the one factor scored against realised outcomes rather than against the
+  state of the book". The only input with a track record has never fired.
+- The bias factor **"aggressive flow"**, weight 0.20.
+- The participant model, the shock tape, the large-trade tape.
+
+So **0.45 of the intended directional weight has never contributed to a single
+decision.** The composite renormalises over present factors, so it is not shrunk
+toward zero — the surviving factors were simply promoted to carry everything:
+cost to trigger, which side thinned, nearest trigger, funding, and resting
+imbalance, the last of which the module's own comment calls "the cheapest
+deception in the book".
+
+**What this does and does not overturn.** It does not touch the 513,000-sample
+historical result — that computed its own flow features from the archive and
+never used this code path. It does mean the 23,880 live shadow decisions were
+taken by a read missing nearly half its evidence, and the 2.20:1 long skew now
+has an obvious place to look. The `biasFactors` recording shipped an hour ago
+will name which of the *surviving* factors leans, as new rows accumulate.
+
+I am not going to claim this is the reason the strategy loses. The historical
+work is independent and says the same thing, and a dead tape does not turn a
+symmetric random walk into an edge. What it does mean is that the live evidence
+was never a fair test of the design as written, and every conclusion drawn from
+the shadow file describes a crippled version of it.
+
+**Why it took this long.** `warm` is an AND of three conditions reported as one
+boolean; `canPostEntry` reports a cold tracker as toxicity, which reads as a
+market condition; and `feed: ok` asserts health from the depth stream alone
+while four consumers of a second stream sit silent. Three layers each turned a
+missing input into something that looked like an answer. The check that would
+have caught it in a day is the one now in `diagnose`: a stream with subscribers
+and no messages is a fault, and no aggregate health reading should be able to
+report green while a subscribed stream has delivered zero.

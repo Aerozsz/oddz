@@ -54,6 +54,26 @@ export const SETTLED: Verdict[] = [
     n: 513_000,
   },
   {
+    id: "dead-tape",
+    status: "open",
+    claim:
+      "The aggTrade stream reaches no consumer, so 45% of the directional read has never fired and the maker path was never gated.",
+    evidence:
+      "Confirmed by two independent counters on the live production feed after 241 seconds of healthy uptime on " +
+      "BTCUSDT: the mark-out tracker reports tradesSeen 0, and state.flow reads {buy: 0, sell: 0}. Both are " +
+      "written inside the same case \"aggTrade\" block, so the block does not execute. Depth is fine — the book " +
+      "syncs and the feed check reads ok — which is why this survived weeks of a health panel that was green. " +
+      "What it silently disables: mark-out entirely, and with it canPostEntry, which refuses on its first line " +
+      "when mark-out is cold and therefore never once consulted the toxicity threshold; the bias factor 'who " +
+      "has been right' (weight 0.25), which the module calls the only input scored against realised outcomes " +
+      "rather than against the state of the book; the bias factor 'aggressive flow' (weight 0.20); the " +
+      "participant model; the shock tape; and the large-trade tape. The composite renormalises over present " +
+      "factors, so it is not shrunk toward zero — but every side this project has ever called was decided " +
+      "without 0.45 of the intended weight, and the 2.20:1 long skew has to be re-examined against that. " +
+      "Does not overturn the 513,000-sample historical result, which computed its own flow features from the " +
+      "archive; it does mean the 23,880 live shadow decisions were taken by a crippled version of the read.",
+  },
+  {
     id: "cost-reduction",
     status: "rejected",
     claim:
