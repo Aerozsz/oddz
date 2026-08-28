@@ -1,5 +1,5 @@
 import { type Engine, getEngine } from "../engine";
-import type { CascadePath, Cluster, CostPoint, Snapshot } from "../types";
+import type { CascadePath, Cluster, ConnectionState, CostPoint, Snapshot } from "../types";
 import { assessHealth } from "./health";
 import { type SignalOptions, SignalEngine } from "./signals";
 import { NO_NEWS, type AgentCascade, type AgentState, type NewsPressure, type Signal } from "./types";
@@ -38,6 +38,16 @@ export interface SweepFeed {
   recentSignals(limit?: number): Signal[];
   onSignal(cb: (signal: Signal, state: AgentState) => void): () => void;
   onState(cb: (state: AgentState) => void): () => void;
+  /**
+   * Socket state, including the per-event message counts.
+   *
+   * Deliberately not folded into AgentState: that is a decision-shaped view of
+   * the market, and how many frames arrived on which stream is a fact about the
+   * plumbing. It is exposed at all because the plumbing turned out to be able
+   * to fail silently — depth alone keeps the socket healthy and the book
+   * synced, so aggTrade delivered nothing for weeks behind a green panel.
+   */
+  getConnection(): ConnectionState;
   close(): void;
 }
 
@@ -111,6 +121,7 @@ export function createSweepFeed(options: SweepFeedOptions = {}): SweepFeed {
     getClusters: () => engine.getSnapshot().clusters,
     getCostCurve: () => engine.getSnapshot().liquidity?.costCurve ?? [],
     recentSignals: (limit = 50) => history.slice(0, limit),
+    getConnection: () => engine.getSnapshot().connection,
     onSignal(cb) {
       signalListeners.add(cb);
       return () => signalListeners.delete(cb);

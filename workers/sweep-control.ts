@@ -4714,6 +4714,32 @@ function diagnose() {
          * Warm-up is an AND of three conditions reported as one boolean, so this
          * says which one is unmet rather than that one is.
          */
+        /*
+         * Which streams are actually arriving, not whether the socket is up.
+         *
+         * One combined socket carries five streams and reports one health.
+         * Depth alone keeps messagesPerSec healthy and the book synced, so the
+         * panel reads green while four consumers of a second stream sit
+         * silent — which is exactly what happened for weeks with aggTrade.
+         */
+        for (const d of allDesks()) {
+          const conn = d.feed?.getConnection();
+          if (!conn) continue;
+          const seen = conn.byEvent ?? {};
+          const wanted = ["depthUpdate", "aggTrade", "markPriceUpdate", "kline"];
+          const missing = wanted.filter((e) => !(seen[e] > 0));
+          add(`streams arriving: ${d.symbol}`, missing.length === 0,
+            Object.keys(seen).length === 0
+              ? "no messages at all"
+              : Object.entries(seen).map(([k, v]) => `${k} ${v}`).join(", ") +
+                (missing.length ? ` — nothing on ${missing.join(", ")}` : ""),
+            missing.length === 0 ? undefined
+              : `The socket is up and the book may be fine; ${missing.join(", ")} is subscribed and ` +
+                "delivering nothing, which silently disables every consumer of it. forceOrder is excluded " +
+                "from this check because liquidations are genuinely intermittent.",
+            missing.length === 0 ? "ok" : "bad");
+        }
+
         for (const d of allDesks()) {
           const mk = d.feed?.getState()?.markout;
           if (!mk) continue;

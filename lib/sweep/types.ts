@@ -263,6 +263,20 @@ export interface ConnectionState {
   messagesPerSec: number;
   restVia: "direct" | "proxy" | "unknown";
   error: string | null;
+  /**
+   * Messages received per event type, cumulative.
+   *
+   * A combined socket carries five streams and reports one health. Depth alone
+   * keeps `messagesPerSec` healthy and the book synced, so four consumers of a
+   * second stream can sit silent behind a green panel indefinitely — which is
+   * what happened: `aggTrade` reached no consumer, and mark-out, the flow read,
+   * the participant model, the shock tape and the large-trade tape were all
+   * dead while every surface said the feed was fine.
+   *
+   * Per type, because "the socket is up" and "this stream is arriving" are
+   * different facts and only the second one is actionable.
+   */
+  byEvent: Record<string, number>;
 }
 
 export interface Snapshot {

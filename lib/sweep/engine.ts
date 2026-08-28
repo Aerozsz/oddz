@@ -141,6 +141,7 @@ export class Engine {
     messagesPerSec: 0,
     restVia: "unknown",
     error: null,
+    byEvent: {},
   };
 
   private msgCount = 0;
@@ -409,6 +410,14 @@ export class Engine {
     this.connection.lastMessageAt = Date.now();
     const d = msg.data as Record<string, unknown>;
     const type = d.e as string;
+    /*
+     * Counted before the switch, so a message with an event name nothing
+     * handles is still visible. An unrecognised name and an absent stream are
+     * both "no trades arrived" from the consumer's side and have opposite
+     * fixes.
+     */
+    const bucket = typeof type === "string" && type ? type : `(no e: ${Object.keys(d).slice(0, 6).join(",")})`;
+    this.connection.byEvent[bucket] = (this.connection.byEvent[bucket] ?? 0) + 1;
 
     switch (type) {
       case "depthUpdate": {
@@ -713,6 +722,7 @@ export function emptySnapshot(): Snapshot {
       resyncs: 0,
       lastMessageAt: 0,
       messagesPerSec: 0,
+      byEvent: {},
       restVia: "unknown",
       error: null,
     },
