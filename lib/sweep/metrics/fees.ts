@@ -150,7 +150,19 @@ export function roundTripCost(
  * understates the cost of every proposal, which is the one error here with a
  * direct route to losing money.
  */
-export function canPostEntry(markout: { warm: boolean; toxicity: number }, threshold = 0.6): {
+/**
+ * Mark-out above which a resting entry is not worth posting.
+ *
+ * Exported because the analysis that asks why the gate never opens has to
+ * bucket against the same number the gate uses, and a copy of it in the summary
+ * would drift silently the first time this one moved.
+ */
+export const POSTABLE_TOXICITY = 0.6;
+
+export function canPostEntry(
+  markout: { warm: boolean; toxicity: number },
+  threshold = POSTABLE_TOXICITY,
+): {
   ok: boolean;
   reason: string;
 } {

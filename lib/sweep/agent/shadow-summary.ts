@@ -19,6 +19,14 @@
  * answer, and they are what a conditional split would read anyway.
  */
 
+/*
+ * Imported rather than copied. The analysis asking why the maker gate never
+ * opens has to bucket against the same threshold the gate applies, and a second
+ * copy of 0.6 here would drift the first time the real one moved. fees.ts has
+ * no imports of its own, so this stays cheap enough to travel.
+ */
+import { POSTABLE_TOXICITY } from "../metrics/fees";
+
 export interface ShadowRowLike {
   at: number;
   side: "long" | "short";
@@ -35,6 +43,8 @@ export interface ShadowRowLike {
     targetDistPct?: number | null;
     biasComposite?: number | null;
     biasFactors?: Record<string, number> | null;
+    markoutWarm?: boolean;
+    markoutToxicity?: number | null;
   } | null;
 }
 
@@ -214,6 +224,43 @@ export interface ShadowSummary {
    * zone and no trade followed, so a factor is not scored only on the occasions
    * it happened to win the argument.
    */
+  /**
+   * Why the entry has never once rested on the book.
+   *
+   * Zero maker fills in 23,876 decisions, against a round trip where the maker
+   * path is worth about $4.87 of $7.60. That has been carried as "the largest
+   * unexplored lever" for weeks, which quietly assumes the gate is opening and
+   * the fills are not happening. It has never been checked which.
+   *
+   * There are three different situations behind one count of zero, and they
+   * point in opposite directions:
+   *
+   *  - mark-out never warms, so `canPostEntry` refuses on its first line and
+   *    the toxicity test is never reached — a warm-up defect, and this codebase
+   *    has produced several;
+   *  - mark-out warms and the flow really is toxic — a market answer, and the
+   *    lever does not exist;
+   *  - the gate opens and something downstream prices every entry as a taker
+   *    anyway — a plumbing defect worth finding.
+   *
+   * All three are readable from rows already written, because the mark-out
+   * reading was captured at decision time all along.
+   */
+  makerPath: {
+    /** How entries were actually priced, from the rows. */
+    byEntryStyle: Record<string, number>;
+    /** Rows carrying a mark-out reading at all. */
+    withMarkout: number;
+    warm: number;
+    cold: number;
+    /** Of the warm ones, how many sat under the threshold the gate uses. */
+    postableWhenWarm: number;
+    toxicityThreshold: number;
+    /** Mean over warm rows, so "just over the line" and "nowhere near" differ. */
+    meanToxicityWhenWarm: number;
+    /** Named when the count of zero has a cause rather than a meaning. */
+    note?: string;
+  };
   biasBalance: {
     long: number;
     short: number;
@@ -401,9 +448,44 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
     meanByFactor[name] = { mean: acc.sum / acc.n, n: acc.n };
   }
 
+  /*
+   * The maker gate, decomposed into the three things a zero can mean.
+   */
+  const byEntryStyle: Record<string, number> = {};
+  for (const r of rows) {
+    const k = r.style?.entry ?? "unrecorded";
+    byEntryStyle[k] = (byEntryStyle[k] ?? 0) + 1;
+  }
+  const withMarkout = rows.filter((r) => typeof r.conditions?.markoutWarm === "boolean").length;
+  const warmRows = rows.filter((r) => r.conditions?.markoutWarm === true);
+  const toxicities = warmRows
+    .map((r) => r.conditions?.markoutToxicity)
+    .filter((x): x is number => typeof x === "number");
+  const postableWhenWarm = toxicities.filter((x) => x < POSTABLE_TOXICITY).length;
+  const makerNote =
+    withMarkout === 0
+      ? "no row carries a mark-out reading — the gate cannot be diagnosed from this file, and this is missing data rather than a toxic market"
+      : warmRows.length === 0
+        ? "mark-out never warmed on any decision, so the gate refused on its first line and the toxicity test was never reached — this is a warm-up defect, not a market answer"
+        : postableWhenWarm > 0 && (byEntryStyle.maker ?? 0) === 0
+          ? `the gate opened on ${postableWhenWarm} of ${warmRows.length} warm decisions and not one entry was priced as a maker — the refusal is downstream of canPostEntry`
+          : undefined;
+
   return {
     rows: rows.length,
     withConditions,
+    makerPath: {
+      byEntryStyle,
+      withMarkout,
+      warm: warmRows.length,
+      cold: withMarkout - warmRows.length,
+      postableWhenWarm,
+      toxicityThreshold: POSTABLE_TOXICITY,
+      meanToxicityWhenWarm: toxicities.length
+        ? toxicities.reduce((a, b) => a + b, 0) / toxicities.length
+        : 0,
+      ...(makerNote ? { note: makerNote } : {}),
+    },
     biasBalance: {
       long: rows.filter((r) => r.side === "long").length,
       short: rows.filter((r) => r.side === "short").length,

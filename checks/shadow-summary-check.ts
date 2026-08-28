@@ -449,3 +449,86 @@ if (failures) {
   process.exit(1);
 }
 console.log("\nall good — bias balance");
+
+/* ------------------------------- three different things behind one zero */
+
+/**
+ * "Zero maker fills" has been carried as a finding for weeks.
+ *
+ * It was never checked which of three situations produced it, and they point in
+ * opposite directions: a mark-out that never warms is a warm-up defect, a warm
+ * mark-out over the threshold is a real market answer that kills the lever, and
+ * an open gate with every entry still priced as a taker is plumbing. The count
+ * is identical in all three cases.
+ */
+function makerGateSeparatesDefectFromAnswer() {
+  const dec = (over: Partial<ShadowRowLike["conditions"]>, entry = "taker") => ({
+    ...row(0.9, 0.1),
+    style: { entry },
+    conditions: { lwiAdj: 0.9, ...over },
+  }) as ShadowRowLike;
+
+  // Never warmed: the gate refused on its first line and never saw a toxicity.
+  const cold = summariseShadow(
+    Array.from({ length: 500 }, () => dec({ markoutWarm: false, markoutToxicity: null })),
+  );
+  ok("a cold mark-out is counted as cold", cold.makerPath.cold === 500, String(cold.makerPath.cold));
+  ok("and none of it is called warm", cold.makerPath.warm === 0, String(cold.makerPath.warm));
+  ok("and it is named as a defect rather than a market answer",
+    /warm-up defect/.test(cold.makerPath.note ?? ""), cold.makerPath.note ?? "(none)");
+
+  // Warm and genuinely toxic: the lever does not exist, and that is a result.
+  const toxic = summariseShadow(
+    Array.from({ length: 500 }, () => dec({ markoutWarm: true, markoutToxicity: 0.9 })),
+  );
+  ok("warm rows are counted", toxic.makerPath.warm === 500, String(toxic.makerPath.warm));
+  ok("none of them clears the threshold", toxic.makerPath.postableWhenWarm === 0,
+    String(toxic.makerPath.postableWhenWarm));
+  ok("and the distance from the line is reported, not just the verdict",
+    Math.abs(toxic.makerPath.meanToxicityWhenWarm - 0.9) < 1e-9,
+    String(toxic.makerPath.meanToxicityWhenWarm));
+  ok("a genuinely toxic market gets no defect note", toxic.makerPath.note === undefined,
+    toxic.makerPath.note ?? "(none)");
+
+  // Gate open, still no maker fill: the refusal is somewhere downstream.
+  const plumbing = summariseShadow(
+    Array.from({ length: 500 }, () => dec({ markoutWarm: true, markoutToxicity: 0.1 })),
+  );
+  ok("the gate is seen to have opened", plumbing.makerPath.postableWhenWarm === 500,
+    String(plumbing.makerPath.postableWhenWarm));
+  ok("and the contradiction with the fills is named",
+    /downstream of canPostEntry/.test(plumbing.makerPath.note ?? ""),
+    plumbing.makerPath.note ?? "(none)");
+  ok("entry styles are counted from the rows",
+    plumbing.makerPath.byEntryStyle.taker === 500,
+    JSON.stringify(plumbing.makerPath.byEntryStyle));
+
+  // With maker fills present the contradiction is gone.
+  const filling = summariseShadow([
+    ...Array.from({ length: 400 }, () => dec({ markoutWarm: true, markoutToxicity: 0.1 }, "maker")),
+    ...Array.from({ length: 100 }, () => dec({ markoutWarm: true, markoutToxicity: 0.9 })),
+  ]);
+  ok("maker entries are counted when they happen",
+    filling.makerPath.byEntryStyle.maker === 400, JSON.stringify(filling.makerPath.byEntryStyle));
+  ok("and no contradiction is claimed", filling.makerPath.note === undefined,
+    filling.makerPath.note ?? "(none)");
+
+  // No reading at all: missing data, which is not a toxic market.
+  const blind = summariseShadow(Array.from({ length: 300 }, () => row(0.9, 0.1)));
+  ok("rows with no mark-out reading are not counted as warm or cold",
+    blind.makerPath.withMarkout === 0 && blind.makerPath.warm === 0 && blind.makerPath.cold === 0,
+    JSON.stringify(blind.makerPath));
+  ok("and the absence is named as absence",
+    /missing data rather than a toxic market/.test(blind.makerPath.note ?? ""),
+    blind.makerPath.note ?? "(none)");
+
+  ok("the threshold is reported alongside the counts it produced",
+    plumbing.makerPath.toxicityThreshold === 0.6, String(plumbing.makerPath.toxicityThreshold));
+}
+
+makerGateSeparatesDefectFromAnswer();
+if (failures) {
+  console.error(`\n${failures} failure(s) in the maker gate`);
+  process.exit(1);
+}
+console.log("\nall good — maker gate");
