@@ -55,7 +55,7 @@ export const SETTLED: Verdict[] = [
   },
   {
     id: "dead-tape",
-    status: "open",
+    status: "testing",
     claim:
       "The aggTrade stream reaches no consumer, so 45% of the directional read has never fired and the maker path was never gated.",
     evidence:
@@ -71,7 +71,16 @@ export const SETTLED: Verdict[] = [
       "factors, so it is not shrunk toward zero — but every side this project has ever called was decided " +
       "without 0.45 of the intended weight, and the 2.20:1 long skew has to be re-examined against that. " +
       "Does not overturn the 513,000-sample historical result, which computed its own flow features from the " +
-      "archive; it does mean the 23,880 live shadow decisions were taken by a crippled version of the read.",
+      "archive; it does mean the 23,880 live shadow decisions were taken by a crippled version of the read. " +
+      "FIXED 2026-08-28 by polling the tape over REST, the way klines already came — which is exactly why " +
+      "volatility survived a dead kline stream and the tape did not. Mark-out is warm for the first time in " +
+      "this project (309 horizons resolved). Not a fix to the socket: five separate connections to fstream " +
+      "with the subscription acknowledged on all of them and one delivering is not something this process can " +
+      "repair, and the per-stream rescue sockets all reported open and silent. The tape is sampled rather " +
+      "than complete — a four-second poll cannot resolve the one-second mark-out horizon precisely, though " +
+      "the five-second one the toxicity read uses is fine — and connection.tapeVia reports which path is " +
+      "live so nobody reads a sampled bucket as if it came off the wire. Every conclusion drawn from the " +
+      "24,061 existing shadow rows describes the crippled version and should be re-derived, not reused.",
   },
   {
     id: "cost-reduction",
