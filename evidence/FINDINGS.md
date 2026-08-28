@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-08-28T03:56:23.163Z by the research loop. Do not edit — it is
+Generated 2026-08-28T04:10:57.098Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -21,6 +21,8 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ## Open
 
+- **dead-tape** — OPEN. The aggTrade stream reaches no consumer, so 45% of the directional read has never fired and the maker path was never gated.
+  Confirmed by two independent counters on the live production feed after 241 seconds of healthy uptime on BTCUSDT: the mark-out tracker reports tradesSeen 0, and state.flow reads {buy: 0, sell: 0}. Both are written inside the same case "aggTrade" block, so the block does not execute. Depth is fine — the book syncs and the feed check reads ok — which is why this survived weeks of a health panel that was green. What it silently disables: mark-out entirely, and with it canPostEntry, which refuses on its first line when mark-out is cold and therefore never once consulted the toxicity threshold; the bias factor 'who has been right' (weight 0.25), which the module calls the only input scored against realised outcomes rather than against the state of the book; the bias factor 'aggressive flow' (weight 0.20); the participant model; the shock tape; and the large-trade tape. The composite renormalises over present factors, so it is not shrunk toward zero — but every side this project has ever called was decided without 0.45 of the intended weight, and the 2.20:1 long skew has to be re-examined against that. Does not overturn the 513,000-sample historical result, which computed its own flow features from the archive; it does mean the 23,880 live shadow decisions were taken by a crippled version of the read.
 - **magnitude** — OPEN. Direction is unpredictable but magnitude is not, which is a market-making mandate.
   volatility's top decile has a 49.0% chance of a favourable excursion over 50bp against 2.6% in the bottom — an 18.8x lift on 51,000 samples per bucket. Symmetric direction with predictable step size is the shape of a spread-earning strategy rather than a directional one. (n=513,000)
 - **maker-path** — OPEN. Resting the entry earns the spread instead of paying it, worth about 4.87 dollars a round trip.
