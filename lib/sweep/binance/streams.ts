@@ -59,6 +59,16 @@ export class StreamClient {
   /** Per-stream sockets opened to rescue names the combined socket never sent. */
   private fallbacks = new Map<string, WebSocket>();
   private rescueTimer: ReturnType<typeof setTimeout> | null = null;
+  /**
+   * What each rescue socket did, kept because its failure is silent otherwise.
+   *
+   * A fallback that never connects and a fallback that connects and receives
+   * nothing are the same zero in the frame counts, and they have completely
+   * different causes — the first says a second socket to this host cannot be
+   * opened at all, which is a local limit, and the second says the exchange is
+   * accepting the subscription and sending nothing, which is not.
+   */
+  private fallbackState = new Map<string, string>();
 
   private readonly streams: string[];
 
@@ -151,6 +161,8 @@ export class StreamClient {
       return;
     }
     this.fallbacks.set(name, ws);
+    this.fallbackState.set(name, "opening");
+    ws.onopen = () => this.fallbackState.set(name, "open");
     ws.onmessage = (ev) => {
       this.lastMessageAt = Date.now();
       try {
@@ -167,14 +179,23 @@ export class StreamClient {
         /* as above: a malformed frame is not worth tearing anything down for */
       }
     };
-    ws.onclose = () => {
+    ws.onclose = (ev) => {
       if (this.fallbacks.get(name) !== ws) return;
+      this.fallbackState.set(
+        name,
+        `closed(${ev.code}${ev.reason ? ` ${ev.reason}` : ""}) after ${this.seen.get(name) ?? 0}`,
+      );
       this.fallbacks.delete(name);
       // Reopened on the same terms as the main socket: only while running, and
       // only for a stream that is still silent.
       if (!this.stopped) setTimeout(() => { if (!this.stopped) this.rescueSilentStreams(); }, 2_000);
     };
-    ws.onerror = () => this.handlers.onError(`fallback socket error on ${name}`);
+    ws.onerror = () => this.fallbackState.set(name, "error");
+  }
+
+  /** Per-stream rescue socket states, for reporting. */
+  fallbackStates(): Record<string, string> {
+    return Object.fromEntries(this.fallbackState);
   }
 
   stop() {

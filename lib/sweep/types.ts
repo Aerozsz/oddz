@@ -298,6 +298,14 @@ export interface ConnectionState {
    * tells them apart.
    */
   framesByStream: Record<string, number>;
+  /**
+   * State of any per-stream rescue socket opened for a silent subscription.
+   *
+   * Empty when the combined socket delivered everything. A socket that never
+   * connects and one that connects and receives nothing are the same zero in
+   * the frame counts and have opposite causes, so the state is kept separately.
+   */
+  fallbackStates: Record<string, string>;
 }
 
 export interface Snapshot {

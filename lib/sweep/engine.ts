@@ -146,6 +146,7 @@ export class Engine {
     controlFrames: 0,
     subscribed: [],
     framesByStream: {},
+    fallbackStates: {},
   };
 
   private msgCount = 0;
@@ -202,7 +203,11 @@ export class Engine {
       setInterval(() => {
         const stream = this.stream;
         if (!stream) return;
-        this.connection = { ...this.connection, framesByStream: stream.framesByStream() };
+        this.connection = {
+          ...this.connection,
+          framesByStream: stream.framesByStream(),
+          fallbackStates: stream.fallbackStates(),
+        };
       }, 10_000),
     );
     this.stream.start();
@@ -749,6 +754,7 @@ export function emptySnapshot(): Snapshot {
       controlFrames: 0,
       subscribed: [],
       framesByStream: {},
+      fallbackStates: {},
       restVia: "unknown",
       error: null,
     },

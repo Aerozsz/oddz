@@ -4739,7 +4739,11 @@ function diagnose() {
               // first time the exchange's own account of the problem is kept.
               (conn.controlFrames > 0
                 ? ` | ${conn.controlFrames} control frame(s), last: ${conn.lastControlFrame}`
-                : " | no control frames — the exchange said nothing about the subscription"),
+                : " | no control frames — the exchange said nothing about the subscription") +
+              // A rescue socket that never connects and one that connects and
+              // hears nothing are the same zero above, with opposite causes.
+              ` | rescue: ${Object.entries(conn.fallbackStates ?? {}).map(([k, v]) => `${k}:${v}`).join(" ") || "none opened"}` +
+              (conn.error ? ` | socket error: ${conn.error}` : ""),
             missing.length === 0 ? undefined
               : `The socket is up and the book may be fine; ${missing.join(", ")} is subscribed and ` +
                 "delivering nothing, which silently disables every consumer of it. forceOrder is excluded " +
