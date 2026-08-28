@@ -153,6 +153,21 @@ export interface EntryConditions {
   utcHour: number;
 
   biasConviction: number | null;
+  /**
+   * The signed composite that chose the side, and each factor behind it.
+   *
+   * `biasConviction` is a magnitude: it says how sure, never of what. Both live
+   * and shadow rows carried it and neither could answer why the book came out
+   * 3:1 long, because the sign and the decomposition were discarded at the one
+   * point they existed.
+   *
+   * The factor map is keyed by name, so a run that adds or drops a factor stays
+   * readable rather than shifting a positional array. Null when the caller did
+   * not supply the read, which is a different statement from a composite of
+   * zero and has to stay distinguishable from it.
+   */
+  biasComposite: number | null;
+  biasFactors: Record<string, number> | null;
   /** Which signal kind opened it. */
   signalKind: string | null;
   /** Size retained after the condition derates, 0..1. */
@@ -250,6 +265,12 @@ export function captureConditions(
   extra: {
     targetPrice: number | null;
     biasConviction?: number | null;
+    /** The whole directional read, when the caller has it. */
+    bias?: {
+      composite: number;
+      conviction: number;
+      factors: { name: string; score: number; weight: number }[];
+    } | null;
     signalKind?: string | null;
     sizeRetained?: number | null;
     /**
@@ -303,7 +324,11 @@ export function captureConditions(
     cashOpen: state.session.cashOpen,
     utcHour: new Date().getUTCHours(),
 
-    biasConviction: extra.biasConviction ?? null,
+    biasConviction: extra.biasConviction ?? extra.bias?.conviction ?? null,
+    biasComposite: extra.bias?.composite ?? null,
+    biasFactors: extra.bias
+      ? Object.fromEntries(extra.bias.factors.map((f) => [f.name, f.score]))
+      : null,
     signalKind: extra.signalKind ?? null,
     sizeRetained: extra.sizeRetained ?? null,
 

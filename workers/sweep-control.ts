@@ -2770,6 +2770,9 @@ function armDesk(desk: Desk) {
         signalKind: signal.kind,
         reason: `${signal.detail} | ${bias.summary}`,
         confidence: bias.conviction,
+        // So a live row and a shadow row carry the same decomposition of the
+        // one reading that picks the side.
+        bias: { composite: bias.composite, conviction: bias.conviction, factors: bias.factors },
         reference: {
           mid: proposal.entryPrice,
           trigger: proposal.targetPrice,

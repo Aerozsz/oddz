@@ -253,6 +253,25 @@ export interface TradeIntent {
   reason: string;
   /** 0..1, the strategy's own confidence. Not a probability. */
   confidence: number;
+  /**
+   * The read that chose the side, carried rather than collapsed to a letter.
+   *
+   * The one input that decides long or short was the one input never recorded.
+   * Shadow rows came out 3:1 long over 13,718 decisions — a microstructure
+   * signal meant to be symmetric taking three longs for every short — and the
+   * question "which factor is off-centre" was unanswerable, because by the time
+   * a row was written the composite had already been reduced to "buy".
+   *
+   * Averaged over thousands of decisions each factor should sit near zero; the
+   * one that does not is the answer. Structurally shaped like the bias module's
+   * output rather than importing it, because that module imports this one.
+   */
+  bias?: {
+    /** Signed composite, −1 down to +1 up. */
+    composite: number;
+    conviction: number;
+    factors: { name: string; score: number; weight: number }[];
+  } | null;
   reference: {
     mid: number;
     /** Level the thesis is built on, when there is one. */

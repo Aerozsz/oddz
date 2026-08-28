@@ -30,7 +30,12 @@ export interface ShadowRowLike {
   resolved?: string;
   style?: { entry?: string };
   outcomes: Record<string, { pct: number | null; netUsd: number | null }>;
-  conditions?: { lwiAdj?: number | null; targetDistPct?: number | null } | null;
+  conditions?: {
+    lwiAdj?: number | null;
+    targetDistPct?: number | null;
+    biasComposite?: number | null;
+    biasFactors?: Record<string, number> | null;
+  } | null;
 }
 
 export interface Bucket {
@@ -190,6 +195,35 @@ export interface ShadowSummary {
    * drift there to mistake for a signal. An effect visible at t60 has nowhere
    * to hide.
    */
+  /**
+   * Why the book is one-sided, factor by factor.
+   *
+   * A microstructure read of which side of the book has thinned has no business
+   * being 3:1 long. Something upstream leans, and until now the composite was
+   * collapsed to "buy" before anything recorded it, so the skew was visible and
+   * its cause was not.
+   *
+   * Averaged over thousands of decisions, a factor that measures an asymmetry
+   * between two sides of a book should sit near zero. Any factor whose mean is
+   * far from zero is either reading a real persistent asymmetry — which would
+   * be a finding — or is signed wrongly, which would be a defect. Both matter
+   * and neither is visible from the side counts alone.
+   *
+   * `meanAll` is the honest denominator: it averages over every decision that
+   * carried a reading, including the ones where the composite fell in the dead
+   * zone and no trade followed, so a factor is not scored only on the occasions
+   * it happened to win the argument.
+   */
+  biasBalance: {
+    long: number;
+    short: number;
+    /** Rows carrying the decomposition at all. Absence is not balance. */
+    withFactors: number;
+    /** Mean composite over rows that carry one; zero would be even-handed. */
+    meanComposite: number;
+    /** factor name -> mean score across every decision that recorded it. */
+    meanByFactor: Record<string, { mean: number; n: number; weight?: number }>;
+  };
   depthContrast: {
     /** horizon -> "long" | "short" | "both" -> thin-minus-thick. */
     byHorizon: Record<string, Record<string, Contrast>>;
@@ -333,9 +367,50 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
     contrastByHorizon[h] = cells;
   }
 
+  /*
+   * The side counts, and the decomposition that produced them.
+   *
+   * Kept in one place because the counts without the factors are what the
+   * project already had: a known 3:1 skew with no way to ask why.
+   */
+  const factorSums = new Map<string, { sum: number; n: number }>();
+  let compositeSum = 0;
+  let withFactors = 0;
+  for (const r of rows) {
+    const f = r.conditions?.biasFactors;
+    if (!f) continue;
+    withFactors++;
+    compositeSum += r.conditions?.biasComposite ?? 0;
+    for (const [name, score] of Object.entries(f)) {
+      if (typeof score !== "number" || !Number.isFinite(score)) continue;
+      const acc = factorSums.get(name) ?? { sum: 0, n: 0 };
+      acc.sum += score;
+      acc.n++;
+      factorSums.set(name, acc);
+    }
+  }
+  const meanByFactor: Record<string, { mean: number; n: number }> = {};
+  /*
+   * Sorted by how far from zero, because that ordering is the finding. The
+   * factor at the top of this list is the one making the book one-sided, and
+   * putting it there means a reader does not have to scan a map to find it.
+   */
+  for (const [name, acc] of [...factorSums.entries()].sort(
+    (a, b) => Math.abs(b[1].sum / b[1].n) - Math.abs(a[1].sum / a[1].n),
+  )) {
+    meanByFactor[name] = { mean: acc.sum / acc.n, n: acc.n };
+  }
+
   return {
     rows: rows.length,
     withConditions,
+    biasBalance: {
+      long: rows.filter((r) => r.side === "long").length,
+      short: rows.filter((r) => r.side === "short").length,
+      withFactors,
+      meanComposite: withFactors > 0 ? compositeSum / withFactors : 0,
+      meanByFactor,
+    },
     horizons,
     overall,
     byEntryDepth: withConditions > 0 ? byEntryDepth : [],

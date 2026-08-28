@@ -193,7 +193,7 @@ export function createShadowAdapter(options: ShadowOptions): ExecutionAdapter & 
         markoutToxicity: state.markout.warm ? state.markout.toxicity : null,
         markoutInformed: state.markout.warm ? state.markout.informed : null,
         intraday: state.session.intraday,
-        biasConviction: null,
+        biasConviction: intent.bias?.conviction ?? null,
         /*
          * The whole entry reading, captured with the function the live path uses.
          *
@@ -212,6 +212,10 @@ export function createShadowAdapter(options: ShadowOptions): ExecutionAdapter & 
           targetPrice: proposal.targetPrice,
           signalKind: intent.signalKind,
           sizeRetained: proposal.sizeRetained,
+          // The read that chose the side. Without it a row records what was
+          // decided and nothing about why, which is how 13,718 decisions came
+          // out 3:1 long with no way to ask which factor leaned.
+          bias: intent.bias ?? null,
         }),
         outcomes: {},
       });

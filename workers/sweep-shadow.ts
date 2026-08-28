@@ -224,6 +224,9 @@ function startDesk(symbol: string): Desk {
         signalKind: signal.kind,
         reason: `${signal.detail} · ${bias.summary}`,
         confidence: bias.conviction,
+        // Carried whole, not reduced to the letter it produced. The side is the
+        // only thing this read decides and it was the only thing not recorded.
+        bias: { composite: bias.composite, conviction: bias.conviction, factors: bias.factors },
         reference: { mid: state.mid ?? 0, trigger: signal.price, invalidation: null },
       };
     },

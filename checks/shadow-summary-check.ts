@@ -347,3 +347,105 @@ if (failures) {
   process.exit(1);
 }
 console.log("\nall good — depth contrast");
+
+/* ---------------------------------------- why the book comes out one-sided */
+
+/**
+ * The skew was known for weeks; its cause was unrecordable.
+ *
+ * 13,718 shadow decisions came out 3:1 long. The read that picks the side is a
+ * weighted sum of factors, each measuring an asymmetry between two sides of a
+ * book, and every one of them should average near zero over thousands of
+ * decisions. The composite was collapsed to "buy" before anything was written
+ * down, so the skew was visible in the counts and invisible in its causes —
+ * and `biasConviction`, the one field that might have helped, was a magnitude
+ * with the sign thrown away and was hardcoded to null on the shadow row
+ * regardless.
+ */
+function biasBalanceNamesTheLeaningFactor() {
+  const decision = (side: "long" | "short", factors: Record<string, number>, composite: number) => ({
+    ...row(0.9, 0.1),
+    side,
+    conditions: { lwiAdj: 0.9, targetDistPct: 1, biasComposite: composite, biasFactors: factors },
+  });
+
+  /*
+   * One factor leans hard, the rest are even-handed. That is the shape the real
+   * defect would take, and the summary has to point at the culprit rather than
+   * merely confirming the book is long.
+   */
+  const rows = [
+    ...Array.from({ length: 150 }, (_, i) =>
+      decision("long", { "aggressive flow": 0.6, "cost to trigger": i % 2 ? 0.4 : -0.4, "which side thinned": 0 }, 0.3)),
+    ...Array.from({ length: 50 }, (_, i) =>
+      decision("short", { "aggressive flow": 0.6, "cost to trigger": i % 2 ? 0.4 : -0.4, "which side thinned": 0 }, -0.3)),
+  ];
+  const s = summariseShadow(rows);
+  const b = s.biasBalance;
+
+  ok("the skew itself is counted", b.long === 150 && b.short === 50, JSON.stringify({ l: b.long, s: b.short }));
+  ok("and the rows that can explain it are counted separately",
+    b.withFactors === 200, String(b.withFactors));
+
+  const names = Object.keys(b.meanByFactor);
+  ok("the leaning factor is named first", names[0] === "aggressive flow", names.join(" > "));
+  ok("with the size of the lean", Math.abs(b.meanByFactor["aggressive flow"].mean - 0.6) < 1e-9,
+    String(b.meanByFactor["aggressive flow"].mean));
+  ok("an even-handed factor averages to nothing",
+    Math.abs(b.meanByFactor["cost to trigger"].mean) < 1e-9,
+    String(b.meanByFactor["cost to trigger"].mean));
+  ok("and every factor carries its own count, since factors come and go",
+    b.meanByFactor["which side thinned"].n === 200,
+    String(b.meanByFactor["which side thinned"].n));
+
+  /*
+   * The denominator that matters. A factor must be averaged over every decision
+   * that recorded it — including the ones that lost the argument — or it is
+   * scored only on the occasions it happened to win, which guarantees it looks
+   * decisive whether or not it is.
+   */
+  ok("the mean composite is reported so the lean has a magnitude",
+    Math.abs(b.meanComposite - 0.15) < 1e-9, String(b.meanComposite));
+}
+
+/**
+ * Absence of the decomposition is not balance.
+ *
+ * Every row written before this shipped has no factors on it. If those rows
+ * silently averaged to zero the summary would report a perfectly even-handed
+ * bias sitting underneath a 3:1 book — the same "no data rendered as no effect"
+ * that cost two days on the depth buckets.
+ */
+function missingFactorsAreNotEvenHanded() {
+  const s = summariseShadow([
+    ...Array.from({ length: 90 }, () => ({ ...row(0.9, 0.1), side: "long" as const })),
+    ...Array.from({ length: 10 }, () => ({ ...row(0.9, 0.1), side: "short" as const })),
+  ]);
+  ok("the skew is still counted from the rows themselves",
+    s.biasBalance.long === 90 && s.biasBalance.short === 10,
+    JSON.stringify(s.biasBalance));
+  ok("but no factor is invented", Object.keys(s.biasBalance.meanByFactor).length === 0,
+    JSON.stringify(s.biasBalance.meanByFactor));
+  ok("and the explainable count is zero, not the row count",
+    s.biasBalance.withFactors === 0, String(s.biasBalance.withFactors));
+
+  // A factor added midway through a run is counted over its own rows only.
+  const mixed = summariseShadow([
+    ...Array.from({ length: 40 }, () => ({ ...row(0.9, 0.1), side: "long" as const,
+      conditions: { lwiAdj: 0.9, biasComposite: 0.5, biasFactors: { early: 0.5 } } })),
+    ...Array.from({ length: 60 }, () => ({ ...row(0.9, 0.1), side: "long" as const,
+      conditions: { lwiAdj: 0.9, biasComposite: 0.5, biasFactors: { early: 0.5, late: -0.2 } } })),
+  ]);
+  ok("a factor present on only some rows is averaged over those rows",
+    mixed.biasBalance.meanByFactor.late.n === 60, String(mixed.biasBalance.meanByFactor.late.n));
+  ok("and one present throughout over all of them",
+    mixed.biasBalance.meanByFactor.early.n === 100, String(mixed.biasBalance.meanByFactor.early.n));
+}
+
+biasBalanceNamesTheLeaningFactor();
+missingFactorsAreNotEvenHanded();
+if (failures) {
+  console.error(`\n${failures} failure(s) in the bias balance`);
+  process.exit(1);
+}
+console.log("\nall good — bias balance");
