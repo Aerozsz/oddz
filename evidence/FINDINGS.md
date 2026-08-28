@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-08-28T03:41:21.116Z by the research loop. Do not edit — it is
+Generated 2026-08-28T03:48:24.754Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -10,6 +10,8 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 - **sweep-direction** — REJECTED. A thin book on the side price must travel through predicts the direction of the next move.
   513,000 one-minute samples over 365 days, 25 features, 5 horizons. 21 findings cleared a 3.40 sigma Bonferroni bar; none cleared the 7bp round trip. Largest decile spread anywhere 1.74bp. MFE is approximately -MAE in every bucket of every feature, so the walk is symmetric conditioned on anything measured. (n=513,000)
+- **depth-inverted** — REJECTED. The depth signal is real but backwards — thin books do worse, so the fix is free: same gate, opposite side.
+  Worth testing because the pooled fifteen-minute bands ran monotonically the wrong way and thinnest-minus-thickest was 9.2bp, wider than the 7bp round trip — the first thing in this project to clear it. It does not survive. Crossed against side at every horizon: t60 long +0.78 sigma and short +0.20, t300 long -0.84 and short +0.45, t900 long -3.14 and short -0.56, t1800 long -2.36 and short -1.58, t7200 long -0.28 and short -1.08. Absent at one and five minutes, where there is no drift to explain anything away; present only at fifteen and thirty, carried mostly by longs; gone again at two hours. A microstructure effect is strongest where the mechanism acts and decays with time — this is the opposite shape, and it is what noise looks like across fifteen cells. Even taking the best cell at face value it is 5.97bp, still under the round trip. The 9.2bp came from the extreme 532-row bucket, which is the widest and noisiest slice available. (n=23,876)
 - **sweep-live-shadow** — REJECTED. The same signal, measured on live decisions rather than history, does better.
   20,000+ shadow decisions on the real book with modelled fills — the optimistic case, no queue, no slippage. Negative at every horizon out to 15 minutes. Gross price contribution across 7,248 scored decisions was -$128 against $3,857 of fees: the loss is cost, not being wrong. (n=20,000)
 - **hold-longer** — REJECTED. The signal works but is cut too early; holding two hours turns the loss into a profit.
@@ -25,8 +27,8 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
   Never tested. The archive fetch takes --ticks and the research loop pulls a window each pass; no replay reads it. Everything measured so far has been on bars, testing a seconds-scale claim at minute resolution.
 - **carry** — TESTING. Funding pays the unpopular side, and that payment needs no view on direction.
   Scored on every research pass as of this build, bucketed by basis decile and oriented to the collector. Reports the price move, the carry and the sum separately, because the payment is small and certain while the move against it is large and uncertain.
-- **long-bias** — OPEN. The entry gate is 3.6:1 long-biased, which is a defect rather than a market fact.
-  8,396 longs against 2,343 shorts in the matched shadow set. A microstructure signal meant to be symmetric should not take four longs for every short, and this is what made the two-hour result look spectacular before the side split. (n=10,739)
+- **long-bias** — TESTING. The entry gate is 3.6:1 long-biased, which is a defect rather than a market fact.
+  8,396 longs against 2,343 shorts in the matched shadow set. A microstructure signal meant to be symmetric should not take four longs for every short, and this is what made the two-hour result look spectacular before the side split. It was undiagnosable by construction until now: the bias read returns a signed composite and its factors, the strategy collapsed it to buy or sell, and the shadow row set biasConviction to a hardcoded null — so the only input that picks the side was the only input never recorded. Intents now carry the decomposition and the summary averages each factor over every decision that recorded it, sorted by distance from zero. A factor comparing two sides of a book should average near zero over thousands of decisions; whichever does not is either reading a real persistent asymmetry or is signed wrong. Needs new rows — the answer arrives as biasBalance fills, not from the existing file. (n=10,739)
 
 ## Latest run
 
