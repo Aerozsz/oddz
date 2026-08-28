@@ -306,6 +306,17 @@ export interface ConnectionState {
    * the frame counts and have opposite causes, so the state is kept separately.
    */
   fallbackStates: Record<string, string>;
+  /**
+   * Where the trade tape is actually coming from.
+   *
+   * "socket" is the intended path. "rest" means the aggTrade stream delivered
+   * nothing and the tape is being polled instead — degraded but working, and it
+   * must be visible, because a silently polled tape resolving a one-second
+   * mark-out horizon two seconds late is a real measurement with a real error
+   * in it, and nobody should read those numbers without knowing.
+   */
+  tapeVia: "socket" | "rest" | "rest-failing" | "none";
+  tapePolledPrints: number;
 }
 
 export interface Snapshot {

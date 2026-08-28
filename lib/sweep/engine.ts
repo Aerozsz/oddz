@@ -11,6 +11,7 @@ import {
   fetchMeta,
   fetchOpenInterest,
   onRouteChange,
+  fetchAggTrades,
 } from "./binance/rest";
 import { StreamClient, type StreamMessage } from "./binance/streams";
 import { CONFIG, SYMBOL } from "./config";
@@ -147,6 +148,8 @@ export class Engine {
     subscribed: [],
     framesByStream: {},
     fallbackStates: {},
+    tapeVia: "none",
+    tapePolledPrints: 0,
   };
 
   private msgCount = 0;
@@ -159,6 +162,8 @@ export class Engine {
   private listeners = new Set<() => void>();
   private snapshot: Snapshot = emptySnapshot();
   private started = false;
+  /** When start() ran, so the tape poller can tell absent from not-yet. */
+  private startedAtMs = 0;
   private unsubRoute: (() => void) | null = null;
   private onVisibility: (() => void) | null = null;
 
@@ -167,6 +172,7 @@ export class Engine {
   start() {
     if (this.started) return;
     this.started = true;
+    this.startedAtMs = Date.now();
 
     this.unsubRoute = onRouteChange((r) => {
       this.connection = { ...this.connection, restVia: r };
@@ -199,6 +205,32 @@ export class Engine {
     // Refreshed on a timer rather than per frame: this is read by a diagnostic
     // once every couple of minutes and rebuilding the object on the hot path
     // would cost far more than the question is worth.
+    /*
+     * Poll the tape over REST when the socket does not deliver it.
+     *
+     * Against this account the aggTrade stream is silent — five separate
+     * sockets to fstream, the depth one carrying 124,362 frames while the four
+     * carrying aggTrade, forceOrder, markPrice and kline sat open and received
+     * nothing, with the subscription acknowledged. Nothing in this process can
+     * fix that, and without the tape mark-out never warms, which disables the
+     * maker path entirely and removes 0.45 of the weight from the directional
+     * read. Klines already come over REST for the same reason, which is why
+     * volatility survived and the tape did not.
+     *
+     * Armed only after ninety seconds of a genuinely silent stream: on a liquid
+     * contract aggTrade runs at hundreds a second, so nothing after ninety
+     * seconds is absent rather than quiet, and a working socket must never be
+     * shadowed by a poller writing the same prints twice. `fromId` continues
+     * from the last print seen, so the two can never overlap even if the stream
+     * recovers mid-poll — and if it does recover, the poll stops.
+     *
+     * Two seconds is a compromise: the shortest mark-out horizon is one second
+     * and a two-second poll cannot resolve it precisely, but the five-second
+     * horizon is the one the toxicity read actually uses, and a slightly noisy
+     * one-second bucket is worth having where the alternative is no tape.
+     */
+    this.timers.push(setInterval(() => void this.pollTapeIfSocketSilent(), 2_000));
+
     this.timers.push(
       setInterval(() => {
         const stream = this.stream;
@@ -432,6 +464,98 @@ export class Engine {
 
   /* ---------------------------------------------------------------- streams */
 
+  /**
+   * One print, from wherever it arrived.
+   *
+   * Factored out because the tape stopped arriving on the WebSocket and now has
+   * two sources: the aggTrade stream when it works, and a REST poll when it does
+   * not. Both must reach exactly the same consumers — a tape that feeds mark-out
+   * but not the participant model would be worse than no tape, because every
+   * reading downstream would silently describe a different market.
+   */
+  private lastAggId = 0;
+  private tapePollInFlight = false;
+  private tapePollFailures = 0;
+
+  private async pollTapeIfSocketSilent() {
+    const stream = this.stream;
+    if (!stream) return;
+    // A socket that is delivering must never be shadowed by a poller.
+    const viaSocket = stream.framesByStream()[`${this.symbol.toLowerCase()}@aggTrade`] ?? 0;
+    if (viaSocket > 0) return;
+    if (this.startedAtMs === 0 || Date.now() - this.startedAtMs < 90_000) return;
+    if (this.tapePollInFlight) return;
+    /*
+     * Back off rather than hammer. If the REST tape is failing too, the useful
+     * information is in the snapshot's error line, and retrying every two
+     * seconds against a shared rate-limit budget would cost the order path.
+     */
+    if (this.tapePollFailures > 5 && Date.now() % 60_000 > 2_000) return;
+    this.tapePollInFlight = true;
+    try {
+      const rows = await fetchAggTrades({
+        symbol: this.symbol,
+        ...(this.lastAggId > 0 ? { fromId: this.lastAggId + 1 } : { limit: 100 }),
+      });
+      this.tapePollFailures = 0;
+      for (const r of rows) {
+        if (r.id <= this.lastAggId) continue;
+        this.lastAggId = r.id;
+        this.ingestTrade({
+          t: r.t,
+          price: r.price,
+          qty: r.qty,
+          notional: r.price * r.qty,
+          buyerIsMaker: r.buyerIsMaker,
+        });
+      }
+      if (rows.length) {
+        this.connection = {
+          ...this.connection,
+          tapeVia: "rest",
+          tapePolledPrints: this.connection.tapePolledPrints + rows.length,
+        };
+      }
+    } catch (err) {
+      this.tapePollFailures++;
+      this.connection = {
+        ...this.connection,
+        tapeVia: "rest-failing",
+        error: `tape poll: ${err instanceof Error ? err.message : String(err)}`,
+      };
+    } finally {
+      this.tapePollInFlight = false;
+    }
+  }
+
+  private ingestTrade(trade: Trade) {
+    const { price, notional } = trade;
+    if (!Number.isFinite(price) || price <= 0) return;
+    this.last = price;
+    this.tracker.addTrade(notional, trade.buyerIsMaker);
+    /*
+     * Told what a round number looks like here before it is asked.
+     *
+     * The roundness measures are relative to the contract — a $100 price is
+     * round for Bitcoin and absurd for a $30 stock — and without this the
+     * tracker falls back to equity-perp constants that invert on a crypto
+     * perp rather than merely degrading. Cheap enough for the hot path: it
+     * recomputes only when the price has moved an order of magnitude.
+     */
+    if (this.meta && (this.scaleAt === 0 || price / this.scaleAt > 3 || this.scaleAt / price > 3)) {
+      this.participants.setScale(this.meta.tickSize, this.meta.stepSize, price);
+      this.scaleAt = price;
+    }
+    const now = Date.now();
+    this.participants.onTrade(trade, now);
+    this.shock.onTrade(trade, now);
+    this.markout.onTrade(trade, now);
+    if (notional >= CONFIG.largeTradeNotional) {
+      this.largeTrades.unshift(trade);
+      if (this.largeTrades.length > 200) this.largeTrades.length = 200;
+    }
+  }
+
   private handle(msg: StreamMessage) {
     this.msgCount++;
     this.connection.lastMessageAt = Date.now();
@@ -475,38 +599,13 @@ export class Engine {
         break;
       }
       case "aggTrade": {
-        const price = Number(d.p);
-        const qty = Number(d.q);
-        const notional = price * qty;
-        const trade: Trade = {
+        this.ingestTrade({
           t: Number(d.T),
-          price,
-          qty,
-          notional,
+          price: Number(d.p),
+          qty: Number(d.q),
+          notional: Number(d.p) * Number(d.q),
           buyerIsMaker: Boolean(d.m),
-        };
-        this.last = price;
-        this.tracker.addTrade(notional, trade.buyerIsMaker);
-        /*
-         * Told what a round number looks like here before it is asked.
-         *
-         * The roundness measures are relative to the contract — a $100 price is
-         * round for Bitcoin and absurd for a $30 stock — and without this the
-         * tracker falls back to equity-perp constants that invert on a crypto
-         * perp rather than merely degrading. Cheap enough for the hot path: it
-         * recomputes only when the price has moved an order of magnitude.
-         */
-        if (this.meta && (this.scaleAt === 0 || price / this.scaleAt > 3 || this.scaleAt / price > 3)) {
-          this.participants.setScale(this.meta.tickSize, this.meta.stepSize, price);
-          this.scaleAt = price;
-        }
-        this.participants.onTrade(trade, Date.now());
-        this.shock.onTrade(trade, Date.now());
-        this.markout.onTrade(trade, Date.now());
-        if (notional >= CONFIG.largeTradeNotional) {
-          this.largeTrades.unshift(trade);
-          if (this.largeTrades.length > 200) this.largeTrades.length = 200;
-        }
+        });
         break;
       }
       case "forceOrder": {
@@ -755,6 +854,8 @@ export function emptySnapshot(): Snapshot {
       subscribed: [],
       framesByStream: {},
       fallbackStates: {},
+      tapeVia: "none",
+      tapePolledPrints: 0,
       restVia: "unknown",
       error: null,
     },

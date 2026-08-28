@@ -4743,6 +4743,7 @@ function diagnose() {
               // A rescue socket that never connects and one that connects and
               // hears nothing are the same zero above, with opposite causes.
               ` | rescue: ${Object.entries(conn.fallbackStates ?? {}).map(([k, v]) => `${k}:${v}`).join(" ") || "none opened"}` +
+              ` | tape via ${conn.tapeVia}${conn.tapePolledPrints ? ` (${conn.tapePolledPrints} prints polled)` : ""}` +
               (conn.error ? ` | socket error: ${conn.error}` : ""),
             missing.length === 0 ? undefined
               : `The socket is up and the book may be fine; ${missing.join(", ")} is subscribed and ` +

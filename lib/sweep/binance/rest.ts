@@ -225,6 +225,42 @@ export async function fetchKlines(interval: string, limit: number, symbol?: stri
   }));
 }
 
+/**
+ * Recent aggregated prints, over REST.
+ *
+ * The tape normally arrives on the WebSocket, and against this account it does
+ * not: five separate sockets to fstream, the one carrying depth delivering
+ * 124,362 frames while the four carrying aggTrade, forceOrder, markPrice and
+ * kline sat open and silent, with the subscription acknowledged. That is not
+ * something the client can fix, and klines already come this way for the same
+ * reason — which is why volatility survived a dead kline stream and the trade
+ * tape did not.
+ *
+ * `fromId` continues from the last print already seen, so a poll returns only
+ * what is new and prints are neither duplicated nor skipped. Without it the
+ * endpoint returns the most recent window, which double-counts every overlap.
+ */
+export async function fetchAggTrades(
+  opts: { fromId?: number; limit?: number; symbol?: string } = {},
+): Promise<{ id: number; price: number; qty: number; t: number; buyerIsMaker: boolean }[]> {
+  const params: Record<string, string | number> = {
+    symbol: sym(opts.symbol),
+    limit: opts.limit ?? 1000,
+  };
+  if (typeof opts.fromId === "number") params.fromId = opts.fromId;
+  const rows = await api<{ a: number; p: string; q: string; T: number; m: boolean }[]>(
+    "/fapi/v1/aggTrades",
+    params,
+  );
+  return rows.map((r) => ({
+    id: r.a,
+    price: Number(r.p),
+    qty: Number(r.q),
+    t: r.T,
+    buyerIsMaker: r.m,
+  }));
+}
+
 export async function fetchOpenInterest(symbol?: string): Promise<{ qty: number; t: number }> {
   const d = await api<{ openInterest: string; time: number }>("/fapi/v1/openInterest", {
     symbol: sym(symbol),
