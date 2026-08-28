@@ -154,11 +154,14 @@ export const SETTLED: Verdict[] = [
   {
     id: "long-bias",
     status: "testing",
-    claim: "The entry gate is 3.6:1 long-biased, which is a defect rather than a market fact.",
+    claim: "The entry gate is long-biased, which is a defect rather than a market fact.",
     evidence:
-      "8,396 longs against 2,343 shorts in the matched shadow set. A microstructure signal meant to be " +
-      "symmetric should not take four longs for every short, and this is what made the two-hour result " +
-      "look spectacular before the side split. It was undiagnosable by construction until now: the bias " +
+      "16,425 longs against 7,455 shorts across the whole file — 2.20:1. The 3.6:1 figure repeated until now " +
+      "was the matched two-hour subset (8,396 against 2,343), which is an older and smaller sample; both are " +
+      "real and they are not the same number, and the larger one should not be the one that gets quoted. " +
+      "A microstructure signal meant to be symmetric should not take two longs for every short, and this skew " +
+      "is what made the two-hour result look spectacular before the side split. It was undiagnosable by " +
+      "construction until now: the bias " +
       "read returns a signed composite and its factors, the strategy collapsed it to buy or sell, and the " +
       "shadow row set biasConviction to a hardcoded null — so the only input that picks the side was the " +
       "only input never recorded. Intents now carry the decomposition and the summary averages each factor " +
