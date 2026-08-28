@@ -54,6 +54,24 @@ export const SETTLED: Verdict[] = [
     n: 513_000,
   },
   {
+    id: "cost-reduction",
+    status: "rejected",
+    claim:
+      "The loss is cost, so cutting the cost fixes it — resting the entry saves about $4.87 of a $7.60 round trip.",
+    evidence:
+      "The first half is true and the conclusion does not follow. Across 23,820 scored decisions the round trip " +
+      "costs $0.5826 each and the gross price contribution is $0.0223 each: fees are 26x gross, and removing " +
+      "them entirely leaves $0.0223 a decision. At 300 decisions a day that is $6.68; reaching $300 a day would " +
+      "need 13,477 decisions daily, one every 6.4 seconds, with zero fees. Gross rises with the horizon " +
+      "($0.0036 at t60, $0.0223 at t900, $0.7441 at t7200) and t7200 is the one that would pay — 403 decisions " +
+      "a day for $300 — but that is exactly the horizon already shown to be drift. Split by side there: longs " +
+      "+0.2470% at 18.7 sigma, shorts -0.2476% at -11.0 sigma, on a book that is 3:1 long. Equal-weighted the " +
+      "mean is -0.00033%, so the honest gross at two hours is -$0.0020 a decision. The only horizon whose gross " +
+      "could cover the costs is the one whose gross is the long book in a rising sample. No fee schedule fixes " +
+      "an edge of two cents, and the maker path is worth pursuing as market-making, not as a discount on this.",
+    n: 23_820,
+  },
+  {
     id: "depth-inverted",
     status: "rejected",
     claim:
@@ -106,8 +124,14 @@ export const SETTLED: Verdict[] = [
     status: "open",
     claim: "Resting the entry earns the spread instead of paying it, worth about 4.87 dollars a round trip.",
     evidence:
-      "Zero fills in more than 20,000 shadow trades. Gated behind canPostEntry on mark-out toxicity and " +
-      "never once measured live. The largest unexplored lever in the project.",
+      "Zero fills in 23,876 shadow decisions, gated behind canPostEntry on mark-out toxicity. Was carried as " +
+      "'the largest unexplored lever', which assumed the gate opens and the fills do not happen; that was never " +
+      "checked. Three situations produce the same zero and point opposite ways — a mark-out that never warms " +
+      "(defect), one that warms above the threshold (a market answer, and the lever does not exist), or an open " +
+      "gate with every entry still priced taker (plumbing). The summary now separates them from rows already " +
+      "written. Note that cost-reduction is settled against this being a rescue for the current signal: a two " +
+      "cent gross edge survives no fee schedule. It is worth pursuing only as the entry side of market-making, " +
+      "where the spread is the revenue rather than a discount.",
   },
   {
     id: "sub-minute",

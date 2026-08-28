@@ -377,3 +377,44 @@ decisions. The one that does not is either reading a real persistent asymmetry �
 which would be the first genuine finding here — or is signed backwards, which is
 a defect worth catching. Unlike the depth cross this needs new rows, so it fills
 over the next few hours rather than in the next snapshot.
+
+## 2026-08-28T03:53Z — the fee argument, closed with arithmetic
+
+"The loss is cost, not being wrong" has been in this journal since the shadow
+run started, and every fee-reduction idea since has leaned on it. The first half
+is true. The conclusion does not follow, and the numbers were sitting in the
+snapshot the whole time.
+
+Across 23,820 scored decisions the round trip costs **$0.5826** each and the
+gross price contribution is **$0.0223** each. Fees are 26x gross. Set fees to
+exactly zero and the strategy earns two and a bit cents a decision.
+
+| horizon | gross/decision | at 300/day | decisions needed for $300/day |
+|---|---|---|---|
+| t60 | $0.0036 | $1.07 | 83,848 |
+| t300 | $0.0074 | $2.22 | 40,597 |
+| t900 | $0.0223 | $6.68 | 13,477 |
+| t1800 | $0.1900 | $57.01 | 1,579 |
+| t7200 | $0.7441 | $223.24 | 403 |
+
+Two hours is the one horizon that could pay: 403 decisions a day and the target
+is met. It is also exactly the horizon already established as drift. Split by
+side there — longs +0.2470% at 18.7 sigma, shorts −0.2476% at −11.0 sigma, on a
+book that is 3:1 long. **Equal-weighted the mean is −0.00033%, so the honest
+gross at two hours is −$0.0020 a decision.** The only horizon whose gross could
+cover its costs is the one whose gross is the long book in a rising sample.
+
+So `cost-reduction` is REJECTED as a settled verdict, and this is the fourth
+result the 3:1 long book has manufactured. The maker path stays open but its
+justification changes completely: it is not a discount that rescues this signal —
+no fee schedule rescues an edge of two cents — it is the entry side of market
+making, where the spread is the revenue rather than a saving. That is the same
+place the magnitude finding points, and those two are now the only live threads.
+
+I also stopped assuming the maker gate's zero meant one thing. Three situations
+produce an identical count of zero fills and point in opposite directions: a
+mark-out that never warms (the gate refuses on its first line, a defect), one
+that warms above the threshold (a market answer, and the lever does not exist),
+or a gate that opens with every entry still priced as a taker (plumbing). The
+summary now separates them and names which it found, from rows already written.
+Answer due in the next snapshot.
