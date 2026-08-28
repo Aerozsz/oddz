@@ -12,6 +12,7 @@ import {
   fetchOpenInterest,
   onRouteChange,
   fetchAggTrades,
+  rateLimitCooldownMs,
 } from "./binance/rest";
 import { StreamClient, type StreamMessage } from "./binance/streams";
 import { CONFIG, SYMBOL } from "./config";
@@ -476,6 +477,16 @@ export class Engine {
   private lastAggId = 0;
   private tapePollInFlight = false;
   private tapePollFailures = 0;
+  /**
+   * Earliest next poll, moved out on failure.
+   *
+   * Exponential from four seconds to a minute. A tape arriving in bursts every
+   * few seconds still warms mark-out — it needs forty resolved one-second
+   * horizons and the five-second horizon is the one the toxicity read uses —
+   * whereas a poller retrying into a 429 wall gets nothing and spends the
+   * budget the order path needs.
+   */
+  private tapeNextAt = 0;
 
   private async pollTapeIfSocketSilent() {
     const stream = this.stream;
@@ -486,18 +497,32 @@ export class Engine {
     if (this.startedAtMs === 0 || Date.now() - this.startedAtMs < 90_000) return;
     if (this.tapePollInFlight) return;
     /*
-     * Back off rather than hammer. If the REST tape is failing too, the useful
-     * information is in the snapshot's error line, and retrying every two
-     * seconds against a shared rate-limit budget would cost the order path.
+     * Yield to the shared budget rather than compete with it.
+     *
+     * The first version polled every two seconds regardless and drew 429s. The
+     * tape is the least urgent thing on this connection — the order path and
+     * the book resync are both more important, and a mark-out horizon that
+     * resolves a few seconds late is worth far more than one that costs a fill.
+     * The client already tracks how long the venue asked us to wait; honouring
+     * it is what turns a poller into a good citizen of the same budget.
      */
-    if (this.tapePollFailures > 5 && Date.now() % 60_000 > 2_000) return;
+    if (rateLimitCooldownMs() > 0) return;
+    if (Date.now() < this.tapeNextAt) return;
     this.tapePollInFlight = true;
     try {
       const rows = await fetchAggTrades({
         symbol: this.symbol,
-        ...(this.lastAggId > 0 ? { fromId: this.lastAggId + 1 } : { limit: 100 }),
+        /*
+         * A small page on purpose. At one poll every four seconds a liquid
+         * contract produces far more prints than this, so the tape is sampled
+         * rather than complete — which is the honest trade for a budget shared
+         * with the order path, and is why tapeVia is reported.
+         */
+        limit: 500,
+        ...(this.lastAggId > 0 ? { fromId: this.lastAggId + 1 } : {}),
       });
       this.tapePollFailures = 0;
+      this.tapeNextAt = Date.now() + 4_000;
       for (const r of rows) {
         if (r.id <= this.lastAggId) continue;
         this.lastAggId = r.id;
@@ -518,6 +543,7 @@ export class Engine {
       }
     } catch (err) {
       this.tapePollFailures++;
+      this.tapeNextAt = Date.now() + Math.min(60_000, 4_000 * 2 ** this.tapePollFailures);
       this.connection = {
         ...this.connection,
         tapeVia: "rest-failing",
