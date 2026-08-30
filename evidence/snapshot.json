@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1788089552268,
+    "at": 1788089672304,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -17,11 +17,11 @@
         "attached": false,
         "tradeable": true,
         "warm": true,
-        "mid": 78174.35,
-        "spreadBps": 0.012791919599110047,
-        "riskUp": 32.03198048578683,
-        "riskDown": 31.955144383730406,
-        "signalsSeen": 72911,
+        "mid": 78212.65,
+        "spreadBps": 0.012785655516245628,
+        "riskUp": 33.24402643766769,
+        "riskDown": 33.73440435719698,
+        "signalsSeen": 72971,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
@@ -46,8 +46,8 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": null,
-      "biasSummary": "Neither side is meaningfully more exposed than the other right now.",
+      "biasDirection": "up",
+      "biasSummary": "Least resistance is upward — 0.10% below, 0.02% above; 13,687,840 to set off the downside vs 9,054,244 upside — cheaper to push up",
       "sides": [
         {
           "direction": "up",
@@ -97,7 +97,7 @@
     },
     "engine": {
       "running": true,
-      "uptimeSec": 161838,
+      "uptimeSec": 161958,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -114,20 +114,20 @@
       "tradeable": true,
       "reasons": [],
       "summary": "live",
-      "snapshotAgeMs": 1
+      "snapshotAgeMs": 3
     },
     "market": {
-      "mid": 78174.35,
+      "mid": 78212.65,
       "mark": null,
-      "spreadBps": 0.012791919599110047,
-      "lwi": 1.0363020454093508,
-      "lwiBid": 0.9954035587429688,
-      "lwiAsk": 1.0704381318935137,
+      "spreadBps": 0.012785655516245628,
+      "lwi": 1.1711536100355127,
+      "lwiBid": 0.9395435964365977,
+      "lwiAsk": 1.358611698334998,
       "warm": true,
-      "riskUp": 32.03198048578683,
-      "riskDown": 31.955144383730406,
+      "riskUp": 33.24402643766769,
+      "riskDown": 33.73440435719698,
       "nearestAbove": 78227.77777777778,
-      "nearestBelow": 78094.1457410092,
+      "nearestBelow": 78136.14961162292,
       "session": "weekend",
       "flow": {
         "buy": 0,
@@ -138,7 +138,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 13086,
+      "staleForMs": 13552,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -149,7 +149,7 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1788089539182,
+      "at": 1788089658752,
       "error": null,
       "availableBalance": 2756.60283569,
       "walletBalance": 2756.60283569,
@@ -184,7 +184,7 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1788089540469,
+      "at": 1788089660021,
       "realisedPnl": 0,
       "drawdown": 0,
       "trades": 0,
@@ -198,7 +198,7 @@
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 72911,
+      "signalsSeen": 72971,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -224,7 +224,7 @@
       }
     },
     "protection": {
-      "at": 1788089540214,
+      "at": 1788089659761,
       "error": null,
       "flat": true,
       "protected": true,
@@ -282,7 +282,7 @@
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 161838s"
+        "detail": "1/1 — BTCUSDT up 161958s"
       },
       {
         "name": "feed: BTCUSDT",
@@ -294,14 +294,14 @@
         "name": "streams arriving: BTCUSDT",
         "ok": false,
         "severity": "bad",
-        "detail": "depthUpdate 1578229 — nothing on aggTrade, markPriceUpdate, kline | per stream: btcusdt@depth@100ms=1578187 btcusdt@aggTrade=0 btcusdt@forceOrder=0 btcusdt@markPrice@1s=0 btcusdt@kline_1m=0 | 5 control frame(s), last: {\"result\":null,\"id\":1} | rescue: btcusdt@aggTrade:open btcusdt@forceOrder:open btcusdt@markPrice@1s:open btcusdt@kline_1m:open | tape via rest (1376253 prints polled) | socket error: tape poll: The operation was aborted due to timeout",
+        "detail": "depthUpdate 1579406 — nothing on aggTrade, markPriceUpdate, kline | per stream: btcusdt@depth@100ms=1579364 btcusdt@aggTrade=0 btcusdt@forceOrder=0 btcusdt@markPrice@1s=0 btcusdt@kline_1m=0 | 5 control frame(s), last: {\"result\":null,\"id\":1} | rescue: btcusdt@aggTrade:open btcusdt@forceOrder:open btcusdt@markPrice@1s:open btcusdt@kline_1m:open | tape via rest (1377273 prints polled) | socket error: tape poll: The operation was aborted due to timeout",
         "fix": "The socket is up and the book may be fine; aggTrade, markPriceUpdate, kline is subscribed and delivering nothing, which silently disables every consumer of it. forceOrder is excluded from this check because liquidations are genuinely intermittent."
       },
       {
         "name": "mark-out warm: BTCUSDT",
         "ok": true,
         "severity": "ok",
-        "detail": "resolved 53314, weight 9622200"
+        "detail": "resolved 53354, weight 12698893"
       },
       {
         "name": "max position set",
@@ -353,7 +353,7 @@
         "name": "shadow run",
         "ok": true,
         "severity": "ok",
-        "detail": "7s since its last beat"
+        "detail": "6s since its last beat"
       },
       {
         "name": "news + social feeds",
@@ -410,7 +410,7 @@
   "ledger": {
     "epoch": 1787025219557,
     "balance": 2756.60283569,
-    "at": 1788089539182,
+    "at": 1788089658752,
     "reason": "balance moved -2243.40 with no ledger row behind it (expected 5000.00, saw 2756.60) — counting restarted here"
   },
   "learn": {
@@ -3579,7 +3579,7 @@
     },
     {
       "t": 1788088561656,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×8 since 12:16:01 PM)"
+      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×9 since 12:16:01 PM)"
     }
   ],
   "news": {
@@ -3590,12 +3590,12 @@
     ],
     "poller": {
       "recorded": 33,
-      "cycles": 8161,
+      "cycles": 8166,
       "sources": 14,
       "unavailable": "x,linkedin",
       "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found",
       "velocity": "BNBUSDT 0.9x BTCUSDT 1.2x XRPUSDT 1.0x SOLUSDT 1.0x ETHUSDT 1.0x",
-      "lastPollAt": 1788089510766
+      "lastPollAt": 1788089671055
     }
   }
 }
