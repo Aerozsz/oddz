@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1788133337495,
+    "at": 1788133487548,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -15,13 +15,13 @@
         "calibrated": false,
         "running": true,
         "attached": false,
-        "tradeable": false,
+        "tradeable": true,
         "warm": true,
-        "mid": 77350.05,
-        "spreadBps": 0.012928239866143687,
-        "riskUp": 33.475436085318094,
-        "riskDown": 37.44331658731679,
-        "signalsSeen": 111272,
+        "mid": 77445.55,
+        "spreadBps": 0.012912297737677731,
+        "riskUp": 33.29541192524288,
+        "riskDown": 33.39203627852847,
+        "signalsSeen": 111474,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
@@ -47,7 +47,7 @@
       "known": true,
       "symbol": "BTCUSDT",
       "biasDirection": "up",
-      "biasSummary": "Least resistance is upward — buyers have been right: lifting the offer marked out 1.67bp higher 5s later; 28,556,056 to set off the downside vs 8,948,882 upside — cheaper to push up",
+      "biasSummary": "Least resistance is upward — aggressive flow is marking out 1.36bp against a 0.50bp half-spread — quoting into it loses money, so expect depth to be pulled rather than replaced; 14,043,702 to set off the downside vs 9,934,261 upside — cheaper to push up",
       "sides": [
         {
           "direction": "up",
@@ -61,7 +61,7 @@
           "riskUsd": null,
           "sizeRetained": null,
           "reasons": [
-            "feed not tradeable: not tradeable — no stream message for 12s"
+            "flow is toxic (1.00) — aggressive flow is marking out 1.36bp against a 0.50bp half-spread — quoting into it loses money, so expect depth to be pulled rather than replaced"
           ]
         },
         {
@@ -76,20 +76,18 @@
           "riskUsd": null,
           "sizeRetained": null,
           "reasons": [
-            "feed not tradeable: not tradeable — no stream message for 12s"
+            "flow is toxic (1.00) — aggressive flow is marking out 1.36bp against a 0.50bp half-spread — quoting into it loses money, so expect depth to be pulled rather than replaced"
           ]
         }
       ],
       "tradeable": false
     },
     "readiness": {
-      "ready": false,
+      "ready": true,
       "armed": false,
       "blockers": [],
-      "waiting": [
-        "BTCUSDT: not tradeable — no stream message for 12s"
-      ],
-      "summary": "BTCUSDT: not tradeable — no stream message for 12s"
+      "waiting": [],
+      "summary": "ready — press Start trading"
     },
     "orderVenue": {
       "url": "https://demo-fapi.binance.com",
@@ -99,7 +97,7 @@
     },
     "engine": {
       "running": true,
-      "uptimeSec": 205623,
+      "uptimeSec": 205773,
       "symbol": "BTCUSDT",
       "symbols": [
         "BTCUSDT",
@@ -112,30 +110,24 @@
     "mode": "testnet",
     "hasCredentials": true,
     "health": {
-      "level": "blind",
-      "tradeable": false,
-      "reasons": [
-        {
-          "code": "feed-stalled",
-          "severity": "blind",
-          "detail": "no stream message for 12s"
-        }
-      ],
-      "summary": "not tradeable — no stream message for 12s",
-      "snapshotAgeMs": 2
+      "level": "ok",
+      "tradeable": true,
+      "reasons": [],
+      "summary": "live",
+      "snapshotAgeMs": 1
     },
     "market": {
-      "mid": 77350.05,
+      "mid": 77445.55,
       "mark": null,
-      "spreadBps": 0.012928239866143687,
-      "lwi": 1.1755501004932993,
-      "lwiBid": 1.3388470301463604,
-      "lwiAsk": 0.9975670450005913,
+      "spreadBps": 0.012912297737677731,
+      "lwi": 1.1311816320364352,
+      "lwiBid": 1.1172925105756133,
+      "lwiAsk": 1.1466179106142047,
       "warm": true,
-      "riskUp": 33.475436085318094,
-      "riskDown": 37.44331658731679,
-      "nearestAbove": 77400,
-      "nearestBelow": 77265.53334090569,
+      "riskUp": 33.29541192524288,
+      "riskDown": 33.39203627852847,
+      "nearestAbove": 77500,
+      "nearestBelow": 77369.27321024417,
       "session": "weekend",
       "flow": {
         "buy": 0,
@@ -146,7 +138,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 14214,
+      "staleForMs": 4005,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -157,7 +149,7 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1788133323281,
+      "at": 1788133483544,
       "error": null,
       "availableBalance": 2756.60283569,
       "walletBalance": 2756.60283569,
@@ -192,7 +184,7 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1788133324804,
+      "at": 1788133485033,
       "realisedPnl": 0,
       "drawdown": 0,
       "trades": 0,
@@ -206,7 +198,7 @@
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 111272,
+      "signalsSeen": 111474,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -232,7 +224,7 @@
       }
     },
     "protection": {
-      "at": 1788133324525,
+      "at": 1788133484788,
       "error": null,
       "flat": true,
       "protected": true,
@@ -290,27 +282,26 @@
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 205623s"
+        "detail": "1/1 — BTCUSDT up 205773s"
       },
       {
         "name": "feed: BTCUSDT",
-        "ok": false,
-        "severity": "bad",
-        "detail": "blind — not tradeable — no stream message for 12s",
-        "fix": "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance is blocked or BTCUSDT is not a listed contract — npm run sweep:symbols says which."
+        "ok": true,
+        "severity": "ok",
+        "detail": "ok"
       },
       {
         "name": "streams arriving: BTCUSDT",
         "ok": false,
         "severity": "bad",
-        "detail": "depthUpdate 2007354 — nothing on aggTrade, markPriceUpdate, kline | per stream: btcusdt@depth@100ms=2007354 btcusdt@aggTrade=0 btcusdt@forceOrder=0 btcusdt@markPrice@1s=0 btcusdt@kline_1m=0 | 5 control frame(s), last: {\"result\":null,\"id\":1} | rescue: btcusdt@aggTrade:open btcusdt@forceOrder:open btcusdt@markPrice@1s:open btcusdt@kline_1m:open | tape via rest (2011592 prints polled) | socket error: tape poll: fetch failed",
+        "detail": "depthUpdate 2008321 — nothing on aggTrade, markPriceUpdate, kline | per stream: btcusdt@depth@100ms=2008313 btcusdt@aggTrade=0 btcusdt@forceOrder=0 btcusdt@markPrice@1s=0 btcusdt@kline_1m=0 | 6 control frame(s), last: {\"result\":null,\"id\":1} | rescue: btcusdt@aggTrade:open btcusdt@forceOrder:open btcusdt@markPrice@1s:open btcusdt@kline_1m:open | tape via rest (2019918 prints polled)",
         "fix": "The socket is up and the book may be fine; aggTrade, markPriceUpdate, kline is subscribed and delivering nothing, which silently disables every consumer of it. forceOrder is excluded from this check because liquidations are genuinely intermittent."
       },
       {
         "name": "mark-out warm: BTCUSDT",
         "ok": true,
         "severity": "ok",
-        "detail": "resolved 67839, weight 113190317"
+        "detail": "resolved 67881, weight 114040446"
       },
       {
         "name": "max position set",
@@ -384,7 +375,7 @@
         "fix": "Fine for testing that orders place. The leverage ladder, maintenance rate, session weights and earnings calendar are all built for an equity perp on Nasdaq and mean nothing on a crypto pair or a contract on another exchange's clock — do not read a strategy result off those."
       }
     ],
-    "verdict": "2 things broken",
+    "verdict": "1 thing broken",
     "worst": "bad"
   },
   "errors": [],
@@ -419,7 +410,7 @@
   "ledger": {
     "epoch": 1787025219557,
     "balance": 2756.60283569,
-    "at": 1788133323281,
+    "at": 1788133483544,
     "reason": "balance moved -2243.40 with no ledger row behind it (expected 5000.00, saw 2756.60) — counting restarted here"
   },
   "learn": {
@@ -2405,53 +2396,53 @@
     }
   ],
   "shadow": {
-    "rows": 26144,
-    "withConditions": 19356,
+    "rows": 26145,
+    "withConditions": 19357,
     "makerPath": {
       "byEntryStyle": {
-        "taker": 25448,
+        "taker": 25449,
         "maker": 696
       },
-      "withMarkout": 19356,
-      "warm": 1310,
+      "withMarkout": 19357,
+      "warm": 1311,
       "cold": 18046,
       "postableWhenWarm": 696,
       "toxicityThreshold": 0.6,
-      "meanToxicityWhenWarm": 0.4859472633822689
+      "meanToxicityWhenWarm": 0.486262822789239
     },
     "biasBalance": {
       "long": 17379,
-      "short": 8765,
-      "withFactors": 1458,
-      "meanComposite": -0.0769047309434714,
+      "short": 8766,
+      "withFactors": 1459,
+      "meanComposite": -0.07701224902923105,
       "withFactorsLong": 545,
-      "withFactorsShort": 913,
-      "meanAbsComposite": 0.2649487980519314,
+      "withFactorsShort": 914,
+      "meanAbsComposite": 0.2649274305536551,
       "minAbsComposite": 0.12004740551972415,
       "meanByFactor": {
         "cost to trigger": {
-          "mean": -0.1698870956100929,
-          "n": 1458
+          "mean": -0.16977103126493276,
+          "n": 1459
         },
         "nearest trigger": {
-          "mean": -0.11653546926058912,
-          "n": 1458
+          "mean": -0.11645422493621584,
+          "n": 1459
         },
         "aggressive flow": {
           "mean": -0.10578020343788387,
           "n": 180
         },
         "resting imbalance": {
-          "mean": -0.03659198344396691,
-          "n": 1458
+          "mean": -0.03654626666264467,
+          "n": 1459
         },
         "who has been right": {
-          "mean": -0.029550357819548116,
-          "n": 1217
+          "mean": -0.030347114504425336,
+          "n": 1218
         },
         "which side thinned": {
-          "mean": 0.00014058806356590482,
-          "n": 1458
+          "mean": 0.0001443068813037935,
+          "n": 1459
         }
       }
     },
@@ -2465,27 +2456,27 @@
     "overall": {
       "t1800": {
         "label": "all",
-        "n": 15190,
-        "wins": 5885,
-        "meanPct": 0.02587229176936131,
-        "netUsd": -6128.756015992965,
-        "sePct": 0.0056336963349022376
+        "n": 15191,
+        "wins": 5886,
+        "meanPct": 0.025881814679080916,
+        "netUsd": -6128.391775783211,
+        "sePct": 0.005633333514233323
       },
       "t300": {
         "label": "all",
-        "n": 26094,
+        "n": 26095,
         "wins": 4667,
-        "meanPct": -0.00014896720932438713,
-        "netUsd": -15007.143276992943,
-        "sePct": 0.0012526211819058027
+        "meanPct": -0.0001466335941608045,
+        "netUsd": -15007.345980056742,
+        "sePct": 0.0012525753524685109
       },
       "t60": {
         "label": "all",
-        "n": 26111,
+        "n": 26112,
         "wins": 1734,
-        "meanPct": 0.00013855633954123128,
-        "netUsd": -15066.813311436916,
-        "sePct": 0.000526924560026132
+        "meanPct": 0.00013916161432229988,
+        "netUsd": -15067.247377380729,
+        "sePct": 0.0005269047278879229
       },
       "t7200": {
         "label": "all",
@@ -2497,11 +2488,11 @@
       },
       "t900": {
         "label": "all",
-        "n": 26075,
+        "n": 26076,
         "wins": 7067,
-        "meanPct": 0.0016475878190576232,
-        "netUsd": -14554.598454238198,
-        "sePct": 0.0024223839741112562
+        "meanPct": 0.001641727716595013,
+        "netUsd": -14555.895441193961,
+        "sePct": 0.002422298163746363
       }
     },
     "byEntryDepth": [
@@ -2523,11 +2514,11 @@
       },
       {
         "label": "marginal 0.85-1.00",
-        "n": 8511,
+        "n": 8512,
         "wins": 2413,
-        "meanPct": 0.0036783357912552393,
-        "netUsd": -4612.850495692003,
-        "sePct": 0.00401405346573035
+        "meanPct": 0.0036601451451336213,
+        "netUsd": -4614.147482647766,
+        "sePct": 0.00401362308446595
       },
       {
         "label": "at or above baseline >=1.00",
@@ -2549,11 +2540,11 @@
       },
       {
         "label": "wall-pulled",
-        "n": 5431,
+        "n": 5432,
         "wins": 1776,
-        "meanPct": -0.0008285598304812698,
-        "netUsd": -3100.8869010174744,
-        "sePct": 0.007646808533384229
+        "meanPct": -0.0008562350668887583,
+        "netUsd": -3102.1838879732377,
+        "sePct": 0.007645450760250344
       },
       {
         "label": "cascade-risk",
@@ -2581,13 +2572,13 @@
       }
     ],
     "resolved": {
-      "open": 25295,
+      "open": 25296,
       "unscored": 7,
       "target": 414,
       "stop": 428
     },
-    "feesUsd": 15128.136427352374,
-    "grossUsd": 573.5379731131266,
+    "feesUsd": 15128.652825131869,
+    "grossUsd": 572.7573839368577,
     "matched": {
       "n": 15190,
       "horizon": "t7200",
@@ -2790,14 +2781,6 @@
     }
   },
   "log": [
-    {
-      "t": 1788113113062,
-      "text": "shadow: SOLUSDT closed intent:cluster-approach:1788105913051:1rzj — would have open · net at 2h -0.69 · 1157 recorded"
-    },
-    {
-      "t": 1788113144477,
-      "text": "shadow: BTCUSDT closed intent:cluster-approach:1788105944443:1vb3 — would have open · net at 2h -0.31 · 1158 recorded"
-    },
     {
       "t": 1788113157010,
       "text": "shadow: ETHUSDT closed intent:wall-pulled:1788105956989:31sc — would have open · net at 2h -3.72 · 1159 recorded"
@@ -3589,6 +3572,14 @@
     {
       "t": 1788133120272,
       "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×2 since 12:38:40 AM)"
+    },
+    {
+      "t": 1788133346633,
+      "text": "shadow: ETHUSDT closed intent:wall-pulled:1788126146616:3na3 — would have open · net at 30m +0.36 · 1266 recorded"
+    },
+    {
+      "t": 1788133371091,
+      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
     }
   ],
   "news": {
@@ -3599,12 +3590,12 @@
     ],
     "poller": {
       "recorded": 40,
-      "cycles": 10484,
+      "cycles": 10490,
       "sources": 14,
       "unavailable": "x,linkedin",
-      "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | binance-announce: fetch failed",
-      "velocity": "BNBUSDT 1.0x BTCUSDT 1.2x XRPUSDT 1.7x SOLUSDT 1.0x ETHUSDT 1.0x",
-      "lastPollAt": 1788133325371
+      "errors": "reddit-Bitcoin: 403 Blocked | reddit-CryptoCurrency: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | rsshub-twitter-keyword-binance: 404 Not Found | rsshub-twitter-keyword-bitcoin: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | hn: fetch failed",
+      "velocity": "BNBUSDT 1.0x BTCUSDT 1.0x XRPUSDT 1.7x SOLUSDT 1.0x ETHUSDT 1.0x",
+      "lastPollAt": 1788133465606
     }
   }
 }
