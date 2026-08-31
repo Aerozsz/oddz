@@ -40,3 +40,27 @@ jobs:
           probe "binance.com www       " "https://www.binance.com/en"
           echo
           echo "A 451 is geo-blocking. A 404 on the zip only means that date is not published."
+
+      - name: Which contracts actually exist for a given prefix
+        env:
+          PREFIX: ${{ vars.SYMBOL_PREFIX || 'LIT' }}
+        run: |
+          # The usual answer to "is this a real ticker" is fapi/exchangeInfo,
+          # which is 451 from a US runner. The archive answers it instead: a
+          # contract Binance lists has a directory here and one it does not
+          # list has nothing. Listing the neighbours matters more than the
+          # yes/no — "LITUSDC is not a contract" is not actionable, and
+          # "LITUSDT is, LITUSDC is not" is.
+          for market in um cm; do
+            echo "== $market futures, symbols starting $PREFIX =="
+            curl -s --max-time 40 \
+              "https://data.binance.vision/?delimiter=/&prefix=data/futures/${market}/daily/klines/" \
+              | tr '<' '\n' | grep -o "klines/${PREFIX}[A-Z0-9]*/" | sed 's|klines/||;s|/||' | sort -u \
+              || echo "  (listing failed)"
+            echo
+          done
+          echo "== spot, for contrast =="
+          curl -s --max-time 40 \
+            "https://data.binance.vision/?delimiter=/&prefix=data/spot/daily/klines/" \
+            | tr '<' '\n' | grep -o "klines/${PREFIX}[A-Z0-9]*/" | sed 's|klines/||;s|/||' | sort -u \
+            || echo "  (listing failed)"
