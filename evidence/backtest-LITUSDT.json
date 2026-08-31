@@ -1,5 +1,5 @@
 {
-  "at": 1788202580391,
+  "at": 1788203573061,
   "symbol": "LITUSDT",
   "funding": {
     "minutes": 43200,
@@ -285,16 +285,21 @@
   "samples": 43140,
   "spanDays": 30,
   "horizons": [
-    1,
-    5,
-    15,
-    30,
-    60
+    "t1",
+    "t1d",
+    "t5",
+    "t5d",
+    "t15",
+    "t15d",
+    "t30",
+    "t30d",
+    "t60",
+    "t60d"
   ],
   "method": "Every feature bucketed into deciles; each decile scored on close-to-close return, on best and worst excursion inside the window, and on the probability of clearing 25/50/100bp. Ranked by the separation between the top and bottom deciles in standard errors of the difference.",
   "multiplicity": {
-    "tests": 125,
-    "bonferroniSigma": 3.5400837952982833
+    "tests": 250,
+    "bonferroniSigma": 3.719016482125124
   },
   "roundTripBps": 7,
   "ranked": [
@@ -364,6 +369,38 @@
     },
     {
       "feature": "takerRatioFade",
+      "horizon": "t1d",
+      "sigma": -15.860904468098703,
+      "spreadBps": -5.652219068040544,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "takerRatioFade",
+        "bucket": 9,
+        "n": 4322,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -3.0702532169336814,
+        "seRet": 0.286886896758233,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "takerRatioFade",
+        "bucket": 0,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.581965851106863,
+        "seRet": 0.2113990968631492,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
+      "feature": "takerRatioFade",
       "horizon": "t15",
       "sigma": -12.759179559200735,
       "spreadBps": -14.51855033805677,
@@ -392,6 +429,70 @@
         "tail25": 0.6210013908205841,
         "tail50": 0.3317107093184979,
         "tail100": 0.11288827074640705
+      }
+    },
+    {
+      "feature": "takerRatioFade",
+      "horizon": "t5d",
+      "sigma": -11.956104405514957,
+      "spreadBps": -9.632405918587331,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "takerRatioFade",
+        "bucket": 9,
+        "n": 4318,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -5.738582611180165,
+        "seRet": 0.6620045332244545,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "takerRatioFade",
+        "bucket": 0,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.893823307407166,
+        "seRet": 0.4591491391058713,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
+      "feature": "thinAskUp",
+      "horizon": "t60d",
+      "sigma": -8.655628910458686,
+      "spreadBps": -24.233139760888605,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "thinAskUp",
+        "bucket": 9,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -12.907509686160482,
+        "seRet": 2.397236052888451,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "thinAskUp",
+        "bucket": 0,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 11.325630074728123,
+        "seRet": 1.4462238926462212,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     },
     {
@@ -459,6 +560,38 @@
       }
     },
     {
+      "feature": "sweepSignal",
+      "horizon": "t60d",
+      "sigma": -7.968797854188559,
+      "spreadBps": -25.253078624708564,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "sweepSignal",
+        "bucket": 9,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -13.57034210767465,
+        "seRet": 2.264326071494894,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "sweepSignal",
+        "bucket": 0,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 11.682736517033916,
+        "seRet": 2.2170600388739103,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
       "feature": "topTraderFollow",
       "horizon": "t60",
       "sigma": 7.608939043522411,
@@ -520,6 +653,102 @@
         "tail25": 0.8300880853036625,
         "tail50": 0.6859063514140009,
         "tail100": 0.45085767269355587
+      }
+    },
+    {
+      "feature": "topTraderFollow",
+      "horizon": "t60d",
+      "sigma": 7.397922780515154,
+      "spreadBps": 26.72101214396382,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "topTraderFollow",
+        "bucket": 9,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 25.82228700815301,
+        "seRet": 3.2432962590620917,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "topTraderFollow",
+        "bucket": 0,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.8987251358108094,
+        "seRet": 1.5897468782829929,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
+      "feature": "asymmetry",
+      "horizon": "t60d",
+      "sigma": -7.075668556100375,
+      "spreadBps": -22.051202768704567,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "asymmetry",
+        "bucket": 9,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -7.588821794591802,
+        "seRet": 2.159722527235891,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "asymmetry",
+        "bucket": 0,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 14.462380974112763,
+        "seRet": 2.2467903009463974,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
+      "feature": "sweepSignal",
+      "horizon": "t30d",
+      "sigma": -6.664453872072142,
+      "spreadBps": -15.340546263440494,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "sweepSignal",
+        "bucket": 9,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -5.620267816983677,
+        "seRet": 1.7196007876070292,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "sweepSignal",
+        "bucket": 0,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 9.720278446456817,
+        "seRet": 1.5301856044683533,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     },
     {
@@ -587,6 +816,38 @@
       }
     },
     {
+      "feature": "takerRatioFade",
+      "horizon": "t15d",
+      "sigma": -5.91152147698967,
+      "spreadBps": -6.80801292077944,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "takerRatioFade",
+        "bucket": 9,
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -3.271844407042601,
+        "seRet": 0.8281234720494756,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "takerRatioFade",
+        "bucket": 0,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.5361685137368384,
+        "seRet": 0.8003204525244423,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
       "feature": "topTraderFollow",
       "horizon": "t30",
       "sigma": 5.75860825531259,
@@ -616,6 +877,70 @@
         "tail25": 0.7153453871117292,
         "tail50": 0.47960129809921187,
         "tail100": 0.2076958738989337
+      }
+    },
+    {
+      "feature": "topTraderFollow",
+      "horizon": "t30d",
+      "sigma": 5.695210207859572,
+      "spreadBps": 14.914284903688067,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "topTraderFollow",
+        "bucket": 9,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 13.50434071377243,
+        "seRet": 2.319801259234372,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "topTraderFollow",
+        "bucket": 0,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -1.4099441899156366,
+        "seRet": 1.2150434624087403,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
+      "feature": "asymmetry",
+      "horizon": "t30d",
+      "sigma": -5.34488666333858,
+      "spreadBps": -12.224772227112123,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "asymmetry",
+        "bucket": 9,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -2.693530078609204,
+        "seRet": 1.6748779335526403,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "asymmetry",
+        "bucket": 0,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 9.531242148502919,
+        "seRet": 1.557569508467045,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     },
     {
@@ -716,6 +1041,38 @@
     },
     {
       "feature": "thinBidUp",
+      "horizon": "t30d",
+      "sigma": -4.61833454992865,
+      "spreadBps": -10.182979652006523,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "thinBidUp",
+        "bucket": 9,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -1.7372707264830114,
+        "seRet": 1.5314447853749193,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "thinBidUp",
+        "bucket": 0,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 8.445708925523512,
+        "seRet": 1.5862767914132032,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
+      "feature": "thinBidUp",
       "horizon": "t30",
       "sigma": -4.565586572539626,
       "spreadBps": -10.046585995134823,
@@ -779,6 +1136,38 @@
       }
     },
     {
+      "feature": "sweepSignal",
+      "horizon": "t15d",
+      "sigma": -4.3649247252953245,
+      "spreadBps": -7.576613201753656,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "sweepSignal",
+        "bucket": 9,
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -2.3053086024517113,
+        "seRet": 1.2596926095043532,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "sweepSignal",
+        "bucket": 0,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.271304599301945,
+        "seRet": 1.1942184759367303,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
       "feature": "ofiVsVol",
       "horizon": "t15",
       "sigma": -4.241844393054554,
@@ -808,6 +1197,70 @@
         "tail25": 0.6033843300880853,
         "tail50": 0.35025498377375985,
         "tail100": 0.1186833565136764
+      }
+    },
+    {
+      "feature": "tradeSurge",
+      "horizon": "t30d",
+      "sigma": 4.180072162903539,
+      "spreadBps": 7.9939374635880815,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "tradeSurge",
+        "bucket": 9,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 8.733963534878065,
+        "seRet": 1.5428107717021433,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "tradeSurge",
+        "bucket": 0,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 0.7400260712899831,
+        "seRet": 1.1300349143858224,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
+      "feature": "topTraderFollow",
+      "horizon": "t15d",
+      "sigma": 4.163071333863162,
+      "spreadBps": 8.23211737181278,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "topTraderFollow",
+        "bucket": 9,
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.234574632042751,
+        "seRet": 1.7777629356536235,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "topTraderFollow",
+        "bucket": 0,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.9975427397700292,
+        "seRet": 0.8658676651453788,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     },
     {
@@ -843,6 +1296,38 @@
       }
     },
     {
+      "feature": "ofiVsVol",
+      "horizon": "t15d",
+      "sigma": -4.131722618359629,
+      "spreadBps": -6.135524666956878,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "ofiVsVol",
+        "bucket": 9,
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.44618069198309945,
+        "seRet": 0.9961308249687646,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "ofiVsVol",
+        "bucket": 0,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.689343974973779,
+        "seRet": 1.1013121330218054,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
       "feature": "topTraderFollow",
       "horizon": "t15",
       "sigma": 4.131433982902836,
@@ -872,6 +1357,70 @@
         "tail25": 0.5992118683356513,
         "tail50": 0.33773759851645807,
         "tail100": 0.08368103847936949
+      }
+    },
+    {
+      "feature": "thinAskUp",
+      "horizon": "t30d",
+      "sigma": -4.0370788110176115,
+      "spreadBps": -8.455265765128809,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "thinAskUp",
+        "bucket": 9,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -3.479114545523687,
+        "seRet": 1.7956268462260043,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "thinAskUp",
+        "bucket": 0,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.976151219605122,
+        "seRet": 1.0780741113078867,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
+      "feature": "asymmetry",
+      "horizon": "t15d",
+      "sigma": -3.9187313110464284,
+      "spreadBps": -6.7868085467251245,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "asymmetry",
+        "bucket": 9,
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -2.0954395365606477,
+        "seRet": 1.2273474150522987,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "asymmetry",
+        "bucket": 0,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.691369010164476,
+        "seRet": 1.2219077797965356,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     },
     {
@@ -939,12 +1488,44 @@
       }
     },
     {
+      "feature": "hourSin",
+      "horizon": "t60d",
+      "sigma": -3.831804226050107,
+      "spreadBps": -11.337241161034646,
+      "tailLift": 1,
+      "survives": true,
+      "top": {
+        "feature": "hourSin",
+        "bucket": 9,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 9.267337946378758,
+        "seRet": 1.7453004970787327,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      "bottom": {
+        "feature": "hourSin",
+        "bucket": 0,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 20.604579107413404,
+        "seRet": 2.389133418791844,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    },
+    {
       "feature": "thinAskUp",
       "horizon": "t30",
       "sigma": -3.6650965289519584,
       "spreadBps": -7.667276502534769,
       "tailLift": 1.1914141414141415,
-      "survives": true,
+      "survives": false,
       "top": {
         "feature": "thinAskUp",
         "bucket": 9,
@@ -972,614 +1553,160 @@
     },
     {
       "feature": "tradeSurge",
-      "horizon": "t60",
-      "sigma": 3.542235316545458,
-      "spreadBps": 9.202775377600004,
-      "tailLift": 1.209332191780822,
-      "survives": true,
-      "top": {
-        "feature": "tradeSurge",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 110.86124468892787,
-        "meanMae": -95.13464230084976,
-        "meanRet": 11.460296721080873,
-        "seRet": 2.017333133887175,
-        "tail25": 0.8166434863235976,
-        "tail50": 0.6548446917014372,
-        "tail100": 0.3998609179415855
-      },
-      "bottom": {
-        "feature": "tradeSurge",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 81.26015721482055,
-        "meanMae": -76.03783898467077,
-        "meanRet": 2.2575213434808687,
-        "seRet": 1.6370832214243483,
-        "tail25": 0.7621696801112656,
-        "tail50": 0.5414928140936486,
-        "tail100": 0.28766805748725083
-      }
-    },
-    {
-      "feature": "sweepSignal",
-      "horizon": "t15",
-      "sigma": -3.528105232656476,
-      "spreadBps": -6.234677024788569,
-      "tailLift": 0.9562811289429994,
-      "survives": false,
-      "top": {
-        "feature": "sweepSignal",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 59.2932159451184,
-        "meanMae": -61.83769836272171,
-        "meanRet": -1.658087395601618,
-        "seRet": 1.2976721827520215,
-        "tail25": 0.6441817338896616,
-        "tail50": 0.40055632823365783,
-        "tail100": 0.1636532220676866
-      },
-      "bottom": {
-        "feature": "sweepSignal",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 57.40466856761262,
-        "meanMae": -51.81699419988741,
-        "meanRet": 4.576589629186951,
-        "seRet": 1.1995215157323924,
-        "tail25": 0.6573945294390356,
-        "tail50": 0.418868799258229,
-        "tail100": 0.16944830783495596
-      }
-    },
-    {
-      "feature": "asymmetry",
-      "horizon": "t15",
-      "sigma": -3.429388382442617,
-      "spreadBps": -6.056074841144074,
-      "tailLift": 0.9216008771929824,
-      "survives": false,
-      "top": {
-        "feature": "asymmetry",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 57.304376166659814,
-        "meanMae": -60.8222412920199,
-        "meanRet": -1.8862070572366776,
-        "seRet": 1.270688884321851,
-        "tail25": 0.6369958275382476,
-        "tail50": 0.3896615669911915,
-        "tail100": 0.15855354659248957
-      },
-      "bottom": {
-        "feature": "asymmetry",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 58.191452116634345,
-        "meanMae": -54.25994099377555,
-        "meanRet": 4.169867783907397,
-        "seRet": 1.2263254004423545,
-        "tail25": 0.6453407510431154,
-        "tail50": 0.4228094575799722,
-        "tail100": 0.17547519703291609
-      }
-    },
-    {
-      "feature": "volSurge",
-      "horizon": "t15",
-      "sigma": 3.4259642067828664,
-      "spreadBps": 4.931514164425551,
-      "tailLift": 1.619360902255639,
-      "survives": false,
-      "top": {
-        "feature": "volSurge",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 57.85509861174087,
-        "meanMae": -52.027599000647825,
-        "meanRet": 5.933577463326509,
-        "seRet": 1.2331674913530593,
-        "tail25": 0.6395456652758461,
-        "tail50": 0.399397311080204,
-        "tail100": 0.16156699119146964
-      },
-      "bottom": {
-        "feature": "volSurge",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 36.31466114700414,
-        "meanMae": -35.10102052479356,
-        "meanRet": 1.0020632989009581,
-        "seRet": 0.7425110322497412,
-        "tail25": 0.507185906351414,
-        "tail50": 0.24663885025498378,
-        "tail100": 0.06397774687065369
-      }
-    },
-    {
-      "feature": "spreadProxy",
-      "horizon": "t15",
-      "sigma": 3.3829884116631734,
-      "spreadBps": 6.368928240485482,
-      "tailLift": 3.5214979195561718,
-      "survives": false,
-      "top": {
-        "feature": "spreadProxy",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 90.00547840580728,
-        "meanMae": -85.04867147799399,
-        "meanRet": 7.7168010581560385,
-        "seRet": 1.7975164366154113,
-        "tail25": 0.7881316643486324,
-        "tail50": 0.5885489105238757,
-        "tail100": 0.32498840982846544
-      },
-      "bottom": {
-        "feature": "spreadProxy",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 27.986571026675826,
-        "meanMae": -26.712353795246006,
-        "meanRet": 1.3478728176705568,
-        "seRet": 0.5596825767341355,
-        "tail25": 0.4200278164116829,
-        "tail50": 0.1671302735280482,
-        "tail100": 0.02573018080667594
-      }
-    },
-    {
-      "feature": "tradeSurge",
-      "horizon": "t1",
-      "sigma": 3.3677680800369485,
-      "spreadBps": 1.6629573326910811,
-      "tailLift": 6.285714285714286,
+      "horizon": "t15d",
+      "sigma": 3.5900704367436935,
+      "spreadBps": 5.2032193847980945,
+      "tailLift": 1,
       "survives": false,
       "top": {
         "feature": "tradeSurge",
         "bucket": 9,
-        "n": 4314,
-        "meanMfe": 15.6953325155237,
-        "meanMae": -14.594797319765869,
-        "meanRet": 1.228431934236984,
-        "seRet": 0.45132568085826746,
-        "tail25": 0.1798794622160408,
-        "tail50": 0.05099675475197033,
-        "tail100": 0.009735744089012517
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.084096187028336,
+        "seRet": 1.2223718147431772,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       "bottom": {
         "feature": "tradeSurge",
         "bucket": 0,
-        "n": 4314,
-        "meanMfe": 7.409577845310776,
-        "meanMae": -8.077750507819053,
-        "meanRet": -0.43452539845409716,
-        "seRet": 0.20032453811755,
-        "tail25": 0.05169216504404265,
-        "tail50": 0.008113120074177098,
-        "tail100": 0.0004636068613815484
-      }
-    },
-    {
-      "feature": "tradeSurge",
-      "horizon": "t5",
-      "sigma": 3.358347323823454,
-      "spreadBps": 3.1867531635547457,
-      "tailLift": 2.4389610389610388,
-      "survives": false,
-      "top": {
-        "feature": "tradeSurge",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 35.012263825560424,
-        "meanMae": -32.295264690041265,
-        "meanRet": 3.022622809334819,
-        "seRet": 0.8340462323747576,
-        "tail25": 0.45456652758460825,
-        "tail50": 0.21766342141863698,
-        "tail100": 0.05887807139545665
-      },
-      "bottom": {
-        "feature": "tradeSurge",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 20.093711364316277,
-        "meanMae": -20.593167735362435,
-        "meanRet": -0.16413035421992667,
-        "seRet": 0.4525349911601244,
-        "tail25": 0.2807139545665276,
-        "tail50": 0.08924432081594807,
-        "tail100": 0.012980992118683357
-      }
-    },
-    {
-      "feature": "basis",
-      "horizon": "t30",
-      "sigma": -3.3563425677989485,
-      "spreadBps": -6.815792539502155,
-      "tailLift": 1.2504109589041095,
-      "survives": false,
-      "top": {
-        "feature": "basis",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 75.15766493118348,
-        "meanMae": -71.78649880184605,
-        "meanRet": 1.9449828874774262,
-        "seRet": 1.519649746239681,
-        "tail25": 0.7350486787204451,
-        "tail50": 0.5289754288363467,
-        "tail100": 0.24965229485396384
-      },
-      "bottom": {
-        "feature": "basis",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 64.5799283960472,
-        "meanMae": -53.10024739149768,
-        "meanRet": 8.760775426979581,
-        "seRet": 1.3470297120204884,
-        "tail25": 0.6682892906815021,
-        "tail50": 0.423041261010663,
-        "tail100": 0.17593880389429764
-      }
-    },
-    {
-      "feature": "ofiVsVol",
-      "horizon": "t30",
-      "sigma": -3.3346175231367257,
-      "spreadBps": -6.503801981146292,
-      "tailLift": 0.9714964370546317,
-      "survives": false,
-      "top": {
-        "feature": "ofiVsVol",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 67.45577740313638,
-        "meanMae": -63.29637013684932,
-        "meanRet": 2.472056352708057,
-        "seRet": 1.3116136282407294,
-        "tail25": 0.6866017617060732,
-        "tail50": 0.47403801576263327,
-        "tail100": 0.22508113120074177
-      },
-      "bottom": {
-        "feature": "ofiVsVol",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 72.39981530441624,
-        "meanMae": -62.79528632218709,
-        "meanRet": 8.97585833385435,
-        "seRet": 1.4434984225227085,
-        "tail25": 0.7209086694483078,
-        "tail50": 0.48794622160407974,
-        "tail100": 0.22763096893834028
-      }
-    },
-    {
-      "feature": "volSurge",
-      "horizon": "t30",
-      "sigma": 3.2970895715638204,
-      "spreadBps": 6.149595146581682,
-      "tailLift": 1.3329452852153665,
-      "survives": false,
-      "top": {
-        "feature": "volSurge",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 80.67354360923657,
-        "meanMae": -69.72051212076221,
-        "meanRet": 9.447224045285752,
-        "seRet": 1.542403497814978,
-        "tail25": 0.7415391747797867,
-        "tail50": 0.530829856281873,
-        "tail100": 0.2716736207695874
-      },
-      "bottom": {
-        "feature": "volSurge",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 54.34998275847019,
-        "meanMae": -49.62812657346512,
-        "meanRet": 3.2976288987040707,
-        "seRet": 1.0487174326652213,
-        "tail25": 0.6536856745479833,
-        "tail50": 0.39823829392675014,
-        "tail100": 0.14904960593416783
-      }
-    },
-    {
-      "feature": "crowdFade",
-      "horizon": "t5",
-      "sigma": 3.2418705529607323,
-      "spreadBps": 2.1614862281229223,
-      "tailLift": 1.5084269662921348,
-      "survives": false,
-      "top": {
-        "feature": "crowdFade",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 24.201872348263162,
-        "meanMae": -21.872983748206085,
-        "meanRet": 1.149275582408868,
-        "seRet": 0.4740840747126889,
-        "tail25": 0.3560500695410292,
-        "tail50": 0.12447844228094576,
-        "tail100": 0.01761706073249884
-      },
-      "bottom": {
-        "feature": "crowdFade",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 19.782689051362212,
-        "meanMae": -21.45345995522541,
-        "meanRet": -1.0122106457140543,
-        "seRet": 0.4688145864345662,
-        "tail25": 0.27399165507649514,
-        "tail50": 0.08252202132591563,
-        "tail100": 0.011590171534538712
-      }
-    },
-    {
-      "feature": "hourSin",
-      "horizon": "t30",
-      "sigma": -3.201689104130675,
-      "spreadBps": -6.906540817403467,
-      "tailLift": 0.8662764520486267,
-      "survives": false,
-      "top": {
-        "feature": "hourSin",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 67.00990531038777,
-        "meanMae": -68.64512358040935,
-        "meanRet": 4.051555311860941,
-        "seRet": 1.4286020204036516,
-        "tail25": 0.6719981455725544,
-        "tail50": 0.4459898006490496,
-        "tail100": 0.20213259156235514
-      },
-      "bottom": {
-        "feature": "hourSin",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 79.85128582617332,
-        "meanMae": -69.79312462575747,
-        "meanRet": 10.958096129264408,
-        "seRet": 1.6162968544538392,
-        "tail25": 0.7234585071859063,
-        "tail50": 0.5148354195642095,
-        "tail100": 0.2732962447844228
-      }
-    },
-    {
-      "feature": "basis",
-      "horizon": "t60",
-      "sigma": -3.0789992402978092,
-      "spreadBps": -8.955762018477547,
-      "tailLift": 1.1197321780228437,
-      "survives": false,
-      "top": {
-        "feature": "basis",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 108.65761296542766,
-        "meanMae": -100.32619427376045,
-        "meanRet": 3.123722217786053,
-        "seRet": 2.1961142682023396,
-        "tail25": 0.8171070931849791,
-        "tail50": 0.6590171534538711,
-        "tail100": 0.390125173852573
-      },
-      "bottom": {
-        "feature": "basis",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 95.03612145897775,
-        "meanMae": -74.39042273291963,
-        "meanRet": 12.0794842362636,
-        "seRet": 1.9071930377457247,
-        "tail25": 0.7795549374130737,
-        "tail50": 0.5885489105238757,
-        "tail100": 0.3092257765414928
-      }
-    },
-    {
-      "feature": "revert5",
-      "horizon": "t30",
-      "sigma": 3.05507946267516,
-      "spreadBps": 7.957418017762485,
-      "tailLift": 1.015642884395269,
-      "survives": false,
-      "top": {
-        "feature": "revert5",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 97.33718451019465,
-        "meanMae": -92.10364332044665,
-        "meanRet": 9.372335097958915,
-        "seRet": 1.8591045768831838,
-        "tail25": 0.7955493741307371,
-        "tail50": 0.617060732498841,
-        "tail100": 0.34492350486787204
-      },
-      "bottom": {
-        "feature": "revert5",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 96.5421780060166,
-        "meanMae": -94.20707755192338,
-        "meanRet": 1.4149170801964295,
-        "seRet": 1.8242644610599206,
-        "tail25": 0.7848864163189615,
-        "tail50": 0.6075567918405193,
-        "tail100": 0.3579044969865554
-      }
-    },
-    {
-      "feature": "mom5",
-      "horizon": "t30",
-      "sigma": -3.0550794626751543,
-      "spreadBps": -7.957418017762479,
-      "tailLift": 0.9845980465815177,
-      "survives": false,
-      "top": {
-        "feature": "mom5",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 96.54217800601607,
-        "meanMae": -94.20707755192323,
-        "meanRet": 1.414917080196427,
-        "seRet": 1.8242644610599217,
-        "tail25": 0.7848864163189615,
-        "tail50": 0.6075567918405193,
-        "tail100": 0.3579044969865554
-      },
-      "bottom": {
-        "feature": "mom5",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 97.33718451019446,
-        "meanMae": -92.10364332044647,
-        "meanRet": 9.372335097958906,
-        "seRet": 1.8591045768831864,
-        "tail25": 0.7955493741307371,
-        "tail50": 0.617060732498841,
-        "tail100": 0.34492350486787204
-      }
-    },
-    {
-      "feature": "askWithdrawn",
-      "horizon": "t15",
-      "sigma": 2.8247319693301076,
-      "spreadBps": 5.193093431601624,
-      "tailLift": 1.0428416485900218,
-      "survives": false,
-      "top": {
-        "feature": "askWithdrawn",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 64.49898035523134,
-        "meanMae": -58.3763242861021,
-        "meanRet": 5.9922589724783775,
-        "seRet": 1.3428330585663812,
-        "tail25": 0.6752433936022253,
-        "tail50": 0.44575799721835885,
-        "tail100": 0.1870653685674548
-      },
-      "bottom": {
-        "feature": "askWithdrawn",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 60.25999174286745,
-        "meanMae": -61.779007639296125,
-        "meanRet": 0.7991655408767536,
-        "seRet": 1.2556480979580458,
-        "tail25": 0.6562355122855819,
-        "tail50": 0.4274455261937877,
-        "tail100": 0.1833565136764024
-      }
-    },
-    {
-      "feature": "mom5",
-      "horizon": "t60",
-      "sigma": -2.8185540893326833,
-      "spreadBps": -10.126683138856095,
-      "tailLift": 1.0025990903183886,
-      "survives": false,
-      "top": {
-        "feature": "mom5",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 134.54160703044656,
-        "meanMae": -130.58129302225709,
-        "meanRet": 1.7794524770642506,
-        "seRet": 2.4992732470536683,
-        "tail25": 0.8402874362540566,
-        "tail50": 0.7153453871117292,
-        "tail100": 0.49258229021789524
-      },
-      "bottom": {
-        "feature": "mom5",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 134.68505912091717,
-        "meanMae": -129.15746482297686,
-        "meanRet": 11.906135615920345,
-        "seRet": 2.581144917901626,
-        "tail25": 0.8493277700509968,
-        "tail50": 0.713490959666203,
-        "tail100": 0.4807603152526657
-      }
-    },
-    {
-      "feature": "revert5",
-      "horizon": "t60",
-      "sigma": 2.8185540893326784,
-      "spreadBps": 10.126683138856073,
-      "tailLift": 0.9974076474400518,
-      "survives": false,
-      "top": {
-        "feature": "revert5",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 134.68505912091712,
-        "meanMae": -129.15746482297746,
-        "meanRet": 11.906135615920313,
-        "seRet": 2.5811449179016246,
-        "tail25": 0.8493277700509968,
-        "tail50": 0.713490959666203,
-        "tail100": 0.4807603152526657
-      },
-      "bottom": {
-        "feature": "revert5",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 134.541607030447,
-        "meanMae": -130.58129302225703,
-        "meanRet": 1.779452477064239,
-        "seRet": 2.4992732470536674,
-        "tail25": 0.8402874362540566,
-        "tail50": 0.7153453871117292,
-        "tail100": 0.49258229021789524
-      }
-    },
-    {
-      "feature": "spreadProxy",
-      "horizon": "t1",
-      "sigma": 2.7857658371876775,
-      "spreadBps": 1.6621741721527672,
-      "tailLift": 51.199999999999996,
-      "survives": false,
-      "top": {
-        "feature": "spreadProxy",
-        "bucket": 9,
-        "n": 4314,
-        "meanMfe": 24.260791011448156,
-        "meanMae": -23.166743368752314,
-        "meanRet": 1.76524310933957,
-        "seRet": 0.5806061537457728,
-        "tail25": 0.34538711172925357,
-        "tail50": 0.1186833565136764,
-        "tail100": 0.018312471024571165
-      },
-      "bottom": {
-        "feature": "spreadProxy",
-        "bucket": 0,
-        "n": 4314,
-        "meanMfe": 5.364063561264577,
-        "meanMae": -5.384998518864416,
-        "meanRet": 0.10306893718680268,
-        "seRet": 0.1375057944270256,
-        "tail25": 0.022716736207695872,
-        "tail50": 0.0023180343069077423,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.1191231977697587,
+        "seRet": 0.778705876371287,
+        "tail25": 0,
+        "tail50": 0,
         "tail100": 0
       }
     }
   ],
   "deciles": {
+    "sweepSignal@t15d": [
+      {
+        "feature": "sweepSignal",
+        "bucket": 0,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.271304599301945,
+        "seRet": 1.1942184759367303,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 1,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.461809330384788,
+        "seRet": 1.1304310117201641,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 2,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.2669030729710927,
+        "seRet": 1.017188541696858,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 3,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.0408960984732176,
+        "seRet": 0.9697493487955798,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 4,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.1630529962308236,
+        "seRet": 0.749822975549024,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 5,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.0276771358920556,
+        "seRet": 1.188292880499293,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 6,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.9567828597699024,
+        "seRet": 0.9351396500975305,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 7,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.296566470566531,
+        "seRet": 0.9700694900676089,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 8,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.33936525935232,
+        "seRet": 1.0706197216988127,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 9,
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -2.3053086024517113,
+        "seRet": 1.2596926095043532,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    ],
     "sweepSignal@t30": [
       {
         "feature": "sweepSignal",
@@ -1700,6 +1827,128 @@
         "tail25": 0.7355122855818266,
         "tail50": 0.5261937876680575,
         "tail100": 0.27885952712100137
+      }
+    ],
+    "sweepSignal@t30d": [
+      {
+        "feature": "sweepSignal",
+        "bucket": 0,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 9.720278446456817,
+        "seRet": 1.5301856044683533,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 1,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.468475237323644,
+        "seRet": 1.4262098065854458,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 2,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.2389183417227647,
+        "seRet": 1.4445582883641634,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 3,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.26678771641716,
+        "seRet": 1.262503311340012,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 4,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 6.545422314353433,
+        "seRet": 1.0233488179419667,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 5,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.160559716936269,
+        "seRet": 1.710994060156314,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 6,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.862990625579117,
+        "seRet": 1.2967093018804028,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 7,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.179978543171148,
+        "seRet": 1.3985477823468297,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 8,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.931573525152131,
+        "seRet": 1.5364019430378848,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 9,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -5.620267816983677,
+        "seRet": 1.7196007876070292,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     ],
     "sweepSignal@t60": [
@@ -1824,6 +2073,250 @@
         "tail100": 0.40588780713954564
       }
     ],
+    "sweepSignal@t60d": [
+      {
+        "feature": "sweepSignal",
+        "bucket": 0,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 11.682736517033916,
+        "seRet": 2.2170600388739103,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 1,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 10.434852430202533,
+        "seRet": 2.012552156892413,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 2,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.156570652546337,
+        "seRet": 1.9713328546528999,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 3,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 12.142514212284663,
+        "seRet": 1.8125368237708628,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 4,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 13.70110945553084,
+        "seRet": 1.412875150815921,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 5,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 19.44320282673397,
+        "seRet": 2.4154072639219284,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 6,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 11.220153047751413,
+        "seRet": 1.8352592678825386,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 7,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.097101984266523,
+        "seRet": 1.9580123062596233,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 8,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.798689513497825,
+        "seRet": 2.176087164412877,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "sweepSignal",
+        "bucket": 9,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -13.57034210767465,
+        "seRet": 2.264326071494894,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    ],
+    "asymmetry@t15d": [
+      {
+        "feature": "asymmetry",
+        "bucket": 0,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.691369010164476,
+        "seRet": 1.2219077797965356,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 1,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.1688677504899316,
+        "seRet": 1.075201802598517,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 2,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 0.4314563783660442,
+        "seRet": 1.0472617434706175,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 3,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.6541048328815164,
+        "seRet": 1.0411624508309871,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 4,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.12851662300471234,
+        "seRet": 1.0064737563604444,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 5,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.563096951610002,
+        "seRet": 0.9623301268130858,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 6,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.8316015313195946,
+        "seRet": 0.9705811849753003,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 7,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.023548447078671,
+        "seRet": 0.962379860762812,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 8,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.844910977535671,
+        "seRet": 1.0286443976778914,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 9,
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -2.0954395365606477,
+        "seRet": 1.2273474150522987,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    ],
     "asymmetry@t30": [
       {
         "feature": "asymmetry",
@@ -1944,6 +2437,128 @@
         "tail25": 0.7355122855818266,
         "tail50": 0.521557719054242,
         "tail100": 0.27723690310616594
+      }
+    ],
+    "asymmetry@t30d": [
+      {
+        "feature": "asymmetry",
+        "bucket": 0,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 9.531242148502919,
+        "seRet": 1.557569508467045,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 1,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.590655993555762,
+        "seRet": 1.4530540986078269,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 2,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.3630773527285927,
+        "seRet": 1.4017022341228742,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 3,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.983743317853109,
+        "seRet": 1.4292564860168273,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 4,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.5235210464926765,
+        "seRet": 1.2948241852395244,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 5,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.672976981485811,
+        "seRet": 1.3535016422758335,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 6,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.840318559385533,
+        "seRet": 1.3579528941742167,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 7,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.830867265259605,
+        "seRet": 1.4112444976741232,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 8,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.111844063474067,
+        "seRet": 1.5189121529100207,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 9,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -2.693530078609204,
+        "seRet": 1.6748779335526403,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     ],
     "asymmetry@t60": [
@@ -2068,126 +2683,248 @@
         "tail100": 0.4010199350950394
       }
     ],
-    "thinAskUp@t30": [
+    "asymmetry@t60d": [
+      {
+        "feature": "asymmetry",
+        "bucket": 0,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 14.462380974112763,
+        "seRet": 2.2467903009463974,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 1,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 12.533170310273356,
+        "seRet": 2.0603680981387607,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 2,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 10.495649422155516,
+        "seRet": 2.011263765901613,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 3,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 12.091922684074298,
+        "seRet": 1.9712628286840865,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 4,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.516493071540011,
+        "seRet": 1.8343820329712086,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 5,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 10.26397983551653,
+        "seRet": 1.928432435332351,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 6,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 8.615693812427951,
+        "seRet": 1.904095243497782,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 7,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.508971553275282,
+        "seRet": 1.9962325090960504,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 8,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 8.207148663389466,
+        "seRet": 2.128643068534604,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "asymmetry",
+        "bucket": 9,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -7.588821794591802,
+        "seRet": 2.159722527235891,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    ],
+    "thinAskUp@t30d": [
       {
         "feature": "thinAskUp",
         "bucket": 0,
-        "n": 4314,
-        "meanMfe": 60.54089794593772,
-        "meanMae": -53.421114592141016,
-        "meanRet": 4.852960600297812,
-        "seRet": 1.0756356866563852,
-        "tail25": 0.701205377839592,
-        "tail50": 0.45897079276773295,
-        "tail100": 0.19401947148817802
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.976151219605122,
+        "seRet": 1.0780741113078867,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "thinAskUp",
         "bucket": 1,
-        "n": 4314,
-        "meanMfe": 55.270473320825936,
-        "meanMae": -50.03118846260109,
-        "meanRet": 5.013978412953143,
-        "seRet": 1.0453340698992741,
-        "tail25": 0.6641168289290682,
-        "tail50": 0.42489568845618914,
-        "tail100": 0.1548446917014372
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.1426507235892736,
+        "seRet": 1.0363865280109237,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "thinAskUp",
         "bucket": 2,
-        "n": 4314,
-        "meanMfe": 79.98792783307549,
-        "meanMae": -67.77740357295245,
-        "meanRet": 13.914503516024919,
-        "seRet": 1.642764803207034,
-        "tail25": 0.6766342141863699,
-        "tail50": 0.4673157162726008,
-        "tail100": 0.2705146036161335
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 13.731482710032099,
+        "seRet": 1.6444877142395598,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "thinAskUp",
         "bucket": 3,
-        "n": 4314,
-        "meanMfe": 88.92023320003965,
-        "meanMae": -82.38199331900414,
-        "meanRet": 6.3799075456201875,
-        "seRet": 1.669319835320979,
-        "tail25": 0.7809457579972183,
-        "tail50": 0.6022253129346314,
-        "tail100": 0.33657858136300417
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.029344432426591,
+        "seRet": 1.6713326049179382,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "thinAskUp",
         "bucket": 4,
-        "n": 4314,
-        "meanMfe": 64.1832262935112,
-        "meanMae": -59.23478448783386,
-        "meanRet": 3.67164860869302,
-        "seRet": 1.3163993040793942,
-        "tail25": 0.6803430690774224,
-        "tail50": 0.4585071859063514,
-        "tail100": 0.19100602688919796
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.9578897229028844,
+        "seRet": 1.3231455709281013,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "thinAskUp",
         "bucket": 5,
-        "n": 4314,
-        "meanMfe": 65.75811327300437,
-        "meanMae": -60.22143448547839,
-        "meanRet": 5.401584252840346,
-        "seRet": 1.3245414340138493,
-        "tail25": 0.6956420955030135,
-        "tail50": 0.46801112656467314,
-        "tail100": 0.20560964302271673
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.827562083904593,
+        "seRet": 1.3199750632988574,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "thinAskUp",
         "bucket": 6,
-        "n": 4314,
-        "meanMfe": 67.11313829658431,
-        "meanMae": -63.16219386894849,
-        "meanRet": 3.982535800933824,
-        "seRet": 1.3360258228048671,
-        "tail25": 0.7100139082058414,
-        "tail50": 0.4918868799258229,
-        "tail100": 0.2051460361613352
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.157011680048882,
+        "seRet": 1.3381888524861565,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "thinAskUp",
         "bucket": 7,
-        "n": 4314,
-        "meanMfe": 73.6593404525589,
-        "meanMae": -69.66771195803655,
-        "meanRet": 5.239499928886697,
-        "seRet": 1.4205667195571234,
-        "tail25": 0.7308762169680111,
-        "tail50": 0.5148354195642095,
-        "tail100": 0.24594343996291146
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.897576759205835,
+        "seRet": 1.4458683300602488,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "thinAskUp",
         "bucket": 8,
-        "n": 4314,
-        "meanMfe": 77.69687843801486,
-        "meanMae": -82.11631697477303,
-        "meanRet": -4.168341713686394,
-        "seRet": 1.6437270990278547,
-        "tail25": 0.7466388502549838,
-        "tail50": 0.53592953175707,
-        "tail100": 0.27491886879925825
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -4.485838136062769,
+        "seRet": 1.622830824474947,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "thinAskUp",
         "bucket": 9,
-        "n": 4314,
-        "meanMfe": 87.12300794278168,
-        "meanMae": -89.58891338014905,
-        "meanRet": -2.8143159022369573,
-        "seRet": 1.7942551398221882,
-        "tail25": 0.7533611497450162,
-        "tail50": 0.5468242929995364,
-        "tail100": 0.2911451089476124
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -3.479114545523687,
+        "seRet": 1.7956268462260043,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     ],
     "thinAskUp@t60": [
@@ -2312,6 +3049,128 @@
         "tail100": 0.41678256838201205
       }
     ],
+    "thinAskUp@t60d": [
+      {
+        "feature": "thinAskUp",
+        "bucket": 0,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 11.325630074728123,
+        "seRet": 1.4462238926462212,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinAskUp",
+        "bucket": 1,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 8.613994157953925,
+        "seRet": 1.4696263722758196,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinAskUp",
+        "bucket": 2,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 28.894007051608142,
+        "seRet": 2.395637032920945,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinAskUp",
+        "bucket": 3,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 14.705743439417963,
+        "seRet": 2.332799672148893,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinAskUp",
+        "bucket": 4,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 10.26561722912347,
+        "seRet": 1.8738421737207547,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinAskUp",
+        "bucket": 5,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 12.276036005443137,
+        "seRet": 1.8170103406150298,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinAskUp",
+        "bucket": 6,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.591633415587118,
+        "seRet": 1.8250630293665502,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinAskUp",
+        "bucket": 7,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 10.083977119277264,
+        "seRet": 2.0583796091373987,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinAskUp",
+        "bucket": 8,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -6.74254027480531,
+        "seRet": 2.314971880233147,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinAskUp",
+        "bucket": 9,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -12.907509686160482,
+        "seRet": 2.397236052888451,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    ],
     "thinBidUp@t30": [
       {
         "feature": "thinBidUp",
@@ -2432,6 +3291,128 @@
         "tail25": 0.7600834492350487,
         "tail50": 0.5519239684747335,
         "tail100": 0.26564673157162727
+      }
+    ],
+    "thinBidUp@t30d": [
+      {
+        "feature": "thinBidUp",
+        "bucket": 0,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 8.445708925523512,
+        "seRet": 1.5862767914132032,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinBidUp",
+        "bucket": 1,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.759054207084,
+        "seRet": 1.4948398135925967,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinBidUp",
+        "bucket": 2,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.160465692213283,
+        "seRet": 1.503459137156599,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinBidUp",
+        "bucket": 3,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.7776350575972009,
+        "seRet": 1.399597764049173,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinBidUp",
+        "bucket": 4,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.498236707758307,
+        "seRet": 1.342333299587568,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinBidUp",
+        "bucket": 5,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.5259517686404274,
+        "seRet": 1.0820894332909068,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinBidUp",
+        "bucket": 6,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.1033461459024485,
+        "seRet": 1.1194897929807601,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinBidUp",
+        "bucket": 7,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.439482046345044,
+        "seRet": 0.9885586330347206,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinBidUp",
+        "bucket": 8,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 11.782106825547626,
+        "seRet": 2.1148626959422283,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "thinBidUp",
+        "bucket": 9,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -1.7372707264830114,
+        "seRet": 1.5314447853749193,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     ],
     "askWithdrawn@t5": [
@@ -2678,6 +3659,128 @@
         "tail100": 0.12192860454334724
       }
     ],
+    "ofiVsVol@t15d": [
+      {
+        "feature": "ofiVsVol",
+        "bucket": 0,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.689343974973779,
+        "seRet": 1.1013121330218054,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "ofiVsVol",
+        "bucket": 1,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.8327571612423017,
+        "seRet": 1.0179773492572957,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "ofiVsVol",
+        "bucket": 2,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.386861467708547,
+        "seRet": 1.061522228784789,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "ofiVsVol",
+        "bucket": 3,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.287104004884295,
+        "seRet": 1.074680831424093,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "ofiVsVol",
+        "bucket": 4,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.3801616432554384,
+        "seRet": 1.100199820982014,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "ofiVsVol",
+        "bucket": 5,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.856197469767624,
+        "seRet": 1.1059337417639503,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "ofiVsVol",
+        "bucket": 6,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.0322376092523564,
+        "seRet": 1.0376149444953913,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "ofiVsVol",
+        "bucket": 7,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.9382785345968507,
+        "seRet": 1.027577772911377,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "ofiVsVol",
+        "bucket": 8,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.0263261402866284,
+        "seRet": 1.0575163408839057,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "ofiVsVol",
+        "bucket": 9,
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.44618069198309945,
+        "seRet": 0.9961308249687646,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    ],
     "tradeSurge@t15": [
       {
         "feature": "tradeSurge",
@@ -2922,126 +4025,126 @@
         "tail100": 0.2721372276309689
       }
     ],
-    "tradeSurge@t60": [
+    "tradeSurge@t30d": [
       {
         "feature": "tradeSurge",
         "bucket": 0,
-        "n": 4314,
-        "meanMfe": 81.26015721482055,
-        "meanMae": -76.03783898467077,
-        "meanRet": 2.2575213434808687,
-        "seRet": 1.6370832214243483,
-        "tail25": 0.7621696801112656,
-        "tail50": 0.5414928140936486,
-        "tail100": 0.28766805748725083
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 0.7400260712899831,
+        "seRet": 1.1300349143858224,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "tradeSurge",
         "bucket": 1,
-        "n": 4314,
-        "meanMfe": 101.0000639025488,
-        "meanMae": -87.40836218052681,
-        "meanRet": 12.75973502415176,
-        "seRet": 2.0396742826381637,
-        "tail25": 0.8013444598980065,
-        "tail50": 0.6110338433008808,
-        "tail100": 0.3616133518776078
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.810122164785483,
+        "seRet": 1.3371852144659315,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "tradeSurge",
         "bucket": 2,
-        "n": 4314,
-        "meanMfe": 103.09652955306517,
-        "meanMae": -92.21115618855109,
-        "meanRet": 10.527561662343924,
-        "seRet": 2.0564044660453535,
-        "tail25": 0.7992582290217896,
-        "tail50": 0.6312007417709782,
-        "tail100": 0.3697264719517849
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.2642961705232327,
+        "seRet": 1.4083110303363815,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "tradeSurge",
         "bucket": 3,
-        "n": 4314,
-        "meanMfe": 104.159555581766,
-        "meanMae": -96.79558329341626,
-        "meanRet": 9.595162939235191,
-        "seRet": 2.0406708340864603,
-        "tail25": 0.8154844691701437,
-        "tail50": 0.6439499304589708,
-        "tail100": 0.37876680574872507
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.6801437201681697,
+        "seRet": 1.4450914494091083,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "tradeSurge",
         "bucket": 4,
-        "n": 4314,
-        "meanMfe": 105.04569709626712,
-        "meanMae": -99.48948598209833,
-        "meanRet": 7.095701767242243,
-        "seRet": 2.0262327079850824,
-        "tail25": 0.8022716736207696,
-        "tail50": 0.6379230412610106,
-        "tail100": 0.38270746407046824
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.531623172927451,
+        "seRet": 1.4941020240916123,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "tradeSurge",
         "bucket": 5,
-        "n": 4314,
-        "meanMfe": 109.49529860166477,
-        "meanMae": -100.72407060518503,
-        "meanRet": 7.827666331840911,
-        "seRet": 2.124630413308754,
-        "tail25": 0.8087621696801113,
-        "tail50": 0.6448771441817339,
-        "tail100": 0.4019471488178025
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.523201285272458,
+        "seRet": 1.5648407055376896,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "tradeSurge",
         "bucket": 6,
-        "n": 4314,
-        "meanMfe": 109.45624801850859,
-        "meanMae": -100.88828497787183,
-        "meanRet": 8.165897061946394,
-        "seRet": 2.0979855116050423,
-        "tail25": 0.8122392211404729,
-        "tail50": 0.6499768196569309,
-        "tail100": 0.4019471488178025
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.813135710372,
+        "seRet": 1.4689979825489898,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "tradeSurge",
         "bucket": 7,
-        "n": 4314,
-        "meanMfe": 110.23117320051531,
-        "meanMae": -100.55838181275551,
-        "meanRet": 7.093702567065211,
-        "seRet": 2.1204140885112364,
-        "tail25": 0.808993973110802,
-        "tail50": 0.6420955030134446,
-        "tail100": 0.39684747334260545
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.605249223386188,
+        "seRet": 1.5178211242065462,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "tradeSurge",
         "bucket": 8,
-        "n": 4314,
-        "meanMfe": 109.00874589617163,
-        "meanMae": -99.64609740003266,
-        "meanRet": 5.830856093088985,
-        "seRet": 2.072014344934681,
-        "tail25": 0.8164116828929068,
-        "tail50": 0.6527584608252203,
-        "tail100": 0.3866481223922114
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.0529555965258437,
+        "seRet": 1.5334011432101553,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       },
       {
         "feature": "tradeSurge",
         "bucket": 9,
-        "n": 4314,
-        "meanMfe": 110.86124468892787,
-        "meanMae": -95.13464230084976,
-        "meanRet": 11.460296721080873,
-        "seRet": 2.017333133887175,
-        "tail25": 0.8166434863235976,
-        "tail50": 0.6548446917014372,
-        "tail100": 0.3998609179415855
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 8.733963534878065,
+        "seRet": 1.5428107717021433,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     ],
     "spreadProxy@t5": [
@@ -3288,6 +4391,128 @@
         "tail100": 0.3235975892443208
       }
     ],
+    "topTraderFollow@t15d": [
+      {
+        "feature": "topTraderFollow",
+        "bucket": 0,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.9975427397700292,
+        "seRet": 0.8658676651453788,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 1,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.760411505647403,
+        "seRet": 0.7288843054231194,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 2,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.225884436768242,
+        "seRet": 0.7667626936245716,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 3,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.7419527343910909,
+        "seRet": 0.7173971259534029,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 4,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.050090357208198814,
+        "seRet": 0.7244996457199722,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 5,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.8381745106291192,
+        "seRet": 1.038377305456334,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 6,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.45791629736512324,
+        "seRet": 1.024324472901527,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 7,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.724017519358116,
+        "seRet": 1.2677838097502396,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 8,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.890389455636511,
+        "seRet": 1.1770691251275185,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 9,
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.234574632042751,
+        "seRet": 1.7777629356536235,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    ],
     "topTraderFollow@t30": [
       {
         "feature": "topTraderFollow",
@@ -3408,6 +4633,128 @@
         "tail25": 0.8639313861845155,
         "tail50": 0.7364394993045897,
         "tail100": 0.4900324524802967
+      }
+    ],
+    "topTraderFollow@t30d": [
+      {
+        "feature": "topTraderFollow",
+        "bucket": 0,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -1.4099441899156366,
+        "seRet": 1.2150434624087403,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 1,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.7798428714707635,
+        "seRet": 0.9625605484199958,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 2,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 0.2010971480148386,
+        "seRet": 1.1036302426815408,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 3,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.9319547364087944,
+        "seRet": 0.9683001494163428,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 4,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.8894293898438785,
+        "seRet": 0.9530257853838902,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 5,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.89446121239069,
+        "seRet": 1.493017854672015,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 6,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.1866446322529821,
+        "seRet": 1.4466089415924048,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 7,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 8.634813818042318,
+        "seRet": 1.7581639484722977,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 8,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 11.158133834859049,
+        "seRet": 1.6412928425208515,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 9,
+        "n": 4311,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 13.50434071377243,
+        "seRet": 2.319801259234372,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     ],
     "topTraderFollow@t60": [
@@ -3532,6 +4879,128 @@
         "tail100": 0.6492814093648586
       }
     ],
+    "topTraderFollow@t60d": [
+      {
+        "feature": "topTraderFollow",
+        "bucket": 0,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.8987251358108094,
+        "seRet": 1.5897468782829929,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 1,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 11.78160807537566,
+        "seRet": 1.3010589578015805,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 2,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.292132684807507,
+        "seRet": 1.6214181106191006,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 3,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -2.193849977271976,
+        "seRet": 1.2329177110449503,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 4,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -1.064366430784961,
+        "seRet": 1.304465266455267,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 5,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 12.590744223799172,
+        "seRet": 2.1193914101123625,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 6,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -3.5428508608475284,
+        "seRet": 2.133404613188711,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 7,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 12.555817268189728,
+        "seRet": 2.3315402546430897,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 8,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 27.763791676563628,
+        "seRet": 2.4170701287379845,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "topTraderFollow",
+        "bucket": 9,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 25.82228700815301,
+        "seRet": 3.2432962590620917,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    ],
     "takerRatioFade@t1": [
       {
         "feature": "takerRatioFade",
@@ -3652,6 +5121,128 @@
         "tail25": 0.030598052851182198,
         "tail50": 0.005099675475197033,
         "tail100": 0.0004636068613815484
+      }
+    ],
+    "takerRatioFade@t1d": [
+      {
+        "feature": "takerRatioFade",
+        "bucket": 0,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.581965851106863,
+        "seRet": 0.2113990968631492,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 1,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.6085060644991596,
+        "seRet": 0.2813021738168399,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 2,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.068936171281533,
+        "seRet": 0.2810992523382505,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 3,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 1.8928186492712427,
+        "seRet": 0.31400434063981886,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 4,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 0.6211450429191887,
+        "seRet": 0.30186075833160114,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 5,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.5128428759711398,
+        "seRet": 0.30485772233197245,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 6,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.8333313385849117,
+        "seRet": 0.30036690556998175,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 7,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -1.7668499400848383,
+        "seRet": 0.35372484688244216,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 8,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -2.1670988902010913,
+        "seRet": 0.2548679314973739,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 9,
+        "n": 4322,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -3.0702532169336814,
+        "seRet": 0.286886896758233,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     ],
     "takerRatioFade@t5": [
@@ -3776,6 +5367,128 @@
         "tail100": 0.005331478905887807
       }
     ],
+    "takerRatioFade@t5d": [
+      {
+        "feature": "takerRatioFade",
+        "bucket": 0,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.893823307407166,
+        "seRet": 0.4591491391058713,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 1,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.934281005393402,
+        "seRet": 0.6111369701050858,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 2,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.60699143197347,
+        "seRet": 0.6364554374269258,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 3,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.536465718417742,
+        "seRet": 0.6874389742373518,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 4,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.3074172359572223,
+        "seRet": 0.6676671732494435,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 5,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -2.111760995769274,
+        "seRet": 0.6598392885933129,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 6,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 0.4084672017474031,
+        "seRet": 0.7011596704127748,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 7,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -3.4040146141373966,
+        "seRet": 0.6746234850532614,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 8,
+        "n": 4313,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -3.3275022033814454,
+        "seRet": 0.536479007387309,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 9,
+        "n": 4318,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -5.738582611180165,
+        "seRet": 0.6620045332244545,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      }
+    ],
     "takerRatioFade@t15": [
       {
         "feature": "takerRatioFade",
@@ -3896,6 +5609,128 @@
         "tail25": 0.4246638850254984,
         "tail50": 0.20839128419100603,
         "tail100": 0.0449698655540102
+      }
+    ],
+    "takerRatioFade@t15d": [
+      {
+        "feature": "takerRatioFade",
+        "bucket": 0,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.5361685137368384,
+        "seRet": 0.8003204525244423,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 1,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 3.569518421851162,
+        "seRet": 0.9873216021714012,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 2,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 4.84558556020164,
+        "seRet": 1.0218727886796186,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 3,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.481504415047599,
+        "seRet": 1.2442205194346259,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 4,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 6.190222365993183,
+        "seRet": 1.1314541968163776,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 5,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -3.306126615183273,
+        "seRet": 1.2108719553922465,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 6,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 2.1313122901601287,
+        "seRet": 1.1935927541800513,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 7,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.01932984066545344,
+        "seRet": 1.107036467622525,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 8,
+        "n": 4312,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -0.17064687838557988,
+        "seRet": 0.9460324577882528,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "takerRatioFade",
+        "bucket": 9,
+        "n": 4317,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -3.271844407042601,
+        "seRet": 0.8281234720494756,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     ],
     "takerRatioFade@t30": [
@@ -4262,6 +6097,128 @@
         "tail25": 0.7770050996754752,
         "tail50": 0.5748725081131201,
         "tail100": 0.3101529902642559
+      }
+    ],
+    "hourSin@t60d": [
+      {
+        "feature": "hourSin",
+        "bucket": 0,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 20.604579107413404,
+        "seRet": 2.389133418791844,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "hourSin",
+        "bucket": 1,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 18.532137247266885,
+        "seRet": 2.2985587607167846,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "hourSin",
+        "bucket": 2,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -2.69541197366538,
+        "seRet": 2.3447484358513853,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "hourSin",
+        "bucket": 3,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 8.78386009561307,
+        "seRet": 2.243304528826647,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "hourSin",
+        "bucket": 4,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 5.1039126655185205,
+        "seRet": 1.6174378817023334,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "hourSin",
+        "bucket": 5,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 8.185527550222185,
+        "seRet": 1.7918590124023268,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "hourSin",
+        "bucket": 6,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 10.233075646673766,
+        "seRet": 1.860822903619497,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "hourSin",
+        "bucket": 7,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": -1.647497032169574,
+        "seRet": 1.5876263479301171,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "hourSin",
+        "bucket": 8,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 7.73906727892174,
+        "seRet": 2.167836283876454,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
+      },
+      {
+        "feature": "hourSin",
+        "bucket": 9,
+        "n": 4308,
+        "meanMfe": null,
+        "meanMae": null,
+        "meanRet": 9.267337946378758,
+        "seRet": 1.7453004970787327,
+        "tail25": 0,
+        "tail50": 0,
+        "tail100": 0
       }
     ]
   }
