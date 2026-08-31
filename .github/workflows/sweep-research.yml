@@ -82,21 +82,44 @@ jobs:
 
       - name: Confirm the contract exists, using the archive
         run: |
-          # The usual check calls fapi/exchangeInfo, which is 451 from here. The
-          # archive answers the same question: a contract Binance lists has a
-          # directory of daily klines, and one it does not list has nothing.
-          # Guessing a ticker is a silent failure — the run simply finds no data
-          # and looks quiet rather than wrong — so this is a hard gate.
+          # The usual check calls fapi/exchangeInfo, which is 451 from a US
+          # runner. The archive answers the same question from a host that can
+          # reach it — but by *fetching a file*, not by reading a listing.
+          #
+          # Two listing methods were tried first and both gave wrong answers: the
+          # delimiter listing is capped at 1000 alphabetical keys, and the
+          # per-symbol prefix query reported BTCUSDT absent. A control in the set
+          # is what caught the second, and this gate carries one for the same
+          # reason — if BTCUSDT reads absent the method is broken and every other
+          # verdict here is worthless.
+          #
+          # Guessing a ticker is a silent failure: the run finds no data and
+          # looks quiet rather than wrong. Hard gate.
+          dates=""
+          for d in 2 3 4 5 6 7 8; do dates="$dates $(date -u -d "-$d day" +%F)"; done
+
+          present () {
+            for day in $dates; do
+              code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 \
+                "https://data.binance.vision/data/futures/um/daily/klines/$1/1m/$1-1m-${day}.zip" || echo 000)
+              [ "$code" = "200" ] && return 0
+            done
+            return 1
+          }
+
+          if ! present BTCUSDT; then
+            echo "control BTCUSDT reads absent — the archive or this check is broken, not the symbol"
+            exit 1
+          fi
+          echo "control BTCUSDT: present"
+
           fail=0
           for sym in ${SWEEP_SYMBOLS//,/ }; do
-            url="https://data.binance.vision/?prefix=data/futures/um/daily/klines/${sym}/1m/"
-            body=$(curl -s --max-time 30 "$url" || true)
-            if echo "$body" | grep -q "${sym}-1m-"; then
-              echo "$sym: listed, archive has daily klines"
+            if present "$sym"; then
+              echo "$sym: present in the USD-M archive"
             else
-              echo "$sym: NOT FOUND in the USD-M archive at $url"
-              echo "  If this contract is real it may be too new to have published a daily file,"
-              echo "  or it may be COIN-M / spot rather than USD-M futures."
+              echo "$sym: NOT FOUND in the USD-M archive on any of$dates"
+              echo "  Either it is not a USD-M perpetual, or it is too new to have published a daily file."
               fail=1
             fi
           done
