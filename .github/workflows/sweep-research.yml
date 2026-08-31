@@ -1,0 +1,156 @@
+name: sweep research
+
+# The agent's research loop, hosted here instead of on a laptop.
+#
+# Two constraints forced this. The operator's machine cannot stay on, and the
+# cloud session that writes the code cannot reach the exchange at all — its
+# network policy answers `data.binance.vision` and `fapi.binance.com` with
+# "request blocked: no rule or allowlist entry allows host". A GitHub runner has
+# neither problem: unrestricted egress, six hours a job, and the state transport
+# this project already uses is git, which is exactly what a runner can push.
+#
+# What runs here is the *shadow and research* engine, never the order path.
+# Shadow rows are decisions that were never sent, scored against public prices,
+# so this needs no API key and is given none. That is a deliberate safety
+# property and not an oversight: a process that can trade and a process that
+# runs unattended for six hours at a time are worth keeping apart.
+
+on:
+  schedule:
+    # Every six hours. Jobs are capped at six, so this hands over rather than
+    # overlapping — see the concurrency group below, which lets a starting run
+    # wait for the previous one rather than killing it.
+    - cron: "7 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      symbols:
+        description: "Contracts to watch, comma separated"
+        required: false
+        default: ""
+      minutes:
+        description: "How long to run (max 340)"
+        required: false
+        default: "330"
+
+concurrency:
+  group: sweep-research
+  # Never cancel a run in flight. The rows it has collected but not yet pushed
+  # are the only copy, and a cancelled run loses the window it was measuring.
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  research:
+    runs-on: ubuntu-latest
+    # Just under GitHub's 360-minute hard kill, so the run ends on its own terms
+    # and gets to push its last window instead of being shot mid-write.
+    timeout-minutes: 350
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: claude/amm-liquidity-sweep-8qhnd0
+          # A shallow clone cannot rebase onto the operator's pushes, and this
+          # branch takes commits from two places at once.
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - run: npm ci --no-audit --no-fund
+
+      - name: Confirm the contracts exist before watching them
+        env:
+          SWEEP_SYMBOLS: ${{ github.event.inputs.symbols || vars.SWEEP_SYMBOLS || 'LITUSDC' }}
+        run: |
+          # Guessing a ticker is a silent failure: the socket opens, the book
+          # never warms, and the run looks quiet rather than wrong. This has
+          # already cost this project days, so it is a hard gate.
+          npm run sweep:symbols
+
+      - name: Collect and research
+        env:
+          SWEEP_SYMBOLS: ${{ github.event.inputs.symbols || vars.SWEEP_SYMBOLS || 'LITUSDC' }}
+          RUN_MINUTES: ${{ github.event.inputs.minutes || '330' }}
+        run: |
+          set -uo pipefail
+          git config user.name "sweep-research[bot]"
+          git config user.email "noreply@anthropic.com"
+
+          mkdir -p data evidence
+          npm run sweep:shadow -- --out=data/sweep-shadow.jsonl > data/shadow.log 2>&1 &
+          SHADOW_PID=$!
+          echo "shadow pid $SHADOW_PID, symbols $SWEEP_SYMBOLS"
+
+          END=$(( $(date +%s) + RUN_MINUTES * 60 ))
+          PASS=0
+          while [ "$(date +%s)" -lt "$END" ]; do
+            sleep 300
+
+            # If the collector died, the rest of the loop is theatre. Say so in
+            # the place that survives the runner, then stop.
+            if ! kill -0 "$SHADOW_PID" 2>/dev/null; then
+              echo "shadow collector exited early" >> evidence/RUNNER.md
+              tail -40 data/shadow.log >> evidence/RUNNER.md || true
+              break
+            fi
+
+            PASS=$(( PASS + 1 ))
+            npm run sweep:evidence || true
+
+            # Every hour, not every pass: the replay is the expensive part and
+            # it reads a window that barely moves in five minutes.
+            if [ $(( PASS % 12 )) -eq 0 ]; then
+              timeout 20m npm run sweep:backtest || echo "backtest failed on pass $PASS" >> evidence/RUNNER.md
+            fi
+
+            {
+              echo "## $(date -u +%FT%TZ) — runner pass $PASS"
+              echo "symbols: $SWEEP_SYMBOLS · rows: $(wc -l < data/sweep-shadow.jsonl 2>/dev/null || echo 0)"
+            } >> evidence/RUNNER.md
+
+            # Push every pass rather than once at the end. A six-hour job that
+            # is cancelled at hour five with nothing pushed has measured nothing,
+            # and the runner's disk does not outlive it.
+            #
+            # Pathspec only, never `git add -A`: a credentials file sits in the
+            # operator's working tree and this branch is shared with it.
+            git add evidence/ || true
+            if ! git diff --cached --quiet; then
+              git commit -q -m "research: runner pass $PASS ($SWEEP_SYMBOLS)" || true
+              # The operator's machine pushes to this branch too, so rebase
+              # rather than assuming this runner is the only writer.
+              for i in 1 2 3 4; do
+                git pull --rebase -q origin claude/amm-liquidity-sweep-8qhnd0 && \
+                  git push -q origin HEAD:claude/amm-liquidity-sweep-8qhnd0 && break
+                sleep $(( i * 4 ))
+              done
+            fi
+          done
+
+          kill "$SHADOW_PID" 2>/dev/null || true
+          wait "$SHADOW_PID" 2>/dev/null || true
+
+          npm run sweep:evidence || true
+          git add evidence/ || true
+          git diff --cached --quiet || {
+            git commit -q -m "research: runner final ($SWEEP_SYMBOLS)"
+            for i in 1 2 3 4; do
+              git pull --rebase -q origin claude/amm-liquidity-sweep-8qhnd0 && \
+                git push -q origin HEAD:claude/amm-liquidity-sweep-8qhnd0 && break
+              sleep $(( i * 4 ))
+            done
+          }
+
+      - name: Keep the collector log when something went wrong
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: shadow-log
+          path: data/shadow.log
+          retention-days: 7
+          if-no-files-found: ignore

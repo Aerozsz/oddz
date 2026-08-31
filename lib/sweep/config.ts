@@ -30,8 +30,27 @@
  * on a crypto pair. Use another symbol to test that orders work, not to decide
  * whether the strategy does.
  */
+/*
+ * Default changed to LITUSDC on 2026-08-31, at the operator's instruction, and
+ * BTCUSDT dropped.
+ *
+ * Two things about this are worth stating plainly rather than discovering
+ * later. First, LITUSDC is a small-cap crypto perpetual, so none of the
+ * calibrated models apply — the leverage ladder, the maintenance rate, the
+ * session weights and the earnings calendar are all fitted to an equity perp on
+ * a Nasdaq clock, and `isCalibrated` reports that rather than pretending
+ * otherwise.
+ *
+ * Second, and more consequential: the cost arithmetic gets worse, not better.
+ * On BTCUSDT the spread ran around 0.012bp and the modelled round trip $0.5826
+ * a decision against a gross price contribution of $0.0223 — fees already 26x
+ * gross. A thinner book means a wider spread and more slippage per unit size,
+ * so the bar this has to clear rises. That is not a reason to refuse the
+ * change; it is the number to watch first, and `spreadBps` in the shadow
+ * summary is where it shows up.
+ */
 export const SYMBOL =
-  (typeof process !== "undefined" ? process.env?.SWEEP_SYMBOL?.trim() : "") || "INTCUSDT";
+  (typeof process !== "undefined" ? process.env?.SWEEP_SYMBOL?.trim() : "") || "LITUSDC";
 
 /**
  * Every contract watched at once.
