@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-08-31T19:13:24.825Z by the research loop. Do not edit — it is
+Generated 2026-08-31T19:23:30.031Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -42,14 +42,14 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 12 cleared the bar; **0 also beat the round trip** — so none is tradeable as a directional signal.
 
-- `mom5` @ t1: 306.1 sigma, 0.00bp
-- `mom30` @ t1: 306.1 sigma, 0.00bp
-- `thinBidUp` @ t1: -306.1 sigma, -0.00bp
-- `bidWithdrawn` @ t1: -306.1 sigma, -0.00bp
-- `ofi` @ t1: -306.1 sigma, -0.00bp
-- `ofiVsVol` @ t1: -306.1 sigma, -0.00bp
-- `revert5` @ t1: -306.1 sigma, -0.00bp
-- `volSurge` @ t1: -306.1 sigma, -0.00bp
+- `mom5` @ t1: 306.1 sigma, 0.00bp · halves 216.0/216.0 sigma, 0.0/0.0bp — **holds in both**
+- `mom30` @ t1: 306.1 sigma, 0.00bp · halves 216.0/216.0 sigma, 0.0/0.0bp — **holds in both**
+- `thinBidUp` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `bidWithdrawn` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `ofi` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `ofiVsVol` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `revert5` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `volSurge` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
 
 Carry: no premium index data — the carry question cannot be asked, this is missing data and not a null result
 
