@@ -31,8 +31,17 @@
  * whether the strategy does.
  */
 /*
- * Default changed to LITUSDC on 2026-08-31, at the operator's instruction, and
- * BTCUSDT dropped.
+ * Default changed to LITUSDT on 2026-08-31, at the operator's instruction to
+ * move to LIT and drop BTCUSDT.
+ *
+ * The instruction named LITUSDC. That contract does not exist. Checked against
+ * the Binance archive from a host that can reach it, with BTCUSDT and BTCUSDC
+ * as controls so an absent reading could be told from a broken method:
+ * um/LITUSDT present, um/LITUSDC absent on every date tried, both BTC controls
+ * present. BTCUSDC being present is what rules out the obvious alternative
+ * explanation — USDC-margined perpetuals are archived, so LITUSDC is missing
+ * because it is not listed, not because its class is absent. LITUSDT is the
+ * only LIT perpetual, so that is what this points at.
  *
  * Two things about this are worth stating plainly rather than discovering
  * later. First, LITUSDC is a small-cap crypto perpetual, so none of the
@@ -50,7 +59,7 @@
  * summary is where it shows up.
  */
 export const SYMBOL =
-  (typeof process !== "undefined" ? process.env?.SWEEP_SYMBOL?.trim() : "") || "LITUSDC";
+  (typeof process !== "undefined" ? process.env?.SWEEP_SYMBOL?.trim() : "") || "LITUSDT";
 
 /**
  * Every contract watched at once.

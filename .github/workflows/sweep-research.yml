@@ -62,7 +62,7 @@ jobs:
     timeout-minutes: 120
 
     env:
-      SWEEP_SYMBOLS: ${{ github.event.inputs.symbols || vars.SWEEP_SYMBOLS || 'LITUSDC' }}
+      SWEEP_SYMBOLS: ${{ github.event.inputs.symbols || vars.SWEEP_SYMBOLS || 'LITUSDT' }}
       DAYS: ${{ github.event.inputs.days || '30' }}
 
     steps:
