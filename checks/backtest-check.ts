@@ -169,7 +169,11 @@ function plantedEdge() {
 
   const out = join(dir, "report.json");
   try {
-    execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--in", dir, "--out", out], {
+    // --symbol is named rather than left to the worker's default. These fixtures
+    // are BTCUSDT and that default is now the project's configured symbol, which
+    // moves — a test leaning on it is testing the configuration, and it broke the
+    // moment the configured symbol changed.
+    execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--symbol", "BTCUSDT", "--in", dir, "--out", out], {
       cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000,
     });
   } catch (err) {
@@ -269,7 +273,7 @@ function refusesMixedSymbols() {
   let stderr = "";
   let exited = false;
   try {
-    execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--in", dir, "--out", out],
+    execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--symbol", "BTCUSDT", "--in", dir, "--out", out],
       { cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000 });
   } catch (err) {
     exited = true;
@@ -327,7 +331,7 @@ function prefersTheLayoutThatHasData() {
   const out = join(dir, "report.json");
   let stderr = "";
   try {
-    execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--in", dir, "--out", out],
+    execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--symbol", "BTCUSDT", "--in", dir, "--out", out],
       { cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000 });
   } catch (err) {
     const e = err as { stderr?: Buffer; stdout?: Buffer };
