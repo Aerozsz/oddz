@@ -1,31 +1,37 @@
 name: sweep research
 
-# The agent's research loop, hosted here instead of on a laptop.
+# The replay engine, hosted here instead of on a laptop.
 #
-# Two constraints forced this. The operator's machine cannot stay on, and the
-# cloud session that writes the code cannot reach the exchange at all — its
-# network policy answers `data.binance.vision` and `fapi.binance.com` with
-# "request blocked: no rule or allowlist entry allows host". A GitHub runner has
-# neither problem: unrestricted egress, six hours a job, and the state transport
-# this project already uses is git, which is exactly what a runner can push.
+# Three constraints shaped this, and the shape is not the obvious one.
 #
-# What runs here is the *shadow and research* engine, never the order path.
-# Shadow rows are decisions that were never sent, scored against public prices,
-# so this needs no API key and is given none. That is a deliberate safety
-# property and not an oversight: a process that can trade and a process that
-# runs unattended for six hours at a time are worth keeping apart.
+# The operator's machine cannot stay on. The cloud session that writes this code
+# cannot reach Binance at all — its network policy answers both hosts with
+# "request blocked: no rule or allowlist entry allows host". And a probe run
+# settled the third: a GitHub runner egresses from a US address, so
+# `fapi.binance.com` returns 451 (unavailable for legal reasons) while
+# `data.binance.vision` returns 200 on both its index and a real zip.
+#
+# So a runner cannot hold a live feed, and there is no point pretending
+# otherwise — that is why the first version of this file, which tried to run the
+# live shadow collector, failed in one second at the symbol gate. What a runner
+# can do is the archive work, which happens to be the highest-value work in the
+# project: the feature search over hundreds of thousands of samples is what
+# produces verdicts, and it needs no socket, no credentials and no account.
+#
+# It is also the part that has been silently broken. The replay refused every
+# pass with "RangeError: Maximum call stack size exceeded" — a spread of every
+# close in the window into Math.min — so FINDINGS stopped regenerating on
+# 2026-08-25 while the loop still looked like it was running. That is fixed, and
+# hosting it here means it runs whether or not a laptop is on.
 
 on:
   schedule:
-    # Every six hours. Jobs are capped at six, so this hands over rather than
-    # overlapping — see the concurrency group below, which lets a starting run
-    # wait for the previous one rather than killing it.
-    - cron: "7 */6 * * *"
-  # A dedicated trigger file, because the integration token that writes this
-  # repository is not granted `actions: write` and cannot dispatch a run.
-  # Scoped to one path deliberately: the job itself commits to `evidence/` every
-  # five minutes, so a broader push trigger would restart the run it is inside
-  # of, forever.
+    - cron: "17 */6 * * *"
+
+  # A trigger file, because the integration token that writes this repository is
+  # not granted `actions: write` and cannot dispatch a run through the API.
+  # Scoped to paths the job never writes, so a job that commits to `evidence/`
+  # cannot restart itself.
   push:
     branches: [claude/amm-liquidity-sweep-8qhnd0]
     paths:
@@ -35,18 +41,16 @@ on:
   workflow_dispatch:
     inputs:
       symbols:
-        description: "Contracts to watch, comma separated"
+        description: "Contracts to replay, comma separated"
         required: false
         default: ""
-      minutes:
-        description: "How long to run (max 340)"
+      days:
+        description: "Days of history to pull"
         required: false
-        default: "330"
+        default: "30"
 
 concurrency:
   group: sweep-research
-  # Never cancel a run in flight. The rows it has collected but not yet pushed
-  # are the only copy, and a cancelled run loses the window it was measuring.
   cancel-in-progress: false
 
 permissions:
@@ -55,9 +59,11 @@ permissions:
 jobs:
   research:
     runs-on: ubuntu-latest
-    # Just under GitHub's 360-minute hard kill, so the run ends on its own terms
-    # and gets to push its last window instead of being shot mid-write.
-    timeout-minutes: 350
+    timeout-minutes: 120
+
+    env:
+      SWEEP_SYMBOLS: ${{ github.event.inputs.symbols || vars.SWEEP_SYMBOLS || 'LITUSDC' }}
+      DAYS: ${{ github.event.inputs.days || '30' }}
 
     steps:
       - uses: actions/checkout@v4
@@ -74,94 +80,64 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
-      - name: Confirm the contracts exist before watching them
-        env:
-          SWEEP_SYMBOLS: ${{ github.event.inputs.symbols || vars.SWEEP_SYMBOLS || 'LITUSDC' }}
+      - name: Confirm the contract exists, using the archive
         run: |
-          # Guessing a ticker is a silent failure: the socket opens, the book
-          # never warms, and the run looks quiet rather than wrong. This has
-          # already cost this project days, so it is a hard gate.
-          npm run sweep:symbols
+          # The usual check calls fapi/exchangeInfo, which is 451 from here. The
+          # archive answers the same question: a contract Binance lists has a
+          # directory of daily klines, and one it does not list has nothing.
+          # Guessing a ticker is a silent failure — the run simply finds no data
+          # and looks quiet rather than wrong — so this is a hard gate.
+          fail=0
+          for sym in ${SWEEP_SYMBOLS//,/ }; do
+            url="https://data.binance.vision/?prefix=data/futures/um/daily/klines/${sym}/1m/"
+            body=$(curl -s --max-time 30 "$url" || true)
+            if echo "$body" | grep -q "${sym}-1m-"; then
+              echo "$sym: listed, archive has daily klines"
+            else
+              echo "$sym: NOT FOUND in the USD-M archive at $url"
+              echo "  If this contract is real it may be too new to have published a daily file,"
+              echo "  or it may be COIN-M / spot rather than USD-M futures."
+              fail=1
+            fi
+          done
+          exit $fail
 
-      - name: Collect and research
-        env:
-          SWEEP_SYMBOLS: ${{ github.event.inputs.symbols || vars.SWEEP_SYMBOLS || 'LITUSDC' }}
-          RUN_MINUTES: ${{ github.event.inputs.minutes || '330' }}
+      - name: Pull history and replay
+        run: |
+          set -uo pipefail
+          for sym in ${SWEEP_SYMBOLS//,/ }; do
+            echo "::group::history $sym"
+            npm run sweep:history -- --symbol "$sym" --days "$DAYS" || true
+            echo "::endgroup::"
+            echo "::group::backtest $sym"
+            # Not `|| true`: a replay that refuses is the failure this workflow
+            # exists to surface, and it spent six days refusing silently.
+            SWEEP_SYMBOL="$sym" timeout 60m npm run sweep:backtest
+            echo "::endgroup::"
+          done
+
+      - name: Publish the findings
+        if: always()
         run: |
           set -uo pipefail
           git config user.name "sweep-research[bot]"
           git config user.email "noreply@anthropic.com"
 
-          mkdir -p data evidence
-          npm run sweep:shadow -- --out=data/sweep-shadow.jsonl > data/shadow.log 2>&1 &
-          SHADOW_PID=$!
-          echo "shadow pid $SHADOW_PID, symbols $SWEEP_SYMBOLS"
+          {
+            echo "## $(date -u +%FT%TZ) — archive replay"
+            echo "symbols: ${SWEEP_SYMBOLS} · days: ${DAYS} · run ${GITHUB_RUN_ID}"
+          } >> evidence/RUNNER.md
 
-          END=$(( $(date +%s) + RUN_MINUTES * 60 ))
-          PASS=0
-          while [ "$(date +%s)" -lt "$END" ]; do
-            sleep 300
-
-            # If the collector died, the rest of the loop is theatre. Say so in
-            # the place that survives the runner, then stop.
-            if ! kill -0 "$SHADOW_PID" 2>/dev/null; then
-              echo "shadow collector exited early" >> evidence/RUNNER.md
-              tail -40 data/shadow.log >> evidence/RUNNER.md || true
-              break
-            fi
-
-            PASS=$(( PASS + 1 ))
-            npm run sweep:evidence || true
-
-            # Every hour, not every pass: the replay is the expensive part and
-            # it reads a window that barely moves in five minutes.
-            if [ $(( PASS % 12 )) -eq 0 ]; then
-              timeout 20m npm run sweep:backtest || echo "backtest failed on pass $PASS" >> evidence/RUNNER.md
-            fi
-
-            {
-              echo "## $(date -u +%FT%TZ) — runner pass $PASS"
-              echo "symbols: $SWEEP_SYMBOLS · rows: $(wc -l < data/sweep-shadow.jsonl 2>/dev/null || echo 0)"
-            } >> evidence/RUNNER.md
-
-            # Push every pass rather than once at the end. A six-hour job that
-            # is cancelled at hour five with nothing pushed has measured nothing,
-            # and the runner's disk does not outlive it.
-            #
-            # Pathspec only, never `git add -A`: a credentials file sits in the
-            # operator's working tree and this branch is shared with it.
-            git add evidence/ || true
-            if ! git diff --cached --quiet; then
-              git commit -q -m "research: runner pass $PASS ($SWEEP_SYMBOLS)" || true
-              # The operator's machine pushes to this branch too, so rebase
-              # rather than assuming this runner is the only writer.
-              for i in 1 2 3 4; do
-                git pull --rebase -q origin claude/amm-liquidity-sweep-8qhnd0 && \
-                  git push -q origin HEAD:claude/amm-liquidity-sweep-8qhnd0 && break
-                sleep $(( i * 4 ))
-              done
-            fi
-          done
-
-          kill "$SHADOW_PID" 2>/dev/null || true
-          wait "$SHADOW_PID" 2>/dev/null || true
-
-          npm run sweep:evidence || true
+          # Pathspec only, never `git add -A`: a credentials file sits in the
+          # operator's working tree and this branch is shared with it.
           git add evidence/ || true
-          git diff --cached --quiet || {
-            git commit -q -m "research: runner final ($SWEEP_SYMBOLS)"
+          if ! git diff --cached --quiet; then
+            git commit -q -m "research: archive replay (${SWEEP_SYMBOLS}, ${DAYS}d)"
+            # The operator's machine pushes to this branch too, so rebase rather
+            # than assuming this runner is the only writer.
             for i in 1 2 3 4; do
               git pull --rebase -q origin claude/amm-liquidity-sweep-8qhnd0 && \
                 git push -q origin HEAD:claude/amm-liquidity-sweep-8qhnd0 && break
               sleep $(( i * 4 ))
             done
-          }
-
-      - name: Keep the collector log when something went wrong
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: shadow-log
-          path: data/shadow.log
-          retention-days: 7
-          if-no-files-found: ignore
+          fi
