@@ -317,6 +317,34 @@ function main() {
       mae[key] = ((lo - m.close) / m.close) * 10_000;
       ret[key] = ((last.close - m.close) / m.close) * 10_000;
       usable = true;
+
+      /*
+       * The same horizon, entered one bar later.
+       *
+       * `m.close` is the decision minute's last trade. If a feature correlates
+       * with which side that trade hit — and a taker-ratio feature correlates
+       * with exactly that by construction — then the entry price is biased by
+       * half the spread and the forward return reverts mechanically. That is
+       * bid-ask bounce. It produces a large, highly significant decile spread
+       * that is completely untradeable, because a real entry pays the same
+       * spread it appears to earn.
+       *
+       * It was invisible on BTCUSDT, where the spread ran about 0.012bp and
+       * half of nothing is nothing. On a small-cap contract it is the first
+       * explanation to rule out, and the first LITUSDT run produced twelve
+       * findings that beat a fees-only cost bar with takerRatioFade at the top.
+       *
+       * Entering one bar later breaks the conditioning: the next bar's close is
+       * not the trade the feature was computed from. A real signal survives the
+       * delay and weakens; a bounce artefact largely disappears. Reported
+       * beside the immediate figure rather than replacing it, because the
+       * *difference between the two* is the measurement.
+       */
+      const entry = byTs.get(m.ts + 60_000);
+      const lastD = byTs.get(m.ts + (h + 1) * 60_000);
+      if (entry && lastD) {
+        ret[`${key}d`] = ((lastD.close - entry.close) / entry.close) * 10_000;
+      }
     }
     if (usable) samples.push({ ts: m.ts, features: f, mfe, mae, ret });
   }
@@ -328,9 +356,15 @@ function main() {
   }
 
   const names = Object.keys(samples[0].features);
-  const tests = names.length * HORIZONS.length;
+  /*
+   * Delayed variants are real tests and are counted as such. Hiding them from
+   * the multiplicity would lower the bar by pretending fewer looks were taken.
+   */
+  const HORIZON_KEYS = HORIZONS.flatMap((h) => [`t${h}`, `t${h}d`]);
+  const tests = names.length * HORIZON_KEYS.length;
   const bar = familyZ(tests);
-  console.error(`[backtest] ${names.length} features × ${HORIZONS.length} horizons = ${tests} tests`);
+  console.error(`[backtest] ${names.length} features × ${HORIZON_KEYS.length} horizon keys = ${tests} tests`);
+  console.error("[backtest] keys ending 'd' enter one bar later — the difference is the bid-ask bounce test");
   console.error(`[backtest] a finding must clear ${bar.toFixed(2)} sigma to survive that many looks`);
 
   interface Ranked {
@@ -347,8 +381,7 @@ function main() {
   const detail: Record<string, Score[]> = {};
 
   for (const name of names) {
-    for (const h of HORIZONS) {
-      const key = `t${h}`;
+    for (const key of HORIZON_KEYS) {
       const scores = scoreFeature(samples, name, key);
       if (scores.length < 2) continue;
       const e = edge(scores);
@@ -376,7 +409,22 @@ function main() {
    * market and not a strategy. Printing it beside the spread is the difference
    * between "we found something" and "we found something we can trade".
    */
-  const ROUND_TRIP_BPS = 7;
+  /*
+   * Fees only. This is not the cost of trading.
+   *
+   * Two taker fills at the tier this account pays, and nothing else — no
+   * spread, no slippage, no queue. That was defensible on BTCUSDT, where the
+   * spread ran about 0.012bp and rounding it away changed nothing. It is not
+   * defensible on a small-cap contract, where crossing the spread twice can
+   * cost several times the fees, and a finding "beating the round trip" here is
+   * beating a bar built for a different instrument.
+   *
+   * Overridable so the real number can be used once it is measured, and named
+   * feesOnly so nothing downstream reads it as the whole cost.
+   */
+  const ROUND_TRIP_BPS = Number(process.env.SWEEP_ROUND_TRIP_BPS) > 0
+    ? Number(process.env.SWEEP_ROUND_TRIP_BPS)
+    : 7;
 
   /*
    * Carry, scored alongside the directional search rather than instead of it.
@@ -407,7 +455,7 @@ function main() {
     funding,
     samples: samples.length,
     spanDays: Math.round((minutes[minutes.length - 1].ts - minutes[0].ts) / 86_400_000),
-    horizons: HORIZONS,
+    horizons: HORIZON_KEYS,
     method:
       "Every feature bucketed into deciles; each decile scored on close-to-close return, on best and " +
       "worst excursion inside the window, and on the probability of clearing 25/50/100bp. Ranked by the " +
