@@ -701,3 +701,54 @@ is present and shows these three are too large to be explained by it.
 So: the most promising thing this project has produced, three features that
 survive the artefact most likely to explain them, and three specific ways it
 could still be nothing. Not a signal to trade. A candidate to attack.
+
+## 2026-08-31T21:05Z — two tests, and each killed what the other missed
+
+The holdout landed and it corrects my last entry. I said takerRatioFade was the
+contaminated one and thinAskUp, sweepSignal and topTraderFollow were the clean
+survivors. Refitting each half of the window says close to the opposite.
+
+**topTraderFollow is dead, and it was the biggest number in the run.** 7.6 sigma
+and 27.5bp over the full window; first half −2.2 sigma at −8.2bp, second half
++14.2 sigma at +61.3bp. **The sign flips.** The entire finding is the back half
+of one month, and had the run stopped at the bounce test it would have passed —
+it keeps 97% of its edge when entered a bar later, because a fortnight-shaped
+artefact is not a spread artefact. Two different tests, two different failure
+modes, and only running both caught it.
+
+**thinAskUp @ t60 fails too**: −6.5 sigma in the first half, −1.6 in the second.
+So does thinBidUp @ t30, which is −0.3 then −7.2 — the mirror image, carried by
+the other half.
+
+**What survives everything.** Bounce-immune (entered a bar later), both halves
+individually significant, and past the cost bar:
+
+| finding | full | half A | half B |
+|---|---|---|---|
+| `sweepSignal` @t60d | −8.0σ, −25.3bp | −6.0σ, −19.6bp | −5.8σ, −31.3bp |
+| `asymmetry` @t60d | −7.1σ, −22.1bp | −4.3σ, −13.8bp | −5.1σ, −26.8bp |
+| `sweepSignal` @t30d | −6.7σ, −15.3bp | −4.2σ, −10.3bp | −5.4σ, −21.2bp |
+| `takerRatioFade` @t5d | −12.0σ, −9.6bp | −7.7σ, −6.8bp | −9.6σ, −14.1bp |
+
+takerRatioFade does lose about half its edge to the delay, as I said — but what
+is left survives the split cleanly at every horizon, which I got wrong by
+implying the delay had gutted it.
+
+**The sign is the finding.** sweepSignal, asymmetry, thinAskUp and takerRatioFade
+are all **negative**. sweepSignal is this project's own core signal, and it
+predicts the move in the direction opposite to the thesis. This is the
+depth-inverted hypothesis again — the one I rejected on BTCUSDT shadow data — and
+on LITUSDT archive data it survives a bid-ask bounce test and a time holdout at
+25bp on 43,140 samples. Rejecting it there and finding it here is not a
+contradiction: different contract, different liquidity, and the BTCUSDT rejection
+was 15 cells of a shadow file, not a controlled replay.
+
+**The one thing standing between this and a candidate: the cost bar is fees
+only.** Seven basis points is two taker fills. LITUSDT's real round trip includes
+crossing a spread on a small-cap book twice, and that number is unmeasured. At a
+plausible 15–25bp it eats sweepSignal @t60d entirely. Measuring it is now the
+single highest-value job in the project, ahead of everything in the pass list,
+because it is the difference between a finding and an artefact of using
+Bitcoin's cost structure on an altcoin.
+
+Nothing here is a reason to arm anything.
