@@ -5555,7 +5555,34 @@ function writeStateSnapshot() {
     });
   } catch (err) {
     // A snapshot that fails must never be able to affect trading.
-    log(`snapshot failed: ${err instanceof Error ? err.message : String(err)}`);
+    const why = err instanceof Error ? `${err.message}\n${err.stack ?? ""}` : String(err);
+    log(`snapshot failed: ${why}`);
+    /*
+     * Write a snapshot that says the snapshot failed.
+     *
+     * `log()` appends to `logLines`, and `logLines` is only ever published
+     * inside the snapshot — so the one explanation for a stalled snapshot was
+     * being filed exclusively in the thing that had stopped being written. From
+     * outside, a process failing here and a process that has died look
+     * identical: the file simply stops moving. This session lost twenty minutes
+     * to exactly that ambiguity, and the routine spent two weeks in the same
+     * trap, unable to report being blocked through a channel that required the
+     * thing that was blocking it.
+     *
+     * Deliberately built from almost nothing — a timestamp, the error, the tail
+     * of the log — because whatever threw above is likely to throw again if it
+     * is asked the same question, and a failure report that can fail the same
+     * way is not a report.
+     */
+    try {
+      writeSnapshot({
+        meta: { at: Date.now(), degraded: true },
+        errors: [`snapshot failed: ${why}`],
+        log: logLines.slice(-40),
+      });
+    } catch {
+      /* nothing further is possible here, and trying harder risks the loop */
+    }
   }
 }
 
