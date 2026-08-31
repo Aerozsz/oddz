@@ -644,3 +644,60 @@ that was supposed to be looking for one had been running with a quarter of its
 evidence disconnected, and the four most promising results it produced were all
 artefacts of that. It is now measuring what it was designed to measure, for the
 first time.
+
+## 2026-08-31T20:40Z — the runner works, and the first LITUSDT result splits in two
+
+The archive replay runs on a GitHub runner now, with the operator's machine off.
+It pulled 120 files and 18 MB of LITUSDT history and produced the first result
+this project has seen that clears both bars at once. Twelve findings cleared a
+3.72 sigma Bonferroni bar, and eleven also beat the cost bar. Nothing in 513,000
+BTCUSDT samples ever beat that cost bar.
+
+That is exactly when to try hardest to break it, so I did, and it broke in half.
+
+**The bounce test.** Returns were measured from the decision minute's close —
+its last trade. A taker-ratio feature correlates with which side that trade hit
+by construction, so the entry price carries half the spread and the forward
+return reverts mechanically. Untradeable: a real entry pays the same spread it
+appears to earn. Invisible on BTCUSDT at a 0.012bp spread; the first thing to
+rule out on a small-cap. Every horizon now also scores an entry one bar later,
+where the next bar's close is not the trade the feature was computed from.
+
+| feature | immediate | one bar later | edge kept |
+|---|---|---|---|
+| takerRatioFade t1 | −21.8σ, −7.55bp | −15.9σ, −5.65bp | 75% |
+| takerRatioFade t5 | −21.8σ, −17.95bp | −12.0σ, −9.63bp | 54% |
+| takerRatioFade t15 | −12.8σ, −14.52bp | −5.9σ, −6.81bp | 47% |
+| thinAskUp t30 | −3.7σ, −7.67bp | −4.0σ, −8.46bp | 110% |
+| thinAskUp t60 | −8.3σ, −23.24bp | −8.7σ, −24.23bp | 104% |
+| sweepSignal t30 | −6.5σ, −14.98bp | −6.7σ, −15.34bp | 102% |
+| sweepSignal t60 | −7.6σ, −23.95bp | −8.0σ, −25.25bp | 105% |
+| topTraderFollow t60 | 7.6σ, 27.51bp | 7.4σ, 26.72bp | 97% |
+
+**`takerRatioFade` — the top-ranked finding — is roughly half entry artefact.**
+It loses more of its edge the longer you look, 25% then 46% then 53%, and its
+sigma collapses from 21.8 to 5.9 at fifteen minutes. At one minute it falls under
+even the fees-only bar. That is what a bounce contaminated signal looks like, and
+it was the headline of the first report.
+
+**Three others survive intact.** thinAskUp, sweepSignal and topTraderFollow at
+thirty and sixty minutes keep 97–110% of their edge. That is the right shape:
+bounce is a one-tick effect worth about 2bp, which is most of a 7.55bp one-minute
+edge and almost none of a 23bp hourly one. So the test both confirms the artefact
+is present and shows these three are too large to be explained by it.
+
+**What I have not ruled out, and will not pretend I have.**
+
+1. **The cost bar is fees-only.** Seven basis points is two taker fills and
+   nothing else — no spread, no slippage, no queue. It was defensible on BTCUSDT
+   where the spread rounded to zero. LITUSDT's real round trip is unmeasured, and
+   at a plausible 15–25bp it could eat every one of these. Measuring it is the
+   next job, and ROUND_TRIP_BPS is now overridable so the real number can be used.
+2. **Thirty days, one contract, no out-of-sample split.** 125 tests with a
+   Bonferroni bar is not the same as a holdout.
+3. **No side split.** Four results in this project have died on that split. These
+   have not been through it.
+
+So: the most promising thing this project has produced, three features that
+survive the artefact most likely to explain them, and three specific ways it
+could still be nothing. Not a signal to trade. A candidate to attack.
