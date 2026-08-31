@@ -501,9 +501,23 @@ function main() {
     carryNote: funding.note,
   };
   try {
-    writeFileSync(resolve("evidence", "FINDINGS.md"), renderFindings([run]));
+    /*
+     * Per symbol, because two hosts write this directory now.
+     *
+     * A single FINDINGS.md was fine while the only writer was one machine
+     * replaying one contract. It is not fine now: the operator's machine
+     * regenerates it for whatever it is watching and the CI runner regenerates
+     * it for whatever it replayed, and whichever pushed last wins. The first
+     * LITUSDT result — 43,140 samples over 30 days — was overwritten within the
+     * hour by a BTCUSDT pass built on 1,940 samples of a single day, and
+     * nothing about the file said a swap had happened.
+     *
+     * Naming the file after the contract makes the collision impossible rather
+     * than unlikely, and a reader sees both runs instead of the most recent one.
+     */
+    writeFileSync(resolve("evidence", `FINDINGS-${symbol}.md`), renderFindings([run]));
   } catch (err) {
-    console.error(`[backtest] could not write FINDINGS.md: ${err instanceof Error ? err.message : String(err)}`);
+    console.error(`[backtest] could not write FINDINGS-${symbol}.md: ${err instanceof Error ? err.message : String(err)}`);
   }
 
   console.error("");
