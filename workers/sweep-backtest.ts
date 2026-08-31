@@ -374,17 +374,79 @@ function main() {
     spreadBps: number;
     tailLift: number;
     survives: boolean;
+    /**
+     * The same measurement on each half of the window, fitted separately.
+     *
+     * A Bonferroni bar controls for how many questions were asked. It does not
+     * control for the sample being one thirty-day window of one contract, and
+     * that is where the answer most likely comes from. Splitting on time is the
+     * cheapest holdout available: an effect present in the first fifteen days
+     * and absent in the second is a property of a fortnight, not of a market.
+     *
+     * Deliberately not used to *select* anything — a split that picks the
+     * winners is just a slower way of overfitting. It is reported so the two
+     * halves can be compared, and both must be recognisable for the whole to
+     * mean anything.
+     */
+    halves: { aSigma: number; aBps: number; bSigma: number; bBps: number; agree: boolean } | null;
     top: Score;
     bottom: Score;
   }
   const ranked: Ranked[] = [];
   const detail: Record<string, Score[]> = {};
 
+  /*
+   * Split at the median timestamp, not at the midpoint of the array: gaps in
+   * the archive would otherwise put unequal amounts of time on each side while
+   * looking balanced by row count.
+   */
+  const sortedTs = samples.map((x) => x.ts).sort((a, b) => a - b);
+  const splitTs = sortedTs[Math.floor(sortedTs.length / 2)];
+  const firstHalf = samples.filter((x) => x.ts < splitTs);
+  const secondHalf = samples.filter((x) => x.ts >= splitTs);
+  console.error(
+    `[backtest] holdout split at ${new Date(splitTs).toISOString().slice(0, 10)} — ` +
+      `${firstHalf.length} / ${secondHalf.length} samples`,
+  );
+
   for (const name of names) {
     for (const key of HORIZON_KEYS) {
       const scores = scoreFeature(samples, name, key);
       if (scores.length < 2) continue;
       const e = edge(scores);
+
+      /*
+       * Only for findings that cleared the bar. Fitting halves for every one of
+       * the hundreds of tests would cost more than it says, and a split of
+       * something already indistinguishable from noise answers nothing.
+       */
+      let halves: Ranked["halves"] = null;
+      if (Math.abs(e.sigma) >= bar) {
+        const a = scoreFeature(firstHalf, name, key);
+        const b = scoreFeature(secondHalf, name, key);
+        if (a.length >= 2 && b.length >= 2) {
+          const ea = edge(a);
+          const eb = edge(b);
+          halves = {
+            aSigma: ea.sigma,
+            aBps: ea.spreadBps,
+            bSigma: eb.sigma,
+            bBps: eb.spreadBps,
+            /*
+             * Agreement is about sign and survival, not about matching to a
+             * decimal. Two halves of a real effect point the same way and are
+             * each individually visible; asking them to be equal would reject
+             * everything, since half the data carries roughly 1/sqrt(2) of the
+             * significance by construction.
+             */
+            agree:
+              Math.sign(ea.spreadBps) === Math.sign(eb.spreadBps) &&
+              Math.abs(ea.sigma) >= 2 &&
+              Math.abs(eb.sigma) >= 2,
+          };
+        }
+      }
+
       ranked.push({
         feature: name,
         horizon: key,
@@ -392,6 +454,7 @@ function main() {
         spreadBps: e.spreadBps,
         tailLift: e.tailLift,
         survives: Math.abs(e.sigma) >= bar,
+        halves,
         top: scores[scores.length - 1],
         bottom: scores[0],
       });
@@ -488,7 +551,13 @@ function main() {
     survivors: ranked
       .filter((r) => r.survives)
       .slice(0, 12)
-      .map((r) => ({ feature: r.feature, horizon: r.horizon, sigma: r.sigma, spreadBps: r.spreadBps })),
+      .map((r) => ({
+        feature: r.feature,
+        horizon: r.horizon,
+        sigma: r.sigma,
+        spreadBps: r.spreadBps,
+        halves: r.halves,
+      })),
     carry: eight.length
       ? [eight[0], eight[eight.length - 1]].map((b) => ({
           basisBps: b.meanBasisBps,

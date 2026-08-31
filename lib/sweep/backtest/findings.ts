@@ -217,7 +217,21 @@ export interface RunSummary {
   bonferroniSigma: number;
   roundTripBps: number;
   /** Features that cleared the bar, with their spread. */
-  survivors: { feature: string; horizon: string; sigma: number; spreadBps: number }[];
+  survivors: {
+    feature: string;
+    horizon: string;
+    sigma: number;
+    spreadBps: number;
+    /**
+     * The same finding refitted on each half of the window.
+     *
+     * The Bonferroni bar controls for how many questions were asked, not for
+     * the sample being one window of one contract — which is where a spurious
+     * answer most likely comes from. Two halves of a real effect point the same
+     * way and are each individually visible.
+     */
+    halves?: { aSigma: number; aBps: number; bSigma: number; bBps: number; agree: boolean } | null;
+  }[];
   /** Extreme carry buckets, if the premium index was present. */
   carry?: { basisBps: number; collectorBps: number; seBps: number; carryBps: number; totalBps: number }[];
   carryNote?: string;
@@ -282,9 +296,17 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
       );
       lines.push("");
       for (const s of r.survivors.slice(0, 8)) {
+        const h = s.halves;
         lines.push(
           `- \`${s.feature}\` @ ${s.horizon}: ${s.sigma.toFixed(1)} sigma, ${s.spreadBps.toFixed(2)}bp` +
-            (Math.abs(s.spreadBps) > r.roundTripBps ? " — **beats fees**" : ""),
+            (Math.abs(s.spreadBps) > r.roundTripBps ? " — **beats fees**" : "") +
+            // The halves matter more than the headline: a finding that lives in
+            // one half of the window is a property of a fortnight.
+            (h
+              ? ` · halves ${h.aSigma.toFixed(1)}/${h.bSigma.toFixed(1)} sigma, ` +
+                `${h.aBps.toFixed(1)}/${h.bBps.toFixed(1)}bp — ` +
+                (h.agree ? "**holds in both**" : "DOES NOT HOLD IN BOTH")
+              : ""),
         );
       }
     }
