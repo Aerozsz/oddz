@@ -43,33 +43,41 @@ jobs:
 
       - name: Test specific symbols directly, with a control
         env:
-          CANDIDATES: ${{ vars.SYMBOL_CANDIDATES || 'LITUSDC LITUSDT BTCUSDC BTCUSDT' }}
+          CANDIDATES: ${{ vars.SYMBOL_CANDIDATES || 'LITUSDC LITUSDT LITUSD BTCUSDC BTCUSDT' }}
         run: |
-          # NOT a bucket listing. The delimiter listing returns CommonPrefixes
-          # capped at 1000 keys in alphabetical order, so anything past the
-          # early letters comes back empty whether or not it exists — the first
-          # attempt at this reported no LIT contracts in USD-M, COIN-M *and*
-          # spot, which is not credible and was the cap, not the answer.
+          # Fetch the actual file, do not interpret a listing.
           #
-          # A prefix query scoped to one symbol has no such cap. BTCUSDT and
-          # BTCUSDC are included as controls: if they come back absent then the
-          # method is broken, and no conclusion about anything else is safe.
-          probe_symbol () {
-            market="$1"; sym="$2"
-            body=$(curl -s --max-time 40 \
-              "https://data.binance.vision/?prefix=data/futures/${market}/daily/klines/${sym}/1m/&max-keys=3" || true)
-            n=$(echo "$body" | grep -c "${sym}-1m-" || true)
-            if [ "$n" -gt 0 ]; then
-              latest=$(echo "$body" | tr '<' '\n' | grep -o "${sym}-1m-[0-9-]*\.zip" | tail -1)
-              echo "  ${market}/${sym}: PRESENT (e.g. ${latest})"
-            else
-              echo "  ${market}/${sym}: absent"
-            fi
-          }
+          # Two listing methods have now given wrong answers here. The delimiter
+          # listing is capped at 1000 alphabetical keys, so everything past the
+          # early letters reads empty. The per-symbol prefix query then reported
+          # BTCUSDT absent — and BTCUSDT is the control, so that run proved only
+          # that the method was broken. Both would have been believed without a
+          # control in the set.
+          #
+          # A zip either downloads or it does not. The first probe already got
+          # HTTP 200 on a real BTCUSDT daily file, so this path is known to work.
+          # Several recent dates, because a single 404 only means that one day is
+          # not published yet.
+          dates=""
+          for d in 2 3 4 5 6 7 8; do
+            dates="$dates $(date -u -d "-$d day" +%F)"
+          done
+          echo "checking dates:$dates"
+          echo
           for sym in $CANDIDATES; do
-            echo "$sym"
-            probe_symbol um "$sym"
-            probe_symbol cm "$sym"
+            for market in um cm; do
+              hit=""
+              for day in $dates; do
+                url="https://data.binance.vision/data/futures/${market}/daily/klines/${sym}/1m/${sym}-1m-${day}.zip"
+                code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 25 "$url" || echo 000)
+                if [ "$code" = "200" ]; then hit="$day"; break; fi
+              done
+              if [ -n "$hit" ]; then
+                echo "  ${market}/${sym}: PRESENT (${hit})"
+              else
+                echo "  ${market}/${sym}: absent on every date checked"
+              fi
+            done
           done
           echo
           echo "If a BTC control reads absent, the method is wrong and nothing else here counts."
