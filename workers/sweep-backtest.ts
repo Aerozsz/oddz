@@ -35,6 +35,7 @@
  * feature that does not clear it is not a finding, however good the story.
  */
 
+import { maxOf, minOf } from "../lib/sweep/numeric";
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { unzipEntries, csvRows, parseTs } from "../lib/sweep/backtest/zip";
@@ -249,8 +250,11 @@ function main() {
    * far inside the fifteen-hundred-fold gap between two different ones.
    */
   const closes = minutes.map((m) => m.close);
-  const lo = Math.min(...closes);
-  const hi = Math.max(...closes);
+  // Not Math.min(...closes): spreading every bar in the window throws
+  // RangeError once the window is large, which is precisely when a replay
+  // matters. This was refusing every research pass.
+  const lo = minOf(closes) ?? 0;
+  const hi = maxOf(closes) ?? 0;
   if (lo > 0 && hi / lo > 20) {
     console.error(
       `[backtest] refusing: prices span ${lo.toFixed(4)} to ${hi.toFixed(2)}, a ${(hi / lo).toFixed(0)}x range. ` +

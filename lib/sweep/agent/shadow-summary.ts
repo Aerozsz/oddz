@@ -26,6 +26,7 @@
  * no imports of its own, so this stays cheap enough to travel.
  */
 import { POSTABLE_TOXICITY } from "../metrics/fees";
+import { minOf } from "../numeric";
 
 export interface ShadowRowLike {
   at: number;
@@ -601,7 +602,9 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
       meanAbsComposite: absComposites.length
         ? absComposites.reduce((a, b) => a + b, 0) / absComposites.length
         : 0,
-      minAbsComposite: absComposites.length ? Math.min(...absComposites) : 0,
+      // Grows with every row written, so a spread here would fail exactly once
+      // the sample became large enough to be worth reading.
+      minAbsComposite: minOf(absComposites) ?? 0,
       meanByFactor,
     },
     horizons,

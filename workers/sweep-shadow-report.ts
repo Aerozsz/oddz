@@ -12,6 +12,7 @@
  * quarters of itself, and a 10bp winner keeps none.
  */
 
+import { maxOf, minOf } from "../lib/sweep/numeric";
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import type { ShadowTrade } from "../lib/sweep/exchange/shadow";
@@ -75,7 +76,7 @@ console.log("");
 row("win rate (net)", `${((wins.length / scored.length) * 100).toFixed(0)}%  (${wins.length}/${scored.length})`);
 row("average win", wins.length ? `+${(sum(wins.map(net)) / wins.length).toFixed(2)}` : "—");
 row("average loss", losses.length ? `${(sum(losses.map(net)) / losses.length).toFixed(2)}` : "—");
-row("best / worst", `${Math.max(...scored.map(net)).toFixed(2)} / ${Math.min(...scored.map(net)).toFixed(2)}`);
+row("best / worst", `${(maxOf(scored.map(net)) ?? 0).toFixed(2)} / ${(minOf(scored.map(net)) ?? 0).toFixed(2)}`);
 console.log("");
 
 // How many would have been stopped out inside the window, which the raw
