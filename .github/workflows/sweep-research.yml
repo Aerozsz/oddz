@@ -21,6 +21,17 @@ on:
     # overlapping — see the concurrency group below, which lets a starting run
     # wait for the previous one rather than killing it.
     - cron: "7 */6 * * *"
+  # A dedicated trigger file, because the integration token that writes this
+  # repository is not granted `actions: write` and cannot dispatch a run.
+  # Scoped to one path deliberately: the job itself commits to `evidence/` every
+  # five minutes, so a broader push trigger would restart the run it is inside
+  # of, forever.
+  push:
+    branches: [claude/amm-liquidity-sweep-8qhnd0]
+    paths:
+      - "control/RUN_RESEARCH"
+      - ".github/workflows/sweep-research.yml"
+
   workflow_dispatch:
     inputs:
       symbols:
