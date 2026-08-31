@@ -1,0 +1,42 @@
+name: sweep probe
+
+# Which Binance hosts a runner can actually reach.
+#
+# The research workflow's symbol gate failed with HTTP 451 — "unavailable for
+# legal reasons" — which is Binance geo-blocking GitHub's US runner IPs. That
+# kills the live feed here, but it does not automatically kill the archive:
+# data.binance.vision is a static CDN for historical files and is not obviously
+# under the same restriction. The whole hosting decision turns on that, so it is
+# worth thirty seconds to find out rather than assuming either way.
+#
+# Prints and never fails, because the answer is the point.
+
+on:
+  push:
+    branches: [claude/amm-liquidity-sweep-8qhnd0]
+    paths:
+      - "control/RUN_PROBE"
+      - ".github/workflows/sweep-probe.yml"
+  workflow_dispatch:
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Reachability
+        run: |
+          probe () {
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 "$2" || echo "000")
+            echo "$1 -> HTTP $code   ($2)"
+          }
+          echo "runner egress IP: $(curl -s --max-time 10 https://api.ipify.org || echo unknown)"
+          echo "geo: $(curl -s --max-time 10 https://ipinfo.io/country || echo unknown)"
+          echo
+          probe "live REST (fapi)      " "https://fapi.binance.com/fapi/v1/time"
+          probe "live REST exchangeInfo" "https://fapi.binance.com/fapi/v1/exchangeInfo"
+          probe "archive daily index   " "https://data.binance.vision/?prefix=data/futures/um/daily/klines/BTCUSDT/1m/"
+          probe "archive a real zip    " "https://data.binance.vision/data/futures/um/daily/klines/BTCUSDT/1m/BTCUSDT-1m-2026-08-25.zip"
+          probe "binance.com www       " "https://www.binance.com/en"
+          echo
+          echo "A 451 is geo-blocking. A 404 on the zip only means that date is not published."
