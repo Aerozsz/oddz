@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-08-31T19:18:04.082Z by the research loop. Do not edit — it is
+Generated 2026-08-31T19:28:15.495Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -42,14 +42,14 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 12 cleared the bar; **11 also beat the round trip**.
 
-- `takerRatioFade` @ t1: -21.8 sigma, -7.55bp — **beats fees**
-- `takerRatioFade` @ t5: -21.8 sigma, -17.95bp — **beats fees**
-- `takerRatioFade` @ t1d: -15.9 sigma, -5.65bp
-- `takerRatioFade` @ t15: -12.8 sigma, -14.52bp — **beats fees**
-- `takerRatioFade` @ t5d: -12.0 sigma, -9.63bp — **beats fees**
-- `thinAskUp` @ t60d: -8.7 sigma, -24.23bp — **beats fees**
-- `thinAskUp` @ t60: -8.3 sigma, -23.24bp — **beats fees**
-- `takerRatioFade` @ t30: -8.0 sigma, -12.97bp — **beats fees**
+- `takerRatioFade` @ t1: -21.8 sigma, -7.55bp — **beats fees** · halves -17.3/-14.1 sigma, -6.9/-9.3bp — **holds in both**
+- `takerRatioFade` @ t5: -21.8 sigma, -17.95bp — **beats fees** · halves -16.4/-15.6 sigma, -14.6/-23.8bp — **holds in both**
+- `takerRatioFade` @ t1d: -15.9 sigma, -5.65bp · halves -12.1/-10.9 sigma, -4.8/-7.3bp — **holds in both**
+- `takerRatioFade` @ t15: -12.8 sigma, -14.52bp — **beats fees** · halves -6.9/-10.3 sigma, -9.7/-20.2bp — **holds in both**
+- `takerRatioFade` @ t5d: -12.0 sigma, -9.63bp — **beats fees** · halves -7.7/-9.6 sigma, -6.8/-14.1bp — **holds in both**
+- `thinAskUp` @ t60d: -8.7 sigma, -24.23bp — **beats fees** · halves -6.4/-2.1 sigma, -19.7/-9.6bp — **holds in both**
+- `thinAskUp` @ t60: -8.3 sigma, -23.24bp — **beats fees** · halves -6.5/-1.6 sigma, -19.8/-7.4bp — DOES NOT HOLD IN BOTH
+- `takerRatioFade` @ t30: -8.0 sigma, -12.97bp — **beats fees** · halves -5.5/-5.0 sigma, -10.7/-14.5bp — **holds in both**
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
