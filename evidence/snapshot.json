@@ -1,6 +1,6 @@
 {
   "meta": {
-    "at": 1788168148634,
+    "at": 1788180811933,
     "node": "v24.15.0",
     "platform": "win32",
     "symbols": [
@@ -15,17 +15,17 @@
         "calibrated": false,
         "running": true,
         "attached": false,
-        "tradeable": true,
-        "warm": true,
-        "mid": 78736.15,
-        "spreadBps": 0.012700646398289587,
-        "riskUp": 32.602668069956174,
-        "riskDown": 65.15734606870318,
-        "signalsSeen": 11052,
+        "tradeable": false,
+        "warm": null,
+        "mid": null,
+        "spreadBps": null,
+        "riskUp": null,
+        "riskDown": null,
+        "signalsSeen": 0,
         "accepted": 0,
         "holding": 0,
         "pnl": null,
-        "protected": true,
+        "protected": null,
         "heldMin": 0,
         "lastRefusal": null,
         "dislocation": {
@@ -46,8 +46,8 @@
     "wouldTrade": {
       "known": true,
       "symbol": "BTCUSDT",
-      "biasDirection": "up",
-      "biasSummary": "Least resistance is upward — aggressive flow is marking out 1.41bp against a 0.50bp half-spread — quoting into it loses money, so expect depth to be pulled rather than replaced; 9,287,807 to set off the downside vs 17,528,992 upside — cheaper to push down",
+      "biasDirection": null,
+      "biasSummary": "Neither side is meaningfully more exposed than the other right now.",
       "sides": [
         {
           "direction": "up",
@@ -61,7 +61,9 @@
           "riskUsd": null,
           "sizeRetained": null,
           "reasons": [
-            "flow is toxic (1.00) — aggressive flow is marking out 1.41bp against a 0.50bp half-spread — quoting into it loses money, so expect depth to be pulled rather than replaced"
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
           ]
         },
         {
@@ -76,28 +78,34 @@
           "riskUsd": null,
           "sizeRetained": null,
           "reasons": [
-            "flow is toxic (1.00) — aggressive flow is marking out 1.41bp against a 0.50bp half-spread — quoting into it loses money, so expect depth to be pulled rather than replaced"
+            "feed not tradeable: starting up",
+            "no price",
+            "no free collateral"
           ]
         }
       ],
       "tradeable": false
     },
     "readiness": {
-      "ready": true,
+      "ready": false,
       "armed": false,
-      "blockers": [],
-      "waiting": [],
-      "summary": "ready — press Start trading"
+      "blockers": [
+        "the exchange is not answering"
+      ],
+      "waiting": [
+        "BTCUSDT: starting up"
+      ],
+      "summary": "the exchange is not answering"
     },
     "orderVenue": {
-      "url": "https://demo-fapi.binance.com",
-      "checked": true,
+      "url": "",
+      "checked": false,
       "error": null,
       "untradeable": []
     },
     "engine": {
       "running": true,
-      "uptimeSec": 12125,
+      "uptimeSec": 0,
       "symbol": "BTCUSDT",
       "symbols": [
         "INTCUSDT"
@@ -106,25 +114,31 @@
     "mode": "testnet",
     "hasCredentials": true,
     "health": {
-      "level": "ok",
-      "tradeable": true,
-      "reasons": [],
-      "summary": "live",
-      "snapshotAgeMs": 1
+      "level": "blind",
+      "tradeable": false,
+      "reasons": [
+        {
+          "code": "snapshot-stale",
+          "severity": "blind",
+          "detail": "the engine has not published yet"
+        }
+      ],
+      "summary": "starting up",
+      "snapshotAgeMs": 0
     },
     "market": {
-      "mid": 78736.15,
+      "mid": null,
       "mark": null,
-      "spreadBps": 0.012700646398289587,
-      "lwi": 0.9366583272368995,
-      "lwiBid": 0.8825107741671321,
-      "lwiAsk": 0.9831118737323867,
-      "warm": true,
-      "riskUp": 32.602668069956174,
-      "riskDown": 65.15734606870318,
-      "nearestAbove": 78815.29432046111,
-      "nearestBelow": 78671.96840847757,
-      "session": "pre-market",
+      "spreadBps": null,
+      "lwi": null,
+      "lwiBid": null,
+      "lwiAsk": null,
+      "warm": null,
+      "riskUp": null,
+      "riskDown": null,
+      "nearestAbove": null,
+      "nearestBelow": null,
+      "session": "closed",
       "flow": {
         "buy": 0,
         "sell": 0
@@ -134,7 +148,7 @@
       "venue": "https://demo-fapi.binance.com",
       "live": false,
       "wallet": "USDⓈ-M futures",
-      "staleForMs": 12854,
+      "staleForMs": null,
       "symbolsConfigured": [
         "BTCUSDT"
       ],
@@ -145,12 +159,12 @@
       "symbolsAreDefault": false
     },
     "account": {
-      "at": 1788168135780,
+      "at": 0,
       "error": null,
-      "availableBalance": 2756.60283569,
-      "walletBalance": 2756.60283569,
-      "unrealizedPnl": 0,
-      "marginRatio": 0,
+      "availableBalance": null,
+      "walletBalance": null,
+      "unrealizedPnl": null,
+      "marginRatio": null,
       "positions": []
     },
     "limits": {
@@ -180,21 +194,12 @@
       "scaleOutFraction": 40
     },
     "day": {
-      "at": 1788168138261,
-      "realisedPnl": 0,
-      "drawdown": 0,
-      "trades": 0,
-      "fees": 0,
-      "funding": 0,
-      "lastLossAt": 0,
-      "cooldownLeftMin": 0,
-      "countingFrom": 1787025219557,
-      "rebased": false,
-      "rebaseReason": "balance moved -2243.40 with no ledger row behind it (expected 5000.00, saw 2756.60) — counting restarted here"
+      "at": 0,
+      "error": null
     },
     "loop": {
       "attached": false,
-      "signalsSeen": 11052,
+      "signalsSeen": 0,
       "seen": 0,
       "accepted": 0,
       "rejected": 0,
@@ -220,10 +225,10 @@
       }
     },
     "protection": {
-      "at": 1788168137986,
+      "at": 0,
       "error": null,
-      "flat": true,
-      "protected": true,
+      "flat": null,
+      "protected": null,
       "stopPrice": null,
       "stopDistancePct": null,
       "targetPrice": null,
@@ -234,7 +239,7 @@
       "heldMin": 0,
       "ratcheted": false,
       "hold": null,
-      "reason": "flat"
+      "reason": null
     }
   },
   "desired": {
@@ -252,10 +257,9 @@
       },
       {
         "name": "clock in sync with Binance",
-        "ok": false,
-        "severity": "warn",
-        "detail": "behind by 3200ms (round trip 1421ms, window 5000ms, corrected on every request)",
-        "fix": "Every signed request is corrected by this offset, so orders still place — but drift this large means the host clock is wrong. Resync NTP."
+        "ok": true,
+        "severity": "ok",
+        "detail": "not checked yet"
       },
       {
         "name": "credentials present",
@@ -265,40 +269,44 @@
       },
       {
         "name": "exchange reachable",
-        "ok": true,
-        "severity": "ok",
-        "detail": "balance 2756.60 USDT"
+        "ok": false,
+        "severity": "bad",
+        "detail": "no account read yet",
+        "fix": "npm run sweep:check names the specific cause."
       },
       {
         "name": "contracts tradeable here",
-        "ok": true,
-        "severity": "ok",
-        "detail": "INTCUSDT all listed at https://demo-fapi.binance.com"
+        "ok": false,
+        "severity": "warn",
+        "detail": "not checked yet",
+        "fix": "Without this, a symbol the demo account cannot trade is indistinguishable from a quiet market."
       },
       {
         "name": "engines running",
         "ok": true,
         "severity": "ok",
-        "detail": "1/1 — BTCUSDT up 12125s"
+        "detail": "1/1 — BTCUSDT up 0s"
       },
       {
         "name": "feed: BTCUSDT",
-        "ok": true,
-        "severity": "ok",
-        "detail": "ok"
+        "ok": false,
+        "severity": "bad",
+        "detail": "blind — starting up",
+        "fix": "Depth baselines need about a minute. If it stays blind, either the WebSocket to Binance is blocked or BTCUSDT is not a listed contract — npm run sweep:symbols says which."
       },
       {
         "name": "streams arriving: BTCUSDT",
         "ok": false,
         "severity": "bad",
-        "detail": "depthUpdate 118817 — nothing on aggTrade, markPriceUpdate, kline | per stream: btcusdt@depth@100ms=118777 btcusdt@aggTrade=0 btcusdt@forceOrder=0 btcusdt@markPrice@1s=0 btcusdt@kline_1m=0 | 1 control frame(s), last: {\"result\":null,\"id\":1} | rescue: btcusdt@aggTrade:open btcusdt@forceOrder:open btcusdt@markPrice@1s:open btcusdt@kline_1m:open | tape via rest (161731 prints polled)",
-        "fix": "The socket is up and the book may be fine; aggTrade, markPriceUpdate, kline is subscribed and delivering nothing, which silently disables every consumer of it. forceOrder is excluded from this check because liquidations are genuinely intermittent."
+        "detail": "no messages at all | per stream: (not sampled yet) | no control frames — the exchange said nothing about the subscription | rescue: none opened | tape via none",
+        "fix": "The socket is up and the book may be fine; depthUpdate, aggTrade, markPriceUpdate, kline is subscribed and delivering nothing, which silently disables every consumer of it. forceOrder is excluded from this check because liquidations are genuinely intermittent."
       },
       {
         "name": "mark-out warm: BTCUSDT",
-        "ok": true,
-        "severity": "ok",
-        "detail": "resolved 4000, weight 39367576"
+        "ok": false,
+        "severity": "bad",
+        "detail": "no trade has reached the tracker at all — the aggTrade stream is not wired to it",
+        "fix": "Until this warms, canPostEntry refuses every maker entry on its first line and the toxicity threshold is never consulted. Cold is a defect here, not a market reading."
       },
       {
         "name": "max position set",
@@ -344,20 +352,21 @@
         "name": "evidence sampler",
         "ok": false,
         "severity": "warn",
-        "detail": "last beat 203 min ago — stopped or wedged",
+        "detail": "last beat 414 min ago — stopped or wedged",
         "fix": "Run npm run sweep:paper in its own window."
       },
       {
         "name": "shadow run",
-        "ok": true,
-        "severity": "ok",
-        "detail": "0s since its last beat"
+        "ok": false,
+        "severity": "warn",
+        "detail": "last beat 210 min ago — stopped or wedged",
+        "fix": "Run npm run sweep:shadow in its own window."
       },
       {
         "name": "news + social feeds",
         "ok": true,
         "severity": "ok",
-        "detail": "6/14 sources live (in this process), 7 headlines recorded · 8 erroring: reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 "
+        "detail": "14/14 sources live (in this process), 0 headlines recorded"
       },
       {
         "name": "position cap",
@@ -372,7 +381,7 @@
         "detail": "INTCUSDT — all equity perps the models are built for"
       }
     ],
-    "verdict": "1 thing broken",
+    "verdict": "4 things broken",
     "worst": "bad"
   },
   "errors": [],
@@ -407,7 +416,7 @@
   "ledger": {
     "epoch": 1787025219557,
     "balance": 2756.60283569,
-    "at": 1788168135780,
+    "at": 1788168176608,
     "reason": "balance moved -2243.40 with no ledger row behind it (expected 5000.00, saw 2756.60) — counting restarted here"
   },
   "learn": {
@@ -2779,364 +2788,12 @@
   },
   "log": [
     {
-      "t": 1788156023972,
+      "t": 1788180811899,
       "text": "engine started — BTCUSDT"
     },
     {
-      "t": 1788156025310,
-      "text": "dashboard shortcut: C:\\Users\\Aero\\oddz\\data\\Sweep dashboard.url · C:\\Users\\Aero\\Desktop\\Sweep dashboard.url · C:\\Users\\Aero\\OneDrive\\Desktop\\Sweep dashboard.url"
-    },
-    {
-      "t": 1788156025568,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1788156025568,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1788156025911,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1788156025911,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788156025913,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1788156025914,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1788156025914,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1788156025914,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1788156028413,
-      "text": "order venue https://demo-fapi.binance.com lists all 1 configured contract(s)"
-    },
-    {
-      "t": 1788156044990,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788156073093,
-      "text": "RangeError: Maximum call stack size exceeded"
-    },
-    {
-      "t": 1788156073307,
-      "text": "research: BTCUSDT: the replay refused — see its message above; nothing was written"
-    },
-    {
-      "t": 1788156083994,
+      "t": 1788180811912,
       "text": "news: collecting from 14 sources in-process (2 unavailable: x, linkedin)"
-    },
-    {
-      "t": 1788156170256,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788156311519,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788156311519,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21103 ms: Could not connect to server"
-    },
-    {
-      "t": 1788156318905,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×37 since 7:05:18 AM)"
-    },
-    {
-      "t": 1788161035528,
-      "text": "share: push failed, retrying in 2s"
-    },
-    {
-      "t": 1788161041887,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×11 since 8:24:01 AM)"
-    },
-    {
-      "t": 1788162428596,
-      "text": "share: could not take the remote: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788162428596,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21170 ms: Could not connect to server"
-    },
-    {
-      "t": 1788162442786,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×7 since 8:47:22 AM)"
-    },
-    {
-      "t": 1788163266297,
-      "text": "shadow: INTCUSDT closed intent:cascade-risk:1788156066267:d — would have open · net at 2h -3.50 · 1 recorded"
-    },
-    {
-      "t": 1788163328220,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788156128207:1i — would have open · net at 2h -4.88 · 2 recorded"
-    },
-    {
-      "t": 1788163330393,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788163424685,
-      "text": "shadow: INTCUSDT closed intent:cascade-risk:1788156224682:2l — would have open · net at 2h -2.01 · 3 recorded"
-    },
-    {
-      "t": 1788163472559,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788163484880,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788156284866:3h — would have open · net at 2h +1.70 · 4 recorded"
-    },
-    {
-      "t": 1788163553631,
-      "text": "shadow: INTCUSDT closed intent:withdrawal:1788156353517:4c — would have open · net at 2h +1.86 · 5 recorded"
-    },
-    {
-      "t": 1788163596862,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788163615417,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788156415406:51 — would have open · net at 2h +3.12 · 6 recorded"
-    },
-    {
-      "t": 1788163675637,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788156475627:5q — would have open · net at 2h -3.76 · 7 recorded"
-    },
-    {
-      "t": 1788163721487,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788163735881,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788156535870:6a — would have open · net at 2h -6.06 · 8 recorded"
-    },
-    {
-      "t": 1788163803199,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788156603195:6x — would have open · net at 2h -9.50 · 9 recorded"
-    },
-    {
-      "t": 1788163845964,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788163863519,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788156663503:7i — would have open · net at 2h -3.78 · 10 recorded"
-    },
-    {
-      "t": 1788163938829,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788156738817:85 — would have open · net at 2h -4.97 · 11 recorded"
-    },
-    {
-      "t": 1788163970525,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788164003193,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788156803185:8r — would have open · net at 2h -2.93 · 12 recorded"
-    },
-    {
-      "t": 1788164094780,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×4 since 9:14:54 AM)"
-    },
-    {
-      "t": 1788164612022,
-      "text": "share: could not take the remote first: Command failed: git pull --rebase --autostash origin claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788164612023,
-      "text": "fatal: unable to access 'https://github.com/aerozsz/oddz.git/': Failed to connect to github.com port 443 after 21075 ms: Could not connect to server"
-    },
-    {
-      "t": 1788164612137,
-      "text": "node:internal/errors:985"
-    },
-    {
-      "t": 1788164612137,
-      "text": "const err = new Error(message);"
-    },
-    {
-      "t": 1788164612139,
-      "text": "^"
-    },
-    {
-      "t": 1788164612140,
-      "text": "Error: Command failed: git rebase --abort"
-    },
-    {
-      "t": 1788164612140,
-      "text": "fatal: no rebase in progress"
-    },
-    {
-      "t": 1788164612141,
-      "text": "at genericNodeError (node:internal/errors:985:15)"
-    },
-    {
-      "t": 1788164612141,
-      "text": "at wrappedFn (node:internal/errors:539:14)"
-    },
-    {
-      "t": 1788164612141,
-      "text": "at checkExecSyncError (node:child_process:925:11)"
-    },
-    {
-      "t": 1788164612142,
-      "text": "at execFileSync (node:child_process:961:15)"
-    },
-    {
-      "t": 1788164612142,
-      "text": "at git (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:60:3)"
-    },
-    {
-      "t": 1788164612143,
-      "text": "at share (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:246:7)"
-    },
-    {
-      "t": 1788164612143,
-      "text": "at main (C:\\Users\\Aero\\oddz\\workers\\sweep-share.ts:288:5) {"
-    },
-    {
-      "t": 1788164612143,
-      "text": "status: 128,"
-    },
-    {
-      "t": 1788164612143,
-      "text": "signal: null,"
-    },
-    {
-      "t": 1788164612144,
-      "text": "output: [ null, '', 'fatal: no rebase in progress\\n' ],"
-    },
-    {
-      "t": 1788164612144,
-      "text": "pid: 24064,"
-    },
-    {
-      "t": 1788164612144,
-      "text": "stdout: '',"
-    },
-    {
-      "t": 1788164612144,
-      "text": "stderr: 'fatal: no rebase in progress\\n'"
-    },
-    {
-      "t": 1788164612145,
-      "text": "}"
-    },
-    {
-      "t": 1788164612145,
-      "text": "Node.js v24.15.0"
-    },
-    {
-      "t": 1788164612231,
-      "text": "share: exited (1) — restarting, attempt 1"
-    },
-    {
-      "t": 1788164628285,
-      "text": "> oddz@0.1.0 sweep:share"
-    },
-    {
-      "t": 1788164628285,
-      "text": "> tsx workers/sweep-share.ts --watch"
-    },
-    {
-      "t": 1788164629264,
-      "text": "share: snapshot: C:\\Users\\Aero\\oddz\\evidence\\snapshot.json"
-    },
-    {
-      "t": 1788164629264,
-      "text": "share: branch:   claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788164629265,
-      "text": "share: credentials, signatures and the control token are redacted before writing,"
-    },
-    {
-      "t": 1788164629266,
-      "text": "share: and this refuses to push if that redaction did not run."
-    },
-    {
-      "t": 1788164629266,
-      "text": "share: watching — every 120s. Ctrl-C to stop."
-    },
-    {
-      "t": 1788164629267,
-      "text": "share: each pass takes any new configuration first, then sends the current state."
-    },
-    {
-      "t": 1788164646309,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×19 since 9:24:06 AM)"
-    },
-    {
-      "t": 1788167026239,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788159826230:12u — would have open · net at 2h +0.16 · 13 recorded"
-    },
-    {
-      "t": 1788167047949,
-      "text": "share: push failed, retrying in 2s"
-    },
-    {
-      "t": 1788167052262,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788167086366,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788159886349:132 — would have open · net at 2h -0.77 · 14 recorded"
-    },
-    {
-      "t": 1788167158945,
-      "text": "shadow: INTCUSDT closed intent:cascade-risk:1788159958740:13g — would have open · net at 2h -0.86 · 15 recorded"
-    },
-    {
-      "t": 1788167176890,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788167226878,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788160026869:149 — would have open · net at 2h -1.03 · 16 recorded"
-    },
-    {
-      "t": 1788167288167,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788160088131:14y — would have open · net at 2h +0.37 · 17 recorded"
-    },
-    {
-      "t": 1788167301190,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788167349305,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788160149289:15a — would have open · net at 2h -0.94 · 18 recorded"
-    },
-    {
-      "t": 1788167419513,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788160219511:15x — would have open · net at 2h -0.55 · 19 recorded"
-    },
-    {
-      "t": 1788167425791,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0"
-    },
-    {
-      "t": 1788167482925,
-      "text": "shadow: INTCUSDT closed intent:cluster-approach:1788160282917:16f — would have open · net at 2h -0.76 · 20 recorded"
-    },
-    {
-      "t": 1788167544129,
-      "text": "shadow: INTCUSDT closed intent:cascade-risk:1788160344116:16w — would have open · net at 2h -0.24 · 21 recorded"
-    },
-    {
-      "t": 1788167550121,
-      "text": "share: sent 1 file(s) to claude/amm-liquidity-sweep-8qhnd0  (×5 since 10:12:30 AM)"
     }
   ],
   "news": {
@@ -3146,13 +2803,13 @@
       "linkedin"
     ],
     "poller": {
-      "recorded": 7,
-      "cycles": 620,
+      "recorded": 0,
+      "cycles": 1,
       "sources": 14,
       "unavailable": "x,linkedin",
-      "errors": "reddit-CryptoCurrency: 403 Blocked | reddit-Bitcoin: 403 Blocked | reddit-CryptoMarkets: 403 Blocked | reddit-wallstreetbets: 403 Blocked | reddit-binance: 403 Blocked | rsshub-twitter-keyword-bitcoin: 404 Not Found | rsshub-twitter-keyword-liquidation: 404 Not Found | rsshub-twitter-keyword-binance: 404 Not Found",
-      "velocity": "BNBUSDT 0.9x BTCUSDT 1.4x",
-      "lastPollAt": 1788168140591
+      "errors": "",
+      "velocity": "",
+      "lastPollAt": 1788180811908
     }
   }
 }
