@@ -294,6 +294,38 @@ export interface ShadowSummary {
     /** factor name -> mean score across every decision that recorded it. */
     meanByFactor: Record<string, { mean: number; n: number; weight?: number }>;
   };
+  /**
+   * Outcomes on the rows taken after the trade tape was connected.
+   *
+   * Everything before 2026-08-28 was decided by a read missing 0.45 of its
+   * weight — mark-out and aggressive flow both dead, because the aggTrade
+   * stream reached no consumer — and with the maker path unreachable, since
+   * canPostEntry refuses on its first line when mark-out is cold. Those rows
+   * describe a different agent. Pooling them with the current ones does not
+   * average two measurements of one thing; it averages one measurement each of
+   * two things, and the older one outnumbers the newer by fifteen to one.
+   *
+   * Carrying a bias decomposition is the marker, because that field started
+   * being written in the same deployment. It is a proxy rather than a
+   * timestamp, and an exact one: no row before it has the field and every row
+   * after it does.
+   */
+  sinceTape: {
+    n: number;
+    byHorizon: Record<string, Bucket>;
+    /**
+     * Split by side, at every horizon.
+     *
+     * Four results in this project have died on this split, all of them the
+     * same artefact — a lopsided book in a trending sample. The book is still
+     * lopsided, in the other direction now, so the split stays mandatory.
+     */
+    bySide: Record<string, Record<string, Bucket>>;
+    /** Gross price contribution per decision, before costs, at each horizon. */
+    grossPerDecision: Record<string, number>;
+    /** Mean modelled round trip per decision, the bar gross has to clear. */
+    costPerDecision: number;
+  };
   depthContrast: {
     /** horizon -> "long" | "short" | "both" -> thin-minus-thick. */
     byHorizon: Record<string, Record<string, Contrast>>;
@@ -500,9 +532,53 @@ export function summariseShadow(rows: ShadowRowLike[], horizon = PRIMARY_HORIZON
           ? `the gate opened on ${postableWhenWarm} of ${warmRows.length} warm decisions and not one entry was priced as a maker — the refusal is downstream of canPostEntry`
           : undefined;
 
+  /*
+   * The post-tape subset, scored on its own.
+   */
+  const tapeRows = rows.filter((r) => !!r.conditions?.biasFactors);
+  const sinceByHorizon: Record<string, Bucket> = {};
+  const sinceBySide: Record<string, Record<string, Bucket>> = {};
+  const grossPerDecision: Record<string, number> = {};
+  let sinceFees = 0;
+  let sinceFeeN = 0;
+  for (const h of horizons) {
+    sinceByHorizon[h] = bucket(`since-tape ${h}`, tapeRows, h);
+    sinceBySide[h] = {};
+    for (const side of ["long", "short"] as const) {
+      sinceBySide[h][side] = bucket(side, tapeRows.filter((r) => r.side === side), h);
+    }
+    /*
+     * Gross, not net. netUsd already has the round trip taken out of it, and
+     * the question this answers is whether the signal produces anything at all
+     * before costs — which is the question a cost reduction could ever help
+     * with. Two cents of gross survives no fee schedule.
+     */
+    let g = 0;
+    let n = 0;
+    for (const r of tapeRows) {
+      const o = r.outcomes?.[h];
+      if (!o || typeof o.pct !== "number") continue;
+      g += (o.pct / 100) * r.notionalUsd;
+      n++;
+    }
+    grossPerDecision[h] = n ? g / n : 0;
+  }
+  for (const r of tapeRows) {
+    if (typeof r.feeUsd !== "number") continue;
+    sinceFees += r.feeUsd;
+    sinceFeeN++;
+  }
+
   return {
     rows: rows.length,
     withConditions,
+    sinceTape: {
+      n: tapeRows.length,
+      byHorizon: sinceByHorizon,
+      bySide: sinceBySide,
+      grossPerDecision,
+      costPerDecision: sinceFeeN ? sinceFees / sinceFeeN : 0,
+    },
     makerPath: {
       byEntryStyle,
       withMarkout,
