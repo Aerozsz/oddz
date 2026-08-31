@@ -41,26 +41,35 @@ jobs:
           echo
           echo "A 451 is geo-blocking. A 404 on the zip only means that date is not published."
 
-      - name: Which contracts actually exist for a given prefix
+      - name: Test specific symbols directly, with a control
         env:
-          PREFIX: ${{ vars.SYMBOL_PREFIX || 'LIT' }}
+          CANDIDATES: ${{ vars.SYMBOL_CANDIDATES || 'LITUSDC LITUSDT BTCUSDC BTCUSDT' }}
         run: |
-          # The usual answer to "is this a real ticker" is fapi/exchangeInfo,
-          # which is 451 from a US runner. The archive answers it instead: a
-          # contract Binance lists has a directory here and one it does not
-          # list has nothing. Listing the neighbours matters more than the
-          # yes/no — "LITUSDC is not a contract" is not actionable, and
-          # "LITUSDT is, LITUSDC is not" is.
-          for market in um cm; do
-            echo "== $market futures, symbols starting $PREFIX =="
-            curl -s --max-time 40 \
-              "https://data.binance.vision/?delimiter=/&prefix=data/futures/${market}/daily/klines/" \
-              | tr '<' '\n' | grep -o "klines/${PREFIX}[A-Z0-9]*/" | sed 's|klines/||;s|/||' | sort -u \
-              || echo "  (listing failed)"
-            echo
+          # NOT a bucket listing. The delimiter listing returns CommonPrefixes
+          # capped at 1000 keys in alphabetical order, so anything past the
+          # early letters comes back empty whether or not it exists — the first
+          # attempt at this reported no LIT contracts in USD-M, COIN-M *and*
+          # spot, which is not credible and was the cap, not the answer.
+          #
+          # A prefix query scoped to one symbol has no such cap. BTCUSDT and
+          # BTCUSDC are included as controls: if they come back absent then the
+          # method is broken, and no conclusion about anything else is safe.
+          probe_symbol () {
+            market="$1"; sym="$2"
+            body=$(curl -s --max-time 40 \
+              "https://data.binance.vision/?prefix=data/futures/${market}/daily/klines/${sym}/1m/&max-keys=3" || true)
+            n=$(echo "$body" | grep -c "${sym}-1m-" || true)
+            if [ "$n" -gt 0 ]; then
+              latest=$(echo "$body" | tr '<' '\n' | grep -o "${sym}-1m-[0-9-]*\.zip" | tail -1)
+              echo "  ${market}/${sym}: PRESENT (e.g. ${latest})"
+            else
+              echo "  ${market}/${sym}: absent"
+            fi
+          }
+          for sym in $CANDIDATES; do
+            echo "$sym"
+            probe_symbol um "$sym"
+            probe_symbol cm "$sym"
           done
-          echo "== spot, for contrast =="
-          curl -s --max-time 40 \
-            "https://data.binance.vision/?delimiter=/&prefix=data/spot/daily/klines/" \
-            | tr '<' '\n' | grep -o "klines/${PREFIX}[A-Z0-9]*/" | sed 's|klines/||;s|/||' | sort -u \
-            || echo "  (listing failed)"
+          echo
+          echo "If a BTC control reads absent, the method is wrong and nothing else here counts."
