@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-08-31T18:52:17.691Z by the research loop. Do not edit — it is
+Generated 2026-08-31T18:56:20.393Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -36,22 +36,25 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ## Latest run
 
-### BTCUSDT
+### LITUSDT
 
-1,940 samples over 1 days. Bar 3.54 sigma, round trip 7bp.
+43,140 samples over 30 days. Bar 3.54 sigma, round trip 7bp.
 
-12 cleared the bar; **0 also beat the round trip** — so none is tradeable as a directional signal.
+12 cleared the bar; **12 also beat the round trip**.
 
-- `mom5` @ t1: 306.1 sigma, 0.00bp
-- `mom30` @ t1: 306.1 sigma, 0.00bp
-- `thinBidUp` @ t1: -306.1 sigma, -0.00bp
-- `bidWithdrawn` @ t1: -306.1 sigma, -0.00bp
-- `ofi` @ t1: -306.1 sigma, -0.00bp
-- `ofiVsVol` @ t1: -306.1 sigma, -0.00bp
-- `revert5` @ t1: -306.1 sigma, -0.00bp
-- `volSurge` @ t1: -306.1 sigma, -0.00bp
+- `takerRatioFade` @ t1: -21.8 sigma, -7.55bp — **beats fees**
+- `takerRatioFade` @ t5: -21.8 sigma, -17.95bp — **beats fees**
+- `takerRatioFade` @ t15: -12.8 sigma, -14.52bp — **beats fees**
+- `thinAskUp` @ t60: -8.3 sigma, -23.24bp — **beats fees**
+- `takerRatioFade` @ t30: -8.0 sigma, -12.97bp — **beats fees**
+- `topTraderFollow` @ t60: 7.6 sigma, 27.51bp — **beats fees**
+- `sweepSignal` @ t60: -7.6 sigma, -23.95bp — **beats fees**
+- `sweepSignal` @ t30: -6.5 sigma, -14.98bp — **beats fees**
 
-Carry: no premium index data — the carry question cannot be asked, this is missing data and not a null result
+Carry at 8h, the two most crowded deciles, oriented to the side that collects:
+
+- basis -9.6bp: price 47.57bp ±5.53, carry +9.64bp, **total 57.21bp**
+- basis 0.5bp: price -69.06bp ±6.03, carry +0.50bp, **total -68.56bp**
 
 ## What a pass should do
 

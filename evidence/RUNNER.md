@@ -4,3 +4,5 @@ symbols: LITUSDC · days: 30 · run 33426280129
 symbols: LITUSDT · days: 30 · run 33426669821
 ## 2026-08-31T18:46:16Z — archive replay
 symbols: LITUSDT · days: 30 · run 33426786821
+## 2026-08-31T18:56:20Z — archive replay
+symbols: LITUSDT · days: 30 · run 33427690479
