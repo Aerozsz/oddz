@@ -135,7 +135,10 @@ jobs:
             echo "::group::backtest $sym"
             # Not `|| true`: a replay that refuses is the failure this workflow
             # exists to surface, and it spent six days refusing silently.
-            SWEEP_SYMBOL="$sym" timeout 60m npm run sweep:backtest
+            # --symbol explicitly: the worker takes it from argv, and relying on
+            # an env var it does not read is how the last run replayed BTCUSDT
+            # after downloading LITUSDT.
+            timeout 60m npm run sweep:backtest -- --symbol "$sym"
             echo "::endgroup::"
           done
 

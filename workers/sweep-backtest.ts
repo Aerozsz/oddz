@@ -36,6 +36,7 @@
  */
 
 import { maxOf, minOf } from "../lib/sweep/numeric";
+import { SYMBOL } from "../lib/sweep/config";
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { unzipEntries, csvRows, parseTs } from "../lib/sweep/backtest/zip";
@@ -52,7 +53,20 @@ const arg = (name: string, fallback: string): string => {
   return i > -1 && process.argv[i + 1] && !process.argv[i + 1].startsWith("--") ? process.argv[i + 1] : fallback;
 };
 
-const symbol = arg("symbol", "BTCUSDT").toUpperCase();
+/*
+ * Falls back to the configured symbol, not to a name written here.
+ *
+ * This defaulted to a hardcoded "BTCUSDT" while the rest of the project was
+ * pointed at something else, so a run that did not pass --symbol replayed a
+ * contract nobody had asked for and reported "0 minutes with both depth and
+ * price · not enough overlap". That reads as missing history. It was the wrong
+ * symbol, and the history it wanted had just been downloaded successfully — 120
+ * files, 18 MB, zero failures — for a different one.
+ *
+ * A default that silently disagrees with the configured symbol is worse than no
+ * default: the run does not fail, it answers a question nobody asked.
+ */
+const symbol = arg("symbol", process.env.SWEEP_SYMBOL?.trim() || SYMBOL).toUpperCase();
 /*
  * The symbol's own directory, and only its own files.
  *
