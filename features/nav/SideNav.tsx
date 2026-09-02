@@ -33,6 +33,7 @@ const SECTIONS: Section[] = [
       { href: "/yields", label: "Yields" },
       { href: "/overround", label: "Overround" },
       { href: "/movers", label: "Movers" },
+      { href: "/whales", label: "Whales" },
       // /sweep is deliberately absent. The liquidity monitor is unlisted and
       // reached by direct URL only; it still renders normally if you go there.
     ],

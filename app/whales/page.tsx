@@ -1,0 +1,26 @@
+import { Dashboard } from "@/features/holders/Dashboard";
+import { RIPE_NVDA_PAIR, RIPE_TOKEN } from "@/lib/holders/config";
+
+export const dynamic = "force-dynamic";
+
+export const metadata = {
+  title: "Whales",
+  description:
+    "Live holder tracking from chain state: positions ranked as economic actors, with buy/sell behavior and what each stack is actually worth on exit.",
+};
+
+export default async function WhalesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ token?: string; pair?: string }>;
+}) {
+  const sp = await searchParams;
+  const isAddress = (v: string | undefined) => (v && /^0x[0-9a-fA-F]{40}$/.test(v) ? v : undefined);
+
+  return (
+    <Dashboard
+      token={isAddress(sp.token) ?? RIPE_TOKEN}
+      pair={isAddress(sp.pair) ?? RIPE_NVDA_PAIR}
+    />
+  );
+}
