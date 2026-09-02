@@ -45,7 +45,6 @@ copy("lib/utils.ts");
 copy("lib/http.ts");
 copy("lib/logger.ts");
 copy("lib/brand.ts");
-copy("app/globals.css");
 copy("app/api/holders");
 copy("docs/whale-tracker.md", "README.md");
 
@@ -56,6 +55,15 @@ const page = readFileSync(join(ROOT, "app/whales/page.tsx"), "utf8").replace(
   "export default async function TrackerPage(",
 );
 write("app/page.tsx", GENERATED + page);
+
+// Only the base layer of the main app's stylesheet: the Tailwind directives,
+// the design tokens for both themes, and the element defaults. Everything
+// after it is decorative helpers (view transitions, .lift, .link) that the
+// tracker's components do not use. Sliced from the source rather than
+// rewritten so the tokens cannot drift from the main app's.
+const css = readFileSync(join(ROOT, "app/globals.css"), "utf8");
+const cutAt = css.indexOf("@view-transition");
+write("app/globals.css", cutAt > 0 ? css.slice(0, cutAt).trimEnd() + "\n" : css);
 
 // ---- shell, specific to the standalone app
 write(
