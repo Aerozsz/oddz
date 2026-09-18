@@ -809,3 +809,54 @@ artefact this project has already caught four times than a real effect; I am not
 treating it as a finding.
 
 Not a reason to arm anything.
+
+## 2026-09-18T18:40Z — the scheduler works, and the cross-contract test undercuts the finding
+
+**The Routine fired into this session and reached a session with tools.** First
+scheduled pass in this project's history to do so. The old one spawned cold
+sessions with no MCP tools and burned ~150 firings for nothing; binding to a live
+session is the difference. Confirmed, not assumed.
+
+**Process error worth writing down.** I read "results" before the run finished,
+because my wait condition checked for `evidence/FINDINGS-BTCUSDT.md` to exist —
+and it already did, left by the operator's machine on 08-31. I reported the stale
+file's 1,940-sample degenerate output as though it were this run's. Waiting on a
+file that already exists is not waiting. The condition is now the runner's own
+commit subject.
+
+**The cross-contract test.** takerRatioFade had survived the bounce test, both
+halves of two windows, and a measured cost bar — all inside one contract. BTCUSDT
+is the control: the 513,000-sample study found nothing tradeable there, and its
+book is the opposite of LITUSDT's.
+
+| | LITUSDT | BTCUSDT |
+|---|---|---|
+| cost bar | 12.25bp | 9.47bp |
+| Roll | **null** | 2.47bp |
+| delayed-entry | 5.25bp | 1.70bp |
+| basis | one leg | **both agreed** |
+| takerRatioFade @t1d | −16.9σ, −7.95bp | −16.3σ, −1.80bp |
+| takerRatioFade @t5d | −16.1σ, −16.64bp | −13.9σ, −3.26bp |
+| takerRatioFade @t15d | −9.5σ, −15.58bp | −7.8σ, −2.90bp |
+
+**The effect is real on both, and its size tracks the spread.** Same sign, same
+order of significance, holding in both halves on both contracts — so it is not a
+LITUSDT accident. But LIT's spread is ~2.5x BTC's and the effect is ~5x larger.
+It scales *faster* than the spread, which is what a cost artefact looks like, not
+what an edge looks like. On BTCUSDT it is 3.26bp against a 9.47bp bar:
+unambiguously untradeable, exactly as the 513,000-sample study said.
+
+**So the honest position on the one surviving candidate is worse than it was
+this morning.** takerRatioFade @t5d clears the LITUSDT bar by 4.4bp — and that
+bar is the one resting on a single estimator, because Roll returned null there.
+On BTCUSDT, where both estimators ran and agreed, the same feature is nowhere
+near its bar. The contract whose bar I trust least is the only one where the
+finding survives.
+
+**The next job is therefore specific, not exploratory.** LITUSDT needs a second,
+independent spread estimate. Roll fails at one-minute resolution because momentum
+dominates the bounce; on tick data the bounce dominates instead, which is the
+resolution Roll was designed for. `sweep:history --ticks` already fetches
+aggTrades and nothing has ever read them. A few days is enough for a spread.
+If LITUSDT's real round trip is 17bp or more, takerRatioFade @t5d is dead and so
+is everything else in this project.
