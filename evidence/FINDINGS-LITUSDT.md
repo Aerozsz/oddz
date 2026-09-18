@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-18T13:10:31.694Z by the research loop. Do not edit — it is
+Generated 2026-09-18T13:20:18.165Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,13 +38,13 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### LITUSDT
 
-43,140 samples over 30 days. Bar 3.72 sigma, round trip 7bp.
+43,140 samples over 30 days. Bar 3.72 sigma, round trip 12.25bp.
 
-12 cleared the bar; **12 also beat the round trip**.
+12 cleared the bar; **10 also beat the round trip**.
 
 - `takerRatioFade` @ t5: -25.7 sigma, -26.94bp — **beats fees** · halves -16.1/-20.5 sigma, -26.9/-25.7bp — **holds in both**
-- `takerRatioFade` @ t1: -22.8 sigma, -10.57bp — **beats fees** · halves -14.9/-17.7 sigma, -11.0/-9.8bp — **holds in both**
-- `takerRatioFade` @ t1d: -16.9 sigma, -7.95bp — **beats fees** · halves -10.9/-13.3 sigma, -8.2/-7.5bp — **holds in both**
+- `takerRatioFade` @ t1: -22.8 sigma, -10.57bp · halves -14.9/-17.7 sigma, -11.0/-9.8bp — **holds in both**
+- `takerRatioFade` @ t1d: -16.9 sigma, -7.95bp · halves -10.9/-13.3 sigma, -8.2/-7.5bp — **holds in both**
 - `takerRatioFade` @ t5d: -16.1 sigma, -16.64bp — **beats fees** · halves -9.7/-13.0 sigma, -15.7/-16.5bp — **holds in both**
 - `takerRatioFade` @ t15: -16.1 sigma, -26.32bp — **beats fees** · halves -10.4/-12.1 sigma, -23.9/-28.0bp — **holds in both**
 - `takerRatioFade` @ t15d: -9.5 sigma, -15.58bp — **beats fees** · halves -5.5/-7.8 sigma, -12.7/-18.0bp — **holds in both**
