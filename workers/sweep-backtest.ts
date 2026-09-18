@@ -47,6 +47,7 @@ import {
 import { familyZ } from "../lib/sweep/agent/learn";
 import { scoreFunding, type FundingPoint } from "../lib/sweep/backtest/funding";
 import { renderFindings, type RunSummary } from "../lib/sweep/backtest/findings";
+import { estimateCost } from "../lib/sweep/backtest/cost";
 
 const arg = (name: string, fallback: string): string => {
   const i = process.argv.indexOf(`--${name}`);
@@ -473,21 +474,43 @@ function main() {
    * between "we found something" and "we found something we can trade".
    */
   /*
-   * Fees only. This is not the cost of trading.
+   * The cost bar, measured on this contract rather than assumed from another.
    *
-   * Two taker fills at the tier this account pays, and nothing else — no
-   * spread, no slippage, no queue. That was defensible on BTCUSDT, where the
-   * spread ran about 0.012bp and rounding it away changed nothing. It is not
-   * defensible on a small-cap contract, where crossing the spread twice can
-   * cost several times the fees, and a finding "beating the round trip" here is
-   * beating a bar built for a different instrument.
+   * It used to be the constant 7 — two taker fills and nothing else. That was
+   * defensible on BTCUSDT, where the spread rounds to 0.012bp, and it is not
+   * defensible here: the difference between a 7bp bar and a 12bp one is the
+   * difference between takerRatioFade @t5d being a finding and being noise.
    *
-   * Overridable so the real number can be used once it is measured, and named
-   * feesOnly so nothing downstream reads it as the whole cost.
+   * Two estimates, from opposite directions. Roll reads the spread out of the
+   * negative autocorrelation that bid-ask bounce induces in the closes; the
+   * delayed-entry test reads it out of how much edge a one-bar delay removes,
+   * which is half a spread by construction. See cost.ts — they fail in
+   * different ways, so agreement between them is worth more than either alone.
+   *
+   * The environment variable still wins when set, because a measured number
+   * from a venue's own fee schedule beats anything inferred.
    */
+  const feesBps = 7;
+  /*
+   * The shortest horizon is the only one that can see the entry bias. Over an
+   * hour a two basis point bias is a rounding error on a twenty-five point
+   * move, and dividing two noisy numbers to recover it invents precision.
+   */
+  const bouncePair = (() => {
+    const a = ranked.find((r) => r.horizon === "t1" && Math.abs(r.sigma) >= bar);
+    const b = ranked.find((r) => r.feature === a?.feature && r.horizon === "t1d");
+    return a && b ? { immediate: a.spreadBps, delayed: b.spreadBps } : null;
+  })();
+  const cost = estimateCost(minutes, feesBps, bouncePair);
   const ROUND_TRIP_BPS = Number(process.env.SWEEP_ROUND_TRIP_BPS) > 0
     ? Number(process.env.SWEEP_ROUND_TRIP_BPS)
-    : 7;
+    : cost.roundTripBps;
+  console.error(
+    `[backtest] cost bar ${ROUND_TRIP_BPS.toFixed(2)}bp (fees ${feesBps}, ` +
+      `roll ${cost.rollBps === null ? "n/a" : cost.rollBps.toFixed(2)}, ` +
+      `bounce ${cost.bounceBps === null ? "n/a" : cost.bounceBps.toFixed(2)}, basis ${cost.basis})`,
+  );
+  console.error(`[backtest] ${cost.note}`);
 
   /*
    * Carry, scored alongside the directional search rather than instead of it.
@@ -525,6 +548,7 @@ function main() {
       "separation between the top and bottom deciles in standard errors of the difference.",
     multiplicity: { tests, bonferroniSigma: bar },
     roundTripBps: ROUND_TRIP_BPS,
+    cost,
     ranked: ranked.slice(0, 40),
     deciles: detail,
   };

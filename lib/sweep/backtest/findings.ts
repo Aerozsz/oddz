@@ -216,6 +216,20 @@ export interface RunSummary {
   spanDays: number;
   bonferroniSigma: number;
   roundTripBps: number;
+  /**
+   * How the cost bar was arrived at.
+   *
+   * Reported because "beats the round trip" means nothing without it. The bar
+   * was a constant borrowed from a contract whose spread rounds to zero, and a
+   * reader had no way to tell a measured bar from an inherited one.
+   */
+  cost?: {
+    feesBps: number;
+    rollBps: number | null;
+    bounceBps: number | null;
+    basis: string;
+    note: string;
+  };
   /** Features that cleared the bar, with their spread. */
   survivors: {
     feature: string;
@@ -283,8 +297,17 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
     lines.push("");
     lines.push(
       `${r.samples.toLocaleString()} samples over ${r.spanDays} days. Bar ${r.bonferroniSigma.toFixed(2)} sigma, ` +
-        `round trip ${r.roundTripBps}bp.`,
+        `round trip ${typeof r.roundTripBps === "number" ? r.roundTripBps.toFixed(2) : r.roundTripBps}bp.`,
     );
+    if (r.cost) {
+      lines.push("");
+      lines.push(
+        `Cost bar: fees ${r.cost.feesBps}bp + spread — Roll ` +
+          `${r.cost.rollBps === null ? "n/a" : r.cost.rollBps.toFixed(2) + "bp"}, ` +
+          `delayed-entry ${r.cost.bounceBps === null ? "n/a" : r.cost.bounceBps.toFixed(2) + "bp"} ` +
+          `(${r.cost.basis}). ${r.cost.note}`,
+      );
+    }
     lines.push("");
     if (r.survivors.length === 0) {
       lines.push("No feature cleared the bar.");
