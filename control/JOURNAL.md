@@ -752,3 +752,60 @@ because it is the difference between a finding and an artefact of using
 Bitcoin's cost structure on an altcoin.
 
 Nothing here is a reason to arm anything.
+
+## 2026-09-18T13:35Z — the cost bar, measured, and the one thing that survives it
+
+I dropped this for fourteen days. The blocker was found on 09-02, reported, and
+then nothing — no run between 08-31 and today except one aborted boot on 09-04.
+Escalating and waiting is the failure mode this project exists to avoid. The
+self-scheduling Routine built today could have been built on the 2nd.
+
+**The cost bar is 12.25bp, not 7.** Fees 7 plus a measured spread of 5.25. That
+is the number the whole LITUSDT result turned on and it had never been measured —
+7bp was two taker fills, calibrated on a contract whose spread rounds to 0.012bp.
+
+**It rests on one estimate, not two, and that is a real weakness.** The design
+called for Roll's estimator and the delayed-entry test to cross-check each other.
+Roll returned null: non-negative autocovariance, so momentum dominates the bounce
+at one-minute resolution and the estimator has no real root. Null rather than
+zero is correct — a zero spread is a bar everything clears — but it leaves the
+bar resting on the delayed-entry estimate alone, uncorroborated.
+
+**What clears all three filters** — entered a bar later so bid-ask bounce cannot
+explain it, individually significant in both halves of the window, and past the
+12.25bp bar:
+
+| finding | full | halves |
+|---|---|---|
+| `takerRatioFade` @t5d | −16.1σ, −16.64bp | −9.7 / −13.0 |
+| `takerRatioFade` @t15d | −9.5σ, −15.58bp | −5.5 / −7.8 |
+| `mom30` @t60d | −4.6σ, −18.45bp | −2.7 / −4.8 |
+| `oiChange` @t60d | +3.7σ, +15.26bp | +2.0 / +4.3 |
+| `basisFade` @t60d | −4.3σ, −15.14bp | −2.4 / −4.2 |
+| `basisStretch` @t60d | +4.3σ, +15.14bp | +2.4 / +4.2 |
+
+**basisFade and basisStretch are the same feature twice.** −15.14 and +15.14,
+mirrored sigmas. Counting both inflates the discovery count and would inflate any
+multiplicity correction applied afterwards. Two entries, one fact.
+
+**The strongest evidence available is accidental.** This run replayed a different
+thirty-day window from the 08-31 run — the fetch takes the last thirty days, and
+eighteen days had passed. That makes it an out-of-sample test nobody designed.
+Almost nothing survived it: `sweepSignal`, `asymmetry` and `topTraderFollow` are
+gone from the top, and `thinAskUp` @t60d now *flips sign across halves*, −6.7
+then +1.2. On 08-31 those three were the ones I called clean survivors.
+
+**`takerRatioFade` is the only thing that holds across both windows**, and it is
+stronger here than there. It survives the bounce test, both halves of both
+windows, and a measured cost bar. Nothing else in this project has ever done
+that.
+
+**What would still kill it.** The bar has one leg, not two. Cost is fees plus one
+spread and models no size impact — the decile is a tenth of the sample, and the
+book that has to absorb it is thin. It is one contract. And the carry line in
+this run reads 152bp of price move in the collector's favour at ±6.9, which is a
+22 sigma claim about funding and is far more likely to be the extreme-decile
+artefact this project has already caught four times than a real effect; I am not
+treating it as a finding.
+
+Not a reason to arm anything.
