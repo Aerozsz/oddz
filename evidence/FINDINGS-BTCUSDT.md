@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-08-31T19:23:30.031Z by the research loop. Do not edit — it is
+Generated 2026-09-18T13:15:23.834Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,7 +38,7 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### BTCUSDT
 
-1,940 samples over 1 days. Bar 3.72 sigma, round trip 7bp.
+1,940 samples over 1 days. Bar 3.72 sigma, round trip 7.00bp.
 
 12 cleared the bar; **0 also beat the round trip** — so none is tradeable as a directional signal.
 
