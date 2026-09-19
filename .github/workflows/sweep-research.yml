@@ -132,6 +132,16 @@ jobs:
             echo "::group::history $sym"
             npm run sweep:history -- --symbol "$sym" --days "$DAYS" || true
             echo "::endgroup::"
+            echo "::group::spread $sym"
+            # The cost bar decides which findings are real, and on LITUSDT it
+            # rested on one estimator because Roll returned null at minute
+            # resolution. Ticks carry the trade-direction flag, so the spread is
+            # observed at direction flips rather than inferred from the price
+            # path — which is the failure mode Roll has and this does not.
+            # Three days is plenty for a median over hundreds of thousands of
+            # flips, and avoids pulling a gigabyte of tape for a single number.
+            npm run sweep:spread -- --symbol "$sym" --days 3 || true
+            echo "::endgroup::"
             echo "::group::backtest $sym"
             # Not `|| true`: a replay that refuses is the failure this workflow
             # exists to surface, and it spent six days refusing silently.
