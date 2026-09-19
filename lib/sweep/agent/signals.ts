@@ -1,3 +1,4 @@
+import { maxOf } from "../numeric";
 import type { Snapshot, Wall } from "../types";
 import type { FeedHealth, Signal, SignalKind, SignalSeverity } from "./types";
 
@@ -116,7 +117,10 @@ export class SignalEngine {
   private thinning(snap: Snapshot, now: number): Signal[] {
     const events = snap.thinning.filter((e) => e.t > this.seenThinningAt);
     if (events.length === 0) return [];
-    this.seenThinningAt = Math.max(...events.map((e) => e.t));
+    // maxOf, not Math.max(...): snap.thinning is a rolling buffer whose length
+    // is set by the engine's retention, and "probably short enough" is the
+    // reasoning that shipped an argument-limit RangeError twice in this repo.
+    this.seenThinningAt = maxOf(events.map((e) => e.t)) ?? this.seenThinningAt;
 
     return events.flatMap((e) => {
       // Withdrawal on the bid thins the floor, so the exposure is downward.

@@ -1,3 +1,4 @@
+import { minOf } from "../numeric";
 import { getEngine } from "../engine";
 import { mentionVelocity } from "../metrics/news-poller";
 import { newsPressure } from "../metrics/news-store";
@@ -69,7 +70,9 @@ export function livePressure(symbol: string, now = Date.now()): NewsPressure {
   return {
     ...feeds,
     impact: Math.max(feeds.impact, shock.level, chatterLevel),
-    minutesSince: ages.length ? Math.min(...ages) : null,
+    // minOf, not Math.min(...): ages comes from the news store, whose size is
+    // a retention policy rather than a constant.
+    minutesSince: minOf(ages),
     shockLevel: shock.level,
     shockReasons: reasons,
     chatterVelocity: chatter,

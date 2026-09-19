@@ -163,7 +163,20 @@ async function main() {
   for (const date of dates) {
     const day = await fetchDay(date);
     console.error(`[spread] ${date}: ${day.length.toLocaleString()} prints`);
-    prints.push(...day);
+    /*
+     * Not `prints.push(...day)`.
+     *
+     * Spreading an array passes every element as a separate argument, so it
+     * throws RangeError once the array exceeds the engine's argument limit —
+     * and a day of aggTrades on a liquid contract is 666,782 prints. This is
+     * the same mistake as `Math.min(...closes)` in the replay, which refused
+     * every research pass for six days while the loop looked healthy; it was
+     * found, fixed, written up in the journal, and then written again here
+     * three weeks later by the same hand.
+     *
+     * A loop has no argument limit.
+     */
+    for (const p of day) prints.push(p);
   }
 
   if (prints.length === 0) {
