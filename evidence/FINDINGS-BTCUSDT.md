@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-18T18:27:26.073Z by the research loop. Do not edit — it is
+Generated 2026-09-19T00:27:46.733Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,23 +38,20 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### BTCUSDT
 
-43,140 samples over 30 days. Bar 3.72 sigma, round trip 9.47bp.
+1,940 samples over 1 days. Bar 3.72 sigma, round trip 7.00bp.
 
-12 cleared the bar; **8 also beat the round trip**.
+12 cleared the bar; **0 also beat the round trip** — so none is tradeable as a directional signal.
 
-- `takerRatioFade` @ t5: -25.1 sigma, -6.06bp · halves -16.4/-16.9 sigma, -7.8/-5.1bp — **holds in both**
-- `takerRatioFade` @ t1: -24.5 sigma, -2.64bp · halves -19.0/-16.0 sigma, -3.3/-2.1bp — **holds in both**
-- `topTraderFollow` @ t60d: -23.0 sigma, -30.19bp — **beats fees** · halves -10.8/-13.6 sigma, -22.8/-17.4bp — **holds in both**
-- `topTraderFollow` @ t60: -22.7 sigma, -29.71bp — **beats fees** · halves -10.8/-14.1 sigma, -22.7/-17.9bp — **holds in both**
-- `topTraderFollow` @ t30d: -16.8 sigma, -15.31bp — **beats fees** · halves -7.7/-10.0 sigma, -10.7/-9.2bp — **holds in both**
-- `topTraderFollow` @ t30: -16.7 sigma, -15.18bp — **beats fees** · halves -7.8/-10.3 sigma, -10.8/-9.5bp — **holds in both**
-- `takerRatioFade` @ t1d: -16.3 sigma, -1.80bp · halves -12.4/-10.9 sigma, -2.3/-1.4bp — **holds in both**
-- `oiChange` @ t60d: 15.7 sigma, 22.16bp — **beats fees** · halves 12.8/8.1 sigma, 29.1/12.3bp — **holds in both**
+- `mom5` @ t1: 306.1 sigma, 0.00bp · halves 216.0/216.0 sigma, 0.0/0.0bp — **holds in both**
+- `mom30` @ t1: 306.1 sigma, 0.00bp · halves 216.0/216.0 sigma, 0.0/0.0bp — **holds in both**
+- `thinBidUp` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `bidWithdrawn` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `ofi` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `ofiVsVol` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `revert5` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `volSurge` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
 
-Carry at 8h, the two most crowded deciles, oriented to the side that collects:
-
-- basis -6.4bp: price 16.43bp ±1.96, carry +6.36bp, **total 22.79bp**
-- basis -0.1bp: price 36.55bp ±2.00, carry +0.12bp, **total 36.67bp**
+Carry: no premium index data — the carry question cannot be asked, this is missing data and not a null result
 
 ## What a pass should do
 
