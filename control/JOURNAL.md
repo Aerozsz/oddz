@@ -860,3 +860,59 @@ resolution Roll was designed for. `sweep:history --ticks` already fetches
 aggTrades and nothing has ever read them. A few days is enough for a spread.
 If LITUSDT's real round trip is 17bp or more, takerRatioFade @t5d is dead and so
 is everything else in this project.
+
+## 2026-09-19T01:05Z — the spread is one tick, so the question was never the spread
+
+Second scheduled pass. The Routine fired into this session again and reached a
+session with tools, so the scheduler is working.
+
+**I shipped the argument-limit bug a second time.** `prints.push(...day)` in the
+new tick worker — 666,782 prints spread as arguments, `RangeError: Maximum call
+stack size exceeded`. It is the identical bug to `Math.min(...closes)` in the
+replay, which refused every research pass for six days three weeks ago, which I
+found, fixed and wrote up in this journal. The step carried `|| true`, so both
+symbols failed silently and the run reported success.
+
+A comment saying "do not do this" did not prevent it. There is now a check that
+scans `workers/` and `lib/` and fails on any spread into a call not explicitly
+declared bounded, with the bound written down. It found eight more: five were
+genuinely bounded and are declared, two were not — the thinning buffer and the
+news-store ages are sized by retention policy, not by a constant — and one was a
+rest parameter, which is a declaration rather than a call.
+
+**The measurement, once it ran.**
+
+| | prints | flips | median flip gap | Roll on ticks |
+|---|---|---|---|---|
+| LITUSDT | 1,847,583 | 221,956 | **0.243bp** | 0.54bp |
+| BTCUSDT | 4,506,656 | 793,966 | **0.01bp** | 0.31bp |
+
+My first reaction was that this had to be broken, because a spread cannot be
+narrower than one tick. It is not broken — it is exactly one tick, on both.
+LITUSDT trades $4.00–$5.04 and a 0.0001 tick at $4.00 is 0.25bp. BTCUSDT at
+about $100,000 with a 0.1 tick is 0.01bp. Two contracts, two tick sizes, each
+returning precisely its own. That agreement across wildly different price scales
+is the internal check that the number is real, and the worker now reports the
+zero-gap share and the 75th and 90th percentiles so a one-tick book can be told
+from a broken statistic without having to reason it out again.
+
+**So the minute-level estimates were inflated, badly.** LITUSDT's delayed-entry
+bar said 5.44bp against a true spread of ~0.25. BTCUSDT's Roll said 1.02 and its
+delayed-entry 1.68, against ~0.01. Both were reading genuine one-minute mean
+reversion as bid-ask bounce. The cost bar has been built on that since it was
+first measured.
+
+**And yet I am not lowering the bar.** A one-tick spread is what a *tiny* order
+pays. The finding is a decile — a tenth of the sample — and on a book that is
+one tick wide but thin, the binding cost is walking that book, not crossing it.
+The spread turns out to be a rounding error and impact turns out to be the whole
+question, which is the opposite of the assumption this project has carried since
+the cost bar existed. The old 12.44bp bar was accidentally in a sensible range
+for entirely the wrong reason, and lowering it to 7.25 on this measurement would
+be the cheap-direction error the cost module's own comments warn against.
+
+**Next is therefore impact, and the data for it is already downloaded.** The
+archive's `bookDepth` gives notional resting within ±1% each side, per minute.
+Against an intended order size that yields how far a decile-sized order walks —
+which is the missing term, and the one that decides whether `takerRatioFade`
+@t5d at −16.66bp is tradeable or is eaten.

@@ -103,7 +103,13 @@ async function fetchDay(date: string): Promise<Print[]> {
  *    dragged by a handful of them. The median is the typical crossing cost,
  *    which is the quantity the bar wants.
  */
-function flipSpreadBps(prints: Print[]): { bps: number | null; flips: number } {
+function flipSpreadBps(prints: Print[]): {
+  bps: number | null;
+  flips: number;
+  zeroShare: number;
+  p75: number | null;
+  p90: number | null;
+} {
   const gaps: number[] = [];
   for (let i = 1; i < prints.length; i++) {
     const a = prints[i - 1];
@@ -114,9 +120,25 @@ function flipSpreadBps(prints: Print[]): { bps: number | null; flips: number } {
     if (!(mid > 0)) continue;
     gaps.push((Math.abs(b.price - a.price) / mid) * 10_000);
   }
-  if (gaps.length < 1000) return { bps: null, flips: gaps.length };
+  if (gaps.length < 1000) return { bps: null, flips: gaps.length, zeroShare: 0, p75: null, p90: null };
   gaps.sort((x, y) => x - y);
-  return { bps: gaps[Math.floor(gaps.length / 2)], flips: gaps.length };
+  const at = (q: number) => gaps[Math.min(gaps.length - 1, Math.floor(gaps.length * q))];
+  return {
+    bps: at(0.5),
+    flips: gaps.length,
+    /*
+     * The share of flips that moved no price at all.
+     *
+     * This is what distinguishes "the book is one tick wide" from "the
+     * statistic is broken". A median below one tick would be impossible, so if
+     * the median lands on the tick size and most flips are non-zero, the
+     * reading is the spread. If instead most flips are zero, the median is
+     * measuring same-price fills and says nothing about the spread.
+     */
+    zeroShare: gaps.filter((g) => g <= 0).length / gaps.length,
+    p75: at(0.75),
+    p90: at(0.9),
+  };
 }
 
 /** Roll on the tick series, where bounce dominates and its assumptions hold. */
@@ -199,14 +221,26 @@ async function main() {
     /** The measurement: median gap at direction flips. */
     flipSpreadBps: flip.bps,
     flips: flip.flips,
+    /*
+     * Reported so a one-tick book can be told from a broken statistic. Against
+     * LITUSDT at $4.00 the median came back 0.243bp and a 0.0001 tick is
+     * 0.25bp; against BTCUSDT it came back 0.01bp and a 0.1 tick at $100k is
+     * 0.01bp. Two contracts, two tick sizes, each returning exactly its own —
+     * which is the internal check that the number is real.
+     */
+    flipZeroShare: flip.zeroShare,
+    flipP75Bps: flip.p75,
+    flipP90Bps: flip.p90,
     /** The cross-check: Roll on the same ticks. */
     rollTickBps: roll,
     priceLow: lo,
     priceHigh: hi,
     note:
-      "Spread only — the cost of crossing for something small. It is a floor on the " +
-      "round trip, not the whole of it: a decile of a thin book is not small, and the " +
-      "impact of lifting it is a separate and larger question.",
+      "Spread only, and on both contracts it comes out at exactly one tick — the book " +
+      "is one tick wide essentially always. That makes the spread a negligible part of " +
+      "the cost and moves the whole question to impact: this measures what a tiny order " +
+      "pays, and a decile-sized order on a thin book walks it. Do not lower a cost bar " +
+      "on this number alone.",
   };
 
   mkdirSync(dirname(outPath), { recursive: true });
