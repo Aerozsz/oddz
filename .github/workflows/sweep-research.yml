@@ -142,6 +142,15 @@ jobs:
             # flips, and avoids pulling a gigabyte of tape for a single number.
             npm run sweep:spread -- --symbol "$sym" --days 3 || true
             echo "::endgroup::"
+            echo "::group::impact $sym"
+            # The spread turned out to be one tick on both contracts, which
+            # cannot threaten a 16bp finding. What can is that the finding is a
+            # decile of a thin book: the binding cost is walking it, not
+            # crossing it. bookDepth is already downloaded by the history step
+            # and its non-1% bands were being discarded — they are a depth
+            # curve, which is exactly what pricing an order against needs.
+            npm run sweep:impact -- --symbol "$sym" || true
+            echo "::endgroup::"
             echo "::group::backtest $sym"
             # Not `|| true`: a replay that refuses is the failure this workflow
             # exists to surface, and it spent six days refusing silently.
