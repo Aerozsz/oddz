@@ -916,3 +916,55 @@ archive's `bookDepth` gives notional resting within ±1% each side, per minute.
 Against an intended order size that yields how far a decile-sized order walks —
 which is the missing term, and the one that decides whether `takerRatioFade`
 @t5d at −16.66bp is tradeable or is eaten.
+
+## 2026-09-19T18:50Z — the cost is fully measured, and there is a capacity knee
+
+I let two scheduled kicks pass without doing the work. That is the drop I was
+put in charge of preventing, and it is the second time in this project that
+noticing a thing and acting on it came apart.
+
+**Two of my own bugs first, both the same shape as ones already in this
+journal.** `prints.push(...day)` threw the argument-limit RangeError I had fixed
+three weeks earlier in the replay — there is now a check that fails on any
+spread into a call not declared bounded, and it found eight more. Then the
+impact worker reported "30 file(s), 0 minutes": bookDepth writes timestamps as
+text dates, `Number("2026-09-15 00:00:00")` is NaN, and `parseTs` — written for
+this, sitting in the same module I was already importing from, used by the
+replay since the beginning — went unused. Both steps carried `|| true`, so both
+failed silently inside runs that reported success.
+
+**The cost is now measured end to end.** Spread from the tape at direction
+flips, impact from the depth curve the replay had been discarding.
+
+LITUSDT, against `takerRatioFade` @t5d at −16.66bp:
+
+| size | impact RT | total cost | net edge | $/trade | trades/day for $300 |
+|---|---|---|---|---|---|
+| $1,000 | 0.36bp | 7.84bp | **+8.82bp** | $0.88 | 341 |
+| $5,000 | 1.79bp | 9.27bp | **+7.39bp** | $3.69 | 82 |
+| $10,000 | 3.57bp | 11.06bp | **+5.60bp** | $5.60 | 54 |
+| $25,000 | 8.93bp | 16.42bp | +0.24bp | $0.61 | 493 |
+| $50,000 | 16.87bp | 24.35bp | **−7.69bp** | −$38.46 | never |
+
+Fees are 7bp of that and the spread is half a basis point. **Impact is the whole
+shape of the curve**, exactly as the one-tick spread measurement implied, and
+the knee sits between $10,000 and $25,000. BTCUSDT's book absorbs $100,000 for
+0.03bp round trip — which is why nothing was ever found there and why the
+finding lives on the thin contract.
+
+**So the honest statement is narrow and quantitative.** The strategy has an edge
+of about 5.6bp net at $10,000 a trade, it fires roughly 144 times a day as the
+top decile of a five-minute signal, and $300/day needs 54 of those to be taken
+and to behave like the sample. It is capacity-limited to about $25,000 before
+impact eats it, which is a ceiling on the whole approach rather than a parameter
+to tune.
+
+**What would still overturn it.** The impact model prices resting depth, and
+resting is not available — quotes are pulled as an order arrives, so the real
+curve is worse than this one and the knee is lower than $25,000, not higher. The
+edge is one contract over one month, though it held across two separate windows
+and both halves of each. And a decile is the extreme tenth: trading it means
+taking only those, and the count of 144 a day assumes every one is actionable.
+
+Nothing here is a reason to arm. It is the first time this project has had a
+number worth arguing with.
