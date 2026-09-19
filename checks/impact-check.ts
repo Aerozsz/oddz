@@ -8,6 +8,8 @@
  * candidate this project has left.
  */
 
+import { parseTs } from "/home/user/oddz/lib/sweep/backtest/zip";
+
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = "") => {
   if (!cond) { failures++; console.error(`  FAIL ${name}${detail ? ` — ${detail}` : ""}`); }
@@ -110,7 +112,24 @@ function aZeroWidthBandDoesNotDivideByZero() {
   ok("a flat band yields a finite number", got !== null && Number.isFinite(got), String(got));
 }
 
+/**
+ * The timestamps in this archive are text, not numbers.
+ *
+ * `Number("2026-09-15 00:00:00")` is NaN, so a worker using it skips every row
+ * and reports finding the files while parsing none of them — which is what the
+ * first version of this did: "30 file(s), 0 minutes". parseTs handles the text
+ * form and the microsecond form, and the replay has always used it.
+ */
+function timestampsParse() {
+  ok("a text date parses", Number.isFinite(parseTs("2026-09-15 00:00:00")));
+  ok("and Number() would not", !Number.isFinite(Number("2026-09-15 00:00:00")));
+  ok("milliseconds pass through", parseTs("1757894400000") === 1757894400000);
+  ok("microseconds are scaled", parseTs("1757894400000000") === 1757894400000);
+  ok("junk is NaN, not zero", !Number.isFinite(parseTs("not-a-time")));
+}
+
 console.log("impact");
+timestampsParse();
 smallOrdersAreNearlyFree();
 impactGrowsWithSizeAndBitesAtTheKnee();
 itRefusesToExtrapolate();

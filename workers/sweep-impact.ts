@@ -46,7 +46,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 
-import { unzipEntries, csvRows } from "../lib/sweep/backtest/zip";
+import { unzipEntries, csvRows, parseTs } from "../lib/sweep/backtest/zip";
 import { SYMBOL } from "../lib/sweep/config";
 
 const arg = (name: string, fallback: string): string => {
@@ -97,7 +97,16 @@ function load(): Curve[] {
       for (const r of csvRows(entry.data)) {
         // timestamp,percentage,depth,notional
         if (r.length < 4) continue;
-        const ts = Number(r[0]);
+        /*
+         * parseTs, not Number.
+         *
+         * The archive writes bookDepth timestamps as text dates, and some
+         * feeds use microseconds. Number("2026-09-15 00:00:00") is NaN, so
+         * every row was skipped and the worker reported "30 file(s), 0
+         * minutes" — found the data, parsed none of it. The helper exists for
+         * exactly this and the replay has always used it; this did not.
+         */
+        const ts = parseTs(r[0] ?? "");
         const pct = Number(r[1]);
         const notional = Number(r[3]);
         if (!Number.isFinite(ts) || !Number.isFinite(pct) || !Number.isFinite(notional)) continue;
