@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-18T18:26:51.214Z by the research loop. Do not edit — it is
+Generated 2026-09-19T00:32:30.246Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,23 +38,23 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### LITUSDT
 
-43,140 samples over 30 days. Bar 3.72 sigma, round trip 12.25bp.
+41,700 samples over 29 days. Bar 3.72 sigma, round trip 12.44bp.
 
 12 cleared the bar; **10 also beat the round trip**.
 
-- `takerRatioFade` @ t5: -25.7 sigma, -26.94bp — **beats fees** · halves -16.1/-20.5 sigma, -26.9/-25.7bp — **holds in both**
-- `takerRatioFade` @ t1: -22.8 sigma, -10.57bp · halves -14.9/-17.7 sigma, -11.0/-9.8bp — **holds in both**
-- `takerRatioFade` @ t1d: -16.9 sigma, -7.95bp · halves -10.9/-13.3 sigma, -8.2/-7.5bp — **holds in both**
-- `takerRatioFade` @ t5d: -16.1 sigma, -16.64bp — **beats fees** · halves -9.7/-13.0 sigma, -15.7/-16.5bp — **holds in both**
-- `takerRatioFade` @ t15: -16.1 sigma, -26.32bp — **beats fees** · halves -10.4/-12.1 sigma, -23.9/-28.0bp — **holds in both**
-- `takerRatioFade` @ t15d: -9.5 sigma, -15.58bp — **beats fees** · halves -5.5/-7.8 sigma, -12.7/-18.0bp — **holds in both**
-- `takerRatioFade` @ t30: -9.2 sigma, -21.83bp — **beats fees** · halves -5.6/-8.2 sigma, -19.0/-26.9bp — **holds in both**
-- `thinAskUp` @ t60d: -7.2 sigma, -29.18bp — **beats fees** · halves -6.7/1.2 sigma, -42.0/5.7bp — DOES NOT HOLD IN BOTH
+- `takerRatioFade` @ t5: -25.1 sigma, -27.24bp — **beats fees** · halves -16.6/-19.9 sigma, -29.1/-25.4bp — **holds in both**
+- `takerRatioFade` @ t1: -22.5 sigma, -10.78bp · halves -15.2/-17.2 sigma, -11.8/-9.6bp — **holds in both**
+- `takerRatioFade` @ t1d: -16.5 sigma, -8.06bp · halves -11.0/-12.9 sigma, -8.7/-7.3bp — **holds in both**
+- `takerRatioFade` @ t5d: -15.6 sigma, -16.66bp — **beats fees** · halves -10.0/-12.7 sigma, -17.1/-16.4bp — **holds in both**
+- `takerRatioFade` @ t15: -15.4 sigma, -25.96bp — **beats fees** · halves -10.8/-11.1 sigma, -26.0/-26.2bp — **holds in both**
+- `takerRatioFade` @ t30: -10.1 sigma, -23.98bp — **beats fees** · halves -7.5/-7.1 sigma, -25.2/-23.9bp — **holds in both**
+- `takerRatioFade` @ t15d: -8.9 sigma, -15.12bp — **beats fees** · halves -5.8/-6.9 sigma, -14.1/-16.2bp — **holds in both**
+- `thinAskUp` @ t60d: -6.8 sigma, -27.55bp — **beats fees** · halves -7.7/3.6 sigma, -48.4/18.1bp — DOES NOT HOLD IN BOTH
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -10.5bp: price 152.61bp ±6.90, carry +10.50bp, **total 163.11bp**
-- basis 0.5bp: price -102.52bp ±6.95, carry +0.54bp, **total -101.98bp**
+- basis -10.0bp: price 95.44bp ±6.44, carry +9.99bp, **total 105.42bp**
+- basis 0.6bp: price -114.71bp ±7.12, carry +0.55bp, **total -114.16bp**
 
 ## What a pass should do
 
