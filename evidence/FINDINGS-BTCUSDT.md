@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-20T12:30:44.831Z by the research loop. Do not edit — it is
+Generated 2026-09-20T18:29:30.776Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -51,16 +51,18 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 - `oiChange` @ t60: 11.6 sigma, 12.73bp — **beats fees** · halves 12.8/2.4 sigma, 21.2/3.3bp — **holds in both**
 - `spreadProxy` @ t60: 11.0 sigma, 10.48bp — **beats fees** · halves 7.8/6.3 sigma, 11.2/7.7bp — **holds in both**
 
-#### Sizing — `takerRatioFade` @ t5, edge 5.99bp
+#### Sizing — `takerRatioFade` @ t5d, edge 3.23bp
+
+Priced on the delayed entry. The same feature entered at the decision close reads 5.99bp, and the 2.76bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 7.03bp | -1.04bp | $-0.10 | never | -1.05bp |
-| $5,000 | 7.03bp | -1.04bp | $-0.52 | never | -1.09bp |
-| $10,000 | 7.03bp | -1.04bp | $-1.04 | never | -1.14bp |
-| $25,000 | 7.03bp | -1.04bp | $-2.60 | never | -1.31bp |
-| $50,000 | 7.04bp | -1.05bp | $-5.24 | never | -1.58bp |
-| $100,000 | 7.05bp | -1.06bp | $-10.61 | never | -2.12bp |
+| $1,000 | 7.03bp | -3.79bp | $-0.38 | never | -3.80bp |
+| $5,000 | 7.03bp | -3.79bp | $-1.90 | never | -3.85bp |
+| $10,000 | 7.03bp | -3.79bp | $-3.79 | never | -3.90bp |
+| $25,000 | 7.03bp | -3.80bp | $-9.50 | never | -4.06bp |
+| $50,000 | 7.04bp | -3.81bp | $-19.03 | never | -4.33bp |
+| $100,000 | 7.05bp | -3.82bp | $-38.18 | never | -4.87bp |
 
 **No measured size pays.** The edge is smaller than the cost of the smallest order the depth curve can price, which is a verdict about this finding and not a missing number.
 

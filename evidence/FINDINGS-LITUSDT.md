@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-20T12:29:47.866Z by the research loop. Do not edit — it is
+Generated 2026-09-20T18:28:35.767Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -51,18 +51,23 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 - `takerRatioFade` @ t30: -8.5 sigma, -19.95bp — **beats fees** · halves -7.3/-5.3 sigma, -24.3/-17.4bp — **holds in both**
 - `thinAskUp` @ t60d: -8.1 sigma, -31.40bp — **beats fees** · halves -6.4/6.1 sigma, -38.6/26.1bp — DOES NOT HOLD IN BOTH
 
-#### Sizing — `takerRatioFade` @ t5, edge 26.63bp
+#### Sizing — `takerRatioFade` @ t5d, edge 16.06bp
+
+Priced on the delayed entry. The same feature entered at the decision close reads 26.63bp, and the 10.56bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 7.84bp | **+18.79**bp | $1.88 | 160 | 18.53bp |
-| $5,000 | 9.28bp | **+17.35**bp | $8.67 | 35 | 16.07bp |
-| $10,000 | 11.08bp | **+15.54**bp | $15.54 | 20 | 12.99bp |
-| $25,000 | 16.50bp | **+10.13**bp | $25.33 | 12 | 3.75bp |
-| $50,000 | — | — | — | — | 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost |
-| $100,000 | — | — | — | — | 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost |
+| $1,000 | 7.84bp | **+8.23**bp | $0.82 | 365 | 7.97bp |
+| $5,000 | 9.28bp | **+6.78**bp | $3.39 | 89 | 5.51bp |
+| $10,000 | 11.08bp | **+4.98**bp | $4.98 | 61 | 2.43bp |
+| $25,000 | 16.50bp | -0.43bp | $-1.08 | never | -6.81bp |
+| $50,000 | — | — | — | never | — |
+| $100,000 | — | — | — | never | — |
 
-Best size $25,000: **$25.33 a round trip**, so 12 of them a day for $300. At the ninetieth-percentile minute it is $12.99 at $10,000.
+- $50,000: 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost
+- $100,000: 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost
+
+Best size $10,000: **$4.98 a round trip**, so 61 of them a day for $300. At the ninetieth-percentile minute it is $2.75 at $5,000.
 
 Impact is priced off *resting* depth, so this is the optimistic case: quotes are pulled as an order arrives, the real curve is worse, and the knee is therefore lower than this table says, never higher.
 
