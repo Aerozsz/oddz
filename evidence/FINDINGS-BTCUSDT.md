@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-19T18:40:49.547Z by the research loop. Do not edit — it is
+Generated 2026-09-20T06:28:18.757Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,23 +38,23 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### BTCUSDT
 
-43,140 samples over 30 days. Bar 3.72 sigma, round trip 8.69bp.
+41,700 samples over 29 days. Bar 3.72 sigma, round trip 8.65bp.
 
-12 cleared the bar; **7 also beat the round trip**.
+12 cleared the bar; **4 also beat the round trip**.
 
-- `takerRatioFade` @ t5: -25.6 sigma, -6.28bp · halves -19.2/-17.0 sigma, -7.5/-5.1bp — **holds in both**
-- `takerRatioFade` @ t1: -25.2 sigma, -2.71bp · halves -19.2/-16.5 sigma, -3.4/-2.1bp — **holds in both**
-- `takerRatioFade` @ t1d: -16.9 sigma, -1.87bp · halves -12.5/-11.2 sigma, -2.3/-1.5bp — **holds in both**
-- `takerRatioFade` @ t15: -15.0 sigma, -6.10bp · halves -12.5/-9.2 sigma, -8.1/-4.9bp — **holds in both**
-- `takerRatioFade` @ t5d: -14.3 sigma, -3.43bp · halves -10.3/-9.8 sigma, -3.9/-2.9bp — **holds in both**
-- `topTraderFollow` @ t60d: -14.1 sigma, -15.53bp — **beats fees** · halves -14.7/2.4 sigma, -25.2/3.0bp — DOES NOT HOLD IN BOTH
-- `topTraderFollow` @ t60: -14.0 sigma, -15.42bp — **beats fees** · halves -14.8/2.8 sigma, -25.5/3.5bp — DOES NOT HOLD IN BOTH
-- `spreadProxy` @ t60: 13.6 sigma, 13.20bp — **beats fees** · halves 9.6/5.0 sigma, 14.1/6.2bp — **holds in both**
+- `takerRatioFade` @ t5: -25.5 sigma, -6.01bp · halves -17.3/-20.0 sigma, -6.8/-5.4bp — **holds in both**
+- `takerRatioFade` @ t1: -25.0 sigma, -2.62bp · halves -19.3/-16.1 sigma, -3.3/-2.1bp — **holds in both**
+- `takerRatioFade` @ t1d: -16.7 sigma, -1.80bp · halves -11.4/-13.3 sigma, -2.1/-1.5bp — **holds in both**
+- `takerRatioFade` @ t15: -14.3 sigma, -5.59bp · halves -10.3/-10.5 sigma, -6.3/-5.4bp — **holds in both**
+- `takerRatioFade` @ t5d: -13.9 sigma, -3.21bp · halves -8.2/-12.5 sigma, -3.2/-3.2bp — **holds in both**
+- `oiChange` @ t60d: 12.1 sigma, 13.56bp — **beats fees** · halves 12.6/3.6 sigma, 21.1/5.0bp — **holds in both**
+- `oiChange` @ t60: 11.9 sigma, 13.40bp — **beats fees** · halves 12.4/3.4 sigma, 20.8/4.8bp — **holds in both**
+- `spreadProxy` @ t60d: 10.8 sigma, 10.52bp — **beats fees** · halves 8.1/5.4 sigma, 11.8/6.7bp — **holds in both**
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -6.4bp: price 19.44bp ±1.91, carry +6.36bp, **total 25.80bp**
-- basis -0.1bp: price 35.28bp ±1.95, carry +0.12bp, **total 35.40bp**
+- basis -6.4bp: price 12.62bp ±1.86, carry +6.37bp, **total 18.99bp**
+- basis -0.1bp: price 19.75bp ±1.73, carry +0.10bp, **total 19.86bp**
 
 ## What a pass should do
 
