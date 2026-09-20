@@ -265,6 +265,17 @@ export interface RunSummary {
     feature: string;
     horizon: string;
     edgeBps: number;
+    /**
+     * The same feature entered at the decision bar's close rather than one bar
+     * later, when the table is built on the delayed variant.
+     *
+     * Carried so the artefact stays visible. On LITUSDT the immediate `t5`
+     * reads 26.63bp and the delayed `t5d` reads 16.06bp; the difference is the
+     * entry price sitting on the side of the book the signal fired from, and
+     * sizing an order against the larger number would quote dollars per trade
+     * on a figure that is 40% bounce.
+     */
+    immediateBps?: number;
     rows: {
       usd: number;
       totalBps: number | null;
@@ -390,11 +401,23 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
         `#### Sizing — \`${z.feature}\` @ ${z.horizon}, edge ${Math.abs(z.edgeBps).toFixed(2)}bp`,
       );
       lines.push("");
+      if (typeof z.immediateBps === "number") {
+        lines.push(
+          `Priced on the delayed entry. The same feature entered at the decision close reads ` +
+            `${Math.abs(z.immediateBps).toFixed(2)}bp, and the ` +
+            `${(Math.abs(z.immediateBps) - Math.abs(z.edgeBps)).toFixed(2)}bp between them is the entry ` +
+            `price sitting on the side of the book the signal fired from, not edge.`,
+        );
+        lines.push("");
+      }
       lines.push("| size | cost RT | net | $/trade | trades/day for $300 | p90 net |");
       lines.push("| --- | --- | --- | --- | --- | --- |");
+      const refusals: string[] = [];
       for (const row of z.rows) {
         if (row.totalBps === null) {
-          lines.push(`| $${row.usd.toLocaleString()} | — | — | — | — | ${row.refused ?? "unpriceable"} |`);
+          // The reason goes under the table, not into a column headed "p90 net".
+          refusals.push(`$${row.usd.toLocaleString()}: ${row.refused ?? "unpriceable"}`);
+          lines.push(`| $${row.usd.toLocaleString()} | — | — | — | never | — |`);
           continue;
         }
         const net = row.netBps as number;
@@ -407,6 +430,8 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
         );
       }
       lines.push("");
+      for (const r of refusals) lines.push(`- ${r}`);
+      if (refusals.length) lines.push("");
       if (z.best) {
         lines.push(
           `Best size $${z.best.usd.toLocaleString()}: **$${z.best.netUsd.toFixed(2)} a round trip**, ` +

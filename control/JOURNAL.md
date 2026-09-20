@@ -968,3 +968,71 @@ taking only those, and the count of 144 a day assumes every one is actionable.
 
 Nothing here is a reason to arm. It is the first time this project has had a
 number worth arguing with.
+
+## 2026-09-20 — the numbers were in the repo, unread
+
+Three scheduled kicks today. The first ran clean and exposed two files the
+research loop has been writing for weeks that nothing ever read back. Both of
+them were deciding verdicts.
+
+**The spread.** `evidence/spread-LITUSDT.json` has held the tape measurement
+since the tick worker shipped: 0.243bp, landing exactly on the contract's own
+tick size, observed at direction flips where `isBuyerMaker` states which side
+crossed. The replay ignored it and built its bar from the larger of two
+minute-resolution estimators — Roll at 0.48bp, the delayed-entry test at 5.52bp
+— for a bar of **12.52bp**. Taking the larger is the right rule between two
+estimates that cannot be checked. It is the wrong rule once the quantity has
+been observed. Both estimators read a price path, and at one-minute resolution
+that path is momentum rather than bounce, so they measure mean reversion and
+call it spread. Every finding worth between 7 and 13 basis points was being
+failed by a number this project had already disproved, in a file sitting beside
+the one it wrote. The bar is now **7.48bp** — fees plus the measured spread on
+both legs.
+
+**The depth.** `evidence/impact-LITUSDT.json` prices an order against the
+archive's depth curve. Nothing consumed that either, so the bar stayed a scalar:
+the cost of an order small enough not to exist. On a contract whose spread is
+one tick, walking the book *is* the cost, and the scalar bar charged zero for
+it. FINDINGS now carries a size ladder, and the table is the deliverable rather
+than the verdict — the size is the operator's decision and one recommended
+number would hide it the same way the constant did.
+
+**The pass then caught me sizing the wrong number.** The ladder's headline is
+picked by sigma, which selected `takerRatioFade @ t5` at 26.63bp over `t5d` at
+16.06bp — the same feature entered one bar later. The 10.57bp between them is
+not edge; it is the entry price sitting on whichever side of the book the signal
+fired from, which is the exact artefact the `d` horizons exist to expose. I had
+shipped a table quoting dollars per trade on a figure the project's own test
+says is 40% bounce. The ladder is built on the delayed number now, with the
+immediate one printed beside it so the artefact stays visible.
+
+**The publish step was broken and reported success.** Run 19 recomputed every
+report and pushed none of them. It committed, then rebased onto origin; the
+operator's machine had pushed a state snapshot eight seconds earlier touching
+the same generated paths, so the rebase conflicted — and rebasing generated
+files is meaningless anyway, since git cannot merge two machines' versions of a
+computed report. Worse, the conflict left unmerged files in the tree, so
+attempts two through four failed on *that* rather than on the race they were
+written to survive; the retry loop could not have worked. And `sleep` exits 0,
+so forty seconds of failure left the step green. Each attempt now fetches,
+resets hard onto origin's tip, restores only the paths this run changed — the
+operator's own snapshot survives untouched — and pushes; four failures exit 1
+with an annotation. Verified against two scratch repositories reproducing the
+real race.
+
+This is the third silent-failure of the same family: `Math.min(...closes)`,
+`prints.push(...day)`, and now a publish that fails green. The pattern is not
+carelessness at the call site, it is that **this loop has no observer**, so
+anything that fails quietly fails for as long as nobody happens to look. The
+arg-spread check caught a fourth instance today *before* it shipped, in code I
+wrote an hour earlier. That check is worth more than the bug it was written for.
+
+**Where the number lands, honestly.** On the delayed entry the edge is 16.06bp
+against a bar that starts at 7.48bp, so $10,000 clears by about 5bp and earns
+roughly $5 a round trip — 60 of them a day for $300. $25,000 no longer pays.
+Both $50,000 and $100,000 are now refused outright rather than priced, because
+13% of their minutes ran off the end of the published curve and the median of
+what survives is the book on its good days.
+
+Still nothing to arm. The model prices resting depth, and resting is not
+available.

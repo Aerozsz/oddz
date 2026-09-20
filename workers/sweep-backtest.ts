@@ -562,15 +562,42 @@ function main() {
    * window is a property of a fortnight, and sizing it would be pricing an
    * artefact to two decimal places.
    */
-  const headline =
-    ranked.find((r) => r.survives && r.halves?.agree) ?? ranked.find((r) => r.survives) ?? null;
+  const headline = (() => {
+    const top = ranked.find((r) => r.survives && r.halves?.agree) ?? ranked.find((r) => r.survives);
+    if (!top) return null;
+    /*
+     * The delayed variant, whenever one exists.
+     *
+     * The ranking is by sigma, and on this contract that selects `t5` at
+     * 26.63bp over `t5d` at 16.06bp — the same feature, entered one bar later.
+     * The 10.57bp between them is not edge. It is the entry price sitting on
+     * whichever side of the book the signal fired from, which is exactly the
+     * artefact the `d` horizons were added to expose, and pricing an order
+     * ladder against the immediate number would have quoted dollars per trade
+     * on a figure the project's own test says is 40% bounce.
+     *
+     * So the table is built on the number that survives the delay, and the
+     * immediate figure is carried beside it so the size of the artefact stays
+     * visible rather than being quietly discarded.
+     */
+    if (top.horizon.endsWith("d")) return top;
+    const delayed = ranked.find((r) => r.feature === top.feature && r.horizon === `${top.horizon}d`);
+    return delayed ?? top;
+  })();
   const sizing = (() => {
     if (!impact || !headline) return undefined;
     const ladder = sizeLadder(impact, ROUND_TRIP_BPS);
+    /* The same feature entered immediately, when the table is built on a delay. */
+    const immediate = headline.horizon.endsWith("d")
+      ? ranked.find(
+          (r) => r.feature === headline.feature && r.horizon === headline.horizon.slice(0, -1),
+        )
+      : undefined;
     return {
       feature: headline.feature,
       horizon: headline.horizon,
       edgeBps: headline.spreadBps,
+      immediateBps: immediate?.spreadBps,
       rows: ladderNet(ladder, headline.spreadBps),
       best: bestSize(ladder, headline.spreadBps),
       bestStress: bestSize(ladder, headline.spreadBps, 300, true),
