@@ -39,6 +39,7 @@
  */
 
 import type { Minute } from "./features";
+import { maxOf } from "../numeric";
 
 export interface CostEstimate {
   /** Fees alone, both sides, in bps — the old constant. */
@@ -57,8 +58,18 @@ export interface CostEstimate {
    * measurement already. Charging two would double-count it.
    */
   roundTripBps: number;
+  /**
+   * The spread observed on the tape, when a tick measurement exists.
+   *
+   * Not an estimate. `sweep-spread` reads the aggTrades archive, where every
+   * print carries which side was the maker, so the gap at a direction flip is
+   * the distance from bid to ask — measured, with no model and no inference of
+   * trade direction. When this is present it is the answer and the two
+   * estimators below are demoted to a cross-check.
+   */
+  tickBps: number | null;
   /** Which estimate roundTripBps used, so the bar can be argued with. */
-  basis: "roll" | "bounce" | "agreed" | "fees-only";
+  basis: "tick" | "roll" | "bounce" | "agreed" | "fees-only";
   note: string;
 }
 
@@ -138,6 +149,7 @@ export function estimateCost(
   minutes: Minute[],
   feesBps: number,
   bounce: { immediate: number; delayed: number } | null,
+  tickBps: number | null = null,
 ): CostEstimate {
   const rollBps = rollSpreadBps(minutes);
   const bounceBps = bounce ? bounceSpreadBps(bounce.immediate, bounce.delayed) : null;
@@ -146,7 +158,43 @@ export function estimateCost(
   let basis: CostEstimate["basis"] = "fees-only";
   let note: string;
 
-  if (rollBps !== null && bounceBps !== null) {
+  if (tickBps !== null && Number.isFinite(tickBps) && tickBps >= 0) {
+    /*
+     * A measurement beats two estimates, even the larger of them.
+     *
+     * Taking the larger is the right rule between two estimators that fail in
+     * different directions and cannot be checked. It is the wrong rule once
+     * the quantity has been observed: on LITUSDT these two returned 0.48bp and
+     * 5.52bp while the tape said 0.243bp, landing exactly on the contract's
+     * own tick size — and a 12.5bp bar built from the larger one was quietly
+     * failing every finding worth between 7 and 13 basis points.
+     *
+     * Both estimators read a price path, and at one-minute resolution that
+     * path is dominated by whatever the market did rather than by bounce, so
+     * they measure mean reversion and call it spread. The tick measurement
+     * does not infer direction at all — `isBuyerMaker` states it — so it has
+     * no way to make that error.
+     *
+     * Charged twice, unlike the estimates. The one-spread rule below exists
+     * because half the cost is already inside a close-to-close return; it is
+     * an argument worth making when the spread is five basis points and not
+     * worth making when it is a quarter of one. Charging both legs costs
+     * 0.24bp here and removes the assumption, which is the right trade.
+     */
+    spread = tickBps * 2;
+    basis = "tick";
+    const others = [rollBps, bounceBps].filter((x): x is number => x !== null);
+    note =
+      `Spread observed on the tape: ${tickBps.toFixed(3)}bp, charged on both legs. ` +
+      (others.length
+        ? `The minute-resolution estimators said ${others.map((x) => x.toFixed(2)).join(" and ")}bp — ` +
+          // maxOf, not Math.max(...others). The array is two long and spreading
+          // it is safe, which is exactly what was believed the two previous
+          // times this pattern took the research loop down for days.
+          `${((maxOf(others) ?? 0) / Math.max(1e-9, tickBps)).toFixed(0)}x the measured value, which is what ` +
+          `reading a price path at one-minute resolution does to a bounce estimator.`
+        : "Neither minute-resolution estimator could be computed, which no longer matters.");
+  } else if (rollBps !== null && bounceBps !== null) {
     /*
      * Both available: take the larger, and say whether they agreed.
      *
@@ -181,6 +229,7 @@ export function estimateCost(
     feesBps,
     rollBps,
     bounceBps,
+    tickBps,
     roundTripBps: feesBps + (spread ?? 0),
     basis,
     note,

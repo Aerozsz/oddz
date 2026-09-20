@@ -123,11 +123,47 @@ function theBarIsNeverAccidentallyFree() {
   ok("and the larger still wins", far.roundTripBps > 7 + 10, String(far.roundTripBps));
 }
 
+
+function aMeasuredSpreadBeatsTwoEstimates() {
+  console.log("\nthe tape outranks the estimators");
+  const flat = bouncing(50_000, 2.5, 10);
+  /*
+   * The failure this exists to prevent, in the numbers it actually happened
+   * in. On LITUSDT Roll said 0.48bp, the delayed-entry test said 5.52bp, and
+   * the tape said 0.243bp — landing on the contract's own tick size. Taking
+   * the larger built a 12.52bp bar, and every finding worth between 7 and 13
+   * basis points was failed by a number the project had already disproved.
+   */
+  const withTick = estimateCost(flat, 7, { immediate: -12, delayed: -8 }, 0.243);
+  ok("the measured spread is used", withTick.basis === "tick", withTick.basis);
+  ok(
+    "and it is charged on both legs",
+    Math.abs(withTick.roundTripBps - (7 + 0.486)) < 1e-9,
+    String(withTick.roundTripBps),
+  );
+  ok("the bar is far below the estimators' bar", withTick.roundTripBps < 8, String(withTick.roundTripBps));
+  ok("the estimates are still reported", withTick.bounceBps !== null && withTick.rollBps !== null);
+  ok("and the size of their error is named", /x the measured value/.test(withTick.note), withTick.note);
+
+  // Zero is a real reading on a one-tick book and must not fall back.
+  const free = estimateCost(flat, 7, null, 0);
+  ok("a zero tick spread is still a measurement", free.basis === "tick", free.basis);
+  ok("and leaves the bar at fees", free.roundTripBps === 7, String(free.roundTripBps));
+
+  // Absent, and the old behaviour is untouched.
+  const without = estimateCost(flat, 7, { immediate: -12, delayed: -8 }, null);
+  ok("without a tick file nothing changes", without.basis !== "tick", without.basis);
+  ok("and the estimator bar is unchanged", without.roundTripBps > 7, String(without.roundTripBps));
+  ok("a nonsense tick reading is refused", estimateCost(flat, 7, null, NaN).basis !== "tick");
+  ok("a negative one too", estimateCost(flat, 7, null, -1).basis !== "tick");
+}
+
 console.log("cost bar");
 rollRecoversAKnownSpread();
 rollRefusesWhenItCannotAnswer();
 bounceEstimatesTheEntryBias();
 theBarIsNeverAccidentallyFree();
+aMeasuredSpreadBeatsTwoEstimates();
 
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
 console.log("\nall good — cost bar");

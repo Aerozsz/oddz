@@ -227,6 +227,8 @@ export interface RunSummary {
     feesBps: number;
     rollBps: number | null;
     bounceBps: number | null;
+    /** The spread observed on the tape, when the tick measurement ran. */
+    tickBps?: number | null;
     basis: string;
     note: string;
   };
@@ -331,8 +333,13 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
     if (r.cost) {
       lines.push("");
       lines.push(
-        `Cost bar: fees ${r.cost.feesBps}bp + spread — Roll ` +
-          `${r.cost.rollBps === null ? "n/a" : r.cost.rollBps.toFixed(2) + "bp"}, ` +
+        `Cost bar: fees ${r.cost.feesBps}bp + spread — ` +
+          // The tape first, when it ran: it is the only one of the three that
+          // observed the spread instead of inferring it from a price path.
+          (typeof r.cost.tickBps === "number"
+            ? `**tape ${r.cost.tickBps.toFixed(3)}bp**, `
+            : "") +
+          `Roll ${r.cost.rollBps === null ? "n/a" : r.cost.rollBps.toFixed(2) + "bp"}, ` +
           `delayed-entry ${r.cost.bounceBps === null ? "n/a" : r.cost.bounceBps.toFixed(2) + "bp"} ` +
           `(${r.cost.basis}). ${r.cost.note}`,
       );

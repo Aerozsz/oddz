@@ -502,7 +502,39 @@ function main() {
     const b = ranked.find((r) => r.feature === a?.feature && r.horizon === "t1d");
     return a && b ? { immediate: a.spreadBps, delayed: b.spreadBps } : null;
   })();
-  const cost = estimateCost(minutes, feesBps, bouncePair);
+  /*
+   * The spread, read off the tape rather than inferred from the closes.
+   *
+   * sweep-spread has been writing this file for weeks and nothing consumed
+   * it, so the bar stayed at fees plus the larger of two minute-resolution
+   * estimators — 12.52bp on LITUSDT against a measured 0.243bp. Every finding
+   * worth between 7 and 13 basis points was being failed by a number the
+   * project had already disproved in a file sitting beside the one it wrote.
+   *
+   * `zeroShare` is the guard. A median that lands on the tick size is the
+   * spread; a median of zero means most flips traded at the same price and the
+   * statistic is measuring fills rather than the book. Past a half the file is
+   * ignored and the estimators are back in charge.
+   */
+  const tickBps = (() => {
+    const p = resolve(`evidence/spread-${symbol}.json`);
+    if (!existsSync(p)) return null;
+    try {
+      const j = JSON.parse(readFileSync(p, "utf8")) as { flipSpreadBps?: number; flipZeroShare?: number };
+      if (typeof j.flipSpreadBps !== "number" || !Number.isFinite(j.flipSpreadBps)) return null;
+      if (typeof j.flipZeroShare === "number" && j.flipZeroShare > 0.5) {
+        console.error(
+          `[backtest] tick spread ignored: ${(j.flipZeroShare * 100).toFixed(0)}% of flips moved no price, ` +
+            `so the median is measuring same-price fills and not the book`,
+        );
+        return null;
+      }
+      return j.flipSpreadBps;
+    } catch {
+      return null;
+    }
+  })();
+  const cost = estimateCost(minutes, feesBps, bouncePair, tickBps);
   const ROUND_TRIP_BPS = Number(process.env.SWEEP_ROUND_TRIP_BPS) > 0
     ? Number(process.env.SWEEP_ROUND_TRIP_BPS)
     : cost.roundTripBps;
