@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-20T06:34:42.717Z by the research loop. Do not edit — it is
+Generated 2026-09-20T12:30:44.831Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,35 +38,38 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### BTCUSDT
 
-1,940 samples over 1 days. Bar 3.72 sigma, round trip 7.03bp.
+43,140 samples over 30 days. Bar 3.72 sigma, round trip 7.03bp.
 
-12 cleared the bar; **0 also beat the round trip** at an infinitesimal order — so none is tradeable as a directional signal.
+12 cleared the bar; **4 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `mom5` @ t1: 306.1 sigma, 0.00bp · halves 216.0/216.0 sigma, 0.0/0.0bp — **holds in both**
-- `mom30` @ t1: 306.1 sigma, 0.00bp · halves 216.0/216.0 sigma, 0.0/0.0bp — **holds in both**
-- `thinBidUp` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
-- `bidWithdrawn` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
-- `ofi` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
-- `ofiVsVol` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
-- `revert5` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
-- `volSurge` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `takerRatioFade` @ t5: -26.1 sigma, -5.99bp · halves -16.7/-22.4 sigma, -6.5/-5.6bp — **holds in both**
+- `takerRatioFade` @ t1: -25.5 sigma, -2.60bp · halves -17.6/-20.2 sigma, -3.1/-2.2bp — **holds in both**
+- `takerRatioFade` @ t1d: -17.1 sigma, -1.80bp · halves -11.3/-13.8 sigma, -2.1/-1.5bp — **holds in both**
+- `takerRatioFade` @ t15: -14.5 sigma, -5.49bp · halves -10.2/-10.9 sigma, -6.2/-5.3bp — **holds in both**
+- `takerRatioFade` @ t5d: -14.4 sigma, -3.23bp · halves -8.2/-13.3 sigma, -3.1/-3.3bp — **holds in both**
+- `oiChange` @ t60d: 11.8 sigma, 12.88bp — **beats fees** · halves 13.0/2.5 sigma, 21.3/3.4bp — **holds in both**
+- `oiChange` @ t60: 11.6 sigma, 12.73bp — **beats fees** · halves 12.8/2.4 sigma, 21.2/3.3bp — **holds in both**
+- `spreadProxy` @ t60: 11.0 sigma, 10.48bp — **beats fees** · halves 7.8/6.3 sigma, 11.2/7.7bp — **holds in both**
 
-#### Sizing — `mom5` @ t1, edge 0.00bp
+#### Sizing — `takerRatioFade` @ t5, edge 5.99bp
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 7.03bp | -7.02bp | $-0.70 | never | -7.03bp |
-| $5,000 | 7.03bp | -7.02bp | $-3.51 | never | -7.08bp |
-| $10,000 | 7.03bp | -7.02bp | $-7.02 | never | -7.13bp |
-| $25,000 | 7.03bp | -7.03bp | $-17.57 | never | -7.29bp |
-| $50,000 | 7.04bp | -7.04bp | $-35.18 | never | -7.56bp |
-| $100,000 | 7.05bp | -7.05bp | $-70.48 | never | -8.10bp |
+| $1,000 | 7.03bp | -1.04bp | $-0.10 | never | -1.05bp |
+| $5,000 | 7.03bp | -1.04bp | $-0.52 | never | -1.09bp |
+| $10,000 | 7.03bp | -1.04bp | $-1.04 | never | -1.14bp |
+| $25,000 | 7.03bp | -1.04bp | $-2.60 | never | -1.31bp |
+| $50,000 | 7.04bp | -1.05bp | $-5.24 | never | -1.58bp |
+| $100,000 | 7.05bp | -1.06bp | $-10.61 | never | -2.12bp |
 
 **No measured size pays.** The edge is smaller than the cost of the smallest order the depth curve can price, which is a verdict about this finding and not a missing number.
 
 Impact is priced off *resting* depth, so this is the optimistic case: quotes are pulled as an order arrives, the real curve is worse, and the knee is therefore lower than this table says, never higher.
 
-Carry: no premium index data — the carry question cannot be asked, this is missing data and not a null result
+Carry at 8h, the two most crowded deciles, oriented to the side that collects:
+
+- basis -6.4bp: price 12.60bp ±1.80, carry +6.37bp, **total 18.97bp**
+- basis -0.2bp: price 19.68bp ±1.69, carry +0.16bp, **total 19.84bp**
 
 ## What a pass should do
 

@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-20T06:27:30.751Z by the research loop. Do not edit — it is
+Generated 2026-09-20T12:29:47.866Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,23 +38,38 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### LITUSDT
 
-41,700 samples over 29 days. Bar 3.72 sigma, round trip 12.52bp.
+43,140 samples over 30 days. Bar 3.72 sigma, round trip 7.48bp.
 
-12 cleared the bar; **10 also beat the round trip**.
+12 cleared the bar; **12 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t5: -24.9 sigma, -27.22bp — **beats fees** · halves -17.1/-19.9 sigma, -29.8/-25.8bp — **holds in both**
-- `takerRatioFade` @ t1: -22.5 sigma, -10.82bp · halves -15.6/-17.2 sigma, -12.0/-9.8bp — **holds in both**
-- `takerRatioFade` @ t1d: -16.5 sigma, -8.06bp · halves -11.5/-12.2 sigma, -9.0/-7.2bp — **holds in both**
-- `takerRatioFade` @ t5d: -15.4 sigma, -16.55bp — **beats fees** · halves -10.2/-12.5 sigma, -17.4/-16.5bp — **holds in both**
-- `takerRatioFade` @ t15: -15.2 sigma, -26.01bp — **beats fees** · halves -11.1/-11.5 sigma, -27.0/-27.6bp — **holds in both**
-- `takerRatioFade` @ t30: -9.2 sigma, -21.94bp — **beats fees** · halves -7.2/-6.7 sigma, -24.1/-22.5bp — **holds in both**
-- `thinAskUp` @ t60d: -8.8 sigma, -34.91bp — **beats fees** · halves -6.8/2.9 sigma, -41.9/13.3bp — DOES NOT HOLD IN BOTH
-- `takerRatioFade` @ t15d: -8.5 sigma, -14.64bp — **beats fees** · halves -6.0/-6.8 sigma, -14.7/-16.4bp — **holds in both**
+- `takerRatioFade` @ t5: -24.8 sigma, -26.63bp — **beats fees** · halves -17.5/-19.4 sigma, -30.0/-25.0bp — **holds in both**
+- `takerRatioFade` @ t1: -22.7 sigma, -10.73bp — **beats fees** · halves -15.9/-17.3 sigma, -12.0/-9.7bp — **holds in both**
+- `takerRatioFade` @ t1d: -16.6 sigma, -7.97bp — **beats fees** · halves -11.7/-12.6 sigma, -9.0/-7.3bp — **holds in both**
+- `takerRatioFade` @ t15: -15.2 sigma, -25.59bp — **beats fees** · halves -11.2/-11.2 sigma, -26.8/-26.5bp — **holds in both**
+- `takerRatioFade` @ t5d: -15.1 sigma, -16.06bp — **beats fees** · halves -10.5/-12.1 sigma, -17.6/-15.9bp — **holds in both**
+- `takerRatioFade` @ t15d: -8.6 sigma, -14.49bp — **beats fees** · halves -6.1/-6.9 sigma, -14.7/-16.3bp — **holds in both**
+- `takerRatioFade` @ t30: -8.5 sigma, -19.95bp — **beats fees** · halves -7.3/-5.3 sigma, -24.3/-17.4bp — **holds in both**
+- `thinAskUp` @ t60d: -8.1 sigma, -31.40bp — **beats fees** · halves -6.4/6.1 sigma, -38.6/26.1bp — DOES NOT HOLD IN BOTH
+
+#### Sizing — `takerRatioFade` @ t5, edge 26.63bp
+
+| size | cost RT | net | $/trade | trades/day for $300 | p90 net |
+| --- | --- | --- | --- | --- | --- |
+| $1,000 | 7.84bp | **+18.79**bp | $1.88 | 160 | 18.53bp |
+| $5,000 | 9.28bp | **+17.35**bp | $8.67 | 35 | 16.07bp |
+| $10,000 | 11.08bp | **+15.54**bp | $15.54 | 20 | 12.99bp |
+| $25,000 | 16.50bp | **+10.13**bp | $25.33 | 12 | 3.75bp |
+| $50,000 | — | — | — | — | 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost |
+| $100,000 | — | — | — | — | 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost |
+
+Best size $25,000: **$25.33 a round trip**, so 12 of them a day for $300. At the ninetieth-percentile minute it is $12.99 at $10,000.
+
+Impact is priced off *resting* depth, so this is the optimistic case: quotes are pulled as an order arrives, the real curve is worse, and the knee is therefore lower than this table says, never higher.
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -10.3bp: price 128.37bp ±6.44, carry +10.31bp, **total 138.68bp**
-- basis 0.6bp: price -32.02bp ±6.94, carry +0.56bp, **total -31.45bp**
+- basis -10.3bp: price 126.92bp ±6.26, carry +10.29bp, **total 137.21bp**
+- basis 0.6bp: price -49.04bp ±7.17, carry +0.62bp, **total -48.42bp**
 
 ## What a pass should do
 
