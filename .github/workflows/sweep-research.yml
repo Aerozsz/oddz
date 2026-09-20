@@ -175,14 +175,67 @@ jobs:
 
           # Pathspec only, never `git add -A`: a credentials file sits in the
           # operator's working tree and this branch is shared with it.
-          git add evidence/ || true
-          if ! git diff --cached --quiet; then
-            git commit -q -m "research: archive replay (${SWEEP_SYMBOLS}, ${DAYS}d)"
-            # The operator's machine pushes to this branch too, so rebase rather
-            # than assuming this runner is the only writer.
-            for i in 1 2 3 4; do
-              git pull --rebase -q origin claude/amm-liquidity-sweep-8qhnd0 && \
-                git push -q origin HEAD:claude/amm-liquidity-sweep-8qhnd0 && break
-              sleep $(( i * 4 ))
+          #
+          # What this used to do was `git commit` then `git pull --rebase`, four
+          # times with a backoff. It published nothing on 2026-09-20 and reported
+          # success, which is the failure mode this whole workflow exists to
+          # surface. Three separate things were wrong:
+          #
+          #  - rebasing *generated* files is meaningless. The operator's machine
+          #    pushes state snapshots that touch the same paths, and git has no
+          #    way to merge two machines' versions of a computed report. The
+          #    run that just recomputed them from the archive is authoritative
+          #    and does not need anyone's permission.
+          #  - the first conflict wedged the working tree, so attempts two
+          #    through four failed on "unmerged files" rather than on the race
+          #    they were written to survive. The retry loop was decorative.
+          #  - `sleep` exits 0, so a loop that never pushed still left the step
+          #    green. Forty seconds of failure looked like a successful publish.
+          #
+          # So: take only the paths this run actually changed, reset hard onto
+          # origin's tip, put those paths back, and push. Starting from origin
+          # every attempt means there is nothing to conflict with. Carrying only
+          # the changed paths means the operator's own evidence files — the
+          # snapshot its live agent writes — survive untouched rather than being
+          # reverted to whatever this checkout happened to hold.
+          changed=$(git status --porcelain -- evidence/ | awk '{print $NF}')
+          if [ -z "$changed" ]; then
+            echo "no evidence changed — nothing to publish"
+            exit 0
+          fi
+          echo "publishing: $changed"
+
+          keep=$(mktemp -d)
+          for f in $changed; do
+            mkdir -p "$keep/$(dirname "$f")"
+            cp "$f" "$keep/$f"
+          done
+
+          published=0
+          for i in 1 2 3 4; do
+            git fetch -q origin claude/amm-liquidity-sweep-8qhnd0 || { sleep $(( i * 4 )); continue; }
+            git reset -q --hard FETCH_HEAD
+            for f in $changed; do
+              mkdir -p "$(dirname "$f")"
+              cp "$keep/$f" "$f"
             done
+            git add -- $changed
+            if git diff --cached --quiet; then
+              echo "origin already holds this run's output"
+              published=1
+              break
+            fi
+            git commit -q -m "research: archive replay (${SWEEP_SYMBOLS}, ${DAYS}d)"
+            if git push -q origin HEAD:claude/amm-liquidity-sweep-8qhnd0; then
+              published=1
+              break
+            fi
+            sleep $(( i * 4 ))
+          done
+
+          # A publish that fails is the loop going dark with nobody watching.
+          # It gets to say so.
+          if [ "$published" != "1" ]; then
+            echo "::error::the replay ran but its findings were never pushed — four attempts"
+            exit 1
           fi
