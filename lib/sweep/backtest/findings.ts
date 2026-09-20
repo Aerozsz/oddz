@@ -249,6 +249,35 @@ export interface RunSummary {
   /** Extreme carry buckets, if the premium index was present. */
   carry?: { basisBps: number; collectorBps: number; seBps: number; carryBps: number; totalBps: number }[];
   carryNote?: string;
+  /**
+   * The best survivor priced against the depth curve, size by size.
+   *
+   * `roundTripBps` above is the bar at an infinitesimal order — fees plus one
+   * tick — and on this contract that is almost the whole of it, which is
+   * exactly why it is misleading. The spread is 0.243bp and the book is thin,
+   * so what a real order pays is the walk down it, and that is a function of
+   * size rather than a constant. Without this table "beats the round trip" is
+   * a claim that holds at every size and is actionable at none.
+   */
+  sizing?: {
+    feature: string;
+    horizon: string;
+    edgeBps: number;
+    rows: {
+      usd: number;
+      totalBps: number | null;
+      stressTotalBps: number | null;
+      netBps: number | null;
+      netUsd: number | null;
+      stressNetBps: number | null;
+      tradesPerDay: number;
+      refused?: string;
+    }[];
+    /** The size that earns most per round trip: the knee, in dollars. */
+    best?: { usd: number; netBps: number; netUsd: number; tradesPerDay: number } | null;
+    /** The same, priced at the ninetieth-percentile minute rather than the median. */
+    bestStress?: { usd: number; netBps: number; netUsd: number; tradesPerDay: number } | null;
+  };
 }
 
 /**
@@ -314,8 +343,9 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
     } else {
       const paying = r.survivors.filter((s) => Math.abs(s.spreadBps) > r.roundTripBps);
       lines.push(
-        `${r.survivors.length} cleared the bar; **${paying.length} also beat the round trip**` +
-          (paying.length ? "." : " — so none is tradeable as a directional signal."),
+        `${r.survivors.length} cleared the bar; **${paying.length} also beat the round trip** ` +
+          `at an infinitesimal order` +
+          (paying.length ? " — see the sizing table for what that is worth at a real one." : " — so none is tradeable as a directional signal."),
       );
       lines.push("");
       for (const s of r.survivors.slice(0, 8)) {
@@ -334,6 +364,66 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
       }
     }
     lines.push("");
+
+    /*
+     * The sizing table, which is the part worth acting on.
+     *
+     * Everything above this line is a claim about basis points and everything
+     * below is a claim about dollars. The conversion is the depth curve, and
+     * it is where the project's largest finding either becomes a business or
+     * stops: at $1,000 the edge is nearly intact and earns under a dollar a
+     * trade, at $50,000 the impact has eaten all of it. A table rather than a
+     * verdict, because the size is the operator's decision and hiding it
+     * behind one recommended number would be the same mistake as the constant
+     * cost bar.
+     */
+    if (r.sizing) {
+      const z = r.sizing;
+      lines.push(
+        `#### Sizing — \`${z.feature}\` @ ${z.horizon}, edge ${Math.abs(z.edgeBps).toFixed(2)}bp`,
+      );
+      lines.push("");
+      lines.push("| size | cost RT | net | $/trade | trades/day for $300 | p90 net |");
+      lines.push("| --- | --- | --- | --- | --- | --- |");
+      for (const row of z.rows) {
+        if (row.totalBps === null) {
+          lines.push(`| $${row.usd.toLocaleString()} | — | — | — | — | ${row.refused ?? "unpriceable"} |`);
+          continue;
+        }
+        const net = row.netBps as number;
+        lines.push(
+          `| $${row.usd.toLocaleString()} | ${row.totalBps.toFixed(2)}bp | ` +
+            `${net > 0 ? "**+" : ""}${net.toFixed(2)}${net > 0 ? "**" : ""}bp | ` +
+            `$${(row.netUsd as number).toFixed(2)} | ` +
+            `${Number.isFinite(row.tradesPerDay) ? Math.ceil(row.tradesPerDay).toLocaleString() : "never"} | ` +
+            `${row.stressNetBps === null ? "n/a" : row.stressNetBps.toFixed(2) + "bp"} |`,
+        );
+      }
+      lines.push("");
+      if (z.best) {
+        lines.push(
+          `Best size $${z.best.usd.toLocaleString()}: **$${z.best.netUsd.toFixed(2)} a round trip**, ` +
+            `so ${Math.ceil(z.best.tradesPerDay).toLocaleString()} of them a day for $300.` +
+            (z.bestStress
+              ? ` At the ninetieth-percentile minute it is $${z.bestStress.netUsd.toFixed(2)} ` +
+                `at $${z.bestStress.usd.toLocaleString()}.`
+              : " It does not survive the ninetieth-percentile minute at any measured size."),
+        );
+      } else {
+        lines.push(
+          "**No measured size pays.** The edge is smaller than the cost of the smallest order the " +
+            "depth curve can price, which is a verdict about this finding and not a missing number.",
+        );
+      }
+      lines.push("");
+      lines.push(
+        "Impact is priced off *resting* depth, so this is the optimistic case: quotes are pulled as an " +
+          "order arrives, the real curve is worse, and the knee is therefore lower than this table says, " +
+          "never higher.",
+      );
+      lines.push("");
+    }
+
     if (r.carryNote) {
       lines.push(`Carry: ${r.carryNote}`);
     } else if (r.carry && r.carry.length) {

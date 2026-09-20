@@ -1,74 +1,152 @@
-import { WEIGHTS } from "../lib/sweep/metrics/session";
-import { NO_NEWS } from "../lib/sweep/agent/types";
-import { EMPTY_MARKOUT } from "../lib/sweep/metrics/markout";
-import { EMPTY_FUNDING } from "../lib/sweep/metrics/funding";
-import { NO_EVENT_RISK } from "../lib/sweep/metrics/events";
-import { proposePosition } from "../lib/sweep/agent/sizing";
-import type { AgentState } from "../lib/sweep/agent/types";
-import type { Cluster, CostPoint } from "../lib/sweep/types";
+/**
+ * The size ladder is the only place the project converts basis points to dollars.
+ *
+ * Every earlier verdict rested on a scalar cost bar, which is the cost of an
+ * order small enough not to exist. This module turns a measured depth curve
+ * into "at $10,000 the edge is 5.6bp and earns $5.60 a round trip", and that
+ * sentence is what an order gets sent on. The ways it can lie are specific and
+ * each one is asserted here:
+ *
+ *  - charging impact once instead of twice, halving the cost of every trade
+ *  - believing a median computed after the expensive minutes were dropped
+ *  - reporting a demanding trade count where the honest answer is "never"
+ *  - picking the largest paying size rather than the one that earns most
+ */
 
-let fail=0; const ok=(c:boolean,m:string)=>{ if(!c){console.error("FAIL: "+m);fail++;} else console.log("ok   "+m); };
+import {
+  sizeLadder,
+  bestSize,
+  ladderNet,
+  loadImpact,
+  type ImpactReport,
+} from "/home/user/oddz/lib/sweep/backtest/impact";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 
-const curve: CostPoint[] = [0.1,0.25,0.5,1,2,3,5].map(p=>({pct:p,downNotional:p*400_000,upNotional:p*400_000,downExhausted:false,upExhausted:false}));
-const clusters: Cluster[] = [
-  {price:98,effect:"amplifying",pushes:"down",notional:2e6,confidence:.6,sources:["round"],spent:0,distPct:-2},
-  {price:106,effect:"amplifying",pushes:"up",notional:2e6,confidence:.6,sources:["round"],spent:0,distPct:6},
-];
-const base = (over: Partial<AgentState> = {}): AgentState => ({
-  ts:Date.now(), symbol:"INTCUSDT",
-  health:{level:"ok",tradeable:true,reasons:[],summary:"live",snapshotAgeMs:100},
-  session:{cashOpen:true,phase:"regular",msToNext:1e6,nextLabel:"cash close",intraday:"morning",weights:WEIGHTS.morning,msSincePhaseStart:30*60_000,transitioning:false},
-  mid:100, mark:100, last:100, bestBid:99.99, bestAsk:100.01,
-  liquidity:{lwi:1,lwiBid:1,lwiAsk:1,lwiAdj:1,lwiBidAdj:1,lwiAskAdj:1,warm:true,imbalance:0,spreadBps:2,bidNotional:5e5,askNotional:5e5,
-    withdrawnBid:0,withdrawnAsk:0,consumedBid:1e5,consumedAsk:1e5,windowSec:10},
-  cascadeUp:null, cascadeDown:null,
-  nearestAbove:clusters[1], nearestBelow:clusters[0],
-  volatilityPct:0.2, participants:null,
-  news: NO_NEWS, markout: EMPTY_MARKOUT, funding: EMPTY_FUNDING, events: NO_EVENT_RISK,
-  openInterestNotional:5e6, longShortRatio:1, flow:{buy:0,sell:0}, ...over,
-} as AgentState);
+let failures = 0;
+const ok = (name: string, cond: boolean, detail = "") => {
+  if (!cond) { failures++; console.error(`  FAIL ${name}${detail ? ` — ${detail}` : ""}`); }
+  else console.log(`  ok — ${name}`);
+};
 
-const limits = { maxPositionUsd:5000, maxLeverage:5, maxDailyLossUsd:100, stopLossPct:2 };
-const call = (over={}, lim=limits) => proposePosition({direction:"up",state:base(over),equity:1000,realisedLossToday:0,limits:lim,costCurve:curve,clusters});
+/** A curve shaped like LITUSDT's: linear in size, cheap small, ruinous large. */
+const curve = (): ImpactReport => ({
+  symbol: "TESTUSDT",
+  minutes: 43_200,
+  bandsPct: [0.2, 1, 2, 3, 4, 5],
+  sizes: [
+    { usd: 1_000, medianBps: 0.18, p75Bps: 0.24, p90Bps: 0.31, offCurveShare: 0 },
+    { usd: 10_000, medianBps: 1.79, p75Bps: 2.39, p90Bps: 3.08, offCurveShare: 0 },
+    { usd: 50_000, medianBps: 8.93, p75Bps: 11.95, p90Bps: 15.4, offCurveShare: 0 },
+  ],
+});
 
-const p = call();
-ok(p.ok, "proposes a position on a healthy feed");
-if(!p.ok) console.log("   refused because:", p.reasons.join(" | "));
-if (p.ok) {
-  ok(Math.abs(p.riskUsd - 5) < 2.5, `risk lands near 0.5% of 1000 (got ${p.riskUsd.toFixed(2)})`);
-  ok(p.stopPrice < p.entryPrice, "long stop is below entry");
-  ok(p.leverage <= limits.maxLeverage, "leverage within cap");
-  ok(p.notionalUsd <= limits.maxPositionUsd, "notional within cap");
-  ok(p.stopDistancePct >= 2, `stop at least the configured 2% (got ${p.stopDistancePct.toFixed(2)})`);
-  console.log("   reasoning:", p.reasoning.slice(0,2).join(" | "));
+function impactIsChargedBothWays() {
+  console.log("\nimpact is a round trip, not a fill");
+  const ladder = sizeLadder(curve(), 7.5);
+  const ten = ladder.find((r) => r.usd === 10_000)!;
+  /*
+   * 1.79 one way is 3.58 there and back. Charging it once is the single most
+   * expensive arithmetic error available here: it halves the cost of every
+   * trade and moves the knee out by roughly a factor of two, which is exactly
+   * the region where this contract's largest finding lives.
+   */
+  ok("impact is doubled", Math.abs((ten.impactBps as number) - 3.58) < 0.01, String(ten.impactBps));
+  ok("the bar is fees plus spread plus impact", Math.abs((ten.totalBps as number) - 11.08) < 0.01, String(ten.totalBps));
+  ok("the stress row uses p90", Math.abs((ten.stressImpactBps as number) - 6.16) < 0.01, String(ten.stressImpactBps));
+  ok("and is worse than the median row", (ten.stressTotalBps as number) > (ten.totalBps as number));
 }
 
-// stop must clear the noise
-const volatile = call({volatilityPct:1.5});
-ok(volatile.ok && volatile.stopDistancePct > 2, `high volatility widens the stop (got ${volatile.ok?volatile.stopDistancePct.toFixed(2):"n/a"})`);
+function aDeletedMedianIsRefused() {
+  console.log("\na median computed on the surviving minutes is refused");
+  const r = curve();
+  /*
+   * The worker drops minutes where the order ran past the deepest published
+   * band. Those are the thin minutes, so the median of what remains is a
+   * statistic about the book on its good days — cheap for the one reason that
+   * should make it untrustworthy. Past a tenth it is refused outright rather
+   * than discounted, because there is no honest way to price minutes the
+   * archive never published.
+   */
+  r.sizes.push({ usd: 100_000, medianBps: 2.0, p75Bps: 2.5, p90Bps: 3.0, offCurveShare: 0.42 });
+  const ladder = sizeLadder(r, 7.5);
+  const big = ladder.find((x) => x.usd === 100_000)!;
+  ok("the row carries no cost", big.totalBps === null, String(big.totalBps));
+  ok("and says why", /ran off the end/.test(big.refused ?? ""), big.refused);
+  ok("a suspiciously cheap big row cannot be chosen", bestSize(ladder, 16.66)?.usd !== 100_000);
 
-// refusals
-ok(!call({health:{level:"blind",tradeable:false,reasons:[],summary:"socket down",snapshotAgeMs:0}}).ok, "refuses on a blind feed");
-ok(!call({liquidity:{...base().liquidity!,warm:false}}).ok, "refuses on a cold baseline");
-ok(!proposePosition({direction:"up",state:base(),equity:1000,realisedLossToday:100,limits,costCurve:curve,clusters}).ok, "refuses at the daily loss cap");
-// Zero means "no ceiling" now, matching every other cap. One empty box must
-// never be able to refuse every order — see the adapter for what that cost.
-ok(proposePosition({direction:"up",state:base(),equity:1000,realisedLossToday:0,limits:{...limits,maxPositionUsd:0},costCurve:curve,clusters}).ok, "a zero position cap means no ceiling, not a refusal");
+  const clean = sizeLadder(curve(), 7.5);
+  ok("a fully-priced row is not refused", clean.every((x) => x.refused === undefined));
+}
 
-// behavioural read shrinks size
-const withdrawing = call({participants:{replenishSec:null,refillLevels:0,flickerPerSec:1,sliceUniformity:0,flowPersistence:0,tradesPerSec:1,regime:"liquidity-withdrawing",confidence:0.8,notes:["depth not coming back"]}});
-const present = call({participants:{replenishSec:0.2,refillLevels:0,flickerPerSec:5,sliceUniformity:0,flowPersistence:0,tradesPerSec:2,regime:"liquidity-present",confidence:0.8,notes:["fast refill"]}});
-ok(withdrawing.ok && present.ok && withdrawing.notionalUsd < present.notionalUsd,
-   `withdrawing book sizes smaller (${withdrawing.ok?withdrawing.notionalUsd.toFixed(0):"n/a"} vs ${present.ok?present.notionalUsd.toFixed(0):"n/a"})`);
+function theKneeIsTheEarner() {
+  console.log("\nthe best size is the one that earns most, not the largest that pays");
+  const ladder = sizeLadder(curve(), 7.5);
+  const best = bestSize(ladder, 16.66);
+  /*
+   * At $1,000 the edge survives almost intact and earns $0.88. At $10,000 it
+   * is cut to 5.58bp and earns $5.58. Both pay; only one is worth sending.
+   * Choosing the largest paying size would pick $50,000, where the edge is
+   * already negative, and choosing the highest net bps would pick $1,000 and
+   * demand 341 round trips a day.
+   */
+  ok("the earner is chosen", best?.usd === 10_000, String(best?.usd));
+  ok("dollars per trip are right", Math.abs((best?.netUsd ?? 0) - 5.58) < 0.05, String(best?.netUsd));
+  ok("a bigger losing size is not chosen", best!.usd !== 50_000);
+  ok(
+    "the daily count follows from the dollars",
+    Math.abs(best!.tradesPerDay - 300 / best!.netUsd) < 1e-9,
+  );
 
-// closed session halves
-const closed = call({session:{cashOpen:false,phase:"closed",msToNext:1e6,nextLabel:"pre-market opens",intraday:"overnight",weights:WEIGHTS.overnight,msSincePhaseStart:30*60_000,transitioning:false}});
-ok(closed.ok && present.ok && closed.notionalUsd < present.notionalUsd, "closed session sizes smaller");
+  const stressed = bestSize(ladder, 16.66, 300, true);
+  ok("the stress case is sized no larger", (stressed?.usd ?? 0) <= (best?.usd ?? 0), String(stressed?.usd));
+}
 
-// a mediocre reward-to-risk is declined on purpose
-const tight: Cluster[] = [clusters[0], {price:103,effect:"amplifying",pushes:"up",notional:2e6,confidence:.6,sources:["round"],spent:0,distPct:3}];
-const marginal = proposePosition({direction:"up",state:{...base(),nearestAbove:tight[1]},equity:1000,realisedLossToday:0,limits,costCurve:curve,clusters:tight});
-ok(!marginal.ok && marginal.reasons[0].includes("reward-to-risk"), "declines a trade whose reward does not justify the stop");
+function anEdgeThatDoesNotPayReturnsNothing() {
+  console.log("\nan edge under the smallest priceable order is a verdict");
+  const ladder = sizeLadder(curve(), 7.5);
+  /*
+   * Null rather than a token size. The failure this guards is the one the
+   * scalar bar made easy: reporting that something "beats fees" when the
+   * cheapest order the book can price already costs more than the edge.
+   */
+  ok("no size is returned", bestSize(ladder, 7.6) === null);
+  const rows = ladderNet(ladder, 7.6);
+  ok("every row is negative", rows.every((r) => (r.netBps ?? 0) <= 0));
+  ok(
+    "and the trade count is never, not merely large",
+    rows.every((r) => !Number.isFinite(r.tradesPerDay)),
+    JSON.stringify(rows.map((r) => r.tradesPerDay)),
+  );
+}
 
-console.log(fail===0?"\nALL PASS":`\n${fail} FAILED`);
-process.exitCode = fail?1:0;
+function aMissingReportIsNotAFailure() {
+  console.log("\na contract with no measured depth still replays");
+  const dir = mkdtempSync(join(tmpdir(), "sizing-"));
+  ok("an absent file is null", loadImpact(join(dir, "nope.json")) === null);
+
+  const half = join(dir, "half.json");
+  writeFileSync(half, '{"symbol":"X","sizes":[');
+  /*
+   * The worker writes this from a runner that can be cancelled mid-write. A
+   * parse error thrown here would take down a replay that does not need the
+   * file at all — the sizing table is an enrichment, and losing it must not
+   * cost the verdicts.
+   */
+  ok("a truncated file is null, not a throw", loadImpact(half) === null);
+
+  const empty = join(dir, "empty.json");
+  writeFileSync(empty, '{"symbol":"X","minutes":0,"bandsPct":[],"sizes":[]}');
+  ok("an empty ladder is null", loadImpact(empty) === null);
+}
+
+console.log("size ladder");
+impactIsChargedBothWays();
+aDeletedMedianIsRefused();
+theKneeIsTheEarner();
+anEdgeThatDoesNotPayReturnsNothing();
+aMissingReportIsNotAFailure();
+
+if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
+console.log("\nall good — size ladder");

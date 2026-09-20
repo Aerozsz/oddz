@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-20T06:28:18.757Z by the research loop. Do not edit — it is
+Generated 2026-09-20T06:31:15.587Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,23 +38,35 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### BTCUSDT
 
-41,700 samples over 29 days. Bar 3.72 sigma, round trip 8.65bp.
+1,940 samples over 1 days. Bar 3.72 sigma, round trip 7.03bp.
 
-12 cleared the bar; **4 also beat the round trip**.
+12 cleared the bar; **0 also beat the round trip** at an infinitesimal order — so none is tradeable as a directional signal.
 
-- `takerRatioFade` @ t5: -25.5 sigma, -6.01bp · halves -17.3/-20.0 sigma, -6.8/-5.4bp — **holds in both**
-- `takerRatioFade` @ t1: -25.0 sigma, -2.62bp · halves -19.3/-16.1 sigma, -3.3/-2.1bp — **holds in both**
-- `takerRatioFade` @ t1d: -16.7 sigma, -1.80bp · halves -11.4/-13.3 sigma, -2.1/-1.5bp — **holds in both**
-- `takerRatioFade` @ t15: -14.3 sigma, -5.59bp · halves -10.3/-10.5 sigma, -6.3/-5.4bp — **holds in both**
-- `takerRatioFade` @ t5d: -13.9 sigma, -3.21bp · halves -8.2/-12.5 sigma, -3.2/-3.2bp — **holds in both**
-- `oiChange` @ t60d: 12.1 sigma, 13.56bp — **beats fees** · halves 12.6/3.6 sigma, 21.1/5.0bp — **holds in both**
-- `oiChange` @ t60: 11.9 sigma, 13.40bp — **beats fees** · halves 12.4/3.4 sigma, 20.8/4.8bp — **holds in both**
-- `spreadProxy` @ t60d: 10.8 sigma, 10.52bp — **beats fees** · halves 8.1/5.4 sigma, 11.8/6.7bp — **holds in both**
+- `mom5` @ t1: 306.1 sigma, 0.00bp · halves 216.0/216.0 sigma, 0.0/0.0bp — **holds in both**
+- `mom30` @ t1: 306.1 sigma, 0.00bp · halves 216.0/216.0 sigma, 0.0/0.0bp — **holds in both**
+- `thinBidUp` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `bidWithdrawn` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `ofi` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `ofiVsVol` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `revert5` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
+- `volSurge` @ t1: -306.1 sigma, -0.00bp · halves -216.0/-216.0 sigma, -0.0/-0.0bp — **holds in both**
 
-Carry at 8h, the two most crowded deciles, oriented to the side that collects:
+#### Sizing — `mom5` @ t1, edge 0.00bp
 
-- basis -6.4bp: price 12.62bp ±1.86, carry +6.37bp, **total 18.99bp**
-- basis -0.1bp: price 19.75bp ±1.73, carry +0.10bp, **total 19.86bp**
+| size | cost RT | net | $/trade | trades/day for $300 | p90 net |
+| --- | --- | --- | --- | --- | --- |
+| $1,000 | 7.03bp | -7.02bp | $-0.70 | never | -7.03bp |
+| $5,000 | 7.03bp | -7.02bp | $-3.51 | never | -7.08bp |
+| $10,000 | 7.03bp | -7.02bp | $-7.02 | never | -7.13bp |
+| $25,000 | 7.03bp | -7.03bp | $-17.57 | never | -7.29bp |
+| $50,000 | 7.04bp | -7.04bp | $-35.18 | never | -7.56bp |
+| $100,000 | 7.05bp | -7.05bp | $-70.48 | never | -8.10bp |
+
+**No measured size pays.** The edge is smaller than the cost of the smallest order the depth curve can price, which is a verdict about this finding and not a missing number.
+
+Impact is priced off *resting* depth, so this is the optimistic case: quotes are pulled as an order arrives, the real curve is worse, and the knee is therefore lower than this table says, never higher.
+
+Carry: no premium index data — the carry question cannot be asked, this is missing data and not a null result
 
 ## What a pass should do
 

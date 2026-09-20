@@ -48,6 +48,7 @@ import { familyZ } from "../lib/sweep/agent/learn";
 import { scoreFunding, type FundingPoint } from "../lib/sweep/backtest/funding";
 import { renderFindings, type RunSummary } from "../lib/sweep/backtest/findings";
 import { estimateCost } from "../lib/sweep/backtest/cost";
+import { loadImpact, sizeLadder, bestSize, ladderNet } from "../lib/sweep/backtest/impact";
 
 const arg = (name: string, fallback: string): string => {
   const i = process.argv.indexOf(`--${name}`);
@@ -513,6 +514,49 @@ function main() {
   console.error(`[backtest] ${cost.note}`);
 
   /*
+   * The bar as a function of size.
+   *
+   * ROUND_TRIP_BPS above is the cost of an infinitesimal order, and on this
+   * contract that is nearly all spread — one tick, 0.243bp. The real cost is
+   * walking a thin book, which sweep-impact has been measuring into
+   * evidence/impact-<symbol>.json and which nothing read until now. Optional
+   * by construction: a replay on a contract whose depth has not been measured
+   * still produces every verdict it did before, minus this table.
+   */
+  const impact = loadImpact(resolve(`evidence/impact-${symbol}.json`));
+  /*
+   * Priced against the best survivor that also holds in both halves. Not
+   * simply the top of the ranking: a finding that lives in one half of the
+   * window is a property of a fortnight, and sizing it would be pricing an
+   * artefact to two decimal places.
+   */
+  const headline =
+    ranked.find((r) => r.survives && r.halves?.agree) ?? ranked.find((r) => r.survives) ?? null;
+  const sizing = (() => {
+    if (!impact || !headline) return undefined;
+    const ladder = sizeLadder(impact, ROUND_TRIP_BPS);
+    return {
+      feature: headline.feature,
+      horizon: headline.horizon,
+      edgeBps: headline.spreadBps,
+      rows: ladderNet(ladder, headline.spreadBps),
+      best: bestSize(ladder, headline.spreadBps),
+      bestStress: bestSize(ladder, headline.spreadBps, 300, true),
+    };
+  })();
+  if (sizing) {
+    console.error(
+      `[backtest] sizing ${sizing.feature} @ ${sizing.horizon} (${sizing.edgeBps.toFixed(2)}bp): ` +
+        (sizing.best
+          ? `best $${sizing.best.usd.toLocaleString()} → $${sizing.best.netUsd.toFixed(2)}/trip, ` +
+            `${Math.ceil(sizing.best.tradesPerDay)} trips/day for $300`
+          : "no measured size pays"),
+    );
+  } else if (!impact) {
+    console.error(`[backtest] no impact report for ${symbol} — the bar is size-blind this pass`);
+  }
+
+  /*
    * Carry, scored alongside the directional search rather than instead of it.
    *
    * Every feature above tries to predict direction, and four separate
@@ -549,6 +593,7 @@ function main() {
     multiplicity: { tests, bonferroniSigma: bar },
     roundTripBps: ROUND_TRIP_BPS,
     cost,
+    sizing,
     ranked: ranked.slice(0, 40),
     deciles: detail,
   };
@@ -592,6 +637,7 @@ function main() {
         }))
       : undefined,
     carryNote: funding.note,
+    sizing,
   };
   try {
     /*
