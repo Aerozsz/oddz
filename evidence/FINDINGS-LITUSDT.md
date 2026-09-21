@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-20T18:28:35.767Z by the research loop. Do not edit — it is
+Generated 2026-09-21T00:27:21.526Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,43 +38,43 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### LITUSDT
 
-43,140 samples over 30 days. Bar 3.72 sigma, round trip 7.48bp.
+41,700 samples over 29 days. Bar 3.72 sigma, round trip 7.43bp.
 
 12 cleared the bar; **12 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t5: -24.8 sigma, -26.63bp — **beats fees** · halves -17.5/-19.4 sigma, -30.0/-25.0bp — **holds in both**
-- `takerRatioFade` @ t1: -22.7 sigma, -10.73bp — **beats fees** · halves -15.9/-17.3 sigma, -12.0/-9.7bp — **holds in both**
-- `takerRatioFade` @ t1d: -16.6 sigma, -7.97bp — **beats fees** · halves -11.7/-12.6 sigma, -9.0/-7.3bp — **holds in both**
-- `takerRatioFade` @ t15: -15.2 sigma, -25.59bp — **beats fees** · halves -11.2/-11.2 sigma, -26.8/-26.5bp — **holds in both**
-- `takerRatioFade` @ t5d: -15.1 sigma, -16.06bp — **beats fees** · halves -10.5/-12.1 sigma, -17.6/-15.9bp — **holds in both**
-- `takerRatioFade` @ t15d: -8.6 sigma, -14.49bp — **beats fees** · halves -6.1/-6.9 sigma, -14.7/-16.3bp — **holds in both**
-- `takerRatioFade` @ t30: -8.5 sigma, -19.95bp — **beats fees** · halves -7.3/-5.3 sigma, -24.3/-17.4bp — **holds in both**
-- `thinAskUp` @ t60d: -8.1 sigma, -31.40bp — **beats fees** · halves -6.4/6.1 sigma, -38.6/26.1bp — DOES NOT HOLD IN BOTH
+- `takerRatioFade` @ t5: -24.2 sigma, -26.08bp — **beats fees** · halves -17.1/-18.7 sigma, -29.4/-24.6bp — **holds in both**
+- `takerRatioFade` @ t1: -22.0 sigma, -10.47bp — **beats fees** · halves -15.2/-17.1 sigma, -11.6/-9.8bp — **holds in both**
+- `takerRatioFade` @ t1d: -16.2 sigma, -7.81bp — **beats fees** · halves -11.3/-12.5 sigma, -8.7/-7.3bp — **holds in both**
+- `takerRatioFade` @ t15: -14.9 sigma, -25.25bp — **beats fees** · halves -10.9/-10.7 sigma, -25.9/-25.9bp — **holds in both**
+- `takerRatioFade` @ t5d: -14.8 sigma, -15.76bp — **beats fees** · halves -10.5/-11.6 sigma, -17.5/-15.5bp — **holds in both**
+- `takerRatioFade` @ t15d: -8.5 sigma, -14.46bp — **beats fees** · halves -5.9/-6.5 sigma, -14.2/-15.6bp — **holds in both**
+- `takerRatioFade` @ t30: -8.2 sigma, -19.47bp — **beats fees** · halves -7.0/-4.4 sigma, -23.2/-15.0bp — **holds in both**
+- `volatility` @ t60: -6.8 sigma, -22.74bp — **beats fees** · halves -4.0/-6.9 sigma, -20.7/-29.2bp — **holds in both**
 
-#### Sizing — `takerRatioFade` @ t5d, edge 16.06bp
+#### Sizing — `takerRatioFade` @ t5d, edge 15.76bp
 
-Priced on the delayed entry. The same feature entered at the decision close reads 26.63bp, and the 10.56bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
+Priced on the delayed entry. The same feature entered at the decision close reads 26.08bp, and the 10.33bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 7.84bp | **+8.23**bp | $0.82 | 365 | 7.97bp |
-| $5,000 | 9.28bp | **+6.78**bp | $3.39 | 89 | 5.51bp |
-| $10,000 | 11.08bp | **+4.98**bp | $4.98 | 61 | 2.43bp |
-| $25,000 | 16.50bp | -0.43bp | $-1.08 | never | -6.81bp |
+| $1,000 | 7.79bp | **+7.97**bp | $0.80 | 377 | 7.71bp |
+| $5,000 | 9.24bp | **+6.52**bp | $3.26 | 92 | 5.25bp |
+| $10,000 | 11.04bp | **+4.72**bp | $4.72 | 64 | 2.17bp |
+| $25,000 | 16.46bp | -0.70bp | $-1.76 | never | -7.07bp |
 | $50,000 | — | — | — | never | — |
 | $100,000 | — | — | — | never | — |
 
 - $50,000: 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost
 - $100,000: 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost
 
-Best size $10,000: **$4.98 a round trip**, so 61 of them a day for $300. At the ninetieth-percentile minute it is $2.75 at $5,000.
+Best size $10,000: **$4.72 a round trip**, so 64 of them a day for $300. At the ninetieth-percentile minute it is $2.62 at $5,000.
 
 Impact is priced off *resting* depth, so this is the optimistic case: quotes are pulled as an order arrives, the real curve is worse, and the knee is therefore lower than this table says, never higher.
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -10.3bp: price 126.92bp ±6.26, carry +10.29bp, **total 137.21bp**
-- basis 0.6bp: price -49.04bp ±7.17, carry +0.62bp, **total -48.42bp**
+- basis -10.4bp: price 122.41bp ±6.33, carry +10.36bp, **total 132.77bp**
+- basis 0.6bp: price -39.76bp ±7.30, carry +0.57bp, **total -39.19bp**
 
 ## What a pass should do
 
