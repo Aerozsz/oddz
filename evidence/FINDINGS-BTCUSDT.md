@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-21T18:28:33.796Z by the research loop. Do not edit — it is
+Generated 2026-09-22T00:27:26.781Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,31 +38,31 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### BTCUSDT
 
-43,140 samples over 30 days. Bar 3.72 sigma, round trip 7.03bp.
+41,700 samples over 29 days. Bar 3.72 sigma, round trip 7.02bp.
 
-12 cleared the bar; **4 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
+12 cleared the bar; **6 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t5: -26.1 sigma, -5.95bp · halves -15.7/-23.6 sigma, -5.9/-6.0bp — **holds in both**
-- `takerRatioFade` @ t1: -25.9 sigma, -2.59bp · halves -17.3/-21.0 sigma, -2.9/-2.3bp — **holds in both**
-- `takerRatioFade` @ t1d: -17.5 sigma, -1.81bp · halves -11.5/-14.5 sigma, -2.0/-1.7bp — **holds in both**
-- `takerRatioFade` @ t15: -14.6 sigma, -5.47bp · halves -9.9/-11.8 sigma, -5.5/-6.0bp — **holds in both**
-- `takerRatioFade` @ t5d: -14.4 sigma, -3.21bp · halves -7.6/-14.0 sigma, -2.8/-3.6bp — **holds in both**
-- `mom30` @ t60: -11.1 sigma, -11.41bp — **beats fees** · halves -8.4/-7.3 sigma, -12.8/-9.9bp — **holds in both**
-- `mom30` @ t60d: -11.1 sigma, -11.33bp — **beats fees** · halves -8.3/-7.2 sigma, -12.6/-9.7bp — **holds in both**
-- `spreadProxy` @ t60d: 9.4 sigma, 8.41bp — **beats fees** · halves 5.5/6.9 sigma, 7.1/8.4bp — **holds in both**
+- `takerRatioFade` @ t5: -25.7 sigma, -5.97bp · halves -15.0/-23.1 sigma, -5.8/-6.1bp — **holds in both**
+- `takerRatioFade` @ t1: -25.4 sigma, -2.58bp · halves -16.6/-20.8 sigma, -2.8/-2.4bp — **holds in both**
+- `takerRatioFade` @ t1d: -17.2 sigma, -1.79bp · halves -10.9/-14.2 sigma, -1.9/-1.7bp — **holds in both**
+- `takerRatioFade` @ t15: -14.4 sigma, -5.46bp · halves -9.3/-11.5 sigma, -5.2/-6.0bp — **holds in both**
+- `takerRatioFade` @ t5d: -14.3 sigma, -3.24bp · halves -7.5/-13.7 sigma, -2.8/-3.6bp — **holds in both**
+- `mom30` @ t60d: -11.0 sigma, -11.32bp — **beats fees** · halves -8.2/-7.0 sigma, -12.3/-9.7bp — **holds in both**
+- `mom30` @ t60: -10.9 sigma, -11.26bp — **beats fees** · halves -8.2/-7.1 sigma, -12.4/-9.9bp — **holds in both**
+- `spreadProxy` @ t60d: 9.8 sigma, 8.96bp — **beats fees** · halves 5.3/7.1 sigma, 6.9/8.9bp — **holds in both**
 
-#### Sizing — `takerRatioFade` @ t5d, edge 3.21bp
+#### Sizing — `takerRatioFade` @ t5d, edge 3.24bp
 
-Priced on the delayed entry. The same feature entered at the decision close reads 5.95bp, and the 2.74bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
+Priced on the delayed entry. The same feature entered at the decision close reads 5.97bp, and the 2.73bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 7.03bp | -3.81bp | $-0.38 | never | -3.82bp |
-| $5,000 | 7.03bp | -3.81bp | $-1.91 | never | -3.87bp |
-| $10,000 | 7.03bp | -3.81bp | $-3.81 | never | -3.92bp |
-| $25,000 | 7.03bp | -3.82bp | $-9.54 | never | -4.08bp |
-| $50,000 | 7.04bp | -3.82bp | $-19.12 | never | -4.35bp |
-| $100,000 | 7.05bp | -3.84bp | $-38.37 | never | -4.89bp |
+| $1,000 | 7.03bp | -3.79bp | $-0.38 | never | -3.80bp |
+| $5,000 | 7.03bp | -3.79bp | $-1.89 | never | -3.84bp |
+| $10,000 | 7.03bp | -3.79bp | $-3.79 | never | -3.89bp |
+| $25,000 | 7.03bp | -3.79bp | $-9.48 | never | -4.06bp |
+| $50,000 | 7.04bp | -3.80bp | $-18.99 | never | -4.33bp |
+| $100,000 | 7.05bp | -3.81bp | $-38.11 | never | -4.87bp |
 
 **No measured size pays.** The edge is smaller than the cost of the smallest order the depth curve can price, which is a verdict about this finding and not a missing number.
 
@@ -70,8 +70,8 @@ Impact is priced off *resting* depth, so this is the optimistic case: quotes are
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -6.4bp: price 7.23bp ±1.70, carry +6.36bp, **total 13.59bp**
-- basis -0.4bp: price 14.02bp ±1.65, carry +0.38bp, **total 14.40bp**
+- basis -6.4bp: price 7.42bp ±1.72, carry +6.37bp, **total 13.80bp**
+- basis -1.1bp: price 25.96bp ±1.75, carry +1.12bp, **total 27.08bp**
 
 ## What a pass should do
 
