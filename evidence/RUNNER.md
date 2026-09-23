@@ -42,3 +42,5 @@ symbols: LITUSDT,BTCUSDT · days: 30 · run 35638366230
 symbols: LITUSDT,BTCUSDT · days: 30 · run 35671908731
 ## 2026-09-22T12:28:32Z — archive replay
 symbols: LITUSDT,BTCUSDT · days: 30 · run 35727159911
+## 2026-09-23T00:27:33Z — archive replay
+symbols: LITUSDT,BTCUSDT · days: 30 · run 35802014392
