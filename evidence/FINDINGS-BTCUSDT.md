@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-24T06:27:38.817Z by the research loop. Do not edit — it is
+Generated 2026-09-24T12:28:41.954Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,18 +38,18 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### BTCUSDT
 
-41,700 samples over 29 days. Bar 3.72 sigma, round trip 7.02bp.
+43,140 samples over 30 days. Bar 3.72 sigma, round trip 7.02bp.
 
 12 cleared the bar; **6 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t5: -26.3 sigma, -5.98bp · halves -15.0/-23.5 sigma, -5.3/-6.7bp — **holds in both**
-- `takerRatioFade` @ t1: -25.6 sigma, -2.58bp · halves -16.4/-21.0 sigma, -2.6/-2.6bp — **holds in both**
-- `takerRatioFade` @ t1d: -17.2 sigma, -1.79bp · halves -10.7/-14.7 sigma, -1.8/-1.9bp — **holds in both**
-- `takerRatioFade` @ t5d: -14.7 sigma, -3.28bp · halves -7.4/-14.1 sigma, -2.5/-4.0bp — **holds in both**
-- `takerRatioFade` @ t15: -14.5 sigma, -5.47bp · halves -9.4/-11.4 sigma, -4.9/-6.2bp — **holds in both**
-- `oiChange` @ t60d: 12.8 sigma, 13.90bp — **beats fees** · halves 12.5/6.3 sigma, 17.9/10.3bp — **holds in both**
-- `oiChange` @ t60: 12.5 sigma, 13.56bp — **beats fees** · halves 12.2/6.0 sigma, 17.5/9.8bp — **holds in both**
-- `thinAskUp` @ t60d: 11.2 sigma, 10.79bp — **beats fees** · halves 6.3/2.0 sigma, 9.2/2.4bp — **holds in both**
+- `takerRatioFade` @ t5: -26.8 sigma, -5.98bp · halves -15.2/-23.5 sigma, -5.3/-6.8bp — **holds in both**
+- `takerRatioFade` @ t1: -26.2 sigma, -2.58bp · halves -16.6/-21.3 sigma, -2.6/-2.6bp — **holds in both**
+- `takerRatioFade` @ t1d: -17.5 sigma, -1.78bp · halves -10.8/-14.8 sigma, -1.7/-1.9bp — **holds in both**
+- `takerRatioFade` @ t5d: -15.0 sigma, -3.28bp · halves -7.5/-14.3 sigma, -2.5/-4.1bp — **holds in both**
+- `takerRatioFade` @ t15: -14.9 sigma, -5.50bp · halves -9.4/-11.8 sigma, -4.8/-6.6bp — **holds in both**
+- `oiChange` @ t60d: 13.2 sigma, 14.10bp — **beats fees** · halves 11.5/7.4 sigma, 16.2/11.9bp — **holds in both**
+- `oiChange` @ t60: 12.9 sigma, 13.84bp — **beats fees** · halves 11.2/7.2 sigma, 15.8/11.6bp — **holds in both**
+- `thinAskUp` @ t60d: 10.7 sigma, 10.07bp — **beats fees** · halves 7.2/4.8 sigma, 10.4/6.1bp — **holds in both**
 
 #### Sizing — `takerRatioFade` @ t5d, edge 3.28bp
 
@@ -59,10 +59,10 @@ Priced on the delayed entry. The same feature entered at the decision close read
 | --- | --- | --- | --- | --- | --- |
 | $1,000 | 7.02bp | -3.75bp | $-0.37 | never | -3.76bp |
 | $5,000 | 7.02bp | -3.75bp | $-1.87 | never | -3.80bp |
-| $10,000 | 7.03bp | -3.75bp | $-3.75 | never | -3.85bp |
+| $10,000 | 7.03bp | -3.75bp | $-3.75 | never | -3.86bp |
 | $25,000 | 7.03bp | -3.75bp | $-9.38 | never | -4.02bp |
-| $50,000 | 7.04bp | -3.76bp | $-18.79 | never | -4.29bp |
-| $100,000 | 7.05bp | -3.77bp | $-37.71 | never | -4.83bp |
+| $50,000 | 7.04bp | -3.76bp | $-18.80 | never | -4.29bp |
+| $100,000 | 7.05bp | -3.77bp | $-37.72 | never | -4.83bp |
 
 **No measured size pays.** The edge is smaller than the cost of the smallest order the depth curve can price, which is a verdict about this finding and not a missing number.
 
@@ -70,8 +70,8 @@ Impact is priced off *resting* depth, so this is the optimistic case: quotes are
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -6.5bp: price 14.81bp ±1.81, carry +6.47bp, **total 21.28bp**
-- basis -2.0bp: price 9.22bp ±1.93, carry +2.01bp, **total 11.23bp**
+- basis -6.6bp: price 7.99bp ±1.78, carry +6.56bp, **total 14.55bp**
+- basis -2.0bp: price 7.00bp ±1.91, carry +1.97bp, **total 8.97bp**
 
 ## What a pass should do
 
