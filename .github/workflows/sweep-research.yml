@@ -151,6 +151,17 @@ jobs:
             # curve, which is exactly what pricing an order against needs.
             npm run sweep:impact -- --symbol "$sym" || true
             echo "::endgroup::"
+            echo "::group::realized $sym"
+            # The modelled curve prices resting depth, and resting is not
+            # available — quotes are pulled as an order arrives. This reads the
+            # same cost off orders that were actually executed: consecutive
+            # one-sided prints are one order walking the book, so the notional
+            # it lifted and the distance it travelled are both on the tape. It
+            # runs high where the modelled curve runs low, and the pair bracket
+            # what a real order pays. Same three days as the spread step, since
+            # it reads the same files.
+            npm run sweep:realized -- --symbol "$sym" --days 3 || true
+            echo "::endgroup::"
             echo "::group::backtest $sym"
             # Not `|| true`: a replay that refuses is the failure this workflow
             # exists to surface, and it spent six days refusing silently.
