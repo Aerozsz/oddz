@@ -1,0 +1,71 @@
+{
+  "at": 1790317811284,
+  "symbol": "LITUSDT",
+  "days": 3,
+  "dates": [
+    "2026-09-23",
+    "2026-09-22",
+    "2026-09-21"
+  ],
+  "prints": 2109793,
+  "bursts": 380411,
+  "burstGapMs": 250,
+  "settleMs": 60000,
+  "sizes": [
+    {
+      "usd": 1000,
+      "bursts": 354033,
+      "moveBps": 0.809618264987969,
+      "p75Bps": 2.067781890366895,
+      "p90Bps": 3.7099633125855265,
+      "settleBps": 1.0157646676430423,
+      "temporaryBps": 0
+    },
+    {
+      "usd": 5000,
+      "bursts": 19678,
+      "moveBps": 4.329574760461512,
+      "p75Bps": 6.836544437539471,
+      "p90Bps": 9.77185705169138,
+      "settleBps": 3.368066519315255,
+      "temporaryBps": 0.9615082411462565
+    },
+    {
+      "usd": 10000,
+      "bursts": 4520,
+      "moveBps": 6.4281122776946935,
+      "p75Bps": 9.902528057162169,
+      "p90Bps": 14.248305606900088,
+      "settleBps": 4.877221256202487,
+      "temporaryBps": 1.5508910214922063
+    },
+    {
+      "usd": 25000,
+      "bursts": 1674,
+      "moveBps": 8.466035073573838,
+      "p75Bps": 13.331330504337993,
+      "p90Bps": 19.881468577813035,
+      "settleBps": 6.306495690561517,
+      "temporaryBps": 2.159539383012321
+    },
+    {
+      "usd": 50000,
+      "bursts": 385,
+      "moveBps": 10.860075381700877,
+      "p75Bps": 16.77331179723067,
+      "p90Bps": 24.52984464431785,
+      "settleBps": 5.436576510105609,
+      "temporaryBps": 5.423498871595268
+    },
+    {
+      "usd": 100000,
+      "bursts": 121,
+      "moveBps": 12.577178138577095,
+      "p75Bps": 23.994381803284607,
+      "p90Bps": 37.97544656312057,
+      "settleBps": 4.130268673976787,
+      "temporaryBps": 8.446909464600306
+    }
+  ],
+  "note": "Impact measured on executed sweeps rather than modelled from resting depth. Runs HIGH by construction: these bursts are endogenous, so part of what they moved is their own information becoming public rather than the mechanical cost of consuming depth. The resting-depth curve in impact-<symbol>.json runs low for the opposite reason. The honest cost sits between them, and a sizing table that survives both ends is one worth acting on. temporaryBps is the part that reverted within a minute and is what a round trip pays."
+}
