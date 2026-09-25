@@ -482,9 +482,10 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
       }
       lines.push("");
       lines.push(
-        "Impact is priced off *resting* depth, so this is the optimistic case: quotes are pulled as an " +
-          "order arrives, the real curve is worse, and the knee is therefore lower than this table says, " +
-          "never higher.",
+        "The first table prices *resting* depth. That was assumed to be optimistic — quotes are pulled " +
+          "as an order arrives — but 380,411 executed sweeps say otherwise above $5,000: real sweeps " +
+          "meet a book that refreshes, so the modelled curve runs dearer than the reverting cost, not " +
+          "cheaper. It is optimistic only at the smallest sizes. Read the bracket, not this table alone.",
       );
       lines.push("");
     }
