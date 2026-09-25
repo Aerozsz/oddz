@@ -69,8 +69,28 @@ const BASE = "https://data.binance.vision/data/futures/um";
 
 /** Prints this far apart are two orders, not one order walking the book. */
 const BURST_GAP_MS = 250;
-/** Where price settled, for telling a push that reverts from news that does not. */
+/**
+ * Where price settled, at two horizons, and the second one matters more than it
+ * looks.
+ *
+ * A minute was the obvious choice and it produced a misleading answer. Measured
+ * at 60s, sweeps inside the finding's own minutes revert 10.0% against 17.6%
+ * elsewhere, which reads as "those minutes are informed, so charge the full
+ * move" — and charging the full move is what kills the strategy at every size
+ * above $1,000.
+ *
+ * But the finding IS the claim that those moves reverse. `takerRatioFade` says
+ * price fades lopsided taker flow over five minutes; it is a bet on exactly the
+ * reversion this measurement would be declaring absent. Charging the whole move
+ * as a cost while simultaneously booking the edge from that move reversing
+ * counts the same basis points twice, once against and once for.
+ *
+ * So the settle horizon has to match the horizon the strategy trades. Both are
+ * computed and both are reported, because the gap between them is the size of
+ * the error a 60s-only reading would have caused.
+ */
 const SETTLE_MS = 60_000;
+const SETTLE_LONG_MS = 300_000;
 
 /** The same ladder sweep-impact prices, so the two curves can be compared row for row. */
 const BUCKETS = [1_000, 5_000, 10_000, 25_000, 50_000, 100_000];
@@ -114,6 +134,8 @@ interface Burst {
   moveBps: number;
   /** The same, a minute after the burst ended. Null when the tape ends first. */
   settleBps: number | null;
+  /** And at five minutes, the horizon the finding actually trades. */
+  settleLongBps: number | null;
   /** The minute the burst began, for joining against per-minute features. */
   minute: number;
 }
@@ -155,14 +177,17 @@ export function bursts(prints: Print[]): Burst[] {
       const dir = buy ? 1 : -1;
       const moveBps = (((end - before) / before) * 10_000) * dir;
 
-      let settleBps: number | null = null;
-      const target = prints[j - 1].t + SETTLE_MS;
-      for (let k = j; k < prints.length; k++) {
-        if (prints[k].t >= target) {
-          settleBps = (((prints[k].price - before) / before) * 10_000) * dir;
-          break;
+      const at = (ms: number): number | null => {
+        const target = prints[j - 1].t + ms;
+        for (let k = j; k < prints.length; k++) {
+          if (prints[k].t >= target) {
+            return (((prints[k].price - before) / before) * 10_000) * dir;
+          }
         }
-      }
+        return null;
+      };
+      const settleBps = at(SETTLE_MS);
+      const settleLongBps = at(SETTLE_LONG_MS);
 
       out.push({
         buy,
@@ -170,6 +195,7 @@ export function bursts(prints: Print[]): Burst[] {
         prints: j - i,
         moveBps,
         settleBps,
+        settleLongBps,
         minute: Math.floor(prints[i].t / 60_000) * 60_000,
       });
     }
@@ -281,25 +307,32 @@ export function revertBySignal(all: Burst[], ratios: Map<number, number>, decile
   const lo = sorted[Math.floor(sorted.length * decile)];
   const hi = sorted[Math.floor(sorted.length * (1 - decile))];
 
-  const share = (b: Burst): number | null => {
-    if (b.settleBps === null || !(b.moveBps > 0)) return null;
-    return Math.max(0, Math.min(1, (b.moveBps - b.settleBps) / b.moveBps));
+  const shareAt = (b: Burst, long: boolean): number | null => {
+    const settled = long ? b.settleLongBps : b.settleBps;
+    if (settled === null || !(b.moveBps > 0)) return null;
+    return Math.max(0, Math.min(1, (b.moveBps - settled) / b.moveBps));
   };
 
   const bucket = (pick: (r: number) => boolean) => {
     const xs: number[] = [];
+    const longs: number[] = [];
     const moves: number[] = [];
     for (const b of all) {
       const r = ratios.get(b.minute);
       if (r === undefined || !pick(r)) continue;
-      const sh = share(b);
-      if (sh === null) continue;
-      xs.push(sh);
-      moves.push(b.moveBps);
+      const sh = shareAt(b, false);
+      if (sh !== null) {
+        xs.push(sh);
+        moves.push(b.moveBps);
+      }
+      const lo2 = shareAt(b, true);
+      if (lo2 !== null) longs.push(lo2);
     }
     return {
       bursts: xs.length,
       revertShare: xs.length >= 100 ? median(xs) : null,
+      /* At the horizon the finding trades, which is the one that decides cost. */
+      revertShare5m: longs.length >= 100 ? median(longs) : null,
       moveBps: xs.length >= 100 ? median(moves) : null,
     };
   };
@@ -377,8 +410,14 @@ async function main() {
     );
   }
   if (signal) {
-    const f = (b: { revertShare: number | null; moveBps: number | null; bursts: number }) =>
-      `${b.revertShare === null ? "n/a" : (b.revertShare * 100).toFixed(1) + "%"} reverted, ` +
+    const f = (b: {
+      revertShare: number | null;
+      revertShare5m: number | null;
+      moveBps: number | null;
+      bursts: number;
+    }) =>
+      `${b.revertShare === null ? "n/a" : (b.revertShare * 100).toFixed(1) + "%"} reverted at 1m, ` +
+      `${b.revertShare5m === null ? "n/a" : (b.revertShare5m * 100).toFixed(1) + "%"} at 5m, ` +
       `move ${b.moveBps === null ? "n/a" : b.moveBps.toFixed(2) + "bp"} (n=${b.bursts.toLocaleString()})`;
     console.error(`[realized] extreme-flow minutes: ${f(signal.extreme)}`);
     console.error(`[realized] all other minutes:    ${f(signal.middle)}`);
