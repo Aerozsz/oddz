@@ -1,5 +1,5 @@
 {
-  "at": 1790339311608,
+  "at": 1790339487403,
   "symbol": "LITUSDT",
   "days": 3,
   "dates": [
@@ -67,5 +67,19 @@
       "temporaryBps": 8.446909464600306
     }
   ],
+  "signal": {
+    "extreme": {
+      "bursts": 53098,
+      "revertShare": 0.09999999999973355,
+      "moveBps": 1.3806433798152795
+    },
+    "middle": {
+      "bursts": 243444,
+      "revertShare": 0.17619047619044675,
+      "moveBps": 1.4543037001644297
+    },
+    "loRatio": 0.2668845450837612,
+    "hiRatio": 0.7349522212847254
+  },
   "note": "Impact measured on executed sweeps rather than modelled from resting depth. Runs HIGH by construction: these bursts are endogenous, so part of what they moved is their own information becoming public rather than the mechanical cost of consuming depth. The resting-depth curve in impact-<symbol>.json runs low for the opposite reason. The honest cost sits between them, and a sizing table that survives both ends is one worth acting on. temporaryBps is the part that reverted within a minute and is what a round trip pays."
 }

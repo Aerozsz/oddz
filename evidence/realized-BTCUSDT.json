@@ -1,5 +1,5 @@
 {
-  "at": 1790339407252,
+  "at": 1790339549914,
   "symbol": "BTCUSDT",
   "days": 3,
   "dates": [
@@ -67,5 +67,19 @@
       "temporaryBps": 0
     }
   ],
+  "signal": {
+    "extreme": {
+      "bursts": 169890,
+      "revertShare": 0.18032786885128574,
+      "moveBps": 0.011717793352709185
+    },
+    "middle": {
+      "bursts": 913088,
+      "revertShare": 0,
+      "moveBps": 0.01177271132673992
+    },
+    "loRatio": 0.24310232967365888,
+    "hiRatio": 0.7303725001740107
+  },
   "note": "Impact measured on executed sweeps rather than modelled from resting depth. Runs HIGH by construction: these bursts are endogenous, so part of what they moved is their own information becoming public rather than the mechanical cost of consuming depth. The resting-depth curve in impact-<symbol>.json runs low for the opposite reason. The honest cost sits between them, and a sizing table that survives both ends is one worth acting on. temporaryBps is the part that reverted within a minute and is what a round trip pays."
 }
