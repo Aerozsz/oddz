@@ -286,6 +286,16 @@ export interface RunSummary {
       tradesPerDay: number;
       refused?: string;
     }[];
+    /**
+     * The same edge against the two bounds measured on executed sweeps.
+     *
+     * The modelled curve prices resting depth and so runs cheap; the full move
+     * a real sweep made runs dear, because part of it is the information that
+     * sweep carried and a mechanical signal carries none. The reverting part
+     * sits between. Quoting one number without the bracket is what made the
+     * earlier tables read more confident than the evidence.
+     */
+    bounds?: { usd: number; pessimisticNetBps: number | null; revertingNetBps: number | null }[];
     /** The size that earns most per round trip: the knee, in dollars. */
     best?: { usd: number; netBps: number; netUsd: number; tradesPerDay: number } | null;
     /** The same, priced at the ninetieth-percentile minute rather than the median. */
@@ -430,6 +440,29 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
         );
       }
       lines.push("");
+      if (z.bounds && z.bounds.some((b) => b.pessimisticNetBps !== null)) {
+        lines.push(
+          "Against impact measured on executed sweeps rather than modelled from resting depth — " +
+            "the full move a real order of this size made, and the part of it that reverted within " +
+            "a minute:",
+        );
+        lines.push("");
+        lines.push("| size | net if it pays the whole move | net if it pays only the revert |");
+        lines.push("| --- | --- | --- |");
+        for (const b of z.bounds) {
+          if (b.pessimisticNetBps === null && b.revertingNetBps === null) continue;
+          const f = (x: number | null) =>
+            x === null ? "—" : `${x > 0 ? "**+" : ""}${x.toFixed(2)}${x > 0 ? "**" : ""}bp`;
+          lines.push(`| $${b.usd.toLocaleString()} | ${f(b.pessimisticNetBps)} | ${f(b.revertingNetBps)} |`);
+        }
+        lines.push("");
+        lines.push(
+          "The truth is between the two columns. A mechanical signal carries no private " +
+            "information, so it should not pay the whole move; it does arrive alongside informed " +
+            "flow, so it will not pay only the revert either.",
+        );
+        lines.push("");
+      }
       for (const r of refusals) lines.push(`- ${r}`);
       if (refusals.length) lines.push("");
       if (z.best) {

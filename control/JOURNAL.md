@@ -1036,3 +1036,71 @@ what survives is the book on its good days.
 
 Still nothing to arm. The model prices resting depth, and resting is not
 available.
+
+## 2026-09-25 — the model was checked against reality, and survived at the end it was expected to fail
+
+The largest stated caveat on this project's only real number was that
+`sweep-impact` prices *resting* depth: quotes are pulled as an order arrives, so
+a book showing $25,000 within 1% does not fill $25,000 within 1%. Every entry
+since has repeated that the real knee must therefore be **lower** than $10,000,
+not higher.
+
+It is measurable without a live connection, and nothing had measured it.
+aggTrades records orders that really executed with the side that crossed, so
+consecutive one-sided prints inside 250ms are one order walking the book: the
+notional it lifted and the distance it moved are both on the tape. 380,411
+bursts out of 2.1M prints over three days.
+
+| size | modelled | realised move | reverting part | bursts |
+|---|---|---|---|---|
+| $1,000 | 0.18bp | 0.81bp | 0.00bp | 354,033 |
+| $5,000 | 0.88bp | 4.33bp | 0.96bp | 19,678 |
+| $10,000 | 1.77bp | 6.43bp | 1.55bp | 4,520 |
+| $25,000 | 4.42bp | 8.47bp | 2.16bp | 1,674 |
+| $50,000 | 8.31bp | 10.86bp | 5.42bp | 385 |
+| $100,000 | 22.85bp | 12.58bp | 8.45bp | 121 |
+
+**The expected failure did not happen, and something else did.** The modelled
+curve is nearly linear in size; the realised one is strongly concave — 0.81bp at
+$1,000 rising only to 12.58bp at $100,000, where the model charges 22.85bp. A
+book deep enough to be modelled linearly is not the book real sweeps meet: real
+sweeps meet a book that refreshes. So at the large end the resting-depth model
+is **conservative**, not optimistic, which is the opposite of what four entries
+have asserted.
+
+At the small end it is optimistic, by a factor of four. But the whole move is
+not a cost. Split out the part that reverts within a minute — the push you
+apply and the book takes back, which is what a round trip pays twice — and the
+two curves agree closely at $5,000 and $10,000 (0.96 against 0.88, 1.55 against
+1.77) and the model is dearer above that. The remainder is information: a trader
+who sweeps $50,000 usually has a reason, and price staying moved is that reason
+becoming public, not a cost of consuming depth.
+
+**So the honest answer is a bracket, and it is wide.** On the delayed entry,
+edge 16.06bp against a 7.48bp base:
+
+- If a trade pays the **whole move** a real sweep of its size made: only ~$1,000
+  survives, at about $0.70 a round trip. $300/day would need 429 of them, and a
+  five-minute decile signal fires perhaps 144 times. **Not reachable.**
+- If it pays only the **reverting part**: $10,000 nets 5.48bp for $5.48 a trip
+  (55/day), $25,000 nets 4.26bp for $10.65 (29/day). **Reachable.**
+
+Neither bound is the answer. A mechanical decile signal carries no private
+information, so it should not pay the whole move; but `takerRatioFade` is a
+*flow* feature, so its fires arrive precisely alongside informed sweeps, and it
+will not pay only the revert either. Where it lands inside that bracket decides
+whether this is a business or an arithmetic exercise, and nothing measured so
+far distinguishes the two.
+
+FINDINGS now prints both bounds beside the modelled table, so no future pass
+quotes the middle column as if it were settled.
+
+**What this retires and what it opens.** Retired: the claim that the knee is
+lower than modelled — measured on executions it is not, at any size above
+$5,000. Opened, and now the sharpest question in the project: how much of the
+realised move does an uninformed order actually pay? The next measurement is to
+split bursts by whether price stayed moved, and ask whether bursts arriving
+*during* a `takerRatioFade` decile minute revert more or less than average. That
+is the same archive, the same three days, and it answers the bracket directly.
+
+Still nothing to arm.

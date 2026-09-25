@@ -48,7 +48,7 @@ import { familyZ } from "../lib/sweep/agent/learn";
 import { scoreFunding, type FundingPoint } from "../lib/sweep/backtest/funding";
 import { renderFindings, type RunSummary } from "../lib/sweep/backtest/findings";
 import { estimateCost } from "../lib/sweep/backtest/cost";
-import { loadImpact, sizeLadder, bestSize, ladderNet } from "../lib/sweep/backtest/impact";
+import { loadImpact, sizeLadder, bestSize, ladderNet, type RealizedCurve } from "../lib/sweep/backtest/impact";
 
 const arg = (name: string, fallback: string): string => {
   const i = process.argv.indexOf(`--${name}`);
@@ -586,7 +586,22 @@ function main() {
   })();
   const sizing = (() => {
     if (!impact || !headline) return undefined;
-    const ladder = sizeLadder(impact, ROUND_TRIP_BPS);
+    /*
+     * The executed-sweep curve, when sweep-realized has run. It brackets the
+     * modelled one from the expensive side, so its absence costs the two
+     * bounding columns and nothing else.
+     */
+    const realized = ((): RealizedCurve | null => {
+      const rp = resolve(`evidence/realized-${symbol}.json`);
+      if (!existsSync(rp)) return null;
+      try {
+        const j = JSON.parse(readFileSync(rp, "utf8")) as RealizedCurve;
+        return Array.isArray(j?.sizes) && j.sizes.length ? j : null;
+      } catch {
+        return null;
+      }
+    })();
+    const ladder = sizeLadder(impact, ROUND_TRIP_BPS, realized);
     /* The same feature entered immediately, when the table is built on a delay. */
     const immediate = headline.horizon.endsWith("d")
       ? ranked.find(
@@ -599,6 +614,17 @@ function main() {
       edgeBps: headline.spreadBps,
       immediateBps: immediate?.spreadBps,
       rows: ladderNet(ladder, headline.spreadBps),
+      bounds: ladder.map((r) => ({
+        usd: r.usd,
+        pessimisticNetBps:
+          r.realizedTotalBps === null || r.realizedTotalBps === undefined
+            ? null
+            : Math.abs(headline.spreadBps) - r.realizedTotalBps,
+        revertingNetBps:
+          r.revertingTotalBps === null || r.revertingTotalBps === undefined
+            ? null
+            : Math.abs(headline.spreadBps) - r.revertingTotalBps,
+      })),
       best: bestSize(ladder, headline.spreadBps),
       bestStress: bestSize(ladder, headline.spreadBps, 300, true),
     };

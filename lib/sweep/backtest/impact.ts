@@ -69,6 +69,20 @@ export interface ImpactReport {
  */
 const MAX_OFF_CURVE = 0.1;
 
+/**
+ * The same ladder measured on executed sweeps, from `realized-<symbol>.json`.
+ *
+ * `moveBps` is the whole distance a real order of this size travelled, and
+ * `temporaryBps` is the part that came back within a minute. The first is the
+ * pessimistic bound — it includes the information the order carried, which a
+ * mechanical signal does not have — and the second is the optimistic one, being
+ * only the push that reverts. A round trip's true cost is between them, and
+ * neither is worth reporting without the other.
+ */
+export interface RealizedCurve {
+  sizes: { usd: number; moveBps: number | null; temporaryBps: number | null; bursts: number }[];
+}
+
 export interface SizedCost {
   usd: number;
   /** Fees plus spread: what the size-blind bar charged. */
@@ -82,6 +96,13 @@ export interface SizedCost {
   /** baseBps + stressImpactBps. */
   stressTotalBps: number | null;
   offCurveShare: number;
+  /**
+   * The bar at this size if a real order pays everything an executed sweep of
+   * the same size moved. Null when no burst of this size was measured.
+   */
+  realizedTotalBps?: number | null;
+  /** The bar if it pays only the part that reverts. */
+  revertingTotalBps?: number | null;
   /** Why this row carries nulls, when it does. */
   refused?: string;
 }
@@ -110,7 +131,11 @@ export function loadImpact(path: string): ImpactReport | null {
  * before impact. Impact is doubled because the published number is one way and
  * a position is opened and closed.
  */
-export function sizeLadder(report: ImpactReport, baseBps: number): SizedCost[] {
+export function sizeLadder(
+  report: ImpactReport,
+  baseBps: number,
+  realized: RealizedCurve | null = null,
+): SizedCost[] {
   return report.sizes.map((row) => {
     const offCurve = Number.isFinite(row.offCurveShare) ? row.offCurveShare : 1;
     const priceable =
@@ -122,9 +147,17 @@ export function sizeLadder(report: ImpactReport, baseBps: number): SizedCost[] {
         ? (row.p90Bps as number) * 2
         : null;
 
+    const real = realized?.sizes.find((r) => r.usd === row.usd);
+    // Doubled for the same reason the modelled curve is: a position is opened
+    // and closed, and each leg walks the book.
+    const twice = (x: number | null | undefined) =>
+      typeof x === "number" && Number.isFinite(x) ? baseBps + x * 2 : null;
+
     return {
       usd: row.usd,
       baseBps,
+      realizedTotalBps: twice(real?.moveBps),
+      revertingTotalBps: twice(real?.temporaryBps),
       impactBps,
       stressImpactBps: stress,
       totalBps: impactBps === null ? null : baseBps + impactBps,
