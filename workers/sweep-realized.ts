@@ -114,6 +114,8 @@ interface Burst {
   moveBps: number;
   /** The same, a minute after the burst ended. Null when the tape ends first. */
   settleBps: number | null;
+  /** The minute the burst began, for joining against per-minute features. */
+  minute: number;
 }
 
 /**
@@ -162,9 +164,42 @@ export function bursts(prints: Print[]): Burst[] {
         }
       }
 
-      out.push({ buy, usd, prints: j - i, moveBps, settleBps });
+      out.push({
+        buy,
+        usd,
+        prints: j - i,
+        moveBps,
+        settleBps,
+        minute: Math.floor(prints[i].t / 60_000) * 60_000,
+      });
     }
     i = j;
+  }
+  return out;
+}
+
+/**
+ * The taker ratio, minute by minute, from the same tape.
+ *
+ * `takerRatioFade` is the project's largest surviving finding and it is a flow
+ * feature: it fires on minutes where aggressive volume is lopsided. Those
+ * minutes are computable from this same file, so the bursts arriving inside
+ * them can be separated from the rest — which is the only way to answer the
+ * question the bracket leaves open.
+ */
+export function takerRatioByMinute(prints: Print[]): Map<number, number> {
+  const buy = new Map<number, number>();
+  const all = new Map<number, number>();
+  for (const p of prints) {
+    const m = Math.floor(p.t / 60_000) * 60_000;
+    const usd = p.price * p.qty;
+    all.set(m, (all.get(m) ?? 0) + usd);
+    // buyerIsMaker means the aggressor sold, so the taker bought when it is false.
+    if (!p.buyerIsMaker) buy.set(m, (buy.get(m) ?? 0) + usd);
+  }
+  const out = new Map<number, number>();
+  for (const [m, total] of all) {
+    if (total > 0) out.set(m, (buy.get(m) ?? 0) / total);
   }
   return out;
 }
@@ -225,6 +260,59 @@ export function curve(all: Burst[]) {
   });
 }
 
+/**
+ * Whether the signal's own minutes are cheaper or dearer to trade in.
+ *
+ * The sizing bracket is wide because a real sweep's move is part depth and part
+ * information, and nothing said which part a mechanical order pays. This
+ * narrows it from the data: if bursts inside the extreme-flow minutes revert
+ * more than bursts elsewhere, the move in those minutes is mostly push rather
+ * than news, and an order firing there pays nearer the reverting bound. If they
+ * revert less, those minutes are exactly when informed traders are active and
+ * the pessimistic column is the honest one.
+ *
+ * The revert share — how much of the move came back — is the quantity, because
+ * it is a ratio and so is not confounded by the extreme minutes simply being
+ * more volatile.
+ */
+export function revertBySignal(all: Burst[], ratios: Map<number, number>, decile = 0.1) {
+  const sorted = [...ratios.values()].sort((a, b) => a - b);
+  if (sorted.length < 100) return null;
+  const lo = sorted[Math.floor(sorted.length * decile)];
+  const hi = sorted[Math.floor(sorted.length * (1 - decile))];
+
+  const share = (b: Burst): number | null => {
+    if (b.settleBps === null || !(b.moveBps > 0)) return null;
+    return Math.max(0, Math.min(1, (b.moveBps - b.settleBps) / b.moveBps));
+  };
+
+  const bucket = (pick: (r: number) => boolean) => {
+    const xs: number[] = [];
+    const moves: number[] = [];
+    for (const b of all) {
+      const r = ratios.get(b.minute);
+      if (r === undefined || !pick(r)) continue;
+      const sh = share(b);
+      if (sh === null) continue;
+      xs.push(sh);
+      moves.push(b.moveBps);
+    }
+    return {
+      bursts: xs.length,
+      revertShare: xs.length >= 100 ? median(xs) : null,
+      moveBps: xs.length >= 100 ? median(moves) : null,
+    };
+  };
+
+  return {
+    /* The minutes the finding actually fires in: flow lopsided either way. */
+    extreme: bucket((r) => r <= lo || r >= hi),
+    middle: bucket((r) => r > lo && r < hi),
+    loRatio: lo,
+    hiRatio: hi,
+  };
+}
+
 async function main() {
   const dates: string[] = [];
   for (let d = 2; d < 2 + days; d++) {
@@ -249,6 +337,7 @@ async function main() {
   prints.sort((a, b) => a.t - b.t);
   const all = bursts(prints);
   const rows = curve(all);
+  const signal = revertBySignal(all, takerRatioByMinute(prints));
 
   const report = {
     at: Date.now(),
@@ -260,6 +349,12 @@ async function main() {
     burstGapMs: BURST_GAP_MS,
     settleMs: SETTLE_MS,
     sizes: rows,
+    /*
+     * The bracket-narrowing measurement. `extreme` is the minutes the finding
+     * fires in — taker flow lopsided either way, which is what takerRatioFade
+     * reads — and `middle` is everything else.
+     */
+    signal,
     note:
       "Impact measured on executed sweeps rather than modelled from resting depth. Runs HIGH by " +
       "construction: these bursts are endogenous, so part of what they moved is their own " +
@@ -280,6 +375,13 @@ async function main() {
         `settle ${r.settleBps === null ? "  n/a" : r.settleBps.toFixed(2).padStart(6)}bp  ` +
         `temporary ${r.temporaryBps === null ? "n/a" : r.temporaryBps.toFixed(2) + "bp"}`,
     );
+  }
+  if (signal) {
+    const f = (b: { revertShare: number | null; moveBps: number | null; bursts: number }) =>
+      `${b.revertShare === null ? "n/a" : (b.revertShare * 100).toFixed(1) + "%"} reverted, ` +
+      `move ${b.moveBps === null ? "n/a" : b.moveBps.toFixed(2) + "bp"} (n=${b.bursts.toLocaleString()})`;
+    console.error(`[realized] extreme-flow minutes: ${f(signal.extreme)}`);
+    console.error(`[realized] all other minutes:    ${f(signal.middle)}`);
   }
   console.error(`[realized] -> ${outPath}`);
 }

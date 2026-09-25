@@ -13,7 +13,7 @@
  *  - reporting a temporary impact of zero, which is a cost bar everything clears
  */
 
-import { bursts, curve } from "/home/user/oddz/workers/sweep-realized";
+import { bursts, curve, takerRatioByMinute, revertBySignal } from "/home/user/oddz/workers/sweep-realized";
 
 let failures = 0;
 const ok = (name: string, cond: boolean, detail = "") => {
@@ -127,12 +127,55 @@ function aThinBandRefusesToAnswer() {
   ok("and no temporary component", ten.temporaryBps === null);
 }
 
+function theSignalSplitSeparatesPushFromNews() {
+  console.log("\nthe signal split tells a push apart from news");
+  /*
+   * Two regimes, built to be told apart. In the lopsided minutes every sweep
+   * fully reverts — pure push, so an order firing there pays the reverting
+   * bound. In the balanced minutes none of it comes back — pure news, where the
+   * pessimistic column is the honest one. If the split cannot separate these it
+   * cannot narrow the bracket on real data either.
+   */
+  const tape: P[] = [p(0, 100.0, 1, true)];
+  let t = 60_000;
+  for (let i = 0; i < 200; i++) {
+    // A one-sided minute: only taker buys, and the move comes back.
+    tape.push(p(t, 100.0, 50, false));
+    tape.push(p(t + 10, 100.05, 50, false));
+    tape.push(p(t + 61_000, 100.0, 1, true));
+    t += 120_000;
+  }
+  for (let i = 0; i < 200; i++) {
+    // A balanced minute: both sides trade, and the move stays.
+    tape.push(p(t, 100.0, 25, true));
+    tape.push(p(t + 5, 100.0, 25, false));
+    tape.push(p(t + 10, 100.05, 50, false));
+    tape.push(p(t + 61_000, 100.05, 1, true));
+    t += 120_000;
+  }
+  tape.sort((a, b) => a.t - b.t);
+
+  const ratios = takerRatioByMinute(tape);
+  ok("a one-sided minute reads lopsided", [...ratios.values()].some((r) => r > 0.95));
+  ok("a balanced minute does not", [...ratios.values()].some((r) => r < 0.9));
+
+  const split = revertBySignal(bursts(tape), ratios);
+  ok("the split computed", split !== null);
+  ok("extreme minutes revert", (split?.extreme.revertShare ?? 0) > 0.9, String(split?.extreme.revertShare));
+  ok("other minutes do not", (split?.middle.revertShare ?? 1) < 0.5, String(split?.middle.revertShare));
+  ok(
+    "a burst carries the minute it began in",
+    bursts(tape).every((b) => b.minute % 60_000 === 0),
+  );
+}
+
 console.log("realised impact");
 aSweepIsOneOrder();
 aSellCostsTheSeller();
 aGapSplitsTheBurst();
 aPushThatRevertsIsTemporary();
 aThinBandRefusesToAnswer();
+theSignalSplitSeparatesPushFromNews();
 
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
 console.log("\nall good — realised impact");
