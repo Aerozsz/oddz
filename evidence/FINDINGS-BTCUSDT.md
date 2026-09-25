@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-25T06:31:42.963Z by the research loop. Do not edit — it is
+Generated 2026-09-25T06:36:16.043Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -63,6 +63,19 @@ Priced on the delayed entry. The same feature entered at the decision close read
 | $25,000 | 7.03bp | -3.76bp | $-9.40 | never | -4.02bp |
 | $50,000 | 7.04bp | -3.76bp | $-18.82 | never | -4.29bp |
 | $100,000 | 7.05bp | -3.78bp | $-37.77 | never | -4.83bp |
+
+Against impact measured on executed sweeps rather than modelled from resting depth — the full move a real order of this size made, and the part of it that reverted within a minute:
+
+| size | net if it pays the whole move | net if it pays only the revert |
+| --- | --- | --- |
+| $1,000 | -3.78bp | -3.82bp |
+| $5,000 | -3.78bp | -3.75bp |
+| $10,000 | -3.78bp | -3.75bp |
+| $25,000 | -3.78bp | -3.75bp |
+| $50,000 | -3.78bp | -3.75bp |
+| $100,000 | -4.27bp | -3.75bp |
+
+The truth is between the two columns. A mechanical signal carries no private information, so it should not pay the whole move; it does arrive alongside informed flow, so it will not pay only the revert either.
 
 **No measured size pays.** The edge is smaller than the cost of the smallest order the depth curve can price, which is a verdict about this finding and not a missing number.
 

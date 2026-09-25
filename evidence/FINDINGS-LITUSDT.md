@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-25T06:30:24.028Z by the research loop. Do not edit — it is
+Generated 2026-09-25T06:35:01.876Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -63,6 +63,19 @@ Priced on the delayed entry. The same feature entered at the decision close read
 | $25,000 | 16.59bp | -1.28bp | $-3.19 | never | -7.83bp |
 | $50,000 | — | — | — | never | — |
 | $100,000 | — | — | — | never | — |
+
+Against impact measured on executed sweeps rather than modelled from resting depth — the full move a real order of this size made, and the part of it that reverted within a minute:
+
+| size | net if it pays the whole move | net if it pays only the revert |
+| --- | --- | --- |
+| $1,000 | **+5.95**bp | **+7.57**bp |
+| $5,000 | -1.09bp | **+5.65**bp |
+| $10,000 | -5.28bp | **+4.47**bp |
+| $25,000 | -9.36bp | **+3.25**bp |
+| $50,000 | -14.15bp | -3.27bp |
+| $100,000 | -17.58bp | -9.32bp |
+
+The truth is between the two columns. A mechanical signal carries no private information, so it should not pay the whole move; it does arrive alongside informed flow, so it will not pay only the revert either.
 
 - $50,000: 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost
 - $100,000: 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost
