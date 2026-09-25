@@ -1165,3 +1165,60 @@ measurements have not closed, and the project has known since August that
 That is the next work, and it is not a research question — it is a defect.
 
 Still nothing to arm.
+
+## 2026-09-25 (later still) — the maker evidence is six weeks stale and does not say what it is quoted as saying
+
+Having named the maker path as the only route the measurements have not closed,
+I went to find out why `canPostEntry` has never allowed a maker fill. The answer
+is that the question has not been asked since the thing that would change it was
+fixed.
+
+What the code actually does, traced end to end. `canPostEntries` is `true` on
+every live path — `sweep-control` passes it at all four call sites and
+`sweep-shadow` passes it too — so the config flag is not the blocker, and neither
+is the order layer: `orders.ts` already sends `GTX`, which is post-only, and
+documents why that is the safe mechanism. The gate is entirely
+`canPostEntry(markout)`: refuse if mark-out is cold, refuse if toxicity is at or
+above 0.6 of the half-spread, otherwise post.
+
+And in `evidence/snapshot.json`, all thirty recorded decisions read
+`markoutWarm: false` with `markoutToxicity: null`. Zero warm. Which looks like a
+damning answer until you read the timestamps: **2026-08-11 to 2026-08-12**. The
+dead-tape defect that kept mark-out cold was fixed on 2026-08-28 by polling the
+tape over REST, and mark-out warmed for the first time in this project that day —
+309 horizons resolved. The live agent has not run since, because the operator's
+machine is off, which is the whole reason the research moved to a runner.
+
+So "the maker path took 0 of N" is a fact about a build that no longer exists.
+It has been carried forward in FINDINGS, in the handover and in my own last
+entry as if it were current. It is not evidence for anything about the maker
+route; it is an absence of evidence, and the two have been confused here for six
+weeks.
+
+**What this does not mean.** It does not mean the maker path works. It means the
+question is open and the live path cannot answer it while nothing is live.
+
+**The archive can answer the part that matters.** Whether a resting entry gets
+filled and what it earns is simulable from aggTrades: post at the touch when the
+signal fires, and a later print trading at or through that price on the opposite
+side is a fill. Queue position is approximated — this cannot know who was ahead —
+but "did price come to you" is exact, and that is the binding question.
+
+The economics to measure, in order:
+
+1. **Fill rate** inside the five-minute window. A resting entry that never fills
+   trades nothing, and a 16bp edge on 20% of signals is a quarter of the trade
+   count the ladder assumed.
+2. **Adverse selection**, which is the one that decides it. A passive order fills
+   *because* price came to it, so fills concentrate exactly where the move went
+   against the signal. The 0.0% five-minute reversion measured this morning is
+   not encouraging on this point — it says moves in these minutes persist — and
+   conditional-on-fill return is the number that settles whether resting escapes
+   the cost or merely renames it.
+
+Resting removes impact, which is 12.86bp of the 20.34bp that killed $10,000. It
+does not remove being the counterparty someone else wanted. Nothing here should
+be read as expecting the maker route to survive; it should be read as the one
+question left that has not been answered.
+
+Still nothing to arm.
