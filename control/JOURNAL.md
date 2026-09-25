@@ -1104,3 +1104,64 @@ split bursts by whether price stayed moved, and ask whether bursts arriving
 is the same archive, the same three days, and it answers the bracket directly.
 
 Still nothing to arm.
+
+## 2026-09-25 (later) — the bracket resolved, against the strategy
+
+The sizing table ended with a bracket and a question: does a mechanical order pay
+the whole move a real sweep makes, or only the part that reverts? $25,000 pays
+handsomely under one and loses badly under the other, so the question was the
+whole ballgame.
+
+`takerRatioFade` is a flow feature — it fires on minutes where aggressive volume
+is lopsided — and the taker ratio per minute comes off the same tape the bursts
+do. So the sweeps arriving inside the finding's own minutes can be separated
+from the rest and their reversion compared. 380,411 bursts, 53,098 of them in
+the extreme decile minutes.
+
+| | revert at 1m | revert at 5m | median move |
+|---|---|---|---|
+| extreme-flow minutes (where it fires) | 10.0% | **0.0%** | 1.38bp |
+| every other minute | 17.6% | 11.8% | 1.45bp |
+
+**The first reading was nearly a mistake worth recording.** At one minute the
+extreme minutes revert less than ordinary ones, which reads as "those minutes
+are informed, charge the whole move" — and charging the whole move kills every
+size above $1,000. But that double-counts: `takerRatioFade` *is* the claim that
+lopsided flow fades over five minutes. Charging the full move as a cost while
+booking the edge from that same move reversing counts the same basis points
+twice, once against and once for. The settle horizon has to match the horizon
+traded, so it now measures both.
+
+**Matching the horizon made it worse, not better.** At five minutes the median
+sweep in the finding's own minutes reverts **zero** — the push does not come
+back at all, and it comes back less than in ordinary minutes. The cost of
+walking the book in exactly the minutes this strategy wants to trade is
+permanent at the horizon it holds.
+
+That resolves the bracket to the pessimistic column. Only ~$1,000 clears, at
+about $0.72 a round trip, so $300/day needs 416 trips against a five-minute
+decile that offers perhaps 144. **The taker version of this does not reach the
+goal at any size the book supports.** Not "needs tuning" — the arithmetic is
+closed.
+
+**A tension worth naming rather than smoothing.** These two measurements point
+opposite ways on similar objects: the minute-level decile says price *fades*
+lopsided flow over five minutes, and the burst-level measurement says an
+individual sweep inside those minutes *continues*. Both can hold — the
+aggregate imbalance and one participant's sweep are not the same object — but
+one of them is wrong about something, and a pass that wants to overturn this
+verdict should start there rather than re-running the ladder.
+
+**What survives.** Every basis point of cost measured here is the cost of
+*crossing*. Impact is what an aggressor pays to consume depth; a resting order
+consumes none and pays none of it. The settled list already contains
+"cost-reduction — REJECTED", but that rejection was about fees on a two-cent
+gross edge, which is a different claim from this one: here the gross edge is
+15bp and the thing eating it is impact, which resting removes outright rather
+than discounts. The maker path is now the only route to the goal that the
+measurements have not closed, and the project has known since August that
+`canPostEntry` has never once allowed a maker fill.
+
+That is the next work, and it is not a research question — it is a defect.
+
+Still nothing to arm.
