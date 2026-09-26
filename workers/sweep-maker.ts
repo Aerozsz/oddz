@@ -24,7 +24,15 @@
  * readings are therefore reported: the optimistic one, where touching fills, and
  * a strict one requiring the print to trade strictly *through* the level, which
  * means the queue at that price was exhausted and anyone resting there filled.
- * The truth is between, and the strict reading is the one to plan on.
+ *
+ * Even the strict reading flatters, and by an unknown amount, which is why it is
+ * not left as a caveat in prose. An order joining a queue is behind whatever was
+ * already there, so it fills only once the aggressive volume arriving at that
+ * level exceeds what sat in front of it. That quantity is not in the archive —
+ * but the aggressive volume is, exactly, print by print. So the fill is also
+ * computed against an assumed queue ahead, at several sizes, and the fill rate
+ * and return are reported for each. A result that holds only at a queue of zero
+ * is a result about being first in line every time, which nobody is.
  *
  * ## Why the fill rate is only half the question
  *
@@ -69,6 +77,18 @@ const HOLD_MS = 300_000;
 const RESTS_MS = 300_000;
 /** The decile that fires, on the per-minute taker ratio. */
 const DECILE = 0.1;
+
+/**
+ * Queues to sit behind, as multiples of the order's own notional.
+ *
+ * Zero is the strict reading: the level cleared and we were somewhere in it.
+ * The rest ask what happens if others were there first. The order is modelled
+ * at $10,000, the size the ladder points at, so a queue of 5 is $50,000 of
+ * resting size ahead — plausible at the touch on a contract whose 0.2% band
+ * holds low hundreds of thousands.
+ */
+const ORDER_USD = 10_000;
+const QUEUES = [0, 1, 5, 20];
 
 interface Print {
   t: number;
@@ -191,6 +211,13 @@ export interface Attempt {
   /** Filled under the strict rule: a print traded through it. */
   through: boolean;
   /**
+   * Aggressive notional that arrived at or through the level before the rest
+   * expired. An order behind a queue of Q dollars fills only if this exceeds Q.
+   */
+  volumeAtLevel: number;
+  /** Return by assumed queue ahead, in the order of QUEUES. Null when unfilled. */
+  queuedRetBps: (number | null)[];
+  /**
    * Return from the resting price to the end of the hold, signed to the
    * position, in bps. Null when unfilled — an unfilled order earns nothing and
    * must not be averaged in as a zero, which would flatter the result by
@@ -257,6 +284,9 @@ export function attempts(prints: Print[], ms: Minute[]): Attempt[] {
     let through = false;
     let fillT: number | null = null;
     let strictFillT: number | null = null;
+    let volumeAtLevel = 0;
+    /* When the cumulative volume first passes each queue size. */
+    const queuedFillT: (number | null)[] = QUEUES.map(() => null);
     const deadline = m.ts + 60_000 + RESTS_MS;
 
     for (let i = m.next; i < prints.length; i++) {
@@ -279,7 +309,18 @@ export function attempts(prints: Print[], ms: Minute[]): Attempt[] {
         through = true;
         strictFillT = p.t;
       }
-      if (touched && through) break;
+      /*
+       * Only volume that actually reached our price counts toward clearing the
+       * queue in front of us. A print further away fills someone else.
+       */
+      if (reaches) {
+        volumeAtLevel += p.price * p.qty;
+        for (let q = 0; q < QUEUES.length; q++) {
+          if (queuedFillT[q] === null && volumeAtLevel >= QUEUES[q] * ORDER_USD + ORDER_USD) {
+            queuedFillT[q] = p.t;
+          }
+        }
+      }
     }
 
     const dir = long ? 1 : -1;
@@ -314,6 +355,8 @@ export function attempts(prints: Print[], ms: Minute[]): Attempt[] {
       restPrice,
       touched,
       through,
+      volumeAtLevel,
+      queuedRetBps: queuedFillT.map((t) => ret(t)),
       retBps: ret(fillT),
       strictRetBps: ret(strictFillT),
       takerRetBps,
@@ -332,6 +375,17 @@ const stderr = (xs: number[]): number | null => {
   return Math.sqrt(v / xs.length);
 };
 
+const stat = (xs: number[]) => ({
+  n: xs.length,
+  meanBps: mean(xs),
+  seBps: stderr(xs),
+  sigma: (() => {
+    const m = mean(xs);
+    const s = stderr(xs);
+    return m !== null && s !== null && s > 0 ? m / s : null;
+  })(),
+});
+
 export function summarise(all: Attempt[]) {
   const filled = all.filter((a) => a.retBps !== null).map((a) => a.retBps as number);
   const strict = all.filter((a) => a.strictRetBps !== null).map((a) => a.strictRetBps as number);
@@ -345,19 +399,25 @@ export function summarise(all: Attempt[]) {
     .filter((a) => !a.through && a.takerRetBps !== null)
     .map((a) => a.takerRetBps as number);
 
-  const stat = (xs: number[]) => ({
-    n: xs.length,
-    meanBps: mean(xs),
-    seBps: stderr(xs),
-    sigma: (() => {
-      const m = mean(xs);
-      const s = stderr(xs);
-      return m !== null && s !== null && s > 0 ? m / s : null;
-    })(),
+
+  /*
+   * The sensitivity that decides how much the strict reading was flattering.
+   * A queue of zero still requires our own size to trade at the level; each
+   * step up asks the same question with more people in front.
+   */
+  const byQueue = QUEUES.map((q, i) => {
+    const xs = all.filter((a) => a.queuedRetBps[i] !== null).map((a) => a.queuedRetBps[i] as number);
+    return {
+      queueAheadUsd: q * ORDER_USD,
+      fillRate: all.length ? xs.length / all.length : null,
+      ...stat(xs),
+    };
   });
 
   return {
     attempts: all.length,
+    orderUsd: ORDER_USD,
+    byQueue,
     fillRateTouched: all.length ? all.filter((a) => a.touched).length / all.length : null,
     fillRateThrough: all.length ? all.filter((a) => a.through).length / all.length : null,
     /** Passive, loose fill rule. */
@@ -471,6 +531,12 @@ async function main() {
       `different signal.` + (control !== null && control <= 0 ? " THEY DISAGREE IN SIGN." : ""),
   );
   console.error(`[maker] passive          ${f(summary.passive)}`);
+  for (const q of summary.byQueue) {
+    console.error(
+      `[maker]   behind $${q.queueAheadUsd.toLocaleString().padStart(7)}  ` +
+        `${((q.fillRate ?? 0) * 100).toFixed(1).padStart(5)}% filled  ${f(q)}`,
+    );
+  }
   console.error(`[maker] passive (strict) ${f(summary.passiveStrict)}`);
   console.error(`[maker] crossing         ${f(summary.taker)}`);
   console.error(`[maker] crossing, missed ${f(summary.takerOnMissed)}`);

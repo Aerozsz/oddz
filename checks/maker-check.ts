@@ -181,6 +181,45 @@ function aTouchIsNotAClearedQueue() {
   ok("and the strict sample is empty", s.passiveStrict.n === 0);
 }
 
+function theQueueSensitivityBites() {
+  console.log("\nsitting behind a queue reduces the fill rate");
+  /*
+   * Every signal is followed by a single small aggressive sell at the bid: it
+   * clears a queue of zero and nothing more. An order at the front fills; an
+   * order behind $50,000 of resting size does not. If the queue model did not
+   * bite here it would not bite on real data either, and the strict reading
+   * would keep flattering the result unchallenged.
+   */
+  /*
+   * 200 units at ~100 is about $20,000 of aggressive selling at the level:
+   * enough to fill a $10,000 order at the front of the queue and nothing like
+   * enough to reach one sitting behind $200,000. An earlier version printed 20
+   * units — $2,000 — which could not fill the order at any queue depth, so the
+   * front-of-queue case read as zero and looked like the model was broken when
+   * it was the fixture that could not pay for the order.
+   */
+  const t = tape(400, 10, (base, ts, hot) =>
+    hot ? [p(ts + 70_000, base * 0.999, 200, true), p(ts + 400_000, base, 5, true)] : [],
+  );
+  const ms = minutes(t, ratios(400, 10));
+  const hot = longs(attempts(t, ms), ms);
+  const s = summarise(hot);
+  const first = s.byQueue[0];
+  const deep = s.byQueue[s.byQueue.length - 1];
+  ok("the queue ladder is reported", s.byQueue.length >= 3, String(s.byQueue.length));
+  ok("the front of the queue fills", (first.fillRate ?? 0) > 0.5, String(first.fillRate));
+  ok("the back of it does not", (deep.fillRate ?? 1) < 0.1, String(deep.fillRate));
+  ok(
+    "fill rate falls monotonically with the queue",
+    s.byQueue.every((q, i) => i === 0 || (q.fillRate ?? 0) <= (s.byQueue[i - 1].fillRate ?? 0)),
+    JSON.stringify(s.byQueue.map((q) => q.fillRate)),
+  );
+  ok(
+    "and only volume at the level counts",
+    hot.every((x) => x.volumeAtLevel >= 0),
+  );
+}
+
 function adverseSelectionIsDetectable() {
   console.log("\nadverse selection shows up in the missed signals");
   /*
@@ -246,6 +285,7 @@ theGridIsForwardFilledOnly();
 anUnfilledOrderEarnsNothing();
 onlyTheOppositeAggressorFills();
 aTouchIsNotAClearedQueue();
+theQueueSensitivityBites();
 adverseSelectionIsDetectable();
 
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
