@@ -1,5 +1,5 @@
 {
-  "at": 1790425801453,
+  "at": 1790427254354,
   "symbol": "LITUSDT",
   "days": 3,
   "dates": [
@@ -9,35 +9,41 @@
   ],
   "prints": 2439935,
   "minutes": 4320,
+  "metricRows": 8640,
   "holdMs": 300000,
   "restsMs": 300000,
   "decile": 0.1,
-  "attempts": 865,
-  "fillRateTouched": 0.9734104046242774,
-  "fillRateThrough": 0.9699421965317919,
+  "attempts": 870,
+  "fillRateTouched": 0.9459770114942528,
+  "fillRateThrough": 0.9367816091954023,
   "passive": {
-    "n": 842,
-    "meanBps": -1.7976395943207664,
-    "seBps": 1.5957872845106382,
-    "sigma": -1.1264907370608783
+    "n": 823,
+    "meanBps": 12.53890602762831,
+    "seBps": 1.7240255313049802,
+    "sigma": 7.2730396388835015
   },
   "passiveStrict": {
-    "n": 839,
-    "meanBps": -1.965115282297551,
-    "seBps": 1.6025320724253722,
-    "sigma": -1.2262564451040425
+    "n": 815,
+    "meanBps": 12.164292523383141,
+    "seBps": 1.7392510945415658,
+    "sigma": 6.993982962873697
   },
   "taker": {
-    "n": 864,
-    "meanBps": -0.4324546684245224,
-    "seBps": 1.583693736357695,
-    "sigma": -0.27306710792398287
+    "n": 870,
+    "meanBps": 15.117594561866156,
+    "seBps": 1.6950517238629945,
+    "sigma": 8.918662686831414
   },
   "takerOnMissed": {
-    "n": 25,
-    "meanBps": 62.02300106254468,
-    "seBps": 8.686852172945189,
-    "sigma": 7.139870672107502
+    "n": 55,
+    "meanBps": 65.69029931003122,
+    "seBps": 5.866314015670819,
+    "sigma": 11.197883225233292
+  },
+  "control": {
+    "crossingMeanBps": 15.117594561866156,
+    "crossingSigma": 8.918662686831414,
+    "expectation": "Should land near the replay's own decile-tail mean for this symbol and horizon (LITUSDT t5d: +8.57bp; BTCUSDT t5d: +1.75bp). A disagreement — especially in sign — means this worker is selecting different minutes than the replay, and the passive numbers below describe a different signal."
   },
   "note": "Whether resting escapes the cost of crossing or only renames it. Fill is decided by a later print from the opposite aggressor reaching the resting price; queue position cannot be known from the archive, so the strict reading — a print trading THROUGH the level, which means the queue there was cleared — is the one to plan on. Unfilled attempts are excluded rather than scored as zero: an order that never filled earns nothing, and averaging non-trades in dilutes the losses and flatters the result. takerOnMissed is the adverse selection test: if crossing did well precisely on the signals a passive order missed, the passive order is being handed the losers by construction."
 }
