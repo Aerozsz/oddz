@@ -1368,3 +1368,43 @@ The ladder now prices one tail and prints the spread beside it, so the two canno
 be confused again.
 
 Nothing armed, and less reason to arm than yesterday.
+
+## 2026-09-26 (correction) — the degraded FINDINGS was this machine's test suite, not the runner
+
+Yesterday's entry and my report to the operator both said a *pass* had replayed
+BTCUSDT on one day of data and published a plausible-looking FINDINGS page from
+it, and blamed the history step's `|| true`. That diagnosis was wrong.
+
+`sweep-backtest` wrote `evidence/FINDINGS-<symbol>.md` on a hardcoded path and
+never consulted `--out`. `checks/backtest-check.ts` replays two- and three-day
+fixtures into a temporary directory — so every run of the check suite, on this
+machine, rewrote the repository's real FINDINGS-BTCUSDT.md with a page built on a
+test fixture. Same layout, same 3.72-sigma Bonferroni bar over 250 tests, same
+"holds in both halves" claims, a thirtieth of the data. It read exactly like
+something a research pass had produced, and it sat beside genuine evidence,
+which is why I attributed it to one.
+
+The ten-day publish floor I added in the same session is what exposed it: the
+sample count in the stray file changed from 1,940 over one day to 4,260 over
+three, following the fixture rather than any download. A fault that tracks the
+test suite is not a fault in the runner.
+
+Fixed at the cause: the page is written beside the report, so a worker told where
+to put its output has no business writing anywhere else. The check now asserts
+the isolation — it reads the real file before and after and requires it
+unchanged, and requires the page to appear next to the report instead.
+
+**What still stands from that entry.** The ten-day floor is right on its own
+merits: a Bonferroni bar over 250 tests and a two-half holdout are meaningless
+across a day, so a short window is a fault to surface rather than a smaller
+result to publish. The history step's file count and warning are worth having.
+And the observation that this is the same silent-failure family as
+`Math.min(...closes)` holds — it is just that the failing component was the test
+suite, which makes it the worse version: a test that rewrites the artefact the
+project is judged by.
+
+**What I got wrong in how I reported it.** I told the operator a run had
+published a degraded page and that a later run overwrote it. Neither happened.
+The loop did not self-heal; there was nothing to heal. Every runner pass in the
+window replayed 41,700 samples over 29 days, which the RUNNER.md log said plainly
+and which I did not check against the claim I was making.

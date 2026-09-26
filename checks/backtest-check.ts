@@ -429,8 +429,66 @@ function prefersTheLayoutThatHasData() {
   }
 }
 
+/**
+ * The suite must not write into the repository's own evidence directory.
+ *
+ * The FINDINGS path was hardcoded to `evidence/FINDINGS-<symbol>.md` and ignored
+ * `--out`, so every run of this file replayed a two- or three-day fixture and
+ * overwrote the real FINDINGS-BTCUSDT.md with a page built on it — same layout,
+ * same Bonferroni bar, same "holds in both halves" claims, a thirtieth of the
+ * data. It was diagnosed as a runner fault first, because the file sat beside
+ * genuine evidence and read like something a pass had produced.
+ *
+ * A test that silently rewrites the artefact the project is judged by is worse
+ * than a failing test, so this asserts the isolation rather than trusting it.
+ */
+function theSuiteLeavesRealEvidenceAlone() {
+  const real = join("/home/user/oddz", "evidence", "FINDINGS-BTCUSDT.md");
+  const before = existsSync(real) ? readFileSync(real, "utf8") : null;
+
+  const dir = mkdtempSync(join(tmpdir(), "backtest-iso-"));
+  mkdirSync(join(dir, "bookDepth"), { recursive: true });
+  mkdirSync(join(dir, "1m"), { recursive: true });
+  const start = Date.UTC(2024, 0, 1);
+  const depth: string[] = ["timestamp,percentage,depth,notional"];
+  const bars: string[] = [];
+  let px = 60_000;
+  for (let i = 0; i < 3 * 1440; i++) {
+    const ts = start + i * 60_000;
+    px *= 1 + ((i % 7) - 3) / 200_000;
+    depth.push(`${ts},-1,100,9000000`);
+    depth.push(`${ts},1,100,9000000`);
+    bars.push(`${ts},${px},${px * 1.0005},${px * 0.9995},${px},10,${ts + 59_999},0,0,0,0,0`);
+  }
+  writeFileSync(
+    join(dir, "bookDepth", "BTCUSDT-bookDepth-2024-01-01.zip"),
+    makeZip("BTCUSDT-bookDepth-2024-01-01.csv", depth.join("\n")),
+  );
+  writeFileSync(
+    join(dir, "1m", "BTCUSDT-1m-2024-01-01.zip"),
+    makeZip("BTCUSDT-1m-2024-01-01.csv", bars.join("\n")),
+  );
+  const out = join(dir, "report.json");
+  try {
+    execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--symbol", "BTCUSDT", "--in", dir, "--out", out], {
+      cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000,
+      env: { ...process.env, SWEEP_MIN_DAYS: "0" },
+    });
+  } catch {
+    /* Whether it published is a different case; this one is only about where. */
+  }
+
+  const after = existsSync(real) ? readFileSync(real, "utf8") : null;
+  ok("the real FINDINGS is untouched", after === before);
+  ok(
+    "and the page went beside the report instead",
+    existsSync(join(dir, "FINDINGS-BTCUSDT.md")),
+  );
+}
+
 prefersTheLayoutThatHasData();
 aShortWindowIsRefused();
+theSuiteLeavesRealEvidenceAlone();
 if (failures) {
   console.error(`\n${failures} failure(s) in the layout selection`);
   process.exit(1);

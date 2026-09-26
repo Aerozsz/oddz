@@ -38,7 +38,7 @@
 import { maxOf, minOf } from "../lib/sweep/numeric";
 import { SYMBOL } from "../lib/sweep/config";
 import { existsSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
-import { resolve, join } from "node:path";
+import { resolve, join, dirname } from "node:path";
 import { unzipEntries, csvRows, parseTs } from "../lib/sweep/backtest/zip";
 import {
   emptyRoll, featuresFor, scoreFeature, edge,
@@ -796,7 +796,26 @@ function main() {
      * Naming the file after the contract makes the collision impossible rather
      * than unlikely, and a reader sees both runs instead of the most recent one.
      */
-    writeFileSync(resolve("evidence", `FINDINGS-${symbol}.md`), renderFindings([run]));
+    /*
+     * Beside the report, not in `evidence/` unconditionally.
+     *
+     * This path was hardcoded, and `--out` was not consulted — so every run of
+     * `checks/backtest-check.ts`, which replays two- and three-day fixtures into
+     * a temporary directory, quietly rewrote the repository's real
+     * FINDINGS-BTCUSDT.md with a page built on those fixtures. It looked exactly
+     * like the genuine article: same layout, same 3.72-sigma Bonferroni bar over
+     * 250 tests, same "holds in both halves" claims, on a thirtieth of the data.
+     *
+     * That was diagnosed as a runner fault first — a download that fetched one
+     * day of thirty — because the file appeared alongside real evidence and read
+     * as though a pass had produced it. It was the test suite, on this machine,
+     * every time it ran. The ten-day publish floor added in the same session is
+     * what made it visible at all, by changing which degraded page appeared.
+     *
+     * A worker told where to put its report has no business writing somewhere
+     * else.
+     */
+    writeFileSync(resolve(dirname(outPath), `FINDINGS-${symbol}.md`), renderFindings([run]));
   } catch (err) {
     console.error(`[backtest] could not write FINDINGS-${symbol}.md: ${err instanceof Error ? err.message : String(err)}`);
   }
