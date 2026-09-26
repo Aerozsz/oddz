@@ -1408,3 +1408,66 @@ published a degraded page and that a later run overwrote it. Neither happened.
 The loop did not self-heal; there was nothing to heal. Every runner pass in the
 window replayed 41,700 samples over 29 days, which the RUNNER.md log said plainly
 and which I did not check against the claim I was making.
+
+## 2026-09-26 (later) — the resting entry works on three days, and three days is not enough
+
+The maker simulation, rebuilt on the replay's own feature and the correct side,
+passes its control and returns the first positive number this project has
+produced.
+
+```
+870 attempts · 8,640 metric rows · 93.7% filled (strict)
+CONTROL crossing  +15.12bp  (8.9 sigma)     replay's tail: +8.57bp
+passive (strict)  +12.16bp  (7.0 sigma, n=815)
+crossing, missed  +65.69bp  (11.2 sigma, n=55)
+```
+
+**The control passes**, which is the part that matters most after the last
+attempt failed it. Crossing comes out positive, at the right order of magnitude,
+selecting the same tail the replay selects. It is not an exact match — 15.12
+against 8.57 — and that gap is the whole caveat below.
+
+**Adverse selection is present and small.** Resting earns 12.16bp where crossing
+earns 15.12bp, so the selection cost is about 3bp: the fills are slightly worse
+than the signals. The 55 attempts that never filled are worth 65.69bp, so misses
+do concentrate on the best outcomes — but they are 6.3% of attempts, not the 80%
+that would sink the route.
+
+**Why resting changes the arithmetic.** On this schedule maker is 2bp and taker
+5bp. A resting entry pays no impact at all, because it consumes no depth, and
+does not cross the spread. So the exit is the only leg that walks the book:
+
+| size | taker in/out | maker in, taker out |
+|---|---|---|
+| | 10bp fees + 2x impact + spread | 7bp fees + 1x impact + spread |
+| $1,000 | 10.85bp | 7.42bp |
+| $5,000 | 12.24bp | 8.12bp |
+| $10,000 | 14.07bp | 9.03bp |
+| $25,000 | 19.33bp | 11.66bp |
+
+Against the three-day gross figures that gives $3.13 a round trip at $10,000
+resting, against $1.05 crossing — roughly triple, and 96 trades a day for $300
+instead of 286.
+
+**And here is why none of that is a decision yet.** The crossing leg on three
+days is 15.12bp where the replay's twenty-nine-day tail is 8.57bp. Passive
+captured 80% of crossing on this window; apply that ratio to the better-sampled
+number and the passive gross is about 6.9bp — which loses to a 7.42bp cost at
+$1,000 and to everything above it. So:
+
+- on the three-day window the resting route clears comfortably at $10,000
+- on the twenty-nine-day edge it does not clear anywhere
+
+The two are not in conflict; one is a three-day sample of the other. Three days
+of a signal that fires 290 times a day is 870 observations, and 8.9 sigma on 870
+observations of an autocorrelated series is not the same evidence as the replay's
+41,700. **The window is the answer, and it is the only thing standing between
+this and a verdict.**
+
+The maker step now runs on ten days rather than three. The runner handled six
+million prints in ninety seconds, so ten is affordable where thirty is not, and
+ten days against twenty-nine is close enough to say whether 15.12 or 8.57 is the
+real gross.
+
+Nothing armed. But for the first time the thing being measured is a route that
+could work, rather than a route being closed.

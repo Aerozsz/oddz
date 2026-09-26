@@ -184,7 +184,14 @@ jobs:
             # reaching that price is a fill. The number that decides it is not
             # the fill rate but the return conditional on filling, since a
             # passive order fills precisely because price came to it.
-            npm run sweep:maker -- --symbol "$sym" --days 3 || true
+            # Ten days rather than three. The first clean run measured a crossing
+            # leg of 15.12bp on three days against the replay's 8.57bp over
+            # twenty-nine — same sign, right order, but nearly double, and the
+            # whole verdict turns on which gross is real. A tape window closer to
+            # the replay's is the only way to find out, and the runner chews
+            # through six million prints in ninety seconds, so ten days is
+            # affordable where thirty is not.
+            npm run sweep:maker -- --symbol "$sym" --days 10 || true
             echo "::endgroup::"
             echo "::group::backtest $sym"
             # Not `|| true`: a replay that refuses is the failure this workflow
