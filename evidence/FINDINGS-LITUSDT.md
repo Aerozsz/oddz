@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-26T06:27:50.310Z by the research loop. Do not edit — it is
+Generated 2026-09-26T06:31:10.599Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -51,16 +51,18 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 - `mom30` @ t30d: -8.8 sigma, -24.15bp — **beats fees** · halves -1.1/-10.7 sigma, -3.7/-44.8bp — DOES NOT HOLD IN BOTH
 - `mom30` @ t30: -8.6 sigma, -23.66bp — **beats fees** · halves -1.1/-10.5 sigma, -3.8/-44.0bp — DOES NOT HOLD IN BOTH
 
-#### Sizing — `takerRatioFade` @ t5d, edge 15.69bp
+#### Sizing — `takerRatioFade` @ t5d, edge 8.57bp
 
-Priced on the delayed entry. The same feature entered at the decision close reads 25.20bp, and the 9.51bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
+Priced on **one tail's own mean return**, not the decile spread. The spread is 15.69bp — bottom decile 8.57bp, top decile -7.13bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
+
+Priced on the delayed entry. The same feature entered at the decision close reads 25.20bp, and the 16.63bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 8.08bp | **+7.61**bp | $0.76 | 395 | 7.34bp |
-| $5,000 | 9.48bp | **+6.21**bp | $3.11 | 97 | 4.88bp |
-| $10,000 | 11.23bp | **+4.46**bp | $4.46 | 68 | 1.80bp |
-| $25,000 | 16.47bp | -0.78bp | $-1.94 | never | -7.44bp |
+| $1,000 | 8.08bp | **+0.48**bp | $0.05 | 6,187 | 0.22bp |
+| $5,000 | 9.48bp | -0.91bp | $-0.46 | never | -2.25bp |
+| $10,000 | 11.23bp | -2.66bp | $-2.66 | never | -5.33bp |
+| $25,000 | 16.47bp | -7.90bp | $-19.76 | never | -14.57bp |
 | $50,000 | — | — | — | never | — |
 | $100,000 | — | — | — | never | — |
 
@@ -68,19 +70,19 @@ Against impact measured on executed sweeps rather than modelled from resting dep
 
 | size | net if it pays the whole move | net if it pays only the revert |
 | --- | --- | --- |
-| $1,000 | **+6.36**bp | **+7.96**bp |
-| $5,000 | -0.38bp | **+5.51**bp |
-| $10,000 | -4.67bp | **+5.46**bp |
-| $25,000 | -8.78bp | **+4.00**bp |
-| $50,000 | -13.32bp | **+1.63**bp |
-| $100,000 | -19.89bp | -5.89bp |
+| $1,000 | -0.76bp | **+0.83**bp |
+| $5,000 | -7.50bp | -1.62bp |
+| $10,000 | -11.80bp | -1.67bp |
+| $25,000 | -15.91bp | -3.13bp |
+| $50,000 | -20.45bp | -5.49bp |
+| $100,000 | -27.02bp | -13.01bp |
 
 The truth is between the two columns. A mechanical signal carries no private information, so it should not pay the whole move; it does arrive alongside informed flow, so it will not pay only the revert either.
 
 - $50,000: 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost
 - $100,000: 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost
 
-Best size $10,000: **$4.46 a round trip**, so 68 of them a day for $300. At the ninetieth-percentile minute it is $2.44 at $5,000.
+Best size $1,000: **$0.05 a round trip**, so 6,187 of them a day for $300. At the ninetieth-percentile minute it is $0.02 at $1,000.
 
 The first table prices *resting* depth. That was assumed to be optimistic — quotes are pulled as an order arrives — but 380,411 executed sweeps say otherwise above $5,000: real sweeps meet a book that refreshes, so the modelled curve runs dearer than the reverting cost, not cheaper. It is optimistic only at the smallest sizes. Read the bracket, not this table alone.
 

@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-26T06:29:34.873Z by the research loop. Do not edit — it is
+Generated 2026-09-26T06:32:58.951Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -51,29 +51,31 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 - `oiChange` @ t60: 10.7 sigma, 11.32bp — **beats fees** · halves 6.4/8.7 sigma, 8.7/14.0bp — **holds in both**
 - `thinAskUp` @ t60d: 10.0 sigma, 9.37bp — **beats fees** · halves 5.7/7.3 sigma, 8.3/8.6bp — **holds in both**
 
-#### Sizing — `takerRatioFade` @ t5d, edge 3.39bp
+#### Sizing — `takerRatioFade` @ t5d, edge 1.75bp
 
-Priced on the delayed entry. The same feature entered at the decision close reads 6.07bp, and the 2.68bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
+Priced on **one tail's own mean return**, not the decile spread. The spread is 3.39bp — bottom decile 1.75bp, top decile -1.63bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
+
+Priced on the delayed entry. The same feature entered at the decision close reads 6.07bp, and the 4.31bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 7.02bp | -3.64bp | $-0.36 | never | -3.65bp |
-| $5,000 | 7.02bp | -3.64bp | $-1.82 | never | -3.69bp |
-| $10,000 | 7.03bp | -3.64bp | $-3.64 | never | -3.75bp |
-| $25,000 | 7.03bp | -3.64bp | $-9.11 | never | -3.91bp |
-| $50,000 | 7.04bp | -3.65bp | $-18.25 | never | -4.18bp |
-| $100,000 | 7.05bp | -3.66bp | $-36.61 | never | -4.72bp |
+| $1,000 | 7.02bp | -5.27bp | $-0.53 | never | -5.28bp |
+| $5,000 | 7.02bp | -5.27bp | $-2.64 | never | -5.32bp |
+| $10,000 | 7.03bp | -5.27bp | $-5.27 | never | -5.38bp |
+| $25,000 | 7.03bp | -5.28bp | $-13.19 | never | -5.54bp |
+| $50,000 | 7.04bp | -5.28bp | $-26.41 | never | -5.81bp |
+| $100,000 | 7.05bp | -5.29bp | $-52.93 | never | -6.35bp |
 
 Against impact measured on executed sweeps rather than modelled from resting depth — the full move a real order of this size made, and the part of it that reverted within a minute:
 
 | size | net if it pays the whole move | net if it pays only the revert |
 | --- | --- | --- |
-| $1,000 | -3.66bp | -3.73bp |
-| $5,000 | -3.66bp | -3.64bp |
-| $10,000 | -3.66bp | -3.64bp |
-| $25,000 | -3.66bp | -3.64bp |
-| $50,000 | -3.66bp | -3.64bp |
-| $100,000 | -4.13bp | -3.64bp |
+| $1,000 | -5.29bp | -5.36bp |
+| $5,000 | -5.29bp | -5.27bp |
+| $10,000 | -5.29bp | -5.27bp |
+| $25,000 | -5.29bp | -5.27bp |
+| $50,000 | -5.29bp | -5.27bp |
+| $100,000 | -5.76bp | -5.27bp |
 
 The truth is between the two columns. A mechanical signal carries no private information, so it should not pay the whole move; it does arrive alongside informed flow, so it will not pay only the revert either.
 
