@@ -162,6 +162,18 @@ jobs:
             # it reads the same files.
             npm run sweep:realized -- --symbol "$sym" --days 3 || true
             echo "::endgroup::"
+            echo "::group::maker $sym"
+            # Every cost measured so far is the cost of CROSSING, and a resting
+            # order consumes no depth and pays none of it — which makes the maker
+            # route the one path to the goal the measurements have not closed. It
+            # cannot be tested on the live agent, which has not run since August,
+            # so it is simulated against the tape: post at the touch when the
+            # signal fires, and a later print from the opposite aggressor
+            # reaching that price is a fill. The number that decides it is not
+            # the fill rate but the return conditional on filling, since a
+            # passive order fills precisely because price came to it.
+            npm run sweep:maker -- --symbol "$sym" --days 3 || true
+            echo "::endgroup::"
             echo "::group::backtest $sym"
             # Not `|| true`: a replay that refuses is the failure this workflow
             # exists to surface, and it spent six days refusing silently.
