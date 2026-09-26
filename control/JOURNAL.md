@@ -1471,3 +1471,79 @@ real gross.
 
 Nothing armed. But for the first time the thing being measured is a route that
 could work, rather than a route being closed.
+
+## 2026-09-26 (ten days) — the control matches, and the reason it matches is the whole argument
+
+Ten days instead of three:
+
+```
+2,885 attempts · 94.2% filled (strict)
+CONTROL crossing  +13.21bp  (15.5 sigma)
+passive (strict)  +10.80bp  (12.2 sigma, n=2,717)
+crossing, missed  +56.09bp  (20.4 sigma, n=168)
+```
+
+I had been comparing the control against the wrong number. The replay's tails:
+
+```
+t5  (entered at the decision close)   bucket 0 mean  13.11bp  ±0.64  (20.6 sigma)
+t5d (entered one bar later)           bucket 0 mean   8.59bp  ±0.64  (13.4 sigma)
+```
+
+This worker enters at the decision close, so its comparison is **t5, 13.11bp**,
+not t5d. It returns **13.21bp**. That is a match, on a different sample, to within
+a tenth of a basis point — the control passes properly and the previous entry's
+worry about 15.12 against 8.57 was me holding it against the wrong horizon.
+
+**And the reason the horizons differ is the argument for resting.** The 4.5bp
+between t5 and t5d is the entry-price artifact: the decision close is a traded
+price sitting on one side of the book. The delayed test exists to strip it,
+because a trader who *crosses* cannot capture it — they pay the other side. A
+trader **resting on the bid is precisely the participant who does capture it**.
+That is what being passive means. So for the maker route the immediate figure is
+the right one, and the delayed figure was the correct bar only for the crossing
+route that has already been closed.
+
+This is not a loophole. It is the mechanism: the passive trader earns the spread
+instead of paying it, and the measurement says what that is worth here.
+
+**Net of adverse selection.** Resting returns 10.80bp against crossing's 13.21 —
+so selection costs 2.4bp, 18% of the edge, and it is the honest price of only
+being filled when someone comes to you. 168 attempts never filled and were worth
+56.09bp, which is the mechanism visible and bounded: 5.8% of attempts.
+
+**The arithmetic, at maker 2bp and taker 5bp, exit crossing:**
+
+| size | bar | net | $/trade | trips/day for $300 |
+|---|---|---|---|---|
+| $1,000 | 7.42bp | +3.38bp | $0.34 | 887 |
+| $5,000 | 8.12bp | +2.68bp | $1.34 | 224 |
+| $10,000 | 9.03bp | **+1.77bp** | **$1.77** | **170** |
+| $25,000 | 11.66bp | −0.86bp | — | never |
+
+The signal fires about 290 times a day (2,885 over ten days). Taking 170 of them
+at $10,000, with a five-minute hold, is inside what the fire rate allows. **That
+is the first coherent path to the target this project has had.**
+
+**What would overturn it, in order of how likely I think each is.**
+
+1. **Queue position.** The strict rule requires a print to trade *through* the
+   level, which means the queue there cleared — but it cannot know our order was
+   in it. 94.2% filled strictly is high enough that this is the main thing
+   flattering the result.
+2. **The exit still crosses.** Resting the exit too would cut the bar further, but
+   a resting exit does not always fill, and an unfilled exit is an open position
+   past its horizon. Not modelled at all.
+3. **The fee constant is inconsistent with the schedule.** `DEFAULT_FEES` is
+   maker 2bp and taker 5bp, so a taker round trip is 10bp — but the replay's cost
+   bar uses `feesBps = 7`. One of those is wrong and every cost bar in the project
+   depends on which. It does not change the *ranking* of resting over crossing,
+   since resting is cheaper under either, but it moves the break-even size.
+4. **Ten days, one contract, and 290 fires a day of an autocorrelated series.**
+   The gross matches a twenty-nine-day replay figure closely, which is reassuring,
+   but the passive leg itself has only ten days behind it.
+5. **170 of 290 fires must actually be taken**, which assumes the live agent's
+   cluster and risk gating does not refuse most of them. It has refused most of
+   everything before.
+
+Nothing armed, and the next work is (1) and (2) rather than anything new.
