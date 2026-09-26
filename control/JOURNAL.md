@@ -1222,3 +1222,66 @@ be read as expecting the maker route to survive; it should be read as the one
 question left that has not been answered.
 
 Still nothing to arm.
+
+## 2026-09-26 — the maker simulation ran, failed its control, and the number is not usable
+
+Built the resting-entry simulation, ran it on three days of LITUSDT, and the
+result is arresting:
+
+```
+865 attempts · 97.3% touched, 97.0% through
+passive (strict)  -1.97bp  (-1.2 sigma, n=839)
+crossing          -0.43bp  (-0.3 sigma, n=864)
+crossing, on the signals a resting order MISSED
+                 +62.02bp  (+7.1 sigma, n=25)
+```
+
+Read at face value that is the textbook picture of adverse selection: resting
+fills 97% of the time and loses 2bp, while the 3% it never gets are worth 62bp.
+The passive order is handed the losers by construction.
+
+**It is not usable, because the control fails.** `crossing` is the same trade the
+replay scores, and the replay puts `takerRatioFade @ t5d` at a 16bp decile
+spread — each side of a symmetric spread being worth roughly 8bp. My crossing leg
+returns **−0.43bp**. A simulation whose taker leg cannot reproduce the finding it
+exists to test is not measuring that finding, and its passive leg inherits the
+same defect.
+
+The cause is in the feature definition and I should have read it before
+approximating it. `takerRatioFade` is `-(takerRatio - 1)`, where `takerRatio` is
+*the venue's own published buy/sell volume ratio* from the `metrics` archive — a
+five-minute series, forward-filled onto minutes by the replay. I reconstructed a
+proxy from aggTrades instead: buy notional over *total* notional, per minute.
+
+The monotone part is fine — `x/(1−x)` preserves the ordering, so the deciles of
+the two ratios would agree on identical data. What does not agree is the data and
+the grid: the venue's five-minute figure forward-filled is a different series
+from a per-minute figure computed off the tape, and their extreme tenths are
+different sets of minutes. I tested a signal the project does not trade.
+
+**What is salvageable.** The mechanics are sound and the check covers them — fill
+by opposite aggressor only, strict versus loose queue reading, unfilled orders
+excluded rather than scored zero, and the `takerOnMissed` comparison that
+detects the mechanism. Two of that check's own fixtures were wrong first, both in
+ways that would have let a broken worker pass, and the worker gained a real guard
+from it: a decile boundary landing on a tied value swallows the bulk of the
+sample, so it now refuses instead of reporting a number about the wrong minutes.
+
+**What to do next, precisely.** Feed the simulation the replay's own feature:
+read `metrics` for `buy_sell_ratio`, forward-fill onto minutes exactly as
+`loadMinutes` does — forward only, never backward, since a value stamped 12:05
+was not knowable at 12:03 — take deciles of `-(ratio − 1)`, and require the
+crossing leg to reproduce the replay's decile spread before reading anything
+into the passive leg. The control is the deliverable; the verdict comes after it.
+
+**And a thing the crossing number raises regardless.** If the honest per-trade
+return of trading these minutes is anywhere near −0.43bp rather than 8bp, the
+sizing ladder has been pricing a decile *spread* as though it were a per-trade
+return this whole time. A spread is the gap between going long one tail and short
+the other; capturing it means trading both sides, and half of it is not the same
+quantity as all of it. That has to be checked against the replay directly rather
+than inferred from a proxy that has already been shown not to match — but if it
+holds, it is a larger error than any cost measurement in this project.
+
+Nothing armed. The 62bp is not a finding; it is 25 observations from a signal I
+built by mistake.
