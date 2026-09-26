@@ -1547,3 +1547,63 @@ is the first coherent path to the target this project has had.**
    everything before.
 
 Nothing armed, and the next work is (1) and (2) rather than anything new.
+
+## 2026-09-26 (queue) — the maker result was an artifact of ignoring order size, and it inverts
+
+The strict fill rule said 94.2% filled at +10.80bp. Requiring the fill to be paid
+for by volume that actually arrived at the resting price says this:
+
+```
+10 days · 2,885 attempts · order $10,000
+crossing (control)  +13.21bp
+strict passive      +10.80bp at 94.2% filled
+
+queue ahead    filled     return
+        $0      64.0%    -4.49bp   (-3.9 sigma, n=1,847)
+   $10,000      52.2%   -11.36bp   (-8.6 sigma, n=1,506)
+   $50,000      25.8%   -27.55bp  (-12.9 sigma, n=745)
+  $200,000       4.5%   -59.22bp   (-8.1 sigma, n=129)
+```
+
+**The positive number was an artifact of not charging for size.** The strict rule
+fills on any print that trades through the level, however small — a $200 print
+counted as filling a $10,000 order. Requiring $10,000 of aggressive selling to
+actually arrive at the bid drops the fill rate from 94.2% to 64% and the return
+from +10.80bp to **−4.49bp**.
+
+**And the mechanism is exactly the one the whole exercise was built to detect.**
+Substantial selling arriving at your bid is precisely the case where price keeps
+falling. A small print reaching your level is noise; $10,000 of one-sided flow
+reaching it is information. Filtering fills by size does not just reduce the
+sample, it selects the bad half of it — which is what adverse selection *is*, and
+the strict rule was invisible to it because it never asked how much traded.
+
+The monotone deterioration is the signature: −4.49, −11.36, −27.55, −59.22 as the
+queue deepens. The longer you wait to be reached, the more one-sided the flow
+that reaches you.
+
+**So the maker route closes as well.** Resting does not escape the cost of
+crossing; it converts impact into adverse selection, and on this contract the
+adverse selection is larger than the impact was. At $10,000, crossing cost
+14.07bp against a 13.21bp gross — a loss of about a basis point. Resting costs
+9.03bp against a −4.49bp gross — a loss of thirteen and a half.
+
+**What I told the operator an hour ago was wrong** and I have said so. The error
+was not the sign or the feature this time; it was accepting a fill rule that
+ignored the one quantity an order is made of.
+
+**What is left, honestly.**
+
+- Nothing in the directional family survives. Crossing loses to impact, resting
+  loses to adverse selection, and both were measured on the same window with the
+  same feature and the same control.
+- The one measurement in this project that has never been contradicted and never
+  been pursued is **carry**. `funding` has been scored on every pass and sits in
+  every report: the eight-hour crowded-basis buckets showed a total of 137bp on
+  one side against −48bp on the other. It requires no directional view, which is
+  the thing five separate measurements now say is not available here, and its
+  cash flow is published in advance rather than inferred.
+- It has been ignored for the same reason the maker path was: it was not the
+  idea the project started with.
+
+Nothing armed, and now nothing in the sweep thesis to arm.
