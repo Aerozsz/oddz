@@ -44,7 +44,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-import { unzipEntries, csvRows } from "../lib/sweep/backtest/zip";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
+import { unzipEntries, csvRows, parseTs } from "../lib/sweep/backtest/zip";
 import { SYMBOL } from "../lib/sweep/config";
 
 const arg = (name: string, fallback: string): string => {
@@ -57,6 +60,7 @@ const arg = (name: string, fallback: string): string => {
 const symbol = arg("symbol", process.env.SWEEP_SYMBOL?.trim() || SYMBOL).toUpperCase();
 const days = Math.max(1, Number(arg("days", "3")));
 const outPath = resolve(arg("out", `evidence/maker-${symbol}.json`));
+const histRoot = resolve(arg("in", "data/history"));
 const BASE = "https://data.binance.vision/data/futures/um";
 
 /** The finding's horizon: five minutes from the decision bar. */
@@ -97,39 +101,82 @@ async function fetchDay(date: string): Promise<Print[]> {
 
 interface Minute {
   ts: number;
-  /** Taker buy notional over total notional. */
-  ratio: number;
+  /** `-(takerRatio - 1)` on the venue's published ratio: the replay's feature. */
+  fade: number;
   /** Last print of the minute — the decision price. */
   close: number;
-  /** Index into the print array of the first print after this minute. */
+  /** Index of the first print after this minute. */
   next: number;
 }
 
-export function minutes(prints: Print[]): Minute[] {
-  const buy = new Map<number, number>();
-  const all = new Map<number, number>();
+/**
+ * The venue's taker buy/sell volume ratio, per minute, forward-filled.
+ *
+ * Read from the same `metrics` files the replay reads, on disk rather than over
+ * HTTP, because `sweep:history` has already downloaded them and column seven is
+ * `sum_taker_long_short_vol_ratio`. Forward-fill only: a row stamped 12:05 was
+ * not knowable at 12:03, and filling backwards hands the simulation information
+ * the live agent could not have had — the easiest way there is to manufacture an
+ * edge that evaporates in production.
+ */
+export function takerRatio(dir: string): Map<number, number> {
+  const out = new Map<number, number>();
+  const candidates = [join(dir, symbol, "metrics"), join(dir, "metrics")];
+  let from: string | null = null;
+  for (const c of candidates) {
+    if (!existsSync(c)) continue;
+    if (readdirSync(c).some((f) => f.endsWith(".zip") && f.startsWith(`${symbol}-`))) {
+      from = c;
+      break;
+    }
+  }
+  if (!from) return out;
+  const raw: [number, number][] = [];
+  for (const f of readdirSync(from).filter((x) => x.endsWith(".zip") && x.startsWith(`${symbol}-`)).sort()) {
+    for (const e of unzipEntries(readFileSync(join(from, f)))) {
+      for (const r of csvRows(e.data)) {
+        const ts = parseTs(r[0] ?? "");
+        const ratio = Number(r[7]);
+        if (!Number.isFinite(ts) || !(ratio > 0)) continue;
+        raw.push([Math.floor(ts / 60_000) * 60_000, ratio]);
+      }
+    }
+  }
+  raw.sort((a, b) => a[0] - b[0]);
+  for (const [ts, ratio] of raw) out.set(ts, ratio);
+  return out;
+}
+
+/**
+ * Minutes carrying the feature, the decision price, and where the tape resumes.
+ *
+ * The metrics grid is five-minute, so each value is carried forward across the
+ * minutes after it and a minute before the first published row has no feature
+ * and is dropped rather than guessed.
+ */
+export function minutes(prints: Print[], ratios: Map<number, number>): Minute[] {
   const close = new Map<number, number>();
   const next = new Map<number, number>();
   for (let i = 0; i < prints.length; i++) {
-    const p = prints[i];
-    const m = Math.floor(p.t / 60_000) * 60_000;
-    const usd = p.price * p.qty;
-    all.set(m, (all.get(m) ?? 0) + usd);
-    if (!p.buyerIsMaker) buy.set(m, (buy.get(m) ?? 0) + usd);
-    close.set(m, p.price);
+    const m = Math.floor(prints[i].t / 60_000) * 60_000;
+    close.set(m, prints[i].price);
     next.set(m, i + 1);
   }
+  const slots = [...close.keys()].sort((a, b) => a - b);
   const out: Minute[] = [];
-  for (const [ts, total] of all) {
-    if (!(total > 0)) continue;
+  let carried: number | null = null;
+  for (const ts of slots) {
+    const fresh = ratios.get(ts);
+    if (fresh !== undefined) carried = fresh;
+    if (carried === null) continue;
     out.push({
       ts,
-      ratio: (buy.get(ts) ?? 0) / total,
+      /* The replay's definition, sign and all. */
+      fade: -(carried - 1),
       close: close.get(ts) as number,
       next: next.get(ts) as number,
     });
   }
-  out.sort((a, b) => a.ts - b.ts);
   return out;
 }
 
@@ -156,15 +203,23 @@ export interface Attempt {
 }
 
 /**
- * One passive attempt per extreme-flow minute.
+ * One passive attempt per extreme-flow minute, on the side the data says.
  *
- * The side fades the flow: a minute of overwhelming taker buying is a minute to
- * be short, which is what `takerRatioFade` means and what the replay's negative
- * decile spread measures. Resting to go short means offering above the market.
+ * The side FOLLOWS the flow. The replay's deciles put heaviest taker buying at
+ * +8.57bp over five minutes and heaviest selling at −7.13bp, each past ten
+ * sigma — so a minute of overwhelming buying is a minute to be long, and resting
+ * to go long means bidding below the market. The first version of this worker
+ * shorted those minutes, which is exactly backwards, and measured a deliberately
+ * wrong-way trade.
+ *
+ * Bucket 0 of the ranking is the lowest `takerRatioFade`, which is the highest
+ * taker ratio, which is the heaviest buying. That chain is short and every link
+ * inverts something, so it is written out here rather than left to be
+ * re-derived.
  */
 export function attempts(prints: Print[], ms: Minute[]): Attempt[] {
   if (ms.length < 100) return [];
-  const sorted = ms.map((m) => m.ratio).sort((a, b) => a - b);
+  const sorted = ms.map((m) => m.fade).sort((a, b) => a - b);
   const lo = sorted[Math.floor(sorted.length * DECILE)];
   const hi = sorted[Math.floor(sorted.length * (1 - DECILE))];
 
@@ -178,10 +233,10 @@ export function attempts(prints: Print[], ms: Minute[]): Attempt[] {
    * So the selection is checked against what it claims to be. Two deciles is
    * 20% of minutes, and anything past double that is not a decile.
    */
-  const picked = ms.filter((m) => m.ratio <= lo || m.ratio >= hi);
+  const picked = ms.filter((m) => m.fade <= lo || m.fade >= hi);
   if (picked.length > ms.length * 0.4) {
     console.error(
-      `[maker] the taker ratio is too coarse to decile — ${picked.length} of ${ms.length} minutes ` +
+      `[maker] the feature is too coarse to decile — ${picked.length} of ${ms.length} minutes ` +
         `land on the boundary (lo ${lo.toFixed(3)}, hi ${hi.toFixed(3)}). Refusing rather than ` +
         `reporting a number about the wrong minutes.`,
     );
@@ -190,9 +245,12 @@ export function attempts(prints: Print[], ms: Minute[]): Attempt[] {
 
   const out: Attempt[] = [];
   for (const m of ms) {
-    if (m.ratio > lo && m.ratio < hi) continue;
-    /* Heavy taker buying fades down, so the position is short, resting on the offer. */
-    const long = m.ratio <= lo;
+    if (m.fade > lo && m.fade < hi) continue;
+    /*
+     * Lowest fade value = highest taker ratio = heaviest buying = go long, and
+     * rest on the bid. Following the flow, not fading it.
+     */
+    const long = m.fade <= lo;
     const restPrice = m.close;
 
     let touched = false;
@@ -333,7 +391,16 @@ async function main() {
   }
   prints.sort((a, b) => a.t - b.t);
 
-  const ms = minutes(prints);
+  const ratios = takerRatio(histRoot);
+  if (ratios.size === 0) {
+    console.error(
+      `[maker] no metrics for ${symbol} under ${histRoot} — the feature comes from the venue's ` +
+        `published taker ratio, not from the tape. Run sweep:history first.`,
+    );
+    process.exit(1);
+  }
+  const ms = minutes(prints, ratios);
+  console.error(`[maker] ${ratios.size.toLocaleString()} metric rows · ${ms.length.toLocaleString()} minutes with a feature`);
   const all = attempts(prints, ms);
   const summary = summarise(all);
 
@@ -344,10 +411,24 @@ async function main() {
     dates,
     prints: prints.length,
     minutes: ms.length,
+    metricRows: ratios.size,
     holdMs: HOLD_MS,
     restsMs: RESTS_MS,
     decile: DECILE,
     ...summary,
+    /*
+     * Restated in the report so a reader does not have to know that `taker` is
+     * doing double duty as the control.
+     */
+    control: {
+      crossingMeanBps: summary.taker.meanBps,
+      crossingSigma: summary.taker.sigma,
+      expectation:
+        "Should land near the replay's own decile-tail mean for this symbol and horizon " +
+        "(LITUSDT t5d: +8.57bp; BTCUSDT t5d: +1.75bp). A disagreement — especially in sign — " +
+        "means this worker is selecting different minutes than the replay, and the passive " +
+        "numbers below describe a different signal.",
+    },
     note:
       "Whether resting escapes the cost of crossing or only renames it. Fill is decided by a " +
       "later print from the opposite aggressor reaching the resting price; queue position cannot " +
@@ -370,6 +451,24 @@ async function main() {
   console.error(
     `[maker] filled: ${((summary.fillRateTouched ?? 0) * 100).toFixed(1)}% touched, ` +
       `${((summary.fillRateThrough ?? 0) * 100).toFixed(1)}% through`,
+  );
+  /*
+   * The control, printed first because it decides whether anything below it
+   * means anything.
+   *
+   * The crossing leg is the trade the replay scores. If it does not come out near
+   * the replay's tail mean — +8.57bp on LITUSDT at t5d, +1.75bp on BTCUSDT — then
+   * this worker is selecting different minutes than the replay does and its
+   * passive number is about a different signal. That is not a hypothetical: the
+   * first version reconstructed the feature from the tape and traded it on the
+   * wrong side, and its crossing leg returning −0.43bp where the replay says 8.57
+   * is the only reason either mistake was found.
+   */
+  const control = summary.taker.meanBps;
+  console.error(
+    `[maker] CONTROL crossing ${f(summary.taker)} — compare against the replay's tail mean for ` +
+      `this symbol and horizon. If they disagree, stop here: the passive number is about a ` +
+      `different signal.` + (control !== null && control <= 0 ? " THEY DISAGREE IN SIGN." : ""),
   );
   console.error(`[maker] passive          ${f(summary.passive)}`);
   console.error(`[maker] passive (strict) ${f(summary.passiveStrict)}`);

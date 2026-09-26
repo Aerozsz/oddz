@@ -1,13 +1,19 @@
 /**
- * The maker simulation is about to decide whether the last open route survives,
- * so the ways it could flatter itself are the ways this project has already been
- * wrong once each:
+ * The maker simulation decides whether the last open route survives, so the ways
+ * it can flatter itself are each asserted here. Every one of them has a history:
  *
- *  - scoring an unfilled order as zero, which dilutes losses with non-trades
+ *  - scoring an unfilled order as zero, which dilutes real losses with non-trades
  *  - filling a resting bid from a buyer, which fills every order always
  *  - accepting a touch as a fill when the queue at that price was never cleared
- *  - getting the fade direction backwards, so a loss reads as a win
+ *  - taking the wrong side, which turns every loss into a win
  *  - reporting adverse selection without the comparison that detects it
+ *
+ * The fourth is not hypothetical. The first version of this worker shorted the
+ * heavy-buying minutes, because the feature is called `takerRatioFade` and the
+ * name says to fade. The replay's own deciles say the opposite: heaviest taker
+ * buying is followed by +8.57bp on LITUSDT at more than ten sigma. So the side
+ * follows the flow, and these fixtures are built around a long resting on the
+ * bid.
  */
 
 import { minutes, attempts, summarise } from "/home/user/oddz/workers/sweep-maker";
@@ -22,142 +28,134 @@ type P = { t: number; price: number; qty: number; buyerIsMaker: boolean };
 const p = (t: number, price: number, qty: number, buyerIsMaker: boolean): P => ({ t, price, qty, buyerIsMaker });
 
 /**
- * An ordinary minute, with a taker ratio spread across many distinct values.
+ * The feature's source, supplied directly.
  *
- * An earlier fixture gave every ordinary minute exactly 0.5, which put the tenth
- * percentile ON that value — so the "extreme decile" selected 90% of the tape.
- * The worker now refuses that case outright and the fixture no longer produces
- * it: real taker ratios are continuous, and a fixture that is not tests
- * something else.
+ * `takerRatio` reads `sum_taker_long_short_vol_ratio` from the venue's metrics
+ * file, so these are buy/sell ratios: above one is net buying. The worker turns
+ * them into `-(ratio - 1)`, so a ratio of 2.0 becomes a fade of −1.0, which is
+ * the heaviest-buying tail and therefore the long side.
+ *
+ * Values are spread across many distinct levels on purpose. An earlier fixture
+ * gave every ordinary minute the same number, which put the tenth percentile ON
+ * that value — so the "extreme tenth" selected most of the tape. The worker now
+ * refuses that case outright, and real ratios are continuous, so a fixture that
+ * is not tests something else.
  */
-function ordinary(t: number, m: number): P[] {
-  const out: P[] = [];
-  const buys = 3 + ((m * 7) % 25);
-  for (let k = 0; k < buys; k++) out.push(p(t + 1_000 + k, 100.0, 1, false));
-  for (let k = 0; k < 30 - buys; k++) out.push(p(t + 1_100 + k, 100.0, 1, true));
+function ratios(n: number, hotEvery: number, hotValue = 2.0): Map<number, number> {
+  const out = new Map<number, number>();
+  for (let m = 0; m < n; m++) {
+    /*
+     * Two hundred distinct levels across 0.6 to 1.4, not twenty across 0.9 to
+     * 1.1. A coarse spread is not merely unrealistic here: with only twenty
+     * levels a decile boundary lands on a band holding five percent of the
+     * sample and the tie rule sweeps in everything at that value, so the
+     * "extreme tenth" became seventy percent and the worker refused — correctly,
+     * and the fixture was what was wrong.
+     */
+    out.set(m * 60_000, m % hotEvery === 0 ? hotValue : 0.6 + ((m * 37) % 200) / 250);
+  }
   return out;
 }
 
-/**
- * The attempts belonging to the fully-bought minutes.
- *
- * The decile split picks BOTH tails by design, so a tape whose only constructed
- * regime is heavy buying still produces long attempts from its thinnest-bought
- * ordinary minutes. Those are not what these scenarios are about, and asserting
- * over all attempts confuses the two.
- */
-function shorts(a: ReturnType<typeof attempts>, ms: ReturnType<typeof minutes>) {
-  const hot = new Set(ms.filter((m) => m.ratio > 0.99).map((m) => m.ts));
+/** The attempts belonging to the heaviest-buying minutes: the long side. */
+function longs(a: ReturnType<typeof attempts>, ms: ReturnType<typeof minutes>) {
+  const hot = new Set(ms.filter((m) => m.fade < -0.9).map((m) => m.ts));
   return a.filter((x) => hot.has(x.ts));
 }
 
 /**
- * A tape of `n` minutes where every tenth is overwhelmingly taker-bought.
+ * A tape of `n` minutes, one signal every `hotEvery`.
  *
- * `after` decides what happens once the extreme minute closes, which is what
- * each scenario varies: whether price comes back to the resting offer, and where
- * it ends up five minutes later.
+ * `after` decides what happens once the signal minute closes — whether price
+ * comes down to the resting bid, and where it is five minutes later — which is
+ * what each scenario varies.
  */
-function tape(n: number, after: (base: number, t: number, extreme: boolean) => P[]): P[] {
+function tape(n: number, hotEvery: number, after: (base: number, t: number, hot: boolean) => P[]): P[] {
   const out: P[] = [];
   for (let m = 0; m < n; m++) {
     const t = m * 60_000;
-    const extreme = m % 10 === 0;
-    if (extreme) {
-      // Lopsided buying: taker buys only, so the ratio is 1.
-      out.push(p(t + 1_000, 100.0, 10, false));
-      out.push(p(t + 2_000, 100.0, 10, false));
-      out.push(p(t + 30_000, 100.0, 10, false));
-    } else {
-      /*
-       * Varied, not a single tied value. An earlier version of this fixture gave
-       * every ordinary minute a ratio of exactly 0.5, which put the tenth
-       * percentile ON that value — so the "extreme decile" selected 90% of the
-       * tape and labelled it long. The worker now refuses that case outright,
-       * and the fixture no longer produces it, because real taker ratios are
-       * continuous and a fixture that is not tests the wrong thing.
-       */
-      for (const q of ordinary(t, m)) out.push(q);
-    }
-    for (const q of after(100.0, t, extreme)) out.push(q);
+    const hot = m % hotEvery === 0;
+    out.push(p(t + 1_000, 100.0, 10, false));
+    out.push(p(t + 30_000, 100.0, 10, !hot));
+    for (const q of after(100.0, t, hot)) out.push(q);
   }
   out.sort((a, b) => a.t - b.t);
   return out;
 }
 
-function theRatioAndDecileWork() {
-  console.log("\nextreme-flow minutes are found");
-  const t = tape(400, () => []);
-  const ms = minutes(t);
-  ok("minutes are built", ms.length >= 300, String(ms.length));
-  ok("one in ten reads fully bought", ms.filter((m) => m.ratio > 0.99).length >= 30);
+function theFeatureAndSideAreRight() {
+  console.log("\nthe feature is read and the side follows the flow");
+  const t = tape(400, 10, () => []);
+  const ms = minutes(t, ratios(400, 10));
+  ok("minutes carry a feature", ms.length >= 300, String(ms.length));
+  /*
+   * -(2.0 - 1) = -1.0. If the sign were dropped, the simulation would trade the
+   * wrong tail while looking healthy — which is what happened.
+   */
+  ok("a ratio of 2.0 becomes a fade of -1.0", ms.some((m) => Math.abs(m.fade + 1) < 1e-9));
   const a = attempts(t, ms);
   ok("attempts were produced", a.length >= 30, String(a.length));
   ok("the decile was not swallowed by ties", a.length < ms.length * 0.4, `${a.length}/${ms.length}`);
-  const hot = shorts(a, ms);
-  ok("one per fully-bought minute", hot.length >= 30, String(hot.length));
-  /*
-   * Heavy taker buying fades DOWN, so the position is short. Getting this
-   * backwards would turn every loss into a win and is the single most
-   * expensive sign error available here.
-   */
-  ok("and it fades the flow, so short", hot.length > 0 && hot.every((x) => x.long === false));
-  ok("the other tail is the other side", a.some((x) => x.long === true));
+  const hot = longs(a, ms);
+  ok("one per heaviest-buying minute", hot.length >= 30, String(hot.length));
+  ok("and it follows the flow, so long", hot.length > 0 && hot.every((x) => x.long === true));
+  ok("the other tail is the other side", a.some((x) => x.long === false));
+}
+
+function theGridIsForwardFilledOnly() {
+  console.log("\nthe five-minute grid is carried forward, never backward");
+  const t = tape(60, 10, () => []);
+  /* One published row, at minute 20. */
+  const sparse = new Map<number, number>([[20 * 60_000, 2.0]]);
+  const ms = minutes(t, sparse);
+  ok("minutes before it have no feature", ms.every((m) => m.ts >= 20 * 60_000), String(ms[0]?.ts));
+  ok("minutes after it carry it", ms.length > 30, String(ms.length));
+  ok("and they carry that value", ms.every((m) => Math.abs(m.fade + 1) < 1e-9));
 }
 
 function anUnfilledOrderEarnsNothing() {
   console.log("\nan unfilled order is excluded, not scored zero");
   /*
-   * Price runs away upward after every extreme minute and never returns to the
-   * offer, so a resting short never fills. Scoring those as zero would report a
-   * flat result where the truth is no trade at all — and with real losses mixed
-   * in, it would dilute them toward zero.
+   * Price runs away upward after every signal and never comes back to the bid, so
+   * a resting long never fills. Scoring those as zero would report flat where the
+   * truth is no trade — and mixed with real losses it would pull them toward zero.
    */
-  const t = tape(400, (base, ts, extreme) =>
-    extreme
-      ? [p(ts + 40_000, base * 1.01, 5, false), p(ts + 400_000, base * 1.02, 5, false)]
-      : [],
+  const t = tape(400, 10, (base, ts, hot) =>
+    hot ? [p(ts + 70_000, base * 1.01, 5, false), p(ts + 400_000, base * 1.02, 5, false)] : [],
   );
-  const ms = minutes(t);
-  const hot = shorts(attempts(t, ms), ms);
-  ok("nothing filled", hot.length > 0 && hot.every((x) => !x.touched && !x.through));
-  ok("returns are null, not zero", hot.every((x) => x.retBps === null && x.strictRetBps === null));
+  const ms = minutes(t, ratios(400, 10));
+  const hot = longs(attempts(t, ms), ms);
+  /*
+   * `touched` is allowed and is not the bug: ordinary minutes print aggressive
+   * sells at exactly 100.00, which reach a bid resting there without clearing the
+   * queue at it. Nothing trades BELOW the bid, so nothing fills under the strict
+   * rule, and the strict rule is the one that decides.
+   */
+  ok("nothing filled strictly", hot.length > 0 && hot.every((x) => !x.through));
+  ok("strict returns are null, not zero", hot.every((x) => x.strictRetBps === null));
   const s = summarise(hot);
   ok("the fill rate is zero", s.fillRateThrough === 0, String(s.fillRateThrough));
-  ok("and the passive sample is empty", s.passive.n === 0 && s.passive.meanBps === null);
+  ok(
+    "and the strict sample is empty",
+    s.passiveStrict.n === 0 && s.passiveStrict.meanBps === null,
+    String(s.passiveStrict.n),
+  );
 }
 
 function onlyTheOppositeAggressorFills() {
-  console.log("\na resting offer is filled by a buyer, never by a seller");
+  console.log("\na resting bid is filled by a seller, never by a buyer");
   /*
-   * Price returns to the level but every print is an aggressive SELL. A resting
-   * offer sits above the market; a seller hitting the bid does not touch it.
-   * Filling on this would fill every order in every scenario and make the whole
-   * measurement meaningless.
+   * Price comes below the bid but every print is an aggressive BUY. A buyer lifts
+   * the offer; it does not fill a bid. Ignoring the aggressor side would fill
+   * every order in every scenario and make the measurement meaningless.
    */
-  /*
-   * Outside the signal minute, deliberately. An earlier version put these at
-   * +40s, inside it, which dragged the minute's own taker ratio down to 0.86 and
-   * dropped it out of the extreme decile — so the scenario passed by testing
-   * nothing.
-   */
-  const t = tape(400, (base, ts, extreme) =>
-    extreme ? [p(ts + 70_000, base * 1.001, 5, true), p(ts + 400_000, base, 5, true)] : [],
+  const t = tape(400, 10, (base, ts, hot) =>
+    hot ? [p(ts + 70_000, base * 0.999, 5, false), p(ts + 400_000, base, 5, false)] : [],
   );
-  const ms = minutes(t);
-  const hot = shorts(attempts(t, ms), ms);
-  /*
-   * The sell prints at 100.10, above a short resting at 100.00. If the aggressor
-   * side were ignored, every one of these would fill — a seller trading above
-   * the offer is impossible in a real book and is the shape of the bug.
-   *
-   * `touched` is allowed to be true and that is not the bug: ordinary minutes
-   * print aggressive buys at exactly 100.00, which legitimately reach the offer
-   * without clearing the queue at it. That is the ambiguity the strict rule
-   * exists to handle, and the strict rule is what this asserts.
-   */
+  const ms = minutes(t, ratios(400, 10));
+  const hot = longs(attempts(t, ms), ms);
   ok(
-    "a seller above the offer does not fill it",
+    "a buyer below the bid does not fill it",
     hot.length > 0 && hot.every((x) => !x.through),
     JSON.stringify(hot[0]),
   );
@@ -166,16 +164,16 @@ function onlyTheOppositeAggressorFills() {
 function aTouchIsNotAClearedQueue() {
   console.log("\ntouching the level is weaker evidence than trading through it");
   /*
-   * An aggressive buy lands exactly ON the resting offer and no higher. Someone
-   * was filled; the archive cannot say it was us, because it cannot say who was
-   * ahead in the queue. So the loose reading counts it and the strict one does
-   * not, and the strict one is what gets planned on.
+   * An aggressive sell lands exactly ON the resting bid and no lower. Someone was
+   * filled; the archive cannot say it was us, because it cannot say who was ahead
+   * in the queue. The loose reading counts it, the strict one does not, and the
+   * strict one is what gets planned on.
    */
-  const t = tape(400, (base, ts, extreme) =>
-    extreme ? [p(ts + 40_000, base, 5, false), p(ts + 400_000, base * 0.999, 5, false)] : [],
+  const t = tape(400, 10, (base, ts, hot) =>
+    hot ? [p(ts + 70_000, base, 5, true), p(ts + 400_000, base * 1.001, 5, true)] : [],
   );
-  const ms = minutes(t);
-  const hot = shorts(attempts(t, ms), ms);
+  const ms = minutes(t, ratios(400, 10));
+  const hot = longs(attempts(t, ms), ms);
   ok("the touch counts loosely", hot.some((x) => x.touched));
   ok("but not strictly", hot.every((x) => !x.through));
   const s = summarise(hot);
@@ -186,50 +184,44 @@ function aTouchIsNotAClearedQueue() {
 function adverseSelectionIsDetectable() {
   console.log("\nadverse selection shows up in the missed signals");
   /*
-   * The regime that kills passive execution: the order fills only when price
-   * runs against it, and the signals where it would have won are the ones it
-   * never got.
+   * The regime that kills passive execution: the bid fills only when price drops
+   * through it and keeps dropping — a loss for a long — while the signals that
+   * would have won are the ones that ran up and never filled.
    *
-   * Signals sit twenty minutes apart. That spacing is the fixture's whole
-   * correctness: with a five-minute rest and a five-minute hold, an earlier
-   * version placed them five minutes apart and each signal's aftermath filled
-   * the neighbouring signal's resting order. Every branch then "filled", which
-   * is how a fixture reports that the worker cannot detect adverse selection
-   * when what it cannot do is keep two scenarios apart.
+   * Signals sit twenty minutes apart. That spacing is the fixture's correctness:
+   * with a five-minute rest and a five-minute hold, an earlier version placed
+   * them five minutes apart and each signal's aftermath filled its neighbour's
+   * order, so every branch "filled" and the scenario proved nothing.
    *
-   * Ordinary minutes print only at 100.00. They touch a short resting at 100.00
-   * without ever trading through it, which is exactly the queue ambiguity the
-   * strict rule exists for — so these assertions use the strict reading.
+   * Ordinary minutes print only at 100.00, which touches a bid resting there
+   * without ever trading through it — the queue ambiguity the strict rule exists
+   * for — so these assertions use the strict reading.
    */
   const out: P[] = [];
-  const signals: number[] = [];
-  for (let m = 0; m < 800; m++) {
+  const N = 800;
+  for (let m = 0; m < N; m++) {
     const t = m * 60_000;
-    if (m % 20 !== 0 || m === 0) {
-      for (const q of ordinary(t, m)) out.push(q);
-      continue;
-    }
-    signals.push(t);
-    // Lopsided buying: a short signal, resting at 100.00.
-    out.push(p(t + 1_000, 100.0, 20, false));
-    out.push(p(t + 30_000, 100.0, 20, false));
+    const hot = m % 20 === 0 && m > 0;
+    out.push(p(t + 1_000, 100.0, 20, !hot));
+    out.push(p(t + 30_000, 100.0, 20, !hot));
+    if (!hot) continue;
     if ((m / 20) % 2 === 0) {
-      // Price comes back through the offer — the short fills — and then rises.
-      out.push(p(t + 70_000, 100.02, 5, false));
-      // Exactly one hold after that fill, so the exit price is not ambiguous.
-      out.push(p(t + 370_000, 100.2, 5, false));
+      // Drops through the bid — the long fills — and keeps falling.
+      out.push(p(t + 70_000, 99.98, 5, true));
+      // Exactly one hold after that fill, so the exit price is unambiguous.
+      out.push(p(t + 370_000, 99.8, 5, true));
     } else {
-      // Falls away at once on seller aggression, so nothing fills a short...
-      out.push(p(t + 70_000, 99.9, 5, true));
+      // Runs up at once on buyer aggression, so nothing fills a bid...
+      out.push(p(t + 70_000, 100.1, 5, false));
       // ...and one hold after the decision it would have been a win.
-      out.push(p(t + 360_000, 99.7, 5, true));
+      out.push(p(t + 360_000, 100.3, 5, false));
     }
   }
   out.sort((a, b) => a.t - b.t);
 
-  const ms = minutes(out);
-  const hot = shorts(attempts(out, ms), ms);
-  ok("the signals were picked up", hot.length >= 30, String(hot.length));
+  const ms = minutes(out, ratios(N, 20));
+  const hot = longs(attempts(out, ms), ms);
+  ok("the signals were picked up", hot.length >= 20, String(hot.length));
   const s = summarise(hot);
   ok(
     "some filled and some did not",
@@ -249,7 +241,8 @@ function adverseSelectionIsDetectable() {
 }
 
 console.log("maker simulation");
-theRatioAndDecileWork();
+theFeatureAndSideAreRight();
+theGridIsForwardFilledOnly();
 anUnfilledOrderEarnsNothing();
 onlyTheOppositeAggressorFills();
 aTouchIsNotAClearedQueue();
