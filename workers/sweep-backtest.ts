@@ -608,25 +608,48 @@ function main() {
           (r) => r.feature === headline.feature && r.horizon === headline.horizon.slice(0, -1),
         )
       : undefined;
+    /*
+     * The per-trade edge, which is NOT the decile spread.
+     *
+     * `edge()` returns `hi.meanRet - lo.meanRet`, the gap between the top and
+     * bottom deciles. The ladder charged one round trip against that number for
+     * its whole existence, and that is wrong in a way worth stating plainly: a
+     * spread is captured by trading BOTH tails, and each of those trades pays a
+     * full round trip. So the quantity a single trade earns is one tail's own
+     * mean return, and on LITUSDT at t5d that is 8.57bp against a spread of
+     * 15.70 — the ladder was overstating the edge by about 1.8 times.
+     *
+     * The better tail is used rather than the average of the two, because
+     * nothing forces a strategy to trade the worse one. Both are reported.
+     */
+    const scores = detail[`${headline.feature}@${headline.horizon}`];
+    const tails = scores && scores.length >= 2 ? [scores[0], scores[scores.length - 1]] : null;
+    const perTrade = tails
+      ? Math.max(Math.abs(tails[0].meanRet), Math.abs(tails[1].meanRet))
+      : null;
     return {
       feature: headline.feature,
       horizon: headline.horizon,
-      edgeBps: headline.spreadBps,
+      /* One tail's mean, not the spread between them. */
+      edgeBps: perTrade ?? headline.spreadBps,
+      /** The decile spread, kept so the two are never confused again. */
+      decileSpreadBps: headline.spreadBps,
+      tailsBps: tails ? { low: tails[0].meanRet, high: tails[1].meanRet } : undefined,
       immediateBps: immediate?.spreadBps,
-      rows: ladderNet(ladder, headline.spreadBps),
+      rows: ladderNet(ladder, perTrade ?? headline.spreadBps),
       bounds: ladder.map((r) => ({
         usd: r.usd,
         pessimisticNetBps:
           r.realizedTotalBps === null || r.realizedTotalBps === undefined
             ? null
-            : Math.abs(headline.spreadBps) - r.realizedTotalBps,
+            : Math.abs(perTrade ?? headline.spreadBps) - r.realizedTotalBps,
         revertingNetBps:
           r.revertingTotalBps === null || r.revertingTotalBps === undefined
             ? null
-            : Math.abs(headline.spreadBps) - r.revertingTotalBps,
+            : Math.abs(perTrade ?? headline.spreadBps) - r.revertingTotalBps,
       })),
-      best: bestSize(ladder, headline.spreadBps),
-      bestStress: bestSize(ladder, headline.spreadBps, 300, true),
+      best: bestSize(ladder, perTrade ?? headline.spreadBps),
+      bestStress: bestSize(ladder, perTrade ?? headline.spreadBps, 300, true),
     };
   })();
   if (sizing) {

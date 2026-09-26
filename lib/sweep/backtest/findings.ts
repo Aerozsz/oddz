@@ -276,6 +276,20 @@ export interface RunSummary {
      * on a figure that is 40% bounce.
      */
     immediateBps?: number;
+    /**
+     * The decile spread, which is what `edge()` reports and what this table used
+     * to be priced against.
+     *
+     * Kept beside the per-trade number so the two can never be confused again.
+     * A spread is `hi.meanRet - lo.meanRet`, captured only by trading both
+     * tails, and each of those trades pays its own round trip — so charging one
+     * round trip against the whole spread overstates the edge by roughly the
+     * factor the two tails are symmetric by. On LITUSDT at t5d that was 15.70bp
+     * quoted where 8.57bp was earned.
+     */
+    decileSpreadBps?: number;
+    /** Each tail's own mean return, in bps, unsigned by position. */
+    tailsBps?: { low: number; high: number };
     rows: {
       usd: number;
       totalBps: number | null;
@@ -411,6 +425,15 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
         `#### Sizing — \`${z.feature}\` @ ${z.horizon}, edge ${Math.abs(z.edgeBps).toFixed(2)}bp`,
       );
       lines.push("");
+      if (typeof z.decileSpreadBps === "number" && z.tailsBps) {
+        lines.push(
+          `Priced on **one tail's own mean return**, not the decile spread. The spread is ` +
+            `${Math.abs(z.decileSpreadBps).toFixed(2)}bp — bottom decile ${z.tailsBps.low.toFixed(2)}bp, ` +
+            `top decile ${z.tailsBps.high.toFixed(2)}bp — and capturing it means trading both tails, ` +
+            `each paying its own round trip. A single trade earns one tail.`,
+        );
+        lines.push("");
+      }
       if (typeof z.immediateBps === "number") {
         lines.push(
           `Priced on the delayed entry. The same feature entered at the decision close reads ` +

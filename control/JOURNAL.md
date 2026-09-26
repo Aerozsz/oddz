@@ -1285,3 +1285,86 @@ holds, it is a larger error than any cost measurement in this project.
 
 Nothing armed. The 62bp is not a finding; it is 25 observations from a signal I
 built by mistake.
+
+## 2026-09-26 — two errors at the centre of the project, both mine, both arithmetic
+
+Chasing the maker simulation's control failure led to the replay's own definition
+of an edge, and it is not what the sizing ladder has been charging costs against.
+
+**One. `spreadBps` is a decile spread, not a per-trade return.**
+
+`edge()` returns `hi.meanRet - lo.meanRet`: the gap between the top and bottom
+deciles. The ladder priced one round trip against that number for its entire
+existence. A spread is captured by trading *both* tails, and each of those trades
+pays a full round trip — so the quantity a single trade earns is one tail's own
+mean, and charging one cost against the whole spread overstates the edge by
+roughly the factor the tails are symmetric by.
+
+For `takerRatioFade @ t5d` on LITUSDT the deciles are:
+
+| | mean return | se | sigma |
+|---|---|---|---|
+| bucket 0 | **+8.57bp** | 0.66 | 13.1 |
+| bucket 9 | **−7.13bp** | 0.65 | −11.0 |
+
+Spread 15.70bp; per trade 8.57bp. The ladder was quoting 15.31bp. Against the
+measured bar that changes everything it decided:
+
+| size | cost RT | net on 8.57bp |
+|---|---|---|
+| $1,000 | 7.84bp | +0.73bp — $0.07 a trade |
+| $5,000 | 9.28bp | −0.71bp |
+| $10,000 | 11.08bp | −2.51bp |
+
+So the honest ladder is roughly break-even at a thousand dollars and negative
+everywhere above it. **The taker route closes on arithmetic, for a cleaner reason
+than the impact bracket closed it.** Every "best size $10,000, $4.03 a trip"
+figure I have reported is wrong, and the direction of the error is the
+flattering one.
+
+**Two. The feature is continuation, not fade.** And this is worse, because the
+name has been misleading the project's own reading of it for weeks.
+
+`takerRatioFade = -(takerRatio - 1)`, so bucket 0 is the *lowest* value of that,
+which is the *highest* taker buy/sell ratio — the heaviest taker buying. Bucket
+0's mean return is **+8.57bp**: after heavy buying, price goes up. Bucket 9 is
+heaviest selling and returns −7.13bp: price goes down. That is momentum. The
+reported spread is negative only because the feature carries a minus sign in its
+definition.
+
+Both contracts, both tails, individually 10 to 13 sigma:
+
+```
+LITUSDT  heaviest buying  +8.57bp ±0.66 (13.1σ)   heaviest selling  -7.13bp ±0.65
+BTCUSDT  heaviest buying  +1.75bp ±0.17 (10.2σ)   heaviest selling  -1.63bp ±0.13
+```
+
+The magnitude scales with how thin the contract is — 8.57bp against 1.75bp —
+which is what it should do if the effect is the flow's own impact persisting.
+This morning's realised measurement said exactly that from the other side: moves
+in these minutes revert 0.0% at five minutes. Three measurements agreeing, and I
+had the sign backwards in the interpretation the whole time.
+
+**What that invalidates.** The maker simulation traded it *fading* — short on
+heavy buying — which is precisely backwards, so its −1.97bp passive result was
+measuring a deliberately wrong-way trade. It needs rerunning on the correct side,
+on the replay's own feature and grid, not on my tape proxy. The +62bp on the
+missed signals is equally suspect and should be treated as void, not as a lead.
+
+**What it does not invalidate.** The cost measurements stand: spread 0.243bp on
+the tape, the modelled depth curve, the realised sweep curve, the publish fix,
+the guards. Those were the work of the last week and none of them depended on the
+sign or on the spread-versus-tail confusion.
+
+**What is actually left, stated without optimism.** A per-trade edge of 8.57bp on
+a contract whose cheapest measurable round trip is 7.84bp. That is a real,
+30-sigma, both-contracts, both-halves effect with almost no room in it. It pays
+about seven cents a trade at a thousand dollars, and the size that would make it
+worth anything is the size at which impact eats it. If it is tradeable at all it
+is tradeable without crossing, which returns the whole question to the maker path
+— on the correct side this time, and with the honest edge.
+
+The ladder now prices one tail and prints the spread beside it, so the two cannot
+be confused again.
+
+Nothing armed, and less reason to arm than yesterday.
