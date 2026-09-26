@@ -1,48 +1,55 @@
 {
-  "at": 1790427254354,
+  "at": 1790427572152,
   "symbol": "LITUSDT",
-  "days": 3,
+  "days": 10,
   "dates": [
     "2026-09-24",
     "2026-09-23",
-    "2026-09-22"
+    "2026-09-22",
+    "2026-09-21",
+    "2026-09-20",
+    "2026-09-19",
+    "2026-09-18",
+    "2026-09-17",
+    "2026-09-16",
+    "2026-09-15"
   ],
-  "prints": 2439935,
-  "minutes": 4320,
+  "prints": 6760606,
+  "minutes": 14400,
   "metricRows": 8640,
   "holdMs": 300000,
   "restsMs": 300000,
   "decile": 0.1,
-  "attempts": 870,
-  "fillRateTouched": 0.9459770114942528,
-  "fillRateThrough": 0.9367816091954023,
+  "attempts": 2885,
+  "fillRateTouched": 0.951473136915078,
+  "fillRateThrough": 0.9417677642980936,
   "passive": {
-    "n": 823,
-    "meanBps": 12.53890602762831,
-    "seBps": 1.7240255313049802,
-    "sigma": 7.2730396388835015
+    "n": 2745,
+    "meanBps": 11.301637968568386,
+    "seBps": 0.8779979879829413,
+    "sigma": 12.872054518635146
   },
   "passiveStrict": {
-    "n": 815,
-    "meanBps": 12.164292523383141,
-    "seBps": 1.7392510945415658,
-    "sigma": 6.993982962873697
+    "n": 2717,
+    "meanBps": 10.800022819848904,
+    "seBps": 0.8839317871798336,
+    "sigma": 12.218163184634594
   },
   "taker": {
-    "n": 870,
-    "meanBps": 15.117594561866156,
-    "seBps": 1.6950517238629945,
-    "sigma": 8.918662686831414
+    "n": 2885,
+    "meanBps": 13.206307104565598,
+    "seBps": 0.8544045213930432,
+    "sigma": 15.456738317622305
   },
   "takerOnMissed": {
-    "n": 55,
-    "meanBps": 65.69029931003122,
-    "seBps": 5.866314015670819,
-    "sigma": 11.197883225233292
+    "n": 168,
+    "meanBps": 56.09272530756053,
+    "seBps": 2.7479116667393284,
+    "sigma": 20.412856055929975
   },
   "control": {
-    "crossingMeanBps": 15.117594561866156,
-    "crossingSigma": 8.918662686831414,
+    "crossingMeanBps": 13.206307104565598,
+    "crossingSigma": 15.456738317622305,
     "expectation": "Should land near the replay's own decile-tail mean for this symbol and horizon (LITUSDT t5d: +8.57bp; BTCUSDT t5d: +1.75bp). A disagreement — especially in sign — means this worker is selecting different minutes than the replay, and the passive numbers below describe a different signal."
   },
   "note": "Whether resting escapes the cost of crossing or only renames it. Fill is decided by a later print from the opposite aggressor reaching the resting price; queue position cannot be known from the archive, so the strict reading — a print trading THROUGH the level, which means the queue there was cleared — is the one to plan on. Unfilled attempts are excluded rather than scored as zero: an order that never filled earns nothing, and averaging non-trades in dilutes the losses and flatters the result. takerOnMissed is the adverse selection test: if crossing did well precisely on the signals a passive order missed, the passive order is being handed the losers by construction."
