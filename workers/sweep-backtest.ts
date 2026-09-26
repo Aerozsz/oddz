@@ -253,6 +253,40 @@ function main() {
   }
 
   /*
+   * Refuse a window too short to support the claims this file makes.
+   *
+   * The absolute floor above is 1,000 minutes, which a single day clears. On
+   * 2026-09-26 a pass replayed BTCUSDT on 1,940 samples over one day, cleared
+   * that floor, and published a FINDINGS page that looked exactly like the real
+   * one — same layout, same Bonferroni bar, same "holds in both halves" claims,
+   * built on a thirtieth of the data. The history step is `|| true` in the
+   * workflow, so a failed download is silent, and the replay had no way to say
+   * that what it received was not what was asked for.
+   *
+   * The bar this report prints is a 3.72-sigma Bonferroni threshold over 250
+   * tests, and a holdout refit on two halves of the window. Neither means
+   * anything across a single day: a half is then twelve hours, and "holds in
+   * both" is a statement about one session. So a short window is a fault to
+   * surface, not a smaller result to publish.
+   *
+   * Non-zero exit on purpose. The backtest step is the one step in the workflow
+   * that is not `|| true`, so this fails the run visibly rather than quietly
+   * overwriting good evidence with a degraded pass.
+   */
+  const spanDays = (minutes[minutes.length - 1].ts - minutes[0].ts) / 86_400_000;
+  const minDays = Number(process.env.SWEEP_MIN_DAYS ?? 10);
+  if (Number.isFinite(minDays) && minDays > 0 && spanDays < minDays) {
+    console.error(
+      `[backtest] ${spanDays.toFixed(1)} days of overlap, below the ${minDays}-day floor — ` +
+        `refusing to publish. A Bonferroni bar over 250 tests and a two-half holdout mean ` +
+        `nothing across this window, and a plausible-looking page built on it is worse than ` +
+        `no page. Check whether sweep:history actually downloaded ${symbol}; its failures are ` +
+        `swallowed by \`|| true\`. Set SWEEP_MIN_DAYS to override deliberately.`,
+    );
+    process.exit(1);
+  }
+
+  /*
    * Refuse a series whose prices are not all the same instrument.
    *
    * This is the check that would have caught the symbol mixing whatever its

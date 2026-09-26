@@ -132,6 +132,18 @@ jobs:
             echo "::group::history $sym"
             npm run sweep:history -- --symbol "$sym" --days "$DAYS" || true
             echo "::endgroup::"
+            # `|| true` above is deliberate — a few missing days should not kill a
+            # pass — but it also hid a download that fetched one day of thirty,
+            # and the replay published a FINDINGS page off it that was
+            # indistinguishable from the real one. So count what arrived. A
+            # warning rather than a failure, because the replay now refuses a
+            # short window itself and its refusal is the hard stop; this exists
+            # so the log says which step actually went wrong.
+            got=$(ls data/history/"$sym"/1m/"$sym"-1m-*.zip 2>/dev/null | wc -l)
+            echo "$sym: $got of $DAYS daily kline files on disk"
+            if [ "$got" -lt $(( DAYS / 2 )) ]; then
+              echo "::warning::$sym downloaded only $got of $DAYS days — the replay will refuse the window"
+            fi
             echo "::group::spread $sym"
             # The cost bar decides which findings are real, and on LITUSDT it
             # rested on one estimator because Roll returned null at minute

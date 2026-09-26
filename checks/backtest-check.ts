@@ -174,7 +174,17 @@ function plantedEdge() {
     // moves — a test leaning on it is testing the configuration, and it broke the
     // moment the configured symbol changed.
     execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--symbol", "BTCUSDT", "--in", dir, "--out", out], {
-      cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000,
+      cwd: "/home/user/oddz",
+      stdio: "pipe",
+      timeout: 180_000,
+      /*
+       * These fixtures are a few days long on purpose — they exist to exercise
+       * the scoring, not to be a plausible research window — so the ten-day
+       * publish floor is switched off for them. It gets its own case below,
+       * because a guard nothing tests is a guard that will be removed by the
+       * next person who trips over it.
+       */
+      env: { ...process.env, SWEEP_MIN_DAYS: "0" },
     });
   } catch (err) {
     const e = err as { stderr?: Buffer; stdout?: Buffer };
@@ -230,6 +240,80 @@ console.log("backtest harness");
 zipReader();
 plantedEdge();
 
+/**
+ * A window too short to support the page it would print.
+ *
+ * On 2026-09-26 a pass replayed BTCUSDT on 1,940 samples over one day, cleared
+ * the 1,000-minute floor, and published a FINDINGS page indistinguishable from
+ * the real one — same Bonferroni bar over 250 tests, same "holds in both halves"
+ * claims, a thirtieth of the data. The history step is `|| true` in the
+ * workflow, so the failed download said nothing, and the replay had no way to
+ * report that what it got was not what was asked for.
+ *
+ * The guard has to refuse and exit non-zero: the backtest is the one step in
+ * that workflow which is not `|| true`, so a refusal there is the only thing
+ * that turns a degraded pass into a visible failure instead of a quiet
+ * overwrite of good evidence.
+ */
+function aShortWindowIsRefused() {
+  const dir = mkdtempSync(join(tmpdir(), "backtest-short-"));
+  /*
+   * Three days: comfortably past the 1,000-minute floor, nowhere near a window
+   * that could support a Bonferroni bar over 250 tests or a two-half holdout.
+   */
+  mkdirSync(join(dir, "bookDepth"), { recursive: true });
+  mkdirSync(join(dir, "1m"), { recursive: true });
+  const start = Date.UTC(2024, 0, 1);
+  const depth: string[] = ["timestamp,percentage,depth,notional"];
+  const bars: string[] = [];
+  let px = 60_000;
+  for (let i = 0; i < 3 * 1440; i++) {
+    const ts = start + i * 60_000;
+    px *= 1 + ((i % 7) - 3) / 200_000;
+    depth.push(`${ts},-1,100,9000000`);
+    depth.push(`${ts},1,100,9000000`);
+    bars.push(`${ts},${px},${px * 1.0005},${px * 0.9995},${px},10,${ts + 59_999},0,0,0,0,0`);
+  }
+  writeFileSync(
+    join(dir, "bookDepth", "BTCUSDT-bookDepth-2024-01-01.zip"),
+    makeZip("BTCUSDT-bookDepth-2024-01-01.csv", depth.join("\n")),
+  );
+  writeFileSync(
+    join(dir, "1m", "BTCUSDT-1m-2024-01-01.zip"),
+    makeZip("BTCUSDT-1m-2024-01-01.csv", bars.join("\n")),
+  );
+  const out = join(dir, "report.json");
+  let exited = false;
+  let stderr = "";
+  try {
+    execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--symbol", "BTCUSDT", "--in", dir, "--out", out], {
+      cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000,
+    });
+  } catch (err) {
+    exited = true;
+    const e = err as { stderr?: Buffer; stdout?: Buffer };
+    stderr = String(e.stderr ?? "") + String(e.stdout ?? "");
+  }
+  ok("a three-day window is refused", exited, "it published a report from three days");
+  ok("and nothing was written", !existsSync(out));
+  ok("the message names the floor", /day floor/.test(stderr), stderr.slice(-300));
+  ok("and points at the silent download", /sweep:history/.test(stderr));
+
+  // Deliberate override still works, so a genuinely new contract is not blocked.
+  let ok2 = false;
+  try {
+    execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--symbol", "BTCUSDT", "--in", dir, "--out", out], {
+      cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000,
+      env: { ...process.env, SWEEP_MIN_DAYS: "0" },
+    });
+    ok2 = true;
+  } catch {
+    ok2 = false;
+  }
+  ok("SWEEP_MIN_DAYS overrides it deliberately", ok2 && existsSync(out));
+}
+
+
 if (failures) {
   console.error(`\n${failures} failure(s)`);
   process.exit(1);
@@ -274,7 +358,7 @@ function refusesMixedSymbols() {
   let exited = false;
   try {
     execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--symbol", "BTCUSDT", "--in", dir, "--out", out],
-      { cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000 });
+      { cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000, env: { ...process.env, SWEEP_MIN_DAYS: "0" } });
   } catch (err) {
     exited = true;
     const e = err as { stderr?: Buffer; stdout?: Buffer };
@@ -332,7 +416,7 @@ function prefersTheLayoutThatHasData() {
   let stderr = "";
   try {
     execFileSync("npx", ["tsx", "workers/sweep-backtest.ts", "--symbol", "BTCUSDT", "--in", dir, "--out", out],
-      { cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000 });
+      { cwd: "/home/user/oddz", stdio: "pipe", timeout: 180_000, env: { ...process.env, SWEEP_MIN_DAYS: "0" } });
   } catch (err) {
     const e = err as { stderr?: Buffer; stdout?: Buffer };
     stderr = String(e.stderr ?? "") + String(e.stdout ?? "");
@@ -346,6 +430,7 @@ function prefersTheLayoutThatHasData() {
 }
 
 prefersTheLayoutThatHasData();
+aShortWindowIsRefused();
 if (failures) {
   console.error(`\n${failures} failure(s) in the layout selection`);
   process.exit(1);
