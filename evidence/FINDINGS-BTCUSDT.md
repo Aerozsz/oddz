@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-27T00:29:56.903Z by the research loop. Do not edit — it is
+Generated 2026-09-27T00:37:38.501Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -85,8 +85,8 @@ The first table prices *resting* depth. That was assumed to be optimistic — qu
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -6.6bp: price 6.98bp ±1.77, carry +6.64bp, **total 13.62bp**
-- basis -2.0bp: price 15.21bp ±1.91, carry +2.03bp, **total 17.24bp**
+- basis -6.6bp: **carry +6.64bp**, price 6.98bp ±1.77, total 13.62bp. The carry is the mechanical part; the price term needs a view or a hedge.
+- basis -2.0bp: **carry +2.03bp**, price 15.21bp ±1.91, total 17.24bp. The carry is the mechanical part; the price term needs a view or a hedge.
 
 ## What a pass should do
 

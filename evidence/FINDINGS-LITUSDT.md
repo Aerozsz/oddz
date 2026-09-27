@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-27T00:28:09.084Z by the research loop. Do not edit — it is
+Generated 2026-09-27T00:35:33.300Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -88,8 +88,8 @@ The first table prices *resting* depth. That was assumed to be optimistic — qu
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -12.0bp: price 52.93bp ±6.25, carry +11.99bp, **total 64.92bp**
-- basis 0.2bp: price -26.19bp ±5.91, carry +0.25bp, **total -25.94bp**
+- basis -12.0bp: **carry +11.99bp**, price 52.93bp ±6.25, total 64.92bp. The carry is the mechanical part; the price term needs a view or a hedge.
+- basis 0.2bp: **carry +0.25bp**. The price term is withheld — this bucket's rows share one basis value, so its boundaries came from array order and any return on it is a slice of the calendar, not a finding about carry.
 
 ## What a pass should do
 
