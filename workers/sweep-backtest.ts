@@ -777,6 +777,9 @@ function main() {
           carryBps: b.meanCarryBps,
           totalBps: b.meanTotalBps,
           tied: b.tied,
+          days: b.days,
+          topDayShare: b.topDayShare,
+          halvesAgree: b.halvesAgree,
         }))
       : undefined,
     carryNote: funding.note,

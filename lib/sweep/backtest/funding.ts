@@ -64,6 +64,21 @@ export interface FundingBucket {
   /** True when the bucket is a calendar slice rather than a basis slice. */
   tied?: boolean;
   tiedNote?: string;
+  /** Distinct days the bucket's rows fall on. */
+  days?: number;
+  /**
+   * The largest single day's share of the bucket.
+   *
+   * An extreme basis clusters in the episodes that produced it, so a decile can
+   * be a few days of one selloff. High here means the bucket's price statistic
+   * describes those days rather than the basis level.
+   */
+  topDayShare?: number;
+  /** The collector's mean price return in each half of the window. */
+  firstHalfBps?: number | null;
+  secondHalfBps?: number | null;
+  /** Whether both halves point the same way for the collector. */
+  halvesAgree?: boolean | null;
   /** Payment plus price move: what the position actually nets, before fees. */
   meanTotalBps: number | null;
 }
@@ -97,11 +112,11 @@ export function carryOver(basisBps: number, minutes: number): number {
  */
 export function scoreFunding(points: FundingPoint[], horizonMin: number, buckets = 10): FundingBucket[] {
   const byTs = new Map(points.map((p) => [p.ts, p]));
-  const rows: { basis: number; fwdBps: number }[] = [];
+  const rows: { basis: number; fwdBps: number; ts: number }[] = [];
   for (const p of points) {
     const later = byTs.get(p.ts + horizonMin * 60_000);
     if (!later || !(p.close > 0)) continue;
-    rows.push({ basis: p.basisBps, fwdBps: ((later.close - p.close) / p.close) * 10_000 });
+    rows.push({ basis: p.basisBps, fwdBps: ((later.close - p.close) / p.close) * 10_000, ts: p.ts });
   }
   if (rows.length < buckets * 20) return [];
 
@@ -129,6 +144,23 @@ export function scoreFunding(points: FundingPoint[], horizonMin: number, buckets
    */
   const shareOf = new Map<number, number>();
   for (const r of rows) shareOf.set(r.basis, (shareOf.get(r.basis) ?? 0) + 1);
+
+  /*
+   * The midpoint of the window in time, for refitting each bucket on its halves.
+   *
+   * The tie guard catches a bucket whose *basis* does not vary. It does not catch
+   * the subtler version of the same problem: an extreme basis is not spread
+   * evenly through a month, it clusters in the episodes that produced it. A
+   * decile of very negative basis can be four days of one selloff, and a price
+   * statistic on it then describes those four days at whatever confidence the
+   * row count implies.
+   *
+   * Two numbers separate the cases. The busiest single day's share of the bucket
+   * says how concentrated it is, and refitting on the two halves of the window
+   * says whether the effect exists twice or once.
+   */
+  const allTs = rows.map((r) => r.ts).sort((a, b) => a - b);
+  const midTs = allTs.length ? allTs[Math.floor(allTs.length / 2)] : 0;
   const out: FundingBucket[] = [];
   for (let i = 0; i < buckets; i++) {
     const slice = rows.slice(i * per, i === buckets - 1 ? rows.length : (i + 1) * per);
@@ -168,6 +200,40 @@ export function scoreFunding(points: FundingPoint[], horizonMin: number, buckets
     const meanCollector = collector.reduce((a, b) => a + b, 0) / n;
     const varr = collector.reduce((a, b) => a + (b - meanCollector) ** 2, 0) / Math.max(1, n - 1);
     const meanCarry = Math.abs(carryOver(meanBasis, horizonMin));
+
+    /*
+     * How much of this bucket is one day, and does it hold in both halves.
+     *
+     * Reported rather than enforced: a concentrated bucket is not automatically
+     * wrong, but a reader who is not told cannot tell an effect from an episode,
+     * and this project has already published one number that was an episode.
+     */
+    const byDay = new Map<number, number>();
+    for (const r of slice) {
+      const day = Math.floor(r.ts / 86_400_000);
+      byDay.set(day, (byDay.get(day) ?? 0) + 1);
+    }
+    let busiest = 0;
+    for (const count of byDay.values()) busiest = Math.max(busiest, count);
+    const topDayShare = n > 0 ? busiest / n : 0;
+    const days = byDay.size;
+
+    const halfMean = (pick: (ts: number) => boolean): number | null => {
+      const xs = slice.filter((r) => pick(r.ts)).map((r) => side * r.fwdBps);
+      if (xs.length < 20) return null;
+      return xs.reduce((a, b) => a + b, 0) / xs.length;
+    };
+    const firstHalf = halfMean((ts) => ts < midTs);
+    const secondHalf = halfMean((ts) => ts >= midTs);
+    /*
+     * Agreement means both halves point the same way for the collector. A bucket
+     * that pays in one half and costs in the other is one episode, whatever the
+     * pooled sigma says.
+     */
+    const halvesAgree =
+      firstHalf !== null && secondHalf !== null
+        ? Math.sign(firstHalf) === Math.sign(secondHalf)
+        : null;
     out.push({
       label: `basis decile ${i}`,
       n,
@@ -187,6 +253,12 @@ export function scoreFunding(points: FundingPoint[], horizonMin: number, buckets
       meanCarryBps: meanCarry,
       meanTotalBps: tied ? null : meanCollector + meanCarry,
       tied,
+      /** Days the bucket spans, and the largest single day's share of it. */
+      days,
+      topDayShare,
+      firstHalfBps: tied ? null : firstHalf,
+      secondHalfBps: tied ? null : secondHalf,
+      halvesAgree: tied ? null : halvesAgree,
       tiedNote: tied
         ? "this bucket's rows share one basis value, so its boundaries were set by array order " +
           "rather than by basis — any price statistic on it is a slice of the calendar, not a " +

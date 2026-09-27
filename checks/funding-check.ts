@@ -117,6 +117,64 @@ function crowdRightIsATrap() {
     top.meanCarryBps > 0, top.meanCarryBps.toFixed(2));
 }
 
+/**
+ * An episode must not read the same as an effect.
+ *
+ * The tie guard catches a bucket whose basis does not vary. It cannot catch the
+ * subtler version: an extreme basis clusters in the episodes that produced it, so
+ * a decile of very negative basis can be a few days of one selloff, and a price
+ * statistic on it describes those days at whatever confidence the row count
+ * implies. This project has already published one number that was an episode.
+ */
+function anEpisodeIsMarkedAsOne() {
+  /*
+   * Every extreme-basis row falls inside one stretch of the window, and the move
+   * that follows them is all one way. A bucket like this should report a high
+   * single-day share and halves that cannot both be fitted.
+   */
+  const p = series(
+    (i) => (i > 1200 && i < 1500 ? -60 : ((i * 13) % 31) - 5),
+    (i) => (i > 1200 && i < 1500 ? 4 : 0),
+    3000,
+  );
+  const b = scoreFunding(p, 480);
+  const extreme = b[0];
+  ok("the episode bucket is found", extreme.meanBasisBps < -30, String(extreme.meanBasisBps));
+  ok("it spans few days", (extreme.days ?? 99) <= 2, String(extreme.days));
+  ok("and one day dominates it", (extreme.topDayShare ?? 0) > 0.4, String(extreme.topDayShare));
+  ok(
+    "so it cannot be fitted on both halves",
+    extreme.firstHalfBps === null || extreme.secondHalfBps === null,
+    `${extreme.firstHalfBps} / ${extreme.secondHalfBps}`,
+  );
+
+  /*
+   * A basis level that recurs through the window is the other case, and must not
+   * be tarred with the same brush: spread across many days, fittable on both
+   * halves.
+   */
+  /*
+   * Twelve thousand minutes, not three. Three thousand minutes is fifty hours, so
+   * it cannot span "many days" whatever the basis does — the first version of this
+   * assertion failed on the fixture's length rather than on the behaviour, which
+   * is the kind of failure that gets an assertion weakened instead of a fixture
+   * fixed.
+   */
+  const spread = scoreFunding(
+    series((i) => (i % 11 === 0 ? -60 : ((i * 13) % 31) - 5), (i) => (i % 11 === 0 ? 4 : 0), 12_000),
+    480,
+  );
+  const rec = spread[0];
+  ok("a recurring level spans many days", (rec.days ?? 0) > 2, String(rec.days));
+  ok("no single day dominates it", (rec.topDayShare ?? 1) < 0.4, String(rec.topDayShare));
+  ok(
+    "and both halves fit",
+    rec.firstHalfBps !== null && rec.secondHalfBps !== null,
+    `${rec.firstHalfBps} / ${rec.secondHalfBps}`,
+  );
+  ok("pointing the same way", rec.halvesAgree === true, String(rec.halvesAgree));
+}
+
 function errorTermsTravel() {
   /*
    * A varying basis, because a constant one is entirely tied and every bucket's
@@ -152,6 +210,7 @@ console.log("funding carry");
 carryScales();
 crowdWrongIsProfitable();
 aQuantisedBasisWithholdsItsPriceTerm();
+anEpisodeIsMarkedAsOne();
 crowdRightIsATrap();
 errorTermsTravel();
 aConstantBasisReportsOnlyTheCarry();

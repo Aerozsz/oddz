@@ -263,6 +263,11 @@ export interface RunSummary {
     carryBps: number;
     totalBps: number | null;
     tied?: boolean;
+    /** Days the bucket spans, and the largest day's share of it. */
+    days?: number;
+    topDayShare?: number;
+    /** Whether the collector's price term points the same way in both halves. */
+    halvesAgree?: boolean | null;
   }[];
   carryNote?: string;
   /**
@@ -540,7 +545,25 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
               `order and any return on it is a slice of the calendar, not a finding about carry.`
             : `- basis ${c.basisBps.toFixed(1)}bp: **carry +${c.carryBps.toFixed(2)}bp**, price ` +
               `${c.collectorBps.toFixed(2)}bp ±${(c.seBps ?? 0).toFixed(2)}, total ${c.totalBps.toFixed(2)}bp. ` +
-              `The carry is the mechanical part; the price term needs a view or a hedge.`,
+              `The carry is the mechanical part; the price term needs a view or a hedge.` +
+              /*
+               * An extreme basis clusters in the episodes that produced it, so
+               * the price term on the widest decile can be a few days of one
+               * selloff. Saying how concentrated it is, and whether it survives
+               * being refitted on each half, is the difference between an effect
+               * and an anecdote with a sigma attached.
+               */
+              (typeof c.days === "number"
+                ? ` Spans ${c.days} day${c.days === 1 ? "" : "s"}` +
+                  (typeof c.topDayShare === "number"
+                    ? `, largest day ${(c.topDayShare * 100).toFixed(0)}% of it`
+                    : "") +
+                  (c.halvesAgree === true
+                    ? " — and the price term points the same way in both halves."
+                    : c.halvesAgree === false
+                      ? " — **and the price term flips sign between the halves, so it is an episode rather than an effect.**"
+                      : " — and it cannot be refitted on both halves, so it is one stretch of the window.")
+                : ""),
         );
       }
     }
