@@ -47,6 +47,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
 import { unzipEntries, csvRows, parseTs } from "../lib/sweep/backtest/zip";
+import { SYMBOL } from "../lib/sweep/config";
 
 const arg = (name: string, fallback: string): string => {
   const i = process.argv.indexOf(`--${name}`);
@@ -73,6 +74,17 @@ const months = Math.max(1, Number(arg("months", "2")));
 const limit = Math.max(1, Number(arg("limit", "0")) || Number.MAX_SAFE_INTEGER);
 /** Requests in flight. The archive is fine with this and it turns 15 minutes into 2. */
 const CONCURRENCY = Math.max(1, Number(arg("concurrency", "8")));
+/*
+ * Symbols always reported, whatever they rank.
+ *
+ * The report keeps the top sixty rows, and I read the configured contract's
+ * absence from that slice as evidence it had been dropped from the survey
+ * entirely — it had not, it simply did not rank. A survey of the venue that
+ * cannot answer "and what about the one we trade" makes that mistake easy, so
+ * the contract in the config and the control are pinned into the output
+ * regardless of where they land.
+ */
+const ALWAYS = [...new Set([SYMBOL.toUpperCase(), "BTCUSDT"])];
 const BASE = "https://data.binance.vision/data/futures/um";
 const LIST = "https://s3-ap-northeast-1.amazonaws.com/data.binance.vision";
 
@@ -281,6 +293,14 @@ async function main() {
     surveyed: picked.length,
     kept: rows.length,
     rows: rows.slice(0, 60),
+    /** The configured contract and the control, wherever they ranked. */
+    pinned: ALWAYS.map((sym) => {
+      const hit = rows.find((r) => r.symbol === sym);
+      const rank = rows.findIndex((r) => r.symbol === sym);
+      return hit
+        ? { ...hit, rank: rank + 1, of: rows.length }
+        : { symbol: sym, absent: true, reason: "no funding series with at least 30 settlements in the window" };
+    }),
     note:
       "Ranked by what one day of funding pays on the notional resting within 1% of mid, which is " +
       "dollars rather than basis points because the target is. oneSidedShare is the quantity that " +
@@ -301,6 +321,17 @@ async function main() {
         `one-sided ${(r.oneSidedShare * 100).toFixed(0).padStart(3)}%  ` +
         `depth ${r.depthUsd === null ? "unknown" : "$" + Math.round(r.depthUsd).toLocaleString()}  ` +
         `$300/day needs ${r.notionalForTargetUsd === null ? "n/a" : "$" + Math.round(r.notionalForTargetUsd).toLocaleString()}`,
+    );
+  }
+  for (const sym of ALWAYS) {
+    const hit = rows.find((r) => r.symbol === sym);
+    const rank = rows.findIndex((r) => r.symbol === sym) + 1;
+    console.error(
+      hit
+        ? `[survey] ${sym}: ${hit.dailyBps.toFixed(1)}bp/day, one-sided ` +
+          `${(hit.oneSidedShare * 100).toFixed(0)}%, rank ${rank} of ${rows.length}, ` +
+          `$300/day needs ${hit.notionalForTargetUsd === null ? "n/a" : "$" + Math.round(hit.notionalForTargetUsd).toLocaleString()}`
+        : `[survey] ${sym}: no funding series with 30+ settlements in the window`,
     );
   }
   console.error(`[survey] -> ${outPath}`);
