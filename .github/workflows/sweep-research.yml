@@ -203,6 +203,19 @@ jobs:
             echo "::endgroup::"
           done
 
+      - name: Survey the funding across the whole listing
+        run: |
+          set -uo pipefail
+          # Not per-symbol: this is the question of WHICH symbol, which the
+          # project has never asked. LITUSDT was chosen months ago for reasons
+          # that had nothing to do with carry, and carry is the only quantity
+          # here that has survived every test applied to it. The payment is set
+          # by how badly one side wants exposure, so it varies enormously across
+          # contracts — and it is largest exactly where the book is thinnest,
+          # which is why the ranking is dollars on absorbable size rather than
+          # basis points.
+          npm run sweep:survey -- --months 2 --limit 400 || true
+
       - name: Publish the findings
         if: always()
         run: |
