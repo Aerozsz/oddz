@@ -1794,3 +1794,59 @@ magnitude too small for the target it was given. Those are different sentences
 and the operator should get the second one.
 
 Nothing armed.
+
+## 2026-09-27 (pairs) — the hedged spread works and needs more capital than the thing it hedges
+
+43 pairs across 41 underlyings listed against more than one margin asset.
+
+```
+short / long                 bp/day 1-sided  residual carry/risk   $300/day needs
+XRPUSDC / XRPUSDT              0.80     68%     1.9bp      0.141       $3,730,153
+ZECUSDT / ZECUSDC              1.09     80%     3.3bp      0.111       $2,763,974
+DOGEUSDC / DOGEUSDT            0.62     57%     2.2bp      0.096       $4,809,706
+BTCUSD1 / BTCUSDC              0.49     66%     2.5bp      0.064       $6,145,165
+KAITOUSDC / KAITOUSDT          1.52     45%     7.5bp      0.068       $1,971,207
+DATAIPUSDC / DATAIPUSDT        1.63     51%    11.8bp      0.046       $1,837,900
+```
+
+**The structure is sound and the consistency filter earned its place again.** The
+two widest differentials — KAITO at 1.52bp a day and DATAIP at 1.63 — come with
+45% and 51% one-sidedness and residuals of 7.5 and 11.8bp. They are coin flips on
+a wider board. The best risk-adjusted pair is XRP: 0.80bp a day at 68% one-sided
+against a 1.9bp residual.
+
+**And it needs more capital than the unhedged carry does, exactly as predicted.**
+The differential is smaller than either leg by construction — that is what
+hedging costs — so $300 a day needs **$3.7M** at the best ratio against $1.57M
+unhedged on BTCUSDT. Hedging the price term triples the capital requirement. That
+is not a flaw in the measurement; it is what the trade is.
+
+**On the ratio, and what I am not going to claim from it.** 0.141 of differential
+per unit of residual per interval would annualise to a Sharpe near five if
+interval residuals were independent. They are not: the residual is a basis
+between two contracts on one underlying, so it mean-reverts, and 68%
+one-sidedness means the differential itself flips nearly a third of the time.
+Annualising it would be the most flattering number in this journal and the least
+earned. The ratio is reported as a ranking quantity and nothing more.
+
+## Where the project actually stands
+
+Every route this account can place, with what $300 a day requires of each:
+
+| route | gross | capital for $300/day | why it is not more |
+|---|---|---|---|
+| directional, crossing | 13.21bp per trade | — | loses ~1bp a trade to impact |
+| directional, resting | −4.49bp per trade | — | loses to adverse selection once fills are paid for by real volume |
+| carry, unhedged, LITUSDT | 0.9bp/day | $3.36M | price term ±50–100bp per 8h, unhedgeable here |
+| carry, unhedged, BTCUSDT | 1.9bp/day, 99% one-sided | $1.57M | same, and it is the whole position |
+| carry, perp vs perp, XRP | 0.80bp/day, 68% one-sided | $3.73M | hedging costs the difference |
+
+**The two directional rows are closed on their merits.** The three carry rows are
+not closed at all — they work, and every one of them is bounded by capital rather
+than by edge. That is the finding, and it took the whole project to get to a
+sentence this short: *there is no directional edge here that survives cost, there
+is a mechanical carry that does, and the account is two to three orders of
+magnitude too small to make $300 a day from it.*
+
+Nothing armed. Nothing left to search that would change that sentence — what
+would change it is a larger account, or a smaller target.
