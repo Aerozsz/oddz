@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-27T06:29:38.955Z by the research loop. Do not edit — it is
+Generated 2026-09-27T06:33:40.414Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -85,8 +85,8 @@ The first table prices *resting* depth. That was assumed to be optimistic — qu
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -6.6bp: **carry +6.64bp**, price 6.98bp ±1.77, total 13.62bp. The carry is the mechanical part; the price term needs a view or a hedge.
-- basis -2.0bp: **carry +2.03bp**, price 15.21bp ±1.91, total 17.24bp. The carry is the mechanical part; the price term needs a view or a hedge.
+- basis -6.6bp: **carry +6.64bp**, price 6.98bp ±1.77, total 13.62bp. The carry is the mechanical part; the price term needs a view or a hedge. Spans 29 days, largest day 8% of it — **and the price term flips sign between the halves, so it is an episode rather than an effect.**
+- basis -2.0bp: **carry +2.03bp**, price 15.21bp ±1.91, total 17.24bp. The carry is the mechanical part; the price term needs a view or a hedge. Spans 29 days, largest day 7% of it — **and the price term flips sign between the halves, so it is an episode rather than an effect.**
 
 ## What a pass should do
 
