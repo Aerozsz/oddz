@@ -214,7 +214,13 @@ jobs:
           # contracts — and it is largest exactly where the book is thinnest,
           # which is why the ranking is dollars on absorbable size rather than
           # basis points.
-          npm run sweep:survey -- --months 2 --limit 400 || true
+          # No --limit: the first run surveyed 400 of 952 alphabetically, so it
+          # covered roughly A to I and produced a ranking of B-to-G symbols,
+          # which is what a truncation looks like when it is mistaken for a
+          # result. LITUSDT, the contract this project trades, was not in the
+          # surveyed set at all. Eight requests in flight turns the full listing
+          # from fifteen minutes into two.
+          npm run sweep:survey -- --months 2 --concurrency 8 || true
 
       - name: Publish the findings
         if: always()

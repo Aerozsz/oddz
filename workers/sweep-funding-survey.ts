@@ -57,7 +57,22 @@ const arg = (name: string, fallback: string): string => {
 
 const outPath = resolve(arg("out", "evidence/funding-survey.json"));
 const months = Math.max(1, Number(arg("months", "2")));
-const limit = Math.max(1, Number(arg("limit", "400")));
+/*
+ * Every symbol by default.
+ *
+ * The first run surveyed 400 of 952 and the list is sorted, so it covered
+ * roughly A through I — and the ranking that came out was almost entirely
+ * B-to-G symbols, which is what an alphabetical truncation looks like when it is
+ * mistaken for a result. LITUSDT, the contract this whole project trades, was
+ * not even in the surveyed set.
+ *
+ * A limit is still accepted for a quick pass, but it now samples across the
+ * alphabet rather than taking a prefix, so a partial survey is partial in a way
+ * that does not correlate with the answer.
+ */
+const limit = Math.max(1, Number(arg("limit", "0")) || Number.MAX_SAFE_INTEGER);
+/** Requests in flight. The archive is fine with this and it turns 15 minutes into 2. */
+const CONCURRENCY = Math.max(1, Number(arg("concurrency", "8")));
 const BASE = "https://data.binance.vision/data/futures/um";
 const LIST = "https://s3-ap-northeast-1.amazonaws.com/data.binance.vision";
 
@@ -112,6 +127,8 @@ interface Funding {
   oneSidedShare: number;
   /** meanSignedBps at three settlements a day, in bps of notional. */
   dailyBps: number;
+  /** Notional needed to make $300 a day at this rate. */
+  notionalForTargetUsd: number | null;
 }
 
 async function fundingFor(symbol: string, dates: string[]): Promise<Funding | null> {
@@ -156,6 +173,15 @@ async function fundingFor(symbol: string, dates: string[]): Promise<Funding | nu
     meanSignedBps: meanSigned,
     oneSidedShare: oneSided,
     dailyBps: Math.abs(meanSigned) * 3,
+    /*
+     * The notional a position must hold to make $300 a day at this rate.
+     *
+     * This is the number the operator's decision actually turns on, and the
+     * dollars-on-full-depth ranking does not answer it: nobody trades the entire
+     * resting book. A rate of 1.9bp a day is a fine carry and still needs a
+     * million and a half dollars behind it.
+     */
+    notionalForTargetUsd: Math.abs(meanSigned) * 3 > 0 ? 300 / ((Math.abs(meanSigned) * 3) / 10_000) : null,
   };
 }
 
@@ -209,26 +235,41 @@ async function main() {
     process.exit(1);
   }
 
-  const picked = all.slice(0, limit);
+  /*
+   * Sampled across the alphabet when limited, never a prefix. A stride keeps the
+   * subset spread over the whole listing, so a partial survey is partial in a way
+   * that does not correlate with the symbol name.
+   */
+  const picked =
+    limit >= all.length ? all : all.filter((_, i) => i % Math.ceil(all.length / limit) === 0);
   const rows: (Funding & { depthUsd: number | null; dailyUsd: number | null })[] = [];
-  for (let i = 0; i < picked.length; i++) {
-    const sym = picked[i];
-    const f = await fundingFor(sym, ym);
-    if (!f) continue;
-    const depthUsd = await depthFor(sym, depthDate);
-    rows.push({
-      ...f,
-      depthUsd,
-      /*
-       * What a day pays on the size the book can absorb — the ranking quantity,
-       * because a large rate on a book nobody can trade is not an opportunity.
-       * Null when depth is unknown rather than assumed, since assuming it is the
-       * error that would put untradeable contracts on top.
-       */
-      dailyUsd: depthUsd === null ? null : (f.dailyBps / 10_000) * depthUsd,
-    });
-    if ((i + 1) % 25 === 0) console.error(`[survey] ${i + 1}/${picked.length} · kept ${rows.length}`);
-  }
+
+  let next = 0;
+  let done = 0;
+  const worker = async () => {
+    for (;;) {
+      const i = next++;
+      if (i >= picked.length) return;
+      const sym = picked[i];
+      const f = await fundingFor(sym, ym);
+      done++;
+      if (done % 100 === 0) console.error(`[survey] ${done}/${picked.length} · kept ${rows.length}`);
+      if (!f) continue;
+      const depthUsd = await depthFor(sym, depthDate);
+      rows.push({
+        ...f,
+        depthUsd,
+        /*
+         * What a day pays on the size the book can absorb — a ranking quantity,
+         * because a large rate on a book nobody can trade is not an opportunity.
+         * Null when depth is unknown rather than assumed, since assuming it is
+         * the error that would put untradeable contracts on top.
+         */
+        dailyUsd: depthUsd === null ? null : (f.dailyBps / 10_000) * depthUsd,
+      });
+    }
+  };
+  await Promise.all(Array.from({ length: CONCURRENCY }, () => worker()));
 
   rows.sort((a, b) => (b.dailyUsd ?? -1) - (a.dailyUsd ?? -1));
 
@@ -259,7 +300,7 @@ async function main() {
       `  ${r.symbol.padEnd(14)} ${r.dailyBps.toFixed(1).padStart(6)}bp/day  ` +
         `one-sided ${(r.oneSidedShare * 100).toFixed(0).padStart(3)}%  ` +
         `depth ${r.depthUsd === null ? "unknown" : "$" + Math.round(r.depthUsd).toLocaleString()}  ` +
-        `→ ${r.dailyUsd === null ? "n/a" : "$" + Math.round(r.dailyUsd).toLocaleString() + "/day"}`,
+        `$300/day needs ${r.notionalForTargetUsd === null ? "n/a" : "$" + Math.round(r.notionalForTargetUsd).toLocaleString()}`,
     );
   }
   console.error(`[survey] -> ${outPath}`);
