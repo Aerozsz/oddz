@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-26T18:32:23.870Z by the research loop. Do not edit — it is
+Generated 2026-09-27T00:28:09.084Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,31 +38,31 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### LITUSDT
 
-43,140 samples over 30 days. Bar 3.72 sigma, round trip 7.74bp.
+41,700 samples over 29 days. Bar 3.72 sigma, round trip 7.74bp.
 
 12 cleared the bar; **11 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t5: -28.3 sigma, -25.13bp — **beats fees** · halves -19.2/-20.0 sigma, -23.5/-25.8bp — **holds in both**
-- `takerRatioFade` @ t1: -25.3 sigma, -9.89bp — **beats fees** · halves -17.8/-18.1 sigma, -9.9/-9.9bp — **holds in both**
-- `takerRatioFade` @ t1d: -18.3 sigma, -7.28bp · halves -12.2/-13.6 sigma, -7.0/-7.6bp — **holds in both**
-- `takerRatioFade` @ t5d: -17.6 sigma, -15.81bp — **beats fees** · halves -10.9/-12.8 sigma, -13.5/-16.8bp — **holds in both**
-- `takerRatioFade` @ t15: -15.6 sigma, -25.21bp — **beats fees** · halves -10.9/-10.8 sigma, -23.6/-26.1bp — **holds in both**
-- `mom30` @ t30d: -9.3 sigma, -24.98bp — **beats fees** · halves -2.6/-9.8 sigma, -9.2/-39.7bp — **holds in both**
-- `takerRatioFade` @ t15d: -9.3 sigma, -15.04bp — **beats fees** · halves -6.5/-6.3 sigma, -14.0/-15.1bp — **holds in both**
-- `mom30` @ t30: -9.1 sigma, -24.43bp — **beats fees** · halves -2.7/-9.7 sigma, -9.4/-39.0bp — **holds in both**
+- `takerRatioFade` @ t5: -27.6 sigma, -24.94bp — **beats fees** · halves -18.2/-20.3 sigma, -22.2/-26.9bp — **holds in both**
+- `takerRatioFade` @ t1: -24.8 sigma, -9.80bp — **beats fees** · halves -17.1/-18.0 sigma, -9.5/-10.2bp — **holds in both**
+- `takerRatioFade` @ t1d: -17.8 sigma, -7.19bp · halves -11.7/-13.6 sigma, -6.6/-7.8bp — **holds in both**
+- `takerRatioFade` @ t5d: -17.2 sigma, -15.76bp — **beats fees** · halves -10.4/-13.2 sigma, -12.7/-17.8bp — **holds in both**
+- `takerRatioFade` @ t15: -15.5 sigma, -25.41bp — **beats fees** · halves -10.3/-11.5 sigma, -22.5/-28.3bp — **holds in both**
+- `takerRatioFade` @ t15d: -9.3 sigma, -15.27bp — **beats fees** · halves -6.0/-7.0 sigma, -13.1/-17.4bp — **holds in both**
+- `mom30` @ t30d: -9.0 sigma, -24.64bp — **beats fees** · halves -2.9/-9.8 sigma, -10.5/-39.1bp — **holds in both**
+- `mom30` @ t30: -8.9 sigma, -24.27bp — **beats fees** · halves -2.9/-9.5 sigma, -10.5/-38.3bp — **holds in both**
 
-#### Sizing — `takerRatioFade` @ t5d, edge 8.59bp
+#### Sizing — `takerRatioFade` @ t5d, edge 8.42bp
 
-Priced on **one tail's own mean return**, not the decile spread. The spread is 15.81bp — bottom decile 8.59bp, top decile -7.22bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
+Priced on **one tail's own mean return**, not the decile spread. The spread is 15.76bp — bottom decile 8.42bp, top decile -7.34bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
 
-Priced on the delayed entry. The same feature entered at the decision close reads 25.13bp, and the 16.54bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
+Priced on the delayed entry. The same feature entered at the decision close reads 24.94bp, and the 16.52bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 8.08bp | **+0.51**bp | $0.05 | 5,915 | 0.24bp |
-| $5,000 | 9.46bp | -0.87bp | $-0.44 | never | -2.23bp |
-| $10,000 | 11.18bp | -2.59bp | $-2.59 | never | -5.31bp |
-| $25,000 | 16.34bp | -7.76bp | $-19.39 | never | -14.55bp |
+| $1,000 | 8.08bp | **+0.34**bp | $0.03 | 8,804 | 0.07bp |
+| $5,000 | 9.45bp | -1.03bp | $-0.52 | never | -2.40bp |
+| $10,000 | 11.17bp | -2.75bp | $-2.75 | never | -5.48bp |
+| $25,000 | 16.32bp | -7.90bp | $-19.76 | never | -14.72bp |
 | $50,000 | — | — | — | never | — |
 | $100,000 | — | — | — | never | — |
 
@@ -70,26 +70,26 @@ Against impact measured on executed sweeps rather than modelled from resting dep
 
 | size | net if it pays the whole move | net if it pays only the revert |
 | --- | --- | --- |
-| $1,000 | -0.75bp | **+0.85**bp |
-| $5,000 | -7.49bp | -1.60bp |
-| $10,000 | -11.78bp | -1.65bp |
-| $25,000 | -15.89bp | -3.11bp |
-| $50,000 | -20.43bp | -5.48bp |
-| $100,000 | -27.00bp | -12.99bp |
+| $1,000 | -0.87bp | **+0.68**bp |
+| $5,000 | -7.27bp | -1.84bp |
+| $10,000 | -11.46bp | -1.72bp |
+| $25,000 | -15.41bp | -3.52bp |
+| $50,000 | -20.18bp | -4.16bp |
+| $100,000 | -24.82bp | -9.49bp |
 
 The truth is between the two columns. A mechanical signal carries no private information, so it should not pay the whole move; it does arrive alongside informed flow, so it will not pay only the revert either.
 
 - $50,000: 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost
 - $100,000: 13% of minutes ran off the end of the published curve — the median below that is computed on the deep minutes only and understates the cost
 
-Best size $1,000: **$0.05 a round trip**, so 5,915 of them a day for $300. At the ninetieth-percentile minute it is $0.02 at $1,000.
+Best size $1,000: **$0.03 a round trip**, so 8,804 of them a day for $300. At the ninetieth-percentile minute it is $0.01 at $1,000.
 
 The first table prices *resting* depth. That was assumed to be optimistic — quotes are pulled as an order arrives — but 380,411 executed sweeps say otherwise above $5,000: real sweeps meet a book that refreshes, so the modelled curve runs dearer than the reverting cost, not cheaper. It is optimistic only at the smallest sizes. Read the bracket, not this table alone.
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -11.9bp: price 53.39bp ±6.14, carry +11.87bp, **total 65.26bp**
-- basis 0.3bp: price -27.89bp ±5.76, carry +0.28bp, **total -27.62bp**
+- basis -12.0bp: price 52.93bp ±6.25, carry +11.99bp, **total 64.92bp**
+- basis 0.2bp: price -26.19bp ±5.91, carry +0.25bp, **total -25.94bp**
 
 ## What a pass should do
 
