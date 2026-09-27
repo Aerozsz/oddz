@@ -1730,3 +1730,67 @@ The loop keeps running. Every pass from here is regression rather than search
 unless the operator opens a new direction.
 
 72 check suites green. Nothing armed.
+
+## 2026-09-27 (survey) — the venue ranked, and the contract we trade is 203rd
+
+952 contracts listed, all 952 surveyed, 747 with at least thirty settlements in
+two months.
+
+```
+most consistent (>=90% one-sided, >$1M depth), by capital needed
+symbol          bp/day 1-sided          depth   $300/day needs
+XMRUSDT           5.2     94%     $2,430,936      $573,555
+DOGEUSDC          2.3     99%     $7,363,969    $1,283,163
+BTCUSD1           2.3     96%     $5,623,446    $1,309,966
+BTCUSDT           1.9     99%   $749,056,370    $1,571,084
+LINKUSDT          1.8     91%     $9,155,117    $1,628,357
+ETHUSDT           1.3     94%   $382,235,386    $2,237,809
+
+LITUSDT           0.9     87%     $1,456,018    $3,361,499   (rank 203 of 747)
+```
+
+**The one-sidedness column is the whole survey.** The high-rate contracts —
+SKHYNIXUSDT 6.1bp/day, BZUSDT 3.3, CXMTUSDT 27, DEXEUSDT 46 — come in at 28 to
+46% one-sided. The sign alternates, so a held position collects nothing however
+large each payment looks. Ranking on the rate alone would have put exactly those
+on top, and the reason to rank on dollars against a consistency filter was to
+avoid precisely that. It worked.
+
+**A correction I need to make to my own arithmetic.** I have been quoting
+LITUSDT's carry as 11.99bp per eight hours, about 36bp a day. That figure is
+*conditional on the basis being in its widest decile*. The unconditional mean —
+what a position actually collects if it is simply held — is **0.9bp a day**, forty
+times smaller. Both numbers are true and they answer different questions, and the
+one I was using answers a question nobody can act on: holding only during the
+extreme decile requires timing the basis, which is a directional view on the
+basis, which is the thing five measurements say is not available here. The
+planning number is 0.9.
+
+So the $83,000 I put in front of the operator this morning was wrong by the same
+factor. At LITUSDT's real unconditional rate, $300 a day needs **$3.36M**.
+
+**The contract this project trades is 203rd of 747** for the only quantity that
+survived every test. It was chosen months ago on a thesis that has since been
+closed from five directions, and nothing about that choice was ever about carry.
+If carry is what is left, the instrument is wrong — and that is a one-line config
+change rather than a research programme.
+
+**What the survey does not say, and must not be read as saying.** It ranks the
+payment. It does not model the price exposure that comes with collecting it,
+which on this contract runs plus or minus 50 to 100bp per eight hours and does
+not survive a refit on halves. A carry of 1.9bp a day inside a daily price swing
+of several hundred basis points is not a strategy; it is a strategy only once the
+price term is hedged, and hedging it needs spot.
+
+**Where that leaves the target.** A working structure exists: short the
+perpetual, hold the spot, collect the funding. On BTCUSDT it pays 1.9bp a day at
+99% consistency on a book deep enough to absorb any size this account could
+reach. It needs about $1.57M to make $300 a day, gross, before the cost of
+maintaining two legs and before spot borrow.
+
+That is not "the strategy does not work". It is that the strategy works, is
+roughly a seven-percent-a-year carry, and the account is two to three orders of
+magnitude too small for the target it was given. Those are different sentences
+and the operator should get the second one.
+
+Nothing armed.
