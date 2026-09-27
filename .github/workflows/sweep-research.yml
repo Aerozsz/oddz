@@ -222,6 +222,20 @@ jobs:
           # from fifteen minutes into two.
           npm run sweep:survey -- --months 2 --concurrency 8 || true
 
+      - name: Price the perp-against-perp carry
+        run: |
+          set -uo pipefail
+          # The one structure this account could actually place. Everything
+          # directional is closed, what survived is the funding payment, and
+          # collecting it unhedged means holding a price term that runs plus or
+          # minus 50 to 100bp per eight hours. Hedging with spot would fix that
+          # and there is no spot — but the venue lists the same underlying
+          # against USDT, USDC and USD1, three perpetuals on one price that fund
+          # independently. Long the leg paying less, short the leg paying more:
+          # the price exposure very nearly cancels and the differential does not.
+          # "Very nearly" is the claim the residual measures.
+          npm run sweep:paircarry -- --months 2 --concurrency 6 || true
+
       - name: Publish the findings
         if: always()
         run: |
