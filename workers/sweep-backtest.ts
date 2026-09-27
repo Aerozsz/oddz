@@ -776,6 +776,7 @@ function main() {
           seBps: b.seBps,
           carryBps: b.meanCarryBps,
           totalBps: b.meanTotalBps,
+          tied: b.tied,
         }))
       : undefined,
     carryNote: funding.note,
@@ -832,8 +833,11 @@ function main() {
       for (const b of [bot, top]) {
         console.error(
           `    basis ${b.meanBasisBps.toFixed(1).padStart(7)}bp  n ${String(b.n).padStart(6)}  ` +
-            `price ${b.meanCollectorBps.toFixed(2).padStart(8)}bp ±${b.seBps.toFixed(2)}  ` +
-            `carry +${b.meanCarryBps.toFixed(2)}bp  total ${b.meanTotalBps.toFixed(2)}bp`,
+            `carry +${b.meanCarryBps.toFixed(2)}bp  ` +
+            (b.meanCollectorBps === null
+              ? "price withheld — tied basis bucket, its boundaries are array order"
+              : `price ${b.meanCollectorBps.toFixed(2).padStart(8)}bp ±${(b.seBps ?? 0).toFixed(2)}  ` +
+                `total ${(b.meanTotalBps ?? 0).toFixed(2)}bp`),
         );
       }
     }

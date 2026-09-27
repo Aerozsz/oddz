@@ -249,7 +249,21 @@ export interface RunSummary {
     halves?: { aSigma: number; aBps: number; bSigma: number; bBps: number; agree: boolean } | null;
   }[];
   /** Extreme carry buckets, if the premium index was present. */
-  carry?: { basisBps: number; collectorBps: number; seBps: number; carryBps: number; totalBps: number }[];
+  /*
+   * The price terms are nullable because a tied basis bucket has no meaningful
+   * one: the premium index is quantised, so a bucket of identical basis values
+   * is a slice of the calendar and its return statistic describes a stretch of
+   * weeks rather than anything about carry. `carryBps` is always present, being
+   * arithmetic on the basis rather than a statistic about price.
+   */
+  carry?: {
+    basisBps: number;
+    collectorBps: number | null;
+    seBps: number | null;
+    carryBps: number;
+    totalBps: number | null;
+    tied?: boolean;
+  }[];
   carryNote?: string;
   /**
    * The best survivor priced against the depth curve, size by size.
@@ -520,8 +534,13 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
       lines.push("");
       for (const c of r.carry) {
         lines.push(
-          `- basis ${c.basisBps.toFixed(1)}bp: price ${c.collectorBps.toFixed(2)}bp ±${c.seBps.toFixed(2)}, ` +
-            `carry +${c.carryBps.toFixed(2)}bp, **total ${c.totalBps.toFixed(2)}bp**`,
+          c.collectorBps === null || c.totalBps === null
+            ? `- basis ${c.basisBps.toFixed(1)}bp: **carry +${c.carryBps.toFixed(2)}bp**. The price term is ` +
+              `withheld — this bucket's rows share one basis value, so its boundaries came from array ` +
+              `order and any return on it is a slice of the calendar, not a finding about carry.`
+            : `- basis ${c.basisBps.toFixed(1)}bp: **carry +${c.carryBps.toFixed(2)}bp**, price ` +
+              `${c.collectorBps.toFixed(2)}bp ±${(c.seBps ?? 0).toFixed(2)}, total ${c.totalBps.toFixed(2)}bp. ` +
+              `The carry is the mechanical part; the price term needs a view or a hedge.`,
         );
       }
     }

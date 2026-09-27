@@ -52,12 +52,20 @@ export interface FundingBucket {
    * Signed so positive is a gain for the collector: when the basis is positive
    * longs pay, so the collector is short, and the return is negated.
    */
-  meanCollectorBps: number;
-  seBps: number;
+  /*
+   * Null when the bucket is a tied slice: the premium index is quantised, and a
+   * bucket whose rows share one basis value has its boundaries set by array
+   * order, so any price statistic on it describes a stretch of the calendar.
+   */
+  meanCollectorBps: number | null;
+  seBps: number | null;
   /** The payment itself over the horizon, in bp, at the observed basis. */
   meanCarryBps: number;
+  /** True when the bucket is a calendar slice rather than a basis slice. */
+  tied?: boolean;
+  tiedNote?: string;
   /** Payment plus price move: what the position actually nets, before fees. */
-  meanTotalBps: number;
+  meanTotalBps: number | null;
 }
 
 /**
@@ -99,6 +107,28 @@ export function scoreFunding(points: FundingPoint[], horizonMin: number, buckets
 
   rows.sort((a, b) => a.basis - b.basis);
   const per = Math.floor(rows.length / buckets);
+
+  /*
+   * How many rows share each basis value.
+   *
+   * This matters more than it looks, and getting it wrong produced the most
+   * confident wrong number in the project. The premium index is quantised, so on
+   * LITUSDT roughly forty per cent of minutes carry a basis of exactly zero —
+   * and slicing a sorted array by index puts that tied group across four or five
+   * buckets. JavaScript's sort is stable, so within the tie the order is the
+   * order the rows were built in, which is time order.
+   *
+   * The result was four buckets labelled by basis that were really consecutive
+   * slices of the calendar, reporting "collector" returns of -101, -50, +38 and
+   * -55 basis points at fifteen-plus sigma. Those are eight-hour price drifts in
+   * different weeks of one month. They were quoted as a carry finding — by me,
+   * to the operator — and they are not a finding about basis at all.
+   *
+   * A bucket whose rows are mostly one tied value cannot say anything about
+   * basis, so it says so instead of reporting drift.
+   */
+  const shareOf = new Map<number, number>();
+  for (const r of rows) shareOf.set(r.basis, (shareOf.get(r.basis) ?? 0) + 1);
   const out: FundingBucket[] = [];
   for (let i = 0; i < buckets; i++) {
     const slice = rows.slice(i * per, i === buckets - 1 ? rows.length : (i + 1) * per);
@@ -112,6 +142,27 @@ export function scoreFunding(points: FundingPoint[], horizonMin: number, buckets
      * position as well as the size of the payment, and the two effects cannot
      * be separated by eye.
      */
+    /*
+     * Is this bucket a real slice of the basis distribution, or a slice of the
+     * calendar that happens to share one basis value?
+     */
+    const dominant = slice.reduce(
+      (best, r) => Math.max(best, (shareOf.get(r.basis) ?? 0) / rows.length),
+      0,
+    );
+    /*
+     * Tied when a single basis value is common enough across the whole sample to
+     * span more than one bucket. That is the condition that makes the boundary
+     * arbitrary: the tied rows have to be split somewhere, and the split falls
+     * wherever array order puts it.
+     *
+     * A value occupying exactly one bucket is not a problem — it is a legitimate
+     * decile that happens to be one number wide — so the test is the share, not
+     * whether the bucket holds more than one value. An earlier version flagged
+     * both and refused a bucket that was perfectly well defined.
+     */
+    const tied = dominant > 1 / buckets;
+
     const side = meanBasis >= 0 ? -1 : 1;
     const collector = slice.map((r) => side * r.fwdBps);
     const meanCollector = collector.reduce((a, b) => a + b, 0) / n;
@@ -121,10 +172,26 @@ export function scoreFunding(points: FundingPoint[], horizonMin: number, buckets
       label: `basis decile ${i}`,
       n,
       meanBasisBps: meanBasis,
-      meanCollectorBps: meanCollector,
-      seBps: Math.sqrt(varr / n),
+      /*
+       * Null rather than a number when the bucket is a calendar slice. A number
+       * here gets read, quoted and acted on; a null gets asked about.
+       */
+      meanCollectorBps: tied ? null : meanCollector,
+      seBps: tied ? null : Math.sqrt(varr / n),
+      /*
+       * The carry itself stays, because it is arithmetic on the basis rather
+       * than a statistic about price, and it is the only part of this table that
+       * was ever a carry measurement. It is also small: at eight hours the
+       * widest decile here pays under twelve basis points.
+       */
       meanCarryBps: meanCarry,
-      meanTotalBps: meanCollector + meanCarry,
+      meanTotalBps: tied ? null : meanCollector + meanCarry,
+      tied,
+      tiedNote: tied
+        ? "this bucket's rows share one basis value, so its boundaries were set by array order " +
+          "rather than by basis — any price statistic on it is a slice of the calendar, not a " +
+          "finding about carry"
+        : undefined,
     });
   }
   return out;

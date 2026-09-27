@@ -67,13 +67,42 @@ function separatesClearingTheBarFromBeatingFees() {
     /none is tradeable as a directional signal/.test(renderFindings([none])));
 }
 
+/**
+ * A tied bucket must not print a price number at all.
+ *
+ * The render is where a withheld statistic either stays withheld or gets quietly
+ * formatted as something. Four buckets of pure calendar drift were read off a
+ * page like this and reported as a carry finding.
+ */
+function aTiedCarryBucketPrintsNoPriceNumber() {
+  const run: RunSummary = {
+    symbol: "BTCUSDT", samples: 100, spanDays: 30, bonferroniSigma: 3.4, roundTripBps: 7, survivors: [],
+    carry: [{ basisBps: 0, collectorBps: null, seBps: null, carryBps: 0, totalBps: null, tied: true }],
+  };
+  const out = renderFindings([run]);
+  ok("the price term is named as withheld", /price term is withheld/.test(out), out.slice(-500));
+  ok("and the reason is given", /slice of the calendar/.test(out), out.slice(-500));
+  ok("no price figure is printed", !/price -?\d/.test(out.split("Carry at 8h")[1] ?? ""), out.slice(-500));
+}
+
 function carryIsReportedWithItsCost() {
   const run: RunSummary = {
     symbol: "BTCUSDT", samples: 100, spanDays: 30, bonferroniSigma: 3.4, roundTripBps: 7, survivors: [],
     carry: [{ basisBps: -40, collectorBps: 3.2, seBps: 1.1, carryBps: 40, totalBps: 43.2 }],
   };
   const out = renderFindings([run]);
-  ok("carry shows price, payment and total apart", /carry \+40\.00bp, \*\*total 43\.20bp\*\*/.test(out), out);
+  ok(
+    "the carry term leads, since it is the only mechanical part",
+    /\*\*carry \+40\.00bp\*\*/.test(out),
+    out.slice(-600),
+  );
+  ok("the price term is shown beside it", /price 3\.20bp ±1\.10/.test(out), out.slice(-600));
+  ok("and the total is still there", /total 43\.20bp/.test(out), out.slice(-600));
+  ok(
+    "with the price term's requirement named",
+    /needs a view or a hedge/.test(out),
+    out.slice(-600),
+  );
 
   const missing: RunSummary = { ...run, carry: undefined, carryNote: "no premium index data — missing data" };
   ok("and a missing premium index reads as missing data",
@@ -85,6 +114,7 @@ everySettledClaimCarriesItsEvidence();
 rendersWithoutARun();
 separatesClearingTheBarFromBeatingFees();
 carryIsReportedWithItsCost();
+aTiedCarryBucketPrintsNoPriceNumber();
 
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
 console.log("\nall good");

@@ -1607,3 +1607,74 @@ ignored the one quantity an order is made of.
   idea the project started with.
 
 Nothing armed, and now nothing in the sweep thesis to arm.
+
+## 2026-09-27 — the carry figure I quoted was calendar drift, and the table producing it was broken
+
+Went to look at carry, having named it the one measurement never contradicted,
+and found the number I quoted to the operator was not a carry measurement at all.
+
+**The defect.** `scoreFunding` sorts rows by basis and slices the array into ten
+buckets by index. The premium index is quantised, and on LITUSDT roughly forty per
+cent of minutes carry a basis of **exactly zero**. JavaScript's sort is stable, so
+within that tied group the order is the order the rows were built in — time order.
+Four or five "basis deciles" were therefore consecutive slices of the calendar,
+reporting collector returns of −101, −50, +38 and −55 basis points at fifteen-plus
+sigma. Those are eight-hour price drifts in different weeks of one month, labelled
+by a basis that did not vary within them.
+
+The "+137bp on one side against −48bp on the other" I reported is exactly those
+buckets. It is not a finding about carry. It is not a finding about anything.
+
+**What carry actually pays here**, which is the part that was always visible and
+which I should have read instead:
+
+```
+m480 (eight hours), carry term only
+  basis -11.87   carry 11.87bp
+  basis  -6.81   carry  6.81bp
+  basis  -4.32   carry  4.32bp
+  ...
+  basis   0.28   carry  0.28bp
+```
+
+The widest decile pays **under twelve basis points per eight hours**. Three
+settlements a day is at most ~36bp of notional daily, and only on the extreme
+tenth of minutes. Against a 7–10bp round trip that is positive — but at $10,000 it
+is $36 a day, so $300 a day needs roughly $83,000 held continuously, and holding
+it means carrying the price term. The price term at eight hours runs ±50 to 100bp
+with a standard error of 6. It is five to ten times the carry, in both directions.
+
+So carry on a perpetual, unhedged, is a small known payment buried under a large
+unknown one. Collecting it cleanly needs a spot short against the perp long, and
+this account trades futures only. That is the honest shape of it, and it is neither
+"the one thing left" nor nothing — it is a 36bp-a-day gross that requires an
+instrument the account does not have.
+
+**Fixed rather than described.** A bucket whose dominant basis value spans more
+than one bucket now reports `tied` and withholds its price term and total; the
+carry term stays, being arithmetic on the basis rather than a statistic about
+price. FINDINGS prints the carry first and names what the price term requires — a
+view or a hedge — instead of adding them into a single "total" that reads as an
+edge.
+
+The first version of the guard also flagged a bucket holding one value that
+occupied exactly one decile, which is a perfectly well-defined bucket. The test is
+the share of the whole sample, not whether the bucket varies.
+
+Two of the funding check's own fixtures had the same disease as the data: one used
+two basis values for ten deciles, the other used a constant. Both now produce the
+tie verdict, correctly, and the constant case is asserted as its own scenario —
+all ten buckets tied, no price term anywhere, the payment still reported.
+
+**Where the project stands, with nothing left unsaid.**
+
+- Direction: measured five ways, does not survive cost. Crossing loses to impact,
+  resting loses to adverse selection.
+- Carry: real, mechanical, about 36bp of notional a day at the extreme decile,
+  and inseparable from a price term five to ten times its size without a spot
+  hedge the account cannot place.
+- The $300/day target is not reachable by anything this project has measured, on
+  this account, as configured. That is a statement about the measurements, and
+  every one of them is in the repository to be argued with.
+
+72 check suites green. Nothing armed.

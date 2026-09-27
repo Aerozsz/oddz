@@ -47,15 +47,57 @@ function crowdWrongIsProfitable() {
    * Longs are crowded (positive basis) and price then falls. The collector is
    * short, so it earns the payment and the move. This must read as an edge.
    */
-  const p = series((i) => (i % 10 === 0 ? 60 : 2), (i) => (i % 10 === 0 ? -3 : 0));
+  /*
+   * A continuous basis, not two values.
+   *
+   * The first version used exactly 60 and 2, so ninety per cent of rows shared
+   * one value — which is the degenerate case the tie guard now refuses, and
+   * refuses correctly: two distinct values cannot support ten basis deciles. The
+   * real premium index is quantised but not that coarse, and a fixture with two
+   * levels was testing a distribution the venue never publishes.
+   */
+  const p = series((i) => (i % 10 === 0 ? 55 + (i % 7) : ((i * 13) % 31) - 5), (i) => (i % 10 === 0 ? -3 : 0));
   const b = scoreFunding(p, 480);
   ok("buckets are produced", b.length === 10, String(b.length));
   const top = b[b.length - 1];
   ok("the extreme bucket has the largest basis", top.meanBasisBps > b[0].meanBasisBps);
+  ok("the bucket is not a tie", top.tied !== true, top.tiedNote ?? "");
   ok("the collector's price return is positive there",
-    top.meanCollectorBps > 0, top.meanCollectorBps.toFixed(2));
+    (top.meanCollectorBps ?? 0) > 0, String(top.meanCollectorBps));
   ok("and the total beats the carry alone",
-    top.meanTotalBps > top.meanCarryBps, `${top.meanTotalBps.toFixed(2)} vs ${top.meanCarryBps.toFixed(2)}`);
+    (top.meanTotalBps ?? 0) > top.meanCarryBps,
+    `${(top.meanTotalBps ?? 0).toFixed(2)} vs ${top.meanCarryBps.toFixed(2)}`);
+}
+
+/**
+ * A quantised basis must not be reported as a basis finding.
+ *
+ * On LITUSDT about forty per cent of minutes carry a basis of exactly zero. A
+ * sorted array sliced by index puts that tied group across four or five buckets,
+ * and JavaScript's sort is stable, so within the tie the order is time order.
+ * Those buckets reported collector returns of -101, -50, +38 and -55 basis
+ * points at fifteen-plus sigma — eight-hour price drifts in different weeks,
+ * labelled by a basis they did not vary in. They were quoted as a carry finding.
+ *
+ * The carry term itself survives, because it is arithmetic on the basis rather
+ * than a statistic about price.
+ */
+function aQuantisedBasisWithholdsItsPriceTerm() {
+  /* Half the sample at exactly zero, the rest spread. */
+  const p = series(
+    (i) => (i % 2 === 0 ? 0 : ((i * 17) % 41) - 20),
+    (i) => (i % 97 === 0 ? -40 : 1),
+    6000,
+  );
+  const b = scoreFunding(p, 480);
+  ok("buckets are produced", b.length === 10, String(b.length));
+  const tiedBuckets = b.filter((x) => x.tied);
+  ok("the zero-basis buckets are flagged", tiedBuckets.length >= 3, String(tiedBuckets.length));
+  ok("their price term is withheld", tiedBuckets.every((x) => x.meanCollectorBps === null));
+  ok("and so is their total", tiedBuckets.every((x) => x.meanTotalBps === null));
+  ok("but the carry term survives", tiedBuckets.every((x) => Number.isFinite(x.meanCarryBps)));
+  ok("and each says why", tiedBuckets.every((x) => /array order/.test(x.tiedNote ?? "")));
+  ok("the untied buckets still report", b.some((x) => !x.tied && x.meanCollectorBps !== null));
 }
 
 function crowdRightIsATrap() {
@@ -76,17 +118,43 @@ function crowdRightIsATrap() {
 }
 
 function errorTermsTravel() {
-  const b = scoreFunding(series(() => 10, () => 0), 480);
-  ok("every bucket carries a standard error", b.every((x) => Number.isFinite(x.seBps)));
+  /*
+   * A varying basis, because a constant one is entirely tied and every bucket's
+   * price term is withheld by design. The old fixture used basis 10 for every
+   * row, which now (correctly) produces no price statistics at all — a constant
+   * has no deciles.
+   */
+  const b = scoreFunding(series((i) => ((i * 11) % 37) - 18, () => 0), 480);
+  const priced = b.filter((x) => !x.tied);
+  ok("most buckets are priceable", priced.length >= 8, String(priced.length));
+  ok("every priced bucket carries a standard error", priced.every((x) => Number.isFinite(x.seBps)));
   ok("a flat series has no edge to find",
-    Math.abs(b[b.length - 1].meanCollectorBps) < 1e-6, b[b.length - 1].meanCollectorBps.toFixed(6));
+    Math.abs(priced[priced.length - 1].meanCollectorBps ?? 1) < 1e-6,
+    String(priced[priced.length - 1].meanCollectorBps));
+}
+
+/**
+ * A basis that never moves is not a basis distribution.
+ *
+ * Every bucket is then the same value and every boundary is array order, so
+ * there is nothing to report but the payment. Asserted because the previous
+ * fixture did exactly this and its numbers looked fine.
+ */
+function aConstantBasisReportsOnlyTheCarry() {
+  const b = scoreFunding(series(() => 10, () => 0), 480);
+  ok("buckets are produced", b.length === 10, String(b.length));
+  ok("all of them are tied", b.every((x) => x.tied === true));
+  ok("no price term anywhere", b.every((x) => x.meanCollectorBps === null && x.meanTotalBps === null));
+  ok("the payment is still reported", b.every((x) => x.meanCarryBps > 0));
 }
 
 console.log("funding carry");
 carryScales();
 crowdWrongIsProfitable();
+aQuantisedBasisWithholdsItsPriceTerm();
 crowdRightIsATrap();
 errorTermsTravel();
+aConstantBasisReportsOnlyTheCarry();
 
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
 console.log("\nall good");
