@@ -1678,3 +1678,55 @@ all ten buckets tied, no price term anywhere, the payment still reported.
   every one of them is in the repository to be argued with.
 
 72 check suites green. Nothing armed.
+
+## 2026-09-27 (carry, settled) — the payment is real, the price term is not
+
+```
+basis -12.0bp: carry +11.99bp, price 52.93bp ±6.25, total 64.92bp
+               spans 29 days, largest day 10% of it
+               — the price term FLIPS SIGN between the halves
+basis   0.2bp: carry +0.25bp, price withheld (tied basis bucket)
+```
+
+The bucket is not time-concentrated: 29 days, no day more than a tenth of it. So
+the episode test it was built for came back clean. It failed the other half of the
+same test — refit on each half of the window, the collector's price term points
+opposite ways, and the pooled +52.93bp at 8.5 sigma is the average of two
+contradictory halves.
+
+That was the last number in the carry table that could have been an edge.
+
+**So carry settles as follows, and it is a narrow but honest result.**
+
+- **The payment is real and mechanical.** At the widest decile, 11.99bp per eight
+  hours — about 36bp of notional a day. It is published in advance, it requires no
+  view, and nothing measured here contradicts it. It is the only quantity in this
+  project that has survived every test applied to it, because it is arithmetic on
+  a published number rather than a statistic about price.
+- **The price term that comes with it is not predictable.** Not concentrated, not
+  an artifact of quantisation, and not stable across halves. Which is the same
+  answer direction has given five times now, arrived at from a sixth direction.
+- **Unhedged, the payment is buried.** 36bp a day of carry against a price term
+  running plus or minus 50 to 100bp per eight hours is a small certainty inside a
+  large coin flip. At $10,000 the carry is $36 a day and the daily price swing is
+  several hundred.
+
+**The one structure that would separate them** is a perpetual position against an
+offsetting spot position: the price terms cancel, the funding payment does not.
+That is the standard basis trade, and it is the only route to the $300/day target
+that this project's own measurements have not closed. It needs spot access, which
+this account does not have — so it is a decision for the operator rather than a
+pass for me, and I have put the number in front of them rather than the hypothesis:
+roughly 36bp of notional a day gross at the extreme decile, needing about $83,000
+held to make $300, before the cost of maintaining both legs.
+
+**What I am not doing.** I am not going to keep re-running the directional search
+in different clothes. Five measurements, each from a different angle, say the same
+thing, and the last three were me finding my own errors rather than finding edge.
+The honest state of the project is that the sweep thesis is closed and the one
+open route needs an instrument nobody has authorised.
+
+The loop keeps running. Every pass from here is regression rather than search
+unless the operator opens a new direction.
+
+72 check suites green. Nothing armed.
