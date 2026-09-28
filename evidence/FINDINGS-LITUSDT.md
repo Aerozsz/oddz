@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-09-28T00:28:13.840Z by the research loop. Do not edit — it is
+Generated 2026-09-28T00:35:17.608Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -93,12 +93,34 @@ Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
 ## What a pass should do
 
-In order, stopping at the first that is not already done:
+**The search is finished.** Do not start another feature hunt; read the journal
+entries from 2026-09-25 onward before deciding anything. In order:
 
 1. Anything in `errors` or a `bad` in `diagnose` from `evidence/snapshot.json`.
-2. Write the tick replay. The fetch exists; nothing reads it.
-3. Measure why `canPostEntry` has never allowed a maker fill.
-4. Find why the entry gate is 3.6:1 long-biased.
+2. Any run that failed, or published nothing while reporting success. That has
+   happened four times and each time it looked healthy from outside.
+3. A number in this file that contradicts one in `control/JOURNAL.md`. The
+   journal is the argument; this file is the current reading, and they have
+   disagreed before because a reader quoted a conditional figure as an
+   unconditional one.
+4. Nothing else. Regression, not search.
 
-Do not arm trading. That is the operator's, and every measurement says the
-current signal loses money.
+### What is settled, so no pass re-derives it
+
+- Direction does not survive cost. Crossing loses about a basis point a trade
+  to impact; resting loses more to adverse selection once a fill has to be paid
+  for by volume that actually arrived at the price.
+- The cost bar is measured, not assumed: the spread is one tick on the tape,
+  impact is priced against the depth curve and against executed sweeps.
+- Carry is real and mechanical, and the only quantity here that has survived
+  every test applied to it. It is also small: 1.9bp a day at 99% one-sided on
+  BTCUSDT, 0.9bp a day on LITUSDT, which ranks 203rd of 747 contracts for it.
+- Hedging carry perpetual-against-perpetual works and triples the capital
+  needed, because the differential is smaller than either leg.
+
+**$300 a day needs $1.5M to $7.9M of notional depending on the route.** The
+constraint is capital, not edge. The two things that would change that are a
+larger account and a smaller target, and both are the operator's.
+
+Do not arm trading. That is the operator's, and no measured route pays this
+account more than a couple of dollars a day.
