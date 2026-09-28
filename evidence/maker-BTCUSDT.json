@@ -1,8 +1,9 @@
 {
-  "at": 1790534213413,
+  "at": 1790555389685,
   "symbol": "BTCUSDT",
   "days": 10,
   "dates": [
+    "2026-09-26",
     "2026-09-25",
     "2026-09-24",
     "2026-09-23",
@@ -11,12 +12,11 @@
     "2026-09-20",
     "2026-09-19",
     "2026-09-18",
-    "2026-09-17",
-    "2026-09-16"
+    "2026-09-17"
   ],
-  "prints": 14230116,
+  "prints": 12968199,
   "minutes": 14400,
-  "metricRows": 8640,
+  "metricRows": 8352,
   "holdMs": 300000,
   "restsMs": 300000,
   "decile": 0.1,
@@ -25,66 +25,66 @@
   "byQueue": [
     {
       "queueAheadUsd": 0,
-      "fillRate": 0.9060658578856152,
-      "n": 2614,
-      "meanBps": 3.3309627975952942,
-      "seBps": 0.2094142877209781,
-      "sigma": 15.906091383952953
+      "fillRate": 0.8984402079722703,
+      "n": 2592,
+      "meanBps": 3.0968806010762,
+      "seBps": 0.1995987091015998,
+      "sigma": 15.515534218709925
     },
     {
       "queueAheadUsd": 10000,
-      "fillRate": 0.8800693240901213,
-      "n": 2539,
-      "meanBps": 3.1062995909111435,
-      "seBps": 0.21474855047147232,
-      "sigma": 14.4648221563842
+      "fillRate": 0.872790294627383,
+      "n": 2518,
+      "meanBps": 2.9095677058211895,
+      "seBps": 0.20488679312299782,
+      "sigma": 14.200855318549085
     },
     {
       "queueAheadUsd": 50000,
-      "fillRate": 0.838474870017331,
-      "n": 2419,
-      "meanBps": 2.813205835225351,
-      "seBps": 0.2237377035107959,
-      "sigma": 12.573677976852958
+      "fillRate": 0.825996533795494,
+      "n": 2383,
+      "meanBps": 2.5963212845664665,
+      "seBps": 0.21497315150461366,
+      "sigma": 12.077421140242926
     },
     {
       "queueAheadUsd": 200000,
-      "fillRate": 0.7622183708838821,
-      "n": 2199,
-      "meanBps": 2.045519706195201,
-      "seBps": 0.23473456724673733,
-      "sigma": 8.714181853093187
+      "fillRate": 0.7410745233968804,
+      "n": 2138,
+      "meanBps": 1.7663101790676052,
+      "seBps": 0.226876828824143,
+      "sigma": 7.78532646203685
     }
   ],
-  "fillRateTouched": 0.9705372616984402,
-  "fillRateThrough": 0.8960138648180243,
+  "fillRateTouched": 0.97157712305026,
+  "fillRateThrough": 0.878682842287695,
   "passive": {
-    "n": 2795,
-    "meanBps": 3.7784464213304902,
-    "seBps": 0.19897792888353352,
-    "sigma": 18.989274049294703
+    "n": 2802,
+    "meanBps": 3.505554763123727,
+    "seBps": 0.18810896854645912,
+    "sigma": 18.635766227477482
   },
   "passiveStrict": {
-    "n": 2581,
-    "meanBps": 3.2413663144101865,
-    "seBps": 0.21129091365779884,
-    "sigma": 15.340774755983201
+    "n": 2533,
+    "meanBps": 2.9688898118195093,
+    "seBps": 0.2028171856068518,
+    "sigma": 14.63825564355534
   },
   "taker": {
-    "n": 2879,
-    "meanBps": 4.058883466364636,
-    "seBps": 0.19713785177023402,
-    "sigma": 20.58906206959839
+    "n": 2884,
+    "meanBps": 3.7661011102084743,
+    "seBps": 0.1868099026812823,
+    "sigma": 20.160072116914733
   },
   "takerOnMissed": {
-    "n": 297,
-    "meanBps": 10.782319177801941,
-    "seBps": 0.507839149829192,
-    "sigma": 21.231760452947544
+    "n": 350,
+    "meanBps": 9.313450689854204,
+    "seBps": 0.45105991107531407,
+    "sigma": 20.64792383710448
   },
   "control": {
-    "crossingMeanBps": 4.058883466364636,
-    "crossingSigma": 20.58906206959839,
+    "crossingMeanBps": 3.7661011102084743,
+    "crossingSigma": 20.160072116914733,
     "expectation": "Should land near the replay's own decile-tail mean for this symbol and horizon (LITUSDT t5d: +8.57bp; BTCUSDT t5d: +1.75bp). A disagreement — especially in sign — means this worker is selecting different minutes than the replay, and the passive numbers below describe a different signal."
   },
   "note": "Whether resting escapes the cost of crossing or only renames it. Fill is decided by a later print from the opposite aggressor reaching the resting price; queue position cannot be known from the archive, so the strict reading — a print trading THROUGH the level, which means the queue there was cleared — is the one to plan on. Unfilled attempts are excluded rather than scored as zero: an order that never filled earns nothing, and averaging non-trades in dilutes the losses and flatters the result. takerOnMissed is the adverse selection test: if crossing did well precisely on the signals a passive order missed, the passive order is being handed the losers by construction."
