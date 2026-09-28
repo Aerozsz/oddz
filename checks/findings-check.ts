@@ -85,6 +85,36 @@ function aTiedCarryBucketPrintsNoPriceNumber() {
   ok("no price figure is printed", !/price -?\d/.test(out.split("Carry at 8h")[1] ?? ""), out.slice(-500));
 }
 
+/**
+ * The instruction list must not outlive what it instructs.
+ *
+ * Every item on the previous version was finished — write the tick replay,
+ * measure why canPostEntry never allowed a maker fill, find the long bias — and
+ * it regenerated unchanged for a week, directing passes at solved problems. A
+ * generated file that regenerates a stale instruction is worse than a
+ * hand-maintained one, because it looks current.
+ *
+ * So the finished items are asserted absent by name. If the search reopens, this
+ * check is the thing that has to be edited deliberately, which is the point.
+ */
+function theInstructionsDoNotDirectSolvedWork() {
+  const out = renderFindings([]);
+  for (const done of [
+    "Write the tick replay",
+    "canPostEntry has never allowed a maker fill",
+    "entry gate is 3.6:1 long-biased",
+  ]) {
+    ok(`no longer asks for: ${done}`, !out.includes(done));
+  }
+  ok("the search is declared finished", /search is finished/.test(out));
+  ok("and the binding constraint is named", /constraint is capital, not edge/.test(out), out.slice(-900));
+  ok(
+    "a failed-but-green run is named as a thing to look for",
+    /published nothing while reporting success/.test(out),
+  );
+  ok("arming is still refused", /Do not arm trading/.test(out));
+}
+
 function carryIsReportedWithItsCost() {
   const run: RunSummary = {
     symbol: "BTCUSDT", samples: 100, spanDays: 30, bonferroniSigma: 3.4, roundTripBps: 7, survivors: [],
@@ -114,6 +144,7 @@ everySettledClaimCarriesItsEvidence();
 rendersWithoutARun();
 separatesClearingTheBarFromBeatingFees();
 carryIsReportedWithItsCost();
+theInstructionsDoNotDirectSolvedWork();
 aTiedCarryBucketPrintsNoPriceNumber();
 
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }

@@ -570,17 +570,54 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
     lines.push("");
   }
 
+  /*
+   * The list a cold pass reads to decide what to do.
+   *
+   * Every item on the previous version was finished — write the tick replay,
+   * measure why canPostEntry never allowed a maker fill, find the long bias —
+   * and it sat here for a week directing passes at solved problems. A generated
+   * file that regenerates a stale instruction is worse than a hand-maintained
+   * one, because it looks current.
+   *
+   * What replaced it is not a list of searches. The search is over: five
+   * measurements closed direction and three priced the carry, and the binding
+   * constraint turned out to be capital rather than edge. So the list says that,
+   * and names the two things that would actually change it, neither of which is
+   * a pass.
+   */
   lines.push("## What a pass should do");
   lines.push("");
-  lines.push("In order, stopping at the first that is not already done:");
+  lines.push("**The search is finished.** Do not start another feature hunt; read the journal");
+  lines.push("entries from 2026-09-25 onward before deciding anything. In order:");
   lines.push("");
   lines.push("1. Anything in `errors` or a `bad` in `diagnose` from `evidence/snapshot.json`.");
-  lines.push("2. Write the tick replay. The fetch exists; nothing reads it.");
-  lines.push("3. Measure why `canPostEntry` has never allowed a maker fill.");
-  lines.push("4. Find why the entry gate is 3.6:1 long-biased.");
+  lines.push("2. Any run that failed, or published nothing while reporting success. That has");
+  lines.push("   happened four times and each time it looked healthy from outside.");
+  lines.push("3. A number in this file that contradicts one in `control/JOURNAL.md`. The");
+  lines.push("   journal is the argument; this file is the current reading, and they have");
+  lines.push("   disagreed before because a reader quoted a conditional figure as an");
+  lines.push("   unconditional one.");
+  lines.push("4. Nothing else. Regression, not search.");
   lines.push("");
-  lines.push("Do not arm trading. That is the operator's, and every measurement says the");
-  lines.push("current signal loses money.");
+  lines.push("### What is settled, so no pass re-derives it");
+  lines.push("");
+  lines.push("- Direction does not survive cost. Crossing loses about a basis point a trade");
+  lines.push("  to impact; resting loses more to adverse selection once a fill has to be paid");
+  lines.push("  for by volume that actually arrived at the price.");
+  lines.push("- The cost bar is measured, not assumed: the spread is one tick on the tape,");
+  lines.push("  impact is priced against the depth curve and against executed sweeps.");
+  lines.push("- Carry is real and mechanical, and the only quantity here that has survived");
+  lines.push("  every test applied to it. It is also small: 1.9bp a day at 99% one-sided on");
+  lines.push("  BTCUSDT, 0.9bp a day on LITUSDT, which ranks 203rd of 747 contracts for it.");
+  lines.push("- Hedging carry perpetual-against-perpetual works and triples the capital");
+  lines.push("  needed, because the differential is smaller than either leg.");
+  lines.push("");
+  lines.push("**$300 a day needs $1.5M to $7.9M of notional depending on the route.** The");
+  lines.push("constraint is capital, not edge. The two things that would change that are a");
+  lines.push("larger account and a smaller target, and both are the operator's.");
+  lines.push("");
+  lines.push("Do not arm trading. That is the operator's, and no measured route pays this");
+  lines.push("account more than a couple of dollars a day.");
   lines.push("");
   return lines.join("\n");
 }
