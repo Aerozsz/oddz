@@ -1850,3 +1850,35 @@ magnitude too small to make $300 a day from it.*
 
 Nothing armed. Nothing left to search that would change that sentence — what
 would change it is a larger account, or a smaller target.
+
+## 2026-09-28 — regression passes, and one thing I cannot fix from here
+
+Three kicks since the pair-carry result. Each one: push the trigger, confirm the
+runner published, check nothing failed green. Nothing has. The loop has been
+healthy for six days, which given that four of its failures were invisible from
+outside is worth writing down rather than assuming.
+
+The generated instructions are current now. `FINDINGS.md` opened with four tasks
+that had all been finished — write the tick replay, measure why `canPostEntry`
+never allowed a maker fill, find the long bias — and it had regenerated that list
+unchanged for a week, which is the failure mode of a generated file: it looks
+current because it is freshly written. It now says the search is finished, names
+the four fault shapes worth looking for, and carries what is settled so a cold
+pass does not re-derive it. The check asserts the finished items are absent by
+name, so reopening the search means editing a test on purpose.
+
+**What I cannot fix from here.** The scheduled kick's own prompt still says the
+cost bar is fees-only at 7bp and directs every pass to measure LITUSDT's round
+trip from bookDepth. That was solved on 2026-09-20 — the spread is on the tape at
+0.243bp, impact is priced against the depth curve and against 380,411 executed
+sweeps, and the bar is wired into the replay. Six attempts to rewrite that prompt
+have each ended with the approval request closing unanswered when the next kick
+arrived. Nobody refused them; the window just never stayed open.
+
+So the drag is real but bounded: a pass that reads the prompt and then reads
+FINDINGS gets the correct picture from the second one, and FINDINGS is now
+explicit that the prompt's open question is closed. If a future session can hold
+an approval open long enough, the prompt is written and waiting in this
+conversation.
+
+Nothing armed. 73 check suites green.
