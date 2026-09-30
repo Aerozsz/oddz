@@ -1933,3 +1933,28 @@ $7.9M of notional for $300 a day. On a $10,000 account the best measured route
 pays about $1.90 a day.
 
 Nothing armed. 73 check suites green.
+
+## 2026-09-30 (06:30) — the per-pass entry has stopped carrying information
+
+Kicked, published 00:34, nothing failed.
+
+**Changing what gets journaled, and saying so rather than just doing it.** The
+standing instruction is an entry every pass, including one that changed nothing,
+on the reasoning that a pass which decided to wait is indistinguishable from one
+that never ran. That reasoning was right when a pass could find something and the
+only record of it was here.
+
+It no longer holds, because two other files now answer that question exactly:
+`control/RUN_RESEARCH` carries a timestamped line per kick, and
+`evidence/RUNNER.md` carries one per published run. Between them, "did a pass
+happen and did it produce anything" is answerable without reading prose. What an
+identical entry every six hours adds is noise, and a journal that is mostly
+noise is one a cold session skims — which is precisely the failure the generated
+FINDINGS list had, dressed differently.
+
+So from here the journal records changes, faults and decisions. The per-pass
+record is RUN_RESEARCH and RUNNER.md, which are machine-written and cannot drift.
+A pass that finds nothing writes nothing here, and its evidence that it ran is
+the trigger line it pushed.
+
+Nothing armed. Substance unchanged from 2026-09-27.
