@@ -1909,3 +1909,27 @@ tolerable state. The replacement prompt text is written and sits in this
 conversation for whenever a human is present.
 
 Nothing armed. The loop is otherwise healthy.
+
+## 2026-09-30 — regression pass, and the cadence is now wrong for the work
+
+Kicked. Runner published at 2026-09-29T18:33Z, FINDINGS regenerated 18:27,
+nothing failed and nothing failed green.
+
+**An observation rather than a change.** Four passes a day was the right cadence
+for a search: each one could find something, and a stale FINDINGS cost real time.
+The search is finished. What a pass does now is confirm the archive replay still
+runs and that no report has drifted from the journal — which is worth doing daily,
+not four times daily. Two of yesterday's kicks were dropped and the only cost was
+a day without a replay of data that has not changed the answer in a week.
+
+I cannot change the schedule: the same approval gate that blocks the prompt
+rewrite blocks the cron. So this is recorded for the operator rather than acted
+on. If they reduce it to once a day, nothing is lost; if they leave it, nothing is
+lost either, and the cost is tokens rather than correctness.
+
+The substance is unchanged from 2026-09-27. Direction closed five ways; carry real
+and small; every viable route bounded by capital rather than edge, at $1.5M to
+$7.9M of notional for $300 a day. On a $10,000 account the best measured route
+pays about $1.90 a day.
+
+Nothing armed. 73 check suites green.
