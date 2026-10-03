@@ -1958,3 +1958,40 @@ A pass that finds nothing writes nothing here, and its evidence that it ran is
 the trigger line it pushed.
 
 Nothing armed. Substance unchanged from 2026-09-27.
+
+## 2026-10-03 — the finding has decayed below its own cost bar
+
+A state change rather than a restatement, so it gets an entry.
+
+```
+         tail edge    bar      net
+09-26      8.57bp   7.46bp   +1.11bp
+09-30      7.59bp   7.46bp   +0.13bp
+10-02      6.72bp   7.91bp   -1.19bp
+10-03      6.70bp   7.98bp   -1.28bp
+```
+
+Four rolling windows, one direction. The per-trade tail edge on
+`takerRatioFade @ t5d` has fallen by a fifth while the measured bar has drifted
+up, and they have crossed. At the smallest priceable size the ladder now reads
+cost 8.30bp against a net of **−1.60bp** — negative before impact matters, at any
+size.
+
+**What this is not.** It is not the effect disappearing. Both tails remain
+symmetric and individually significant — low +6.28bp, high −6.70bp — so whatever
+produces the asymmetry is still there in the data. What has gone is the margin
+between it and the cost of touching it.
+
+**What it changes.** Nothing about the verdict, and that is the point worth
+recording: the conclusion reached on 2026-09-27 was that direction does not
+survive cost. This is that conclusion getting stronger on its own, from new data,
+without anyone re-deriving it. A finding that was marginal is now negative, which
+is the outcome a marginal finding usually has.
+
+**What it would take to overturn.** A window where the tail edge recovers above
+the bar and stays there for several rolling months, not one. The loop will surface
+that automatically if it happens, because the ladder is regenerated every pass and
+the net is printed. Nothing needs watching for it.
+
+Nothing armed. The sweep thesis is closed and now closed by a wider margin than
+when it was closed.
