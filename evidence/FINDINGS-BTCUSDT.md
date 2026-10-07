@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-07T00:29:30.173Z by the research loop. Do not edit — it is
+Generated 2026-10-07T06:30:19.264Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
