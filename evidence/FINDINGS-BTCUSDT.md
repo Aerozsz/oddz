@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-08T00:29:41.123Z by the research loop. Do not edit — it is
+Generated 2026-10-08T06:29:52.637Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -42,40 +42,40 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 12 cleared the bar; **4 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t5: -31.2 sigma, -6.17bp · halves -23.5/-21.1 sigma, -6.6/-5.9bp — **holds in both**
-- `takerRatioFade` @ t1: -29.5 sigma, -2.54bp · halves -20.7/-20.8 sigma, -2.5/-2.6bp — **holds in both**
-- `takerRatioFade` @ t1d: -20.6 sigma, -1.84bp · halves -14.2/-14.9 sigma, -1.8/-1.9bp — **holds in both**
-- `takerRatioFade` @ t5d: -18.1 sigma, -3.52bp · halves -14.3/-12.1 sigma, -4.0/-3.3bp — **holds in both**
-- `takerRatioFade` @ t15: -15.4 sigma, -5.42bp · halves -11.8/-10.3 sigma, -6.4/-4.6bp — **holds in both**
-- `takerRatioFade` @ t30: -10.2 sigma, -4.98bp · halves -8.7/-5.2 sigma, -6.6/-3.2bp — **holds in both**
-- `hourCos` @ t60d: -8.5 sigma, -7.34bp — **beats fees** · halves -4.2/-8.1 sigma, -5.8/-8.6bp — **holds in both**
-- `hourCos` @ t60: -8.3 sigma, -7.10bp — **beats fees** · halves -4.1/-7.9 sigma, -5.6/-8.3bp — **holds in both**
+- `takerRatioFade` @ t5: -30.9 sigma, -6.07bp · halves -22.4/-21.1 sigma, -6.4/-5.9bp — **holds in both**
+- `takerRatioFade` @ t1: -29.4 sigma, -2.51bp · halves -20.1/-20.8 sigma, -2.5/-2.6bp — **holds in both**
+- `takerRatioFade` @ t1d: -20.5 sigma, -1.81bp · halves -14.1/-14.9 sigma, -1.8/-1.9bp — **holds in both**
+- `takerRatioFade` @ t5d: -18.0 sigma, -3.47bp · halves -13.6/-12.1 sigma, -3.9/-3.3bp — **holds in both**
+- `takerRatioFade` @ t15: -15.6 sigma, -5.41bp · halves -11.2/-10.3 sigma, -6.3/-4.6bp — **holds in both**
+- `topTraderFollow` @ t60d: 11.9 sigma, 8.92bp — **beats fees** · halves 11.4/1.2 sigma, 12.6/1.0bp — DOES NOT HOLD IN BOTH
+- `topTraderFollow` @ t60: 11.4 sigma, 8.53bp — **beats fees** · halves 11.5/0.6 sigma, 12.6/0.5bp — DOES NOT HOLD IN BOTH
+- `takerRatioFade` @ t30: -9.9 sigma, -4.78bp · halves -8.5/-5.2 sigma, -6.4/-3.2bp — **holds in both**
 
-#### Sizing — `takerRatioFade` @ t5d, edge 2.05bp
+#### Sizing — `takerRatioFade` @ t5d, edge 2.07bp
 
-Priced on **one tail's own mean return**, not the decile spread. The spread is 3.52bp — bottom decile 2.05bp, top decile -1.47bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
+Priced on **one tail's own mean return**, not the decile spread. The spread is 3.47bp — bottom decile 2.07bp, top decile -1.40bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
 
-Priced on the delayed entry. The same feature entered at the decision close reads 6.17bp, and the 4.11bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
+Priced on the delayed entry. The same feature entered at the decision close reads 6.07bp, and the 4.01bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 7.02bp | -4.97bp | $-0.50 | never | -4.97bp |
-| $5,000 | 7.02bp | -4.97bp | $-2.49 | never | -4.97bp |
-| $10,000 | 7.03bp | -4.97bp | $-4.97 | never | -4.97bp |
-| $25,000 | 7.03bp | -4.97bp | $-12.44 | never | -4.98bp |
-| $50,000 | 7.03bp | -4.98bp | $-24.90 | never | -4.98bp |
-| $100,000 | 7.04bp | -4.99bp | $-49.91 | never | -5.00bp |
+| $1,000 | 7.02bp | -4.96bp | $-0.50 | never | -4.96bp |
+| $5,000 | 7.02bp | -4.96bp | $-2.48 | never | -4.96bp |
+| $10,000 | 7.03bp | -4.96bp | $-4.96 | never | -4.96bp |
+| $25,000 | 7.03bp | -4.96bp | $-12.41 | never | -4.96bp |
+| $50,000 | 7.03bp | -4.97bp | $-24.84 | never | -4.97bp |
+| $100,000 | 7.04bp | -4.98bp | $-49.78 | never | -4.98bp |
 
 Against impact measured on executed sweeps rather than modelled from resting depth — the full move a real order of this size made, and the part of it that reverted within a minute:
 
 | size | net if it pays the whole move | net if it pays only the revert |
 | --- | --- | --- |
-| $1,000 | -4.99bp | -4.99bp |
-| $5,000 | -4.99bp | -4.99bp |
-| $10,000 | -4.99bp | -4.97bp |
-| $25,000 | -4.99bp | -4.97bp |
-| $50,000 | -4.99bp | -4.97bp |
-| $100,000 | -5.30bp | -4.97bp |
+| $1,000 | -4.98bp | -4.98bp |
+| $5,000 | -4.98bp | -4.98bp |
+| $10,000 | -4.98bp | -4.96bp |
+| $25,000 | -4.98bp | -4.96bp |
+| $50,000 | -4.98bp | -4.96bp |
+| $100,000 | -5.28bp | -4.96bp |
 
 The truth is between the two columns. A mechanical signal carries no private information, so it should not pay the whole move; it does arrive alongside informed flow, so it will not pay only the revert either.
 
