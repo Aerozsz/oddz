@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-12T06:28:39.355Z by the research loop. Do not edit — it is
+Generated 2026-10-12T12:28:48.463Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,44 +38,44 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### LITUSDT
 
-38,744 samples over 29 days. Bar 3.72 sigma, round trip 7.56bp.
+40,184 samples over 30 days. Bar 3.72 sigma, round trip 7.56bp.
 
 12 cleared the bar; **11 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t5: -24.8 sigma, -21.23bp — **beats fees** · halves -18.8/-14.9 sigma, -25.6/-15.9bp — **holds in both**
-- `takerRatioFade` @ t1: -23.7 sigma, -8.62bp — **beats fees** · halves -16.9/-16.3 sigma, -9.7/-7.5bp — **holds in both**
-- `takerRatioFade` @ t1d: -17.4 sigma, -6.46bp · halves -12.7/-11.3 sigma, -7.5/-5.3bp — **holds in both**
-- `takerRatioFade` @ t15: -15.3 sigma, -24.18bp — **beats fees** · halves -10.2/-9.7 sigma, -26.2/-18.0bp — **holds in both**
-- `takerRatioFade` @ t5d: -14.7 sigma, -12.83bp — **beats fees** · halves -11.9/-7.3 sigma, -16.6/-7.9bp — **holds in both**
-- `mom30` @ t30d: -11.8 sigma, -35.17bp — **beats fees** · halves -10.1/-6.7 sigma, -42.3/-26.9bp — **holds in both**
-- `mom30` @ t30: -11.6 sigma, -34.90bp — **beats fees** · halves -9.9/-6.6 sigma, -41.4/-27.3bp — **holds in both**
-- `topTraderFollow` @ t60d: -11.3 sigma, -40.32bp — **beats fees** · halves -2.4/-2.2 sigma, -11.6/-6.5bp — **holds in both**
+- `takerRatioFade` @ t5: -25.4 sigma, -20.97bp — **beats fees** · halves -19.4/-15.5 sigma, -25.9/-15.8bp — **holds in both**
+- `takerRatioFade` @ t1: -24.1 sigma, -8.44bp — **beats fees** · halves -17.2/-16.6 sigma, -9.8/-7.3bp — **holds in both**
+- `takerRatioFade` @ t1d: -17.7 sigma, -6.35bp · halves -12.9/-11.6 sigma, -7.5/-5.3bp — **holds in both**
+- `takerRatioFade` @ t15: -15.5 sigma, -23.56bp — **beats fees** · halves -10.5/-9.7 sigma, -26.4/-17.3bp — **holds in both**
+- `takerRatioFade` @ t5d: -15.3 sigma, -12.84bp — **beats fees** · halves -12.3/-7.8 sigma, -16.8/-8.0bp — **holds in both**
+- `topTraderFollow` @ t60d: -13.8 sigma, -46.41bp — **beats fees** · halves -1.8/-11.2 sigma, -8.3/-32.2bp — DOES NOT HOLD IN BOTH
+- `topTraderFollow` @ t60: -13.6 sigma, -45.44bp — **beats fees** · halves -1.8/-11.4 sigma, -8.1/-32.6bp — DOES NOT HOLD IN BOTH
+- `mom30` @ t30d: -11.7 sigma, -33.89bp — **beats fees** · halves -10.5/-6.2 sigma, -43.0/-24.0bp — **holds in both**
 
-#### Sizing — `takerRatioFade` @ t5d, edge 7.21bp
+#### Sizing — `takerRatioFade` @ t5d, edge 7.04bp
 
-Priced on **one tail's own mean return**, not the decile spread. The spread is 12.83bp — bottom decile 5.62bp, top decile -7.21bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
+Priced on **one tail's own mean return**, not the decile spread. The spread is 12.84bp — bottom decile 5.80bp, top decile -7.04bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
 
-Priced on the delayed entry. The same feature entered at the decision close reads 21.23bp, and the 14.03bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
+Priced on the delayed entry. The same feature entered at the decision close reads 20.97bp, and the 13.93bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 7.87bp | -0.67bp | $-0.07 | never | -0.86bp |
-| $5,000 | 9.11bp | -1.91bp | $-0.95 | never | -2.88bp |
-| $10,000 | 10.66bp | -3.45bp | $-3.45 | never | -5.40bp |
-| $25,000 | 15.31bp | -8.10bp | $-20.25 | never | -12.95bp |
-| $50,000 | 23.05bp | -15.84bp | $-79.21 | never | -41.70bp |
-| $100,000 | 51.76bp | -44.56bp | $-445.57 | never | -49.19bp |
+| $1,000 | 7.87bp | -0.83bp | $-0.08 | never | -1.02bp |
+| $5,000 | 9.10bp | -2.06bp | $-1.03 | never | -3.02bp |
+| $10,000 | 10.64bp | -3.60bp | $-3.60 | never | -5.53bp |
+| $25,000 | 15.26bp | -8.22bp | $-20.54 | never | -13.03bp |
+| $50,000 | 22.95bp | -15.91bp | $-79.55 | never | -41.83bp |
+| $100,000 | 51.72bp | -44.68bp | $-446.82 | never | -49.33bp |
 
 Against impact measured on executed sweeps rather than modelled from resting depth — the full move a real order of this size made, and the part of it that reverted within a minute:
 
 | size | net if it pays the whole move | net if it pays only the revert |
 | --- | --- | --- |
-| $1,000 | -1.47bp | -0.36bp |
-| $5,000 | -7.00bp | -1.06bp |
-| $10,000 | -10.28bp | -2.48bp |
-| $25,000 | -14.42bp | -2.76bp |
-| $50,000 | -20.83bp | -7.78bp |
-| $100,000 | -33.50bp | -12.39bp |
+| $1,000 | -1.64bp | -0.52bp |
+| $5,000 | -7.17bp | -1.23bp |
+| $10,000 | -10.45bp | -2.64bp |
+| $25,000 | -14.58bp | -2.93bp |
+| $50,000 | -21.00bp | -7.95bp |
+| $100,000 | -33.67bp | -12.56bp |
 
 The truth is between the two columns. A mechanical signal carries no private information, so it should not pay the whole move; it does arrive alongside informed flow, so it will not pay only the revert either.
 
@@ -85,8 +85,8 @@ The first table prices *resting* depth. That was assumed to be optimistic — qu
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -11.6bp: **carry +11.64bp**, price -28.94bp ±6.36, total -17.30bp. The carry is the mechanical part; the price term needs a view or a hedge. Spans 27 days, largest day 14% of it — **and the price term flips sign between the halves, so it is an episode rather than an effect.**
-- basis 0.4bp: **carry +0.39bp**. The price term is withheld — this bucket's rows share one basis value, so its boundaries came from array order and any return on it is a slice of the calendar, not a finding about carry.
+- basis -11.5bp: **carry +11.51bp**, price -27.89bp ±6.20, total -16.38bp. The carry is the mechanical part; the price term needs a view or a hedge. Spans 28 days, largest day 13% of it — **and the price term flips sign between the halves, so it is an episode rather than an effect.**
+- basis 0.4bp: **carry +0.38bp**. The price term is withheld — this bucket's rows share one basis value, so its boundaries came from array order and any return on it is a slice of the calendar, not a finding about carry.
 
 ## What a pass should do
 
