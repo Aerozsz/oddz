@@ -334,6 +334,18 @@ export interface RunSummary {
     /** The same, priced at the ninetieth-percentile minute rather than the median. */
     bestStress?: { usd: number; netBps: number; netUsd: number; tradesPerDay: number } | null;
   };
+  /**
+   * Every surviving delayed horizon, priced the same way, largest tail first.
+   *
+   * `sizing` is this list's first entry. Both exist because the single field
+   * was load-bearing for months and the list is what makes its verdict
+   * honest: until 2026-10-16 exactly one feature-horizon was ever priced —
+   * whichever delayed sibling the sigma ranking happened to reach — and
+   * "no measured size pays" was reported as a conclusion about the search
+   * when it was a conclusion about that one row. A candidate with a tail
+   * three times the round trip sat unpriced in the same table.
+   */
+  sizings?: NonNullable<RunSummary["sizing"]>[];
 }
 
 /**
@@ -438,6 +450,31 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
      * behind one recommended number would be the same mistake as the constant
      * cost bar.
      */
+    /*
+     * Every candidate before the detailed one, so the table below is read as
+     * the best of a set rather than as the only thing anybody looked at.
+     */
+    if (r.sizings && r.sizings.length > 1) {
+      lines.push(`#### Every surviving delayed horizon, priced`);
+      lines.push("");
+      lines.push(
+        "One tail's own mean against the depth curve, largest edge first. The detailed table " +
+          "below is the first row. Reading only that row is what hid a candidate with a tail " +
+          "three times the round trip for several weeks.",
+      );
+      lines.push("");
+      lines.push("| feature @ horizon | tail edge | best size | $/trip | verdict |");
+      lines.push("| --- | --- | --- | --- | --- |");
+      for (const s of r.sizings) {
+        lines.push(
+          `| \`${s.feature}\` @ ${s.horizon} | ${Math.abs(s.edgeBps).toFixed(2)}bp | ` +
+            (s.best
+              ? `$${s.best.usd.toLocaleString()} | $${s.best.netUsd.toFixed(2)} | **pays at some size** |`
+              : `— | — | no measured size pays |`),
+        );
+      }
+      lines.push("");
+    }
     if (r.sizing) {
       const z = r.sizing;
       lines.push(

@@ -1995,3 +1995,49 @@ the net is printed. Nothing needs watching for it.
 
 Nothing armed. The sweep thesis is closed and now closed by a wider margin than
 when it was closed.
+
+## 2026-10-16 — the ladder was pricing one row and reporting it as the search
+
+**What happened.** The 12:26Z pass published a per-trade edge of 3.13bp where
+the previous pass read 7.00bp. Nothing in the market did that. `takerRatioFade
+@ t1` passed `@ t5` by 0.14 sigma, the sizing block follows the top-sigma
+survivor to its delayed sibling, and the subject moved from `t5d` to `t1d`. A
+headline that halves on a tie-break is not measuring anything.
+
+**The worse half.** Chasing that turned up something I should have found weeks
+ago. The selection rule can only ever reach the delayed sibling of whatever row
+sigma puts first, and sigma rewards a tight standard error, so it has landed on
+`takerRatioFade` every single pass. `mom30 @ t30d` has been sitting in the same
+ranked table at -11.9 sigma with a **top decile of -26.89bp against a 7.63bp
+round trip** — three and a half times the bar, holding in both halves
+(-9.7/-5.7 sigma), and barely moved by the delay (t30 -33.52 vs t30d -33.79, so
+it is not entry bounce). It has never once been costed.
+
+**What that makes my reporting.** I have been stating "no measured size pays"
+as a verdict over the directional search in every status for a month. It was a
+verdict over one feature-horizon. The claim was not supported by the artefact I
+was reading it off, and I did not notice because the artefact only ever showed
+me one table. Correcting the record rather than quietly widening it.
+
+**What it does not make it.** `mom30 @ t30d` is not an edge yet and I am not
+treating it as one. It is a reversal that is four times larger on the short
+side than the long (-26.89 against +6.90), at a thirty-minute horizon, in a
+sample. That is the exact shape of `hold-longer`, `depth-inverted` and the
+two-hour gross — all three REJECTED above, all three killed by the side split,
+all three really the book's direction in a trending window. The side split is
+the test that decides this, and it has not been run.
+
+**The fix shipped this pass.** `sweep-backtest` now prices every surviving
+delayed horizon whose halves agree, sorted by the quantity the ladder charges
+against — one tail's own mean — so the detailed table is the most favourable
+case in the search and a negative verdict on it covers the rest. `sizings[]`
+goes into the artefact beside `sizing`, FINDINGS renders the full set above the
+detailed table, and `backtest-check` now asserts coverage on the published
+artefact: every eligible row priced, ordered largest-tail-first, headline equal
+to the first. Verified with tsc, the check suites and guicheck.
+
+**Next.** Run the side split on `mom30 @ t30d` before anything else is said
+about it. If longs and shorts do not both pay with the sample's own drift
+removed, it joins the other three and the month's verdict stands unchanged.
+
+Nothing armed.

@@ -596,30 +596,43 @@ function main() {
    * window is a property of a fortnight, and sizing it would be pricing an
    * artefact to two decimal places.
    */
-  const headline = (() => {
-    const top = ranked.find((r) => r.survives && r.halves?.agree) ?? ranked.find((r) => r.survives);
-    if (!top) return null;
-    /*
-     * The delayed variant, whenever one exists.
-     *
-     * The ranking is by sigma, and on this contract that selects `t5` at
-     * 26.63bp over `t5d` at 16.06bp — the same feature, entered one bar later.
-     * The 10.57bp between them is not edge. It is the entry price sitting on
-     * whichever side of the book the signal fired from, which is exactly the
-     * artefact the `d` horizons were added to expose, and pricing an order
-     * ladder against the immediate number would have quoted dollars per trade
-     * on a figure the project's own test says is 40% bounce.
-     *
-     * So the table is built on the number that survives the delay, and the
-     * immediate figure is carried beside it so the size of the artefact stays
-     * visible rather than being quietly discarded.
-     */
-    if (top.horizon.endsWith("d")) return top;
-    const delayed = ranked.find((r) => r.feature === top.feature && r.horizon === `${top.horizon}d`);
-    return delayed ?? top;
+  /*
+   * Every surviving delayed horizon, not one of them.
+   *
+   * This used to take the single top-sigma survivor and price its delayed
+   * sibling. That rule has two defects and the second one hid a candidate for
+   * weeks.
+   *
+   * The first is instability. On 2026-10-16 `takerRatioFade @ t1` passed
+   * `@ t5` by 0.14 sigma, the subject moved from `t5d` to `t1d`, and the
+   * reported per-trade edge halved from 7.00bp to 3.13bp with nothing about
+   * the market having changed. A headline that swings two-fold on a tie-break
+   * is not a measurement of anything.
+   *
+   * The second is worse. Sigma rewards a tight standard error, and the whole
+   * top of the ranking is one feature; `mom30 @ t30d` sat at -11.9 sigma with
+   * a top decile of -26.89bp — three and a half times the round trip, holding
+   * in both halves, and barely moved by the delay — and was never once priced,
+   * because the rule could only ever reach whatever `takerRatioFade` was doing
+   * that day. "No measured size pays" was being reported as a verdict over the
+   * search when it was a verdict over one feature.
+   *
+   * So: price all of them. The delay filter stays, because the `d` variants
+   * are what strip the entry sitting on the side of the book the signal fired
+   * from. The both-halves filter stays, because a finding that lives in one
+   * half of the window is a property of a fortnight. What goes is the idea
+   * that one row speaks for the rest.
+   */
+  const delayedSurvivors = (() => {
+    const agreeing = ranked.filter((r) => r.survives && r.halves?.agree);
+    const delayed = agreeing.filter((r) => r.horizon.endsWith("d"));
+    if (delayed.length) return delayed;
+    /* Nothing delayed survived: fall back to the old single-row behaviour. */
+    const top = agreeing[0] ?? ranked.find((r) => r.survives);
+    return top ? [top] : [];
   })();
-  const sizing = (() => {
-    if (!impact || !headline) return undefined;
+  const priceRow = (headline: (typeof ranked)[number]) => {
+    if (!impact) return undefined;
     /*
      * The executed-sweep curve, when sweep-realized has run. It brackets the
      * modelled one from the expensive side, so its absence costs the two
@@ -685,16 +698,29 @@ function main() {
       best: bestSize(ladder, perTrade ?? headline.spreadBps),
       bestStress: bestSize(ladder, perTrade ?? headline.spreadBps, 300, true),
     };
-  })();
-  if (sizing) {
+  };
+  /*
+   * Ordered by the quantity the ladder actually charges against — one tail's
+   * own mean — so the first row is the most favourable case in the search.
+   * That ordering is what makes a negative result worth stating: if the
+   * largest surviving edge does not pay at any measured size, none of the
+   * smaller ones can.
+   */
+  const sizings = delayedSurvivors
+    .map(priceRow)
+    .filter((s): s is NonNullable<ReturnType<typeof priceRow>> => s !== undefined)
+    .sort((a, b) => Math.abs(b.edgeBps) - Math.abs(a.edgeBps));
+  const sizing = sizings[0];
+  for (const s of sizings) {
     console.error(
-      `[backtest] sizing ${sizing.feature} @ ${sizing.horizon} (${sizing.edgeBps.toFixed(2)}bp): ` +
-        (sizing.best
-          ? `best $${sizing.best.usd.toLocaleString()} → $${sizing.best.netUsd.toFixed(2)}/trip, ` +
-            `${Math.ceil(sizing.best.tradesPerDay)} trips/day for $300`
+      `[backtest] sizing ${s.feature} @ ${s.horizon} (${s.edgeBps.toFixed(2)}bp): ` +
+        (s.best
+          ? `best $${s.best.usd.toLocaleString()} → $${s.best.netUsd.toFixed(2)}/trip, ` +
+            `${Math.ceil(s.best.tradesPerDay)} trips/day for $300`
           : "no measured size pays"),
     );
-  } else if (!impact) {
+  }
+  if (!impact) {
     console.error(`[backtest] no impact report for ${symbol} — the bar is size-blind this pass`);
   }
 
@@ -736,6 +762,7 @@ function main() {
     roundTripBps: ROUND_TRIP_BPS,
     cost,
     sizing,
+    sizings,
     ranked: ranked.slice(0, 40),
     deciles: detail,
   };
@@ -784,6 +811,7 @@ function main() {
       : undefined,
     carryNote: funding.note,
     sizing,
+    sizings,
   };
   try {
     /*

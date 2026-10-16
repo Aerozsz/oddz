@@ -234,6 +234,45 @@ function plantedEdge() {
   }
 
   ok("the round-trip cost travels with the numbers", r.roundTripBps > 0, String(r.roundTripBps));
+
+  /*
+   * The ladder prices every surviving delayed horizon, not one of them.
+   *
+   * Until 2026-10-16 it priced the delayed sibling of whatever row the sigma
+   * ranking put first, and nothing else. Two things went wrong with that.
+   * `takerRatioFade @ t1` passed `@ t5` by a seventh of a sigma and the
+   * reported per-trade edge halved, 7.00bp to 3.13bp, on a tie-break. And
+   * `mom30 @ t30d` — top decile -26.89bp against a 7.63bp round trip, holding
+   * in both halves — was never priced at all, because the rule could not
+   * reach a feature that was not top of the ranking. "No measured size pays"
+   * was published as a verdict over the search while most of the search had
+   * never been costed.
+   *
+   * So the invariant is coverage, asserted on the artefact rather than on the
+   * selection code, because the artefact is what a reader believes.
+   */
+  if (r.sizings) {
+    const eligible = (r.ranked as { feature: string; horizon: string; survives: boolean;
+      halves?: { agree?: boolean } }[])
+      .filter((x) => x.survives && x.halves?.agree && x.horizon.endsWith("d"));
+    const priced = new Set((r.sizings as { feature: string; horizon: string }[])
+      .map((s) => `${s.feature}@${s.horizon}`));
+    const missing = eligible.filter((x) => !priced.has(`${x.feature}@${x.horizon}`));
+    ok("every surviving delayed horizon is priced", missing.length === 0,
+      missing.map((x) => `${x.feature}@${x.horizon}`).join(", ") || undefined);
+    /*
+     * Largest tail first, so the detailed table is the most favourable case
+     * and a negative verdict on it covers the rest. Any other ordering makes
+     * "none pays" a claim about an arbitrary row again.
+     */
+    const edges = (r.sizings as { edgeBps: number }[]).map((s) => Math.abs(s.edgeBps));
+    ok("priced largest tail first", edges.every((e, i) => i === 0 || edges[i - 1] >= e),
+      edges.map((e) => e.toFixed(2)).join(" "));
+    ok("the headline is the first of them",
+      !r.sizing || (r.sizing.feature === r.sizings[0]?.feature &&
+        r.sizing.horizon === r.sizings[0]?.horizon),
+      r.sizing ? `${r.sizing.feature}@${r.sizing.horizon}` : "none");
+  }
 }
 
 console.log("backtest harness");
