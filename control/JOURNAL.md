@@ -2235,3 +2235,56 @@ read alone. tsc, profile-check, backtest-check, sizing-check, findings-check
 and guicheck pass.
 
 Nothing armed.
+
+## 2026-10-17 (fourth entry) — the window rolled one day and the payers changed
+
+The drift correction reached a run. Headline `hourCos @ t60d`: raw tail
+25.37bp, drift -4.79bp, demeaned 20.57bp. Working as written.
+
+What is worth recording is not that. It is what one day of roll did to the
+candidate list.
+
+Yesterday's three largest payers were `mom30 @ t30d` ($25.79 a trip),
+`tradeSurge @ t60d` ($7.47) and `volSurge @ t60d` ($4.43). **All three are gone
+from today's list.** Not smaller — absent, below the bar or no longer agreeing
+across halves, on a thirty-day window that moved by one day. A finding that
+describes the market does not do that. A finding that describes one afternoon
+does exactly that, and the concentration column already said those three were
+45%, 50% and 14% one day.
+
+Today's set, same two tests:
+
+| finding | edge | profile | one day | pays |
+| --- | --- | --- | --- | --- |
+| `hourCos` @ t60d | 20.57 | **-0.18** | **0.538** | $25k |
+| `volatility` @ t30d | 17.39 | **-0.32** | 0.250 | $10k |
+| `spreadProxy` @ t60d | 15.20 | **-0.54** | 0.280 | $10k |
+| `hourCos` @ t30d | 14.48 | **-0.09** | **0.724** | $10k |
+| `volatility` @ t15d | 12.43 | **-0.32** | 0.271 | $10k |
+| `spreadProxy` @ t30d | 10.33 | **-0.58** | **0.562** | $5k |
+| `takerRatioFade` @ t15d | 6.86 | -0.86 | 0.177 | never |
+| `takerRatioFade` @ t30d | 5.84 | -0.70 | 0.268 | never |
+| `takerRatioFade` @ t5d | 5.42 | -0.96 | 0.134 | never |
+| `takerRatioFade` @ t1d | 2.98 | **-1.00** | 0.077 | never |
+
+**The relationship replicated on a different candidate set.** Not one
+observation repeated — six of yesterday's twelve rows are gone or new, and the
+inverse ordering is unchanged: nothing with a profile past -0.6 pays, nothing
+that pays has a profile past -0.6. The one family that is graded and diffuse
+across both windows is `takerRatioFade`, and it is the one family that earns
+nothing at any size. That is now a result with a holdout rather than a pattern
+in a single table.
+
+**The composition churn is itself the measurement.** Between two windows
+sharing twenty-nine of thirty days, the paying rows turned over by half and the
+non-paying rows did not turn over at all. Stability tracks diffuseness and
+instability tracks the money, which is the same statement as the concentration
+column arrived at independently.
+
+One thing to watch: this pass's published page shows `hourCos @ t60d` paying
+$14.48 a round trip with no profile or concentration column beside it, because
+that renderer change is newer than the run. The next run fixes it. Until then
+FINDINGS overstates, and anybody reading it in the interval should read this
+entry instead.
+
+Nothing armed.
