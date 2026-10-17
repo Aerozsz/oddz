@@ -154,12 +154,63 @@ function aNearZeroBucketReportsNothing() {
   ok("the day count is still reported", (s.days ?? 0) > 1, String(s.days));
 }
 
+/**
+ * A window that only fell must not read as a signal that only works.
+ *
+ * The ladder prices one tail's own mean. A tail mean is conditional and
+ * carries the sample's unconditional return inside it, so on a window where
+ * the contract dropped, the short-side tail of every feature is flattered by
+ * the drop. On LITUSDT at sixty minutes the unconditional return was -5.80bp
+ * against a -23.64bp tail: a quarter of what was about to be called edge was
+ * the market going down, which nothing harvests per trade without the
+ * directional view four measurements say is unavailable.
+ *
+ * Asserted on the arithmetic rather than on the worker, because the worker
+ * needs an archive and this needs to run everywhere.
+ */
+function driftIsNotEdge() {
+  console.log("\na window that only fell is not an edge");
+  /*
+   * Pure drift: every row returns the same -6bp, no relationship to the
+   * feature at all. The raw tail reads -6; the demeaned tail must read zero,
+   * because there is nothing here a position could earn.
+   */
+  const flat = scoreFeature(samples(4000, () => -6), "f", "t30");
+  const n = flat.reduce((a, s) => a + s.n, 0);
+  const drift = flat.reduce((a, s) => a + s.meanRet * s.n, 0) / n;
+  const raw = Math.max(Math.abs(flat[0].meanRet), Math.abs(flat[9].meanRet));
+  const demeaned = Math.max(
+    Math.abs(flat[0].meanRet - drift),
+    Math.abs(flat[9].meanRet - drift),
+  );
+  ok("the drift is measured", Math.abs(drift + 6) < 1e-9, drift.toFixed(4));
+  ok("the raw tail would have been sold as edge", Math.abs(raw - 6) < 1e-9, raw.toFixed(4));
+  ok("the demeaned tail is nothing", demeaned < 1e-9, demeaned.toFixed(6));
+
+  /*
+   * A real gradient sitting on top of the same drift must keep its gradient
+   * and lose only the drift — otherwise the correction would destroy the
+   * thing it is meant to protect.
+   */
+  const tilted = scoreFeature(samples(4000, (i) => -6 + (10 - i / 200)), "f", "t30");
+  const n2 = tilted.reduce((a, s) => a + s.n, 0);
+  const drift2 = tilted.reduce((a, s) => a + s.meanRet * s.n, 0) / n2;
+  ok("the same drift is found under a gradient", Math.abs(drift2 + 6) < 0.05, drift2.toFixed(3));
+  const lo = tilted[0].meanRet - drift2;
+  const hi = tilted[9].meanRet - drift2;
+  ok("and the gradient survives it", Math.abs(lo) > 8 && Math.abs(hi) > 8,
+    `${lo.toFixed(2)} / ${hi.toFixed(2)}`);
+  ok("symmetrically", Math.abs(Math.abs(lo) - Math.abs(hi)) < 0.5,
+    `${lo.toFixed(2)} vs ${hi.toFixed(2)}`);
+}
+
 console.log("decile profile and concentration");
 aGradientReadsAsGraded();
 oneCliffDoesNot();
 oneDayIsVisible();
 aDayAgainstTheBucketDoesNotInflate();
 aNearZeroBucketReportsNothing();
+driftIsNotEdge();
 
 if (failures) { console.error(`\n${failures} failure(s)`); process.exit(1); }
 console.log("\nall good — decile profile and concentration");

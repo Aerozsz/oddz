@@ -2100,3 +2100,74 @@ must report nothing rather than a ratio against noise. tsc, profile-check,
 backtest-check, findings-check and guicheck all pass.
 
 Nothing armed.
+
+## 2026-10-17 (second entry) — the fix published, and it did not say what I expected
+
+The `sizings[]` change reached a run. Twelve candidates priced instead of one,
+and **nine of them show a paying size**. That is the blind spot I described
+yesterday, measured: for a month the ladder priced `takerRatioFade` and
+nothing else, and `takerRatioFade` is the one feature family whose tails are
+too small to pay.
+
+This is not nine edges. Two things were wrong with the numbers it printed.
+
+**Drift was being sold as edge.** The ladder prices one tail's own mean, and a
+tail mean is conditional — it contains whatever the contract did
+unconditionally. Over this window LITUSDT returned -5.80bp per sixty minutes
+and -2.88bp per thirty. So `tradeSurge @ t60d`'s -23.64bp tail is -17.83bp of
+signal and -5.80bp of the market going down, and nothing harvests the second
+part per trade without the directional view four measurements say is not
+available. This is the third variant of the same mistake — after quoting a
+decile spread as a per-trade return, and quoting the immediate entry instead of
+the delayed one. The correction is shipped: `edgeBps` is now the demeaned tail,
+`rawEdgeBps` and `driftBps` ride beside it, and FINDINGS prints the difference.
+
+**Eight still pay after demeaning**, so that was not the whole story:
+
+| finding | raw | drift | demeaned | profile | pays |
+| --- | --- | --- | --- | --- | --- |
+| `mom30` @ t30d | 28.04 | -2.88 | 25.16 | -0.224 | $25k → $25.79 |
+| `hourCos` @ t60d | 28.01 | -5.80 | 22.20 | **-0.103** | $25k → $18.39 |
+| `tradeSurge` @ t60d | 23.64 | -5.80 | 17.83 | **-0.915** | $25k → $7.47 |
+| `volSurge` @ t60d | 20.77 | -5.80 | 14.97 | **-0.976** | $10k → $4.43 |
+| `spreadProxy` @ t60d | 19.39 | -5.80 | 13.59 | -0.491 | $10k → $3.05 |
+| `hourCos` @ t30d | 18.35 | -2.88 | 15.48 | **-0.103** | $10k → $4.94 |
+| `volatility` @ t30d | 16.67 | -2.88 | 13.79 | -0.418 | $10k → $3.25 |
+| `spreadProxy` @ t30d | 12.78 | -2.88 | 9.91 | -0.648 | $5k → $0.40 |
+| every `takerRatioFade` | 3-9 | — | 3.0-7.8 | -0.66 to -1.00 | never |
+
+**What the profile column does to that list.** `hourCos` is the hour of day
+expressed as a cosine. Its profile is -0.10: no gradient, and its deciles are
+fixed hours by construction, so an extreme bucket is a time of day and not a
+state of the book. It is in the table because the search scores it, not because
+it is a claim. `mom30` is -0.22, the cliff shape already written up above.
+Those two are the largest numbers in the column and the least supported.
+
+**What survives both tests.** `tradeSurge @ t60d` at -0.915 and `volSurge @
+t60d` at -0.976 are clean gradients that still pay with the drift out:
+$7.47 and $4.43 a round trip at the knee. Those two are real candidates and I
+am not going to talk myself out of them with the arguments that killed the
+others, because those arguments do not apply.
+
+**The test they have not passed.** Their halves are -38.2/-10.6bp and
+-37.9/-9.1bp. `halvesAgree` is true because it checks sign, and the sign
+agrees — but the second half is a quarter of the first. On the second half
+alone, demeaned, both are plausibly under the 7.67bp round trip. A finding
+worth trading forward has to pay on the half it was not fitted to, and "agrees
+in sign" is a much weaker claim than the column name suggests. For comparison
+`takerRatioFade @ t5d`, which pays nothing, has halves of -13.2/-8.8 — a factor
+of 1.5. The findings with the big numbers are the ones whose halves disagree
+most in size.
+
+**Next pass:** carry each half's own tail, not just its spread, and price the
+ladder on the weaker half. That is a holdout in the proper sense and it is the
+single measurement most likely to settle this. Nothing should be said about
+`tradeSurge` or `volSurge` until it has run.
+
+**Shipped:** demeaned tail pricing with `rawEdgeBps`/`driftBps` in the artefact
+and the rendered page, and `driftIsNotEdge()` in `checks/profile-check.ts` —
+pure drift must demean to nothing, and a gradient sitting on the same drift
+must keep its gradient symmetrically. tsc, profile-check, backtest-check,
+sizing-check, findings-check and guicheck all pass.
+
+Nothing armed.

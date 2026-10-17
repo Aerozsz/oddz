@@ -682,14 +682,49 @@ function main() {
      */
     const scores = detail[`${headline.feature}@${headline.horizon}`];
     const tails = scores && scores.length >= 2 ? [scores[0], scores[scores.length - 1]] : null;
-    const perTrade = tails
+    /*
+     * The sample's own drift, removed before the tail is called edge.
+     *
+     * Third time this same mistake has had to be found: the ladder has already
+     * been corrected for quoting a decile spread as a per-trade return, and for
+     * quoting the immediate entry when the delayed one is what survives. This
+     * is the same shape again. A tail mean is a conditional return and it
+     * contains whatever the sample did unconditionally, so on a window where
+     * the contract fell, every short-side tail is flattered by the fall.
+     *
+     * At five minutes that is noise — LITUSDT's unconditional t5d return is
+     * -0.48bp against a -6.11bp tail. At sixty it is not: the unconditional
+     * t60d return is -5.80bp and `tradeSurge`'s top decile is -23.64bp, so a
+     * quarter of what the ladder was about to price as edge is the market
+     * having gone down. Nothing can harvest that per trade without a view on
+     * direction, which is the thing four separate measurements say is not
+     * available here.
+     *
+     * Both numbers are carried. The drift is a fact about the window and the
+     * demeaned tail is what a position can expect to earn against it.
+     */
+    const nAll = scores ? scores.reduce((a, s) => a + s.n, 0) : 0;
+    const driftBps =
+      scores && nAll > 0 ? scores.reduce((a, s) => a + s.meanRet * s.n, 0) / nAll : null;
+    const rawEdgeBps = tails
       ? Math.max(Math.abs(tails[0].meanRet), Math.abs(tails[1].meanRet))
       : null;
+    const perTrade =
+      tails && driftBps !== null
+        ? Math.max(
+            Math.abs(tails[0].meanRet - driftBps),
+            Math.abs(tails[1].meanRet - driftBps),
+          )
+        : rawEdgeBps;
     return {
       feature: headline.feature,
       horizon: headline.horizon,
-      /* One tail's mean, not the spread between them. */
+      /* One tail's mean with the window's drift removed, not the spread. */
       edgeBps: perTrade ?? headline.spreadBps,
+      /** The same tail before the drift was taken out of it. */
+      rawEdgeBps: rawEdgeBps ?? undefined,
+      /** The window's unconditional return over this horizon, in bps. */
+      driftBps: driftBps ?? undefined,
       /** The decile spread, kept so the two are never confused again. */
       decileSpreadBps: headline.spreadBps,
       tailsBps: tails ? { low: tails[0].meanRet, high: tails[1].meanRet } : undefined,

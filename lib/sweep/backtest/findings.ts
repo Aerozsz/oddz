@@ -293,7 +293,19 @@ export interface RunSummary {
   sizing?: {
     feature: string;
     horizon: string;
+    /** One tail's own mean with the window's unconditional drift removed. */
     edgeBps: number;
+    /** The same tail before the drift came out, kept so the two cannot merge. */
+    rawEdgeBps?: number;
+    /**
+     * What the contract did unconditionally over this horizon, in bps.
+     *
+     * A tail mean is a conditional return and carries the sample's own drift
+     * inside it. On a thirty-day window that fell, every short-side tail reads
+     * better than the position would. At five minutes this is noise; at sixty
+     * it was a quarter of the number the ladder was about to call edge.
+     */
+    driftBps?: number;
     /**
      * The same feature entered at the decision bar's close rather than one bar
      * later, when the table is built on the delayed variant.
@@ -501,6 +513,17 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
             `${Math.abs(z.decileSpreadBps).toFixed(2)}bp — bottom decile ${z.tailsBps.low.toFixed(2)}bp, ` +
             `top decile ${z.tailsBps.high.toFixed(2)}bp — and capturing it means trading both tails, ` +
             `each paying its own round trip. A single trade earns one tail.`,
+        );
+        lines.push("");
+      }
+      if (typeof z.driftBps === "number" && typeof z.rawEdgeBps === "number") {
+        lines.push(
+          `Priced on the tail with the window's own drift removed. The contract returned ` +
+            `${z.driftBps.toFixed(2)}bp unconditionally over this horizon, the raw tail reads ` +
+            `${Math.abs(z.rawEdgeBps).toFixed(2)}bp, and ` +
+            `${(Math.abs(z.rawEdgeBps) - Math.abs(z.edgeBps)).toFixed(2)}bp of that is the market ` +
+            `moving rather than the signal working. Nothing harvests drift per trade without a ` +
+            `view on direction.`,
         );
         lines.push("");
       }
