@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-16T18:27:35.942Z by the research loop. Do not edit — it is
+Generated 2026-10-17T00:27:46.457Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,55 +38,73 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### LITUSDT
 
-40,184 samples over 30 days. Bar 3.72 sigma, round trip 7.63bp.
+38,744 samples over 29 days. Bar 3.72 sigma, round trip 7.67bp.
 
 12 cleared the bar; **11 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t1: -23.4 sigma, -8.15bp — **beats fees** · halves -17.2/-15.9 sigma, -9.2/-7.4bp — **holds in both**
-- `takerRatioFade` @ t5: -23.3 sigma, -19.35bp — **beats fees** · halves -18.1/-15.5 sigma, -23.2/-16.7bp — **holds in both**
-- `takerRatioFade` @ t1d: -17.1 sigma, -6.14bp · halves -12.9/-11.6 sigma, -7.1/-5.5bp — **holds in both**
-- `takerRatioFade` @ t15: -14.8 sigma, -21.99bp — **beats fees** · halves -10.0/-11.0 sigma, -23.3/-20.6bp — **holds in both**
-- `takerRatioFade` @ t5d: -13.5 sigma, -11.39bp — **beats fees** · halves -10.9/-8.6 sigma, -14.3/-9.3bp — **holds in both**
-- `mom30` @ t30d: -11.9 sigma, -33.79bp — **beats fees** · halves -9.7/-5.7 sigma, -42.0/-20.4bp — **holds in both**
-- `mom30` @ t30: -11.7 sigma, -33.52bp — **beats fees** · halves -9.1/-6.0 sigma, -40.4/-21.4bp — **holds in both**
-- `takerRatioFade` @ t30: -9.9 sigma, -19.84bp — **beats fees** · halves -6.1/-9.7 sigma, -19.2/-25.2bp — **holds in both**
+- `takerRatioFade` @ t1: -22.7 sigma, -7.99bp — **beats fees** · halves -16.5/-15.6 sigma, -9.1/-7.3bp — **holds in both**
+- `takerRatioFade` @ t5: -22.4 sigma, -18.57bp — **beats fees** · halves -17.0/-15.1 sigma, -22.1/-16.3bp — **holds in both**
+- `takerRatioFade` @ t1d: -16.4 sigma, -5.92bp · halves -12.0/-11.3 sigma, -6.8/-5.4bp — **holds in both**
+- `takerRatioFade` @ t15: -14.5 sigma, -21.18bp — **beats fees** · halves -10.0/-10.7 sigma, -22.9/-20.4bp — **holds in both**
+- `takerRatioFade` @ t5d: -12.8 sigma, -10.76bp — **beats fees** · halves -9.9/-8.2 sigma, -13.2/-8.8bp — **holds in both**
+- `mom30` @ t30d: -11.6 sigma, -33.54bp — **beats fees** · halves -11.4/-2.3 sigma, -51.9/-7.5bp — **holds in both**
+- `mom30` @ t30: -11.4 sigma, -33.17bp — **beats fees** · halves -11.0/-2.3 sigma, -51.0/-7.5bp — **holds in both**
+- `takerRatioFade` @ t30: -9.5 sigma, -19.20bp — **beats fees** · halves -6.2/-9.6 sigma, -19.8/-24.9bp — **holds in both**
 
-#### Sizing — `takerRatioFade` @ t1d, edge 3.13bp
+#### Every surviving delayed horizon, priced
 
-Priced on **one tail's own mean return**, not the decile spread. The spread is 6.14bp — bottom decile 3.01bp, top decile -3.13bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
+One tail's own mean against the depth curve, largest edge first. The detailed table below is the first row. Reading only that row is what hid a candidate with a tail three times the round trip for several weeks.
 
-Priced on the delayed entry. The same feature entered at the decision close reads 8.15bp, and the 5.02bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
+| feature @ horizon | tail edge | best size | $/trip | verdict |
+| --- | --- | --- | --- | --- |
+| `mom30` @ t30d | 28.04bp | $25,000 | $32.98 | **pays at some size** |
+| `hourCos` @ t60d | 28.01bp | $25,000 | $32.90 | **pays at some size** |
+| `tradeSurge` @ t60d | 23.64bp | $25,000 | $21.98 | **pays at some size** |
+| `volSurge` @ t60d | 20.77bp | $25,000 | $14.82 | **pays at some size** |
+| `spreadProxy` @ t60d | 19.39bp | $25,000 | $11.36 | **pays at some size** |
+| `hourCos` @ t30d | 18.35bp | $25,000 | $8.77 | **pays at some size** |
+| `volatility` @ t30d | 16.67bp | $10,000 | $6.13 | **pays at some size** |
+| `spreadProxy` @ t30d | 12.78bp | $10,000 | $2.24 | **pays at some size** |
+| `takerRatioFade` @ t30d | 9.38bp | $1,000 | $0.14 | **pays at some size** |
+| `takerRatioFade` @ t15d | 6.50bp | — | — | no measured size pays |
+| `takerRatioFade` @ t5d | 6.11bp | — | — | no measured size pays |
+| `takerRatioFade` @ t1d | 3.05bp | — | — | no measured size pays |
+
+#### Sizing — `mom30` @ t30d, edge 28.04bp
+
+Priced on **one tail's own mean return**, not the decile spread. The spread is 33.54bp — bottom decile 5.50bp, top decile -28.04bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
+
+Priced on the delayed entry. The same feature entered at the decision close reads 33.17bp, and the 5.14bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 7.92bp | -4.79bp | $-0.48 | never | -4.98bp |
-| $5,000 | 9.08bp | -5.95bp | $-2.97 | never | -6.91bp |
-| $10,000 | 10.53bp | -7.40bp | $-7.40 | never | -9.32bp |
-| $25,000 | 14.88bp | -11.74bp | $-29.36 | never | -16.55bp |
-| $50,000 | 22.12bp | -18.99bp | $-94.95 | never | -45.58bp |
-| $100,000 | 51.33bp | -48.20bp | $-481.99 | never | -53.04bp |
+| $1,000 | 7.96bp | **+20.08**bp | $2.01 | 150 | 19.89bp |
+| $5,000 | 9.10bp | **+18.93**bp | $9.47 | 32 | 17.97bp |
+| $10,000 | 10.54bp | **+17.50**bp | $17.50 | 18 | 15.56bp |
+| $25,000 | 14.85bp | **+13.19**bp | $32.98 | 10 | 8.36bp |
+| $50,000 | 22.02bp | **+6.01**bp | $30.07 | 10 | -20.70bp |
+| $100,000 | 51.30bp | -23.26bp | $-232.62 | never | -28.19bp |
 
 Against impact measured on executed sweeps rather than modelled from resting depth — the full move a real order of this size made, and the part of it that reverted within a minute:
 
 | size | net if it pays the whole move | net if it pays only the revert |
 | --- | --- | --- |
-| $1,000 | -5.76bp | -4.50bp |
-| $5,000 | -11.24bp | -5.58bp |
-| $10,000 | -15.43bp | -7.11bp |
-| $25,000 | -18.75bp | -8.25bp |
-| $50,000 | -22.58bp | -6.52bp |
-| $100,000 | -34.38bp | -6.88bp |
+| $1,000 | **+19.01**bp | **+20.37**bp |
+| $5,000 | **+12.63**bp | **+18.09**bp |
+| $10,000 | **+7.87**bp | **+17.11**bp |
+| $25,000 | **+2.06**bp | **+17.01**bp |
+| $50,000 | -2.24bp | **+16.13**bp |
 
 The truth is between the two columns. A mechanical signal carries no private information, so it should not pay the whole move; it does arrive alongside informed flow, so it will not pay only the revert either.
 
-**No measured size pays.** The edge is smaller than the cost of the smallest order the depth curve can price, which is a verdict about this finding and not a missing number.
+Best size $25,000: **$32.98 a round trip**, so 10 of them a day for $300. At the ninetieth-percentile minute it is $20.89 at $25,000.
 
 The first table prices *resting* depth. That was assumed to be optimistic — quotes are pulled as an order arrives — but 380,411 executed sweeps say otherwise above $5,000: real sweeps meet a book that refreshes, so the modelled curve runs dearer than the reverting cost, not cheaper. It is optimistic only at the smallest sizes. Read the bracket, not this table alone.
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -11.7bp: **carry +11.70bp**, price -44.46bp ±6.26, total -32.76bp. The carry is the mechanical part; the price term needs a view or a hedge. Spans 28 days, largest day 13% of it — and the price term points the same way in both halves.
-- basis 0.4bp: **carry +0.38bp**. The price term is withheld — this bucket's rows share one basis value, so its boundaries came from array order and any return on it is a slice of the calendar, not a finding about carry.
+- basis -11.8bp: **carry +11.76bp**, price -54.67bp ±6.28, total -42.91bp. The carry is the mechanical part; the price term needs a view or a hedge. Spans 27 days, largest day 13% of it — and the price term points the same way in both halves.
+- basis 0.4bp: **carry +0.39bp**. The price term is withheld — this bucket's rows share one basis value, so its boundaries came from array order and any return on it is a slice of the calendar, not a finding about carry.
 
 ## What a pass should do
 
