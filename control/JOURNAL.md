@@ -2171,3 +2171,67 @@ must keep its gradient symmetrically. tsc, profile-check, backtest-check,
 sizing-check, findings-check and guicheck all pass.
 
 Nothing armed.
+
+## 2026-10-17 (third entry) — concentration answers it, and the answer is inverse
+
+The per-decile day concentration reached a run. It settles the question the
+last two entries opened, and it settles it cleanly.
+
+The tail the ladder prices, for every candidate, with the share of that tail
+contributed by its single largest day. The window is 28 days, so diffuse is
+about 0.036.
+
+| finding | edge | profile | one day | pays |
+| --- | --- | --- | --- | --- |
+| `mom30` @ t30d | 28.04 | **-0.22** | 0.142 | $25k |
+| `hourCos` @ t60d | 28.01 | **-0.10** | **0.506** | $25k |
+| `tradeSurge` @ t60d | 23.64 | -0.92 | **0.450** | $25k |
+| `volSurge` @ t60d | 20.77 | -0.98 | **0.498** | $10k |
+| `spreadProxy` @ t60d | 19.39 | **-0.49** | 0.299 | $10k |
+| `hourCos` @ t30d | 18.35 | **-0.10** | **0.690** | $10k |
+| `volatility` @ t30d | 16.67 | **-0.42** | 0.305 | $10k |
+| `spreadProxy` @ t30d | 12.78 | -0.65 | **0.579** | $5k |
+| `takerRatioFade` @ t30d | 9.38 | -0.66 | 0.243 | never |
+| `takerRatioFade` @ t15d | 6.50 | -0.78 | 0.242 | never |
+| `takerRatioFade` @ t5d | 6.11 | -0.98 | 0.132 | never |
+| `takerRatioFade` @ t1d | 3.05 | **-1.00** | **0.080** | never |
+
+**Every horizon that pays fails at least one of the two tests, and the
+ordering is inverse.** Read the table bottom to top: concentration rises from
+0.08 to 0.69 as the money appears. The most diffuse, most perfectly graded
+finding in the search — `takerRatioFade @ t1d`, profile -1.00, 8% in its
+largest day — earns nothing at any size. The ones that pay have between a
+third and seven tenths of their tail in a single day out of twenty-eight.
+
+**`tradeSurge` and `volSurge` are the ones I said to say nothing about.**
+Saying something now: they are the two cleanest gradients in the table,
+-0.92 and -0.98, and they are also 45% and 50% one day. Both at once is not a
+contradiction, it is a description — on one day of the month a volume surge
+preceded a large fall, and within that day the size of the surge graded the
+size of the fall. A gradient computed almost entirely inside one episode. It
+also explains the halves, -38.2/-10.6 and -37.9/-9.1: the day is in the first
+half. The planned weaker-half test would have found the same thing more
+slowly; concentration found it directly, so I am not building it.
+
+**`hourCos` deserves naming as the control it accidentally is.** It is the
+hour of day as a cosine. Profile -0.10, 69% in one day, and it prices out at
+$18.39 a round trip — better than anything with a mechanism behind it. A
+search that reports a clock as its second-best opportunity is reporting that
+the dollar column is not evidence on its own. That is the single most useful
+line in the table.
+
+**Where this leaves the month's verdict.** Unchanged in substance and better
+supported than when I was asserting it from one row. Nothing in the directional
+search both grades and persists. The diffuse graded findings are real and too
+small to pay; the large findings are episodes. That is what a cost-dominated
+market with no exploitable directional edge looks like, and now there are two
+measured columns saying so rather than one ladder that only ever saw one
+feature.
+
+**Shipped:** profile and concentration now ride in the sizing rows and render
+as columns in the FINDINGS candidate table, flagged `**episode**` above 0.35
+and `**tails only**` below 0.6 profile, so the dollar column can never again be
+read alone. tsc, profile-check, backtest-check, sizing-check, findings-check
+and guicheck pass.
+
+Nothing armed.

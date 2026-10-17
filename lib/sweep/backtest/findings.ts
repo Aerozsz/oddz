@@ -306,6 +306,18 @@ export interface RunSummary {
      * it was a quarter of the number the ladder was about to call edge.
      */
     driftBps?: number;
+    /** Rank correlation of decile index against mean return, for the priced row. */
+    monotone?: number;
+    /**
+     * Share of the priced tail's return contributed by its single largest day.
+     *
+     * Diffuse is roughly one over the day count — 0.036 on a twenty-eight day
+     * window. Anything near a half is an episode wearing a decile mean, and on
+     * this contract that describes every horizon whose ladder pays.
+     */
+    topDayShare?: number;
+    /** Distinct days in the priced tail, so the share has a scale. */
+    tailDays?: number;
     /**
      * The same feature entered at the decision bar's close rather than one bar
      * later, when the table is built on the delayed variant.
@@ -489,14 +501,30 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
           "three times the round trip for several weeks.",
       );
       lines.push("");
-      lines.push("| feature @ horizon | tail edge | best size | $/trip | verdict |");
-      lines.push("| --- | --- | --- | --- | --- |");
+      lines.push("| feature @ horizon | tail edge | profile | one day | best size | $/trip |");
+      lines.push("| --- | --- | --- | --- | --- | --- |");
       for (const s of r.sizings) {
+        /*
+         * Profile and concentration beside the money, because on this contract
+         * they run inversely to it: every horizon that pays is either
+         * ungraded, or has half its tail in a single day of twenty-eight, and
+         * the only diffuse graded ones pay nothing. A table of dollars without
+         * these two columns reads as a list of opportunities.
+         */
+        const conc =
+          typeof s.topDayShare === "number"
+            ? `${(s.topDayShare * 100).toFixed(0)}%` +
+              (s.topDayShare > 0.35 ? " **episode**" : "")
+            : "—";
+        const prof =
+          typeof s.monotone === "number"
+            ? s.monotone.toFixed(2) + (Math.abs(s.monotone) < 0.6 ? " **tails only**" : "")
+            : "—";
         lines.push(
-          `| \`${s.feature}\` @ ${s.horizon} | ${Math.abs(s.edgeBps).toFixed(2)}bp | ` +
+          `| \`${s.feature}\` @ ${s.horizon} | ${Math.abs(s.edgeBps).toFixed(2)}bp | ${prof} | ${conc} | ` +
             (s.best
-              ? `$${s.best.usd.toLocaleString()} | $${s.best.netUsd.toFixed(2)} | **pays at some size** |`
-              : `— | — | no measured size pays |`),
+              ? `$${s.best.usd.toLocaleString()} | $${s.best.netUsd.toFixed(2)} |`
+              : `— | — |`),
         );
       }
       lines.push("");

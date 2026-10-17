@@ -725,6 +725,20 @@ function main() {
       rawEdgeBps: rawEdgeBps ?? undefined,
       /** The window's unconditional return over this horizon, in bps. */
       driftBps: driftBps ?? undefined,
+      /** The decile profile of the row being priced. */
+      monotone: headline.monotone,
+      /*
+       * Concentration of the tail the ladder actually charges against — the
+       * larger of the two, which is the one `perTrade` takes. Reporting the
+       * other tail's concentration here would describe a trade nobody is
+       * pricing.
+       */
+      ...(() => {
+        if (!tails) return {};
+        const t =
+          Math.abs(tails[1].meanRet) >= Math.abs(tails[0].meanRet) ? tails[1] : tails[0];
+        return { topDayShare: t.topDayShare, tailDays: t.days };
+      })(),
       /** The decile spread, kept so the two are never confused again. */
       decileSpreadBps: headline.spreadBps,
       tailsBps: tails ? { low: tails[0].meanRet, high: tails[1].meanRet } : undefined,
