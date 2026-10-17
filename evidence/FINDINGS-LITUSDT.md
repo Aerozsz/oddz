@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-17T12:27:17.604Z by the research loop. Do not edit — it is
+Generated 2026-10-17T18:27:32.811Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -55,18 +55,18 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 One tail's own mean against the depth curve, largest edge first. The detailed table below is the first row. Reading only that row is what hid a candidate with a tail three times the round trip for several weeks.
 
-| feature @ horizon | tail edge | best size | $/trip | verdict |
-| --- | --- | --- | --- | --- |
-| `hourCos` @ t60d | 20.57bp | $25,000 | $14.48 | **pays at some size** |
-| `volatility` @ t30d | 17.39bp | $10,000 | $6.87 | **pays at some size** |
-| `spreadProxy` @ t60d | 15.20bp | $10,000 | $4.68 | **pays at some size** |
-| `hourCos` @ t30d | 14.48bp | $10,000 | $3.97 | **pays at some size** |
-| `volatility` @ t15d | 12.43bp | $10,000 | $1.92 | **pays at some size** |
-| `spreadProxy` @ t30d | 10.33bp | $5,000 | $0.62 | **pays at some size** |
-| `takerRatioFade` @ t15d | 6.86bp | — | — | no measured size pays |
-| `takerRatioFade` @ t30d | 5.84bp | — | — | no measured size pays |
-| `takerRatioFade` @ t5d | 5.42bp | — | — | no measured size pays |
-| `takerRatioFade` @ t1d | 2.98bp | — | — | no measured size pays |
+| feature @ horizon | tail edge | profile | one day | best size | $/trip |
+| --- | --- | --- | --- | --- | --- |
+| `hourCos` @ t60d | 20.57bp | -0.18 **tails only** | 54% **episode** | $25,000 | $14.48 |
+| `volatility` @ t30d | 17.39bp | -0.32 **tails only** | 25% | $10,000 | $6.87 |
+| `spreadProxy` @ t60d | 15.20bp | -0.54 **tails only** | 28% | $10,000 | $4.68 |
+| `hourCos` @ t30d | 14.48bp | -0.09 **tails only** | 72% **episode** | $10,000 | $3.97 |
+| `volatility` @ t15d | 12.43bp | -0.32 **tails only** | 27% | $10,000 | $1.92 |
+| `spreadProxy` @ t30d | 10.33bp | -0.58 **tails only** | 56% **episode** | $5,000 | $0.62 |
+| `takerRatioFade` @ t15d | 6.86bp | -0.85 | 18% | — | — |
+| `takerRatioFade` @ t30d | 5.84bp | -0.70 | 27% | — | — |
+| `takerRatioFade` @ t5d | 5.42bp | -0.96 | 13% | — | — |
+| `takerRatioFade` @ t1d | 2.98bp | -1.00 | 8% | — | — |
 
 #### Sizing — `hourCos` @ t60d, edge 20.57bp
 

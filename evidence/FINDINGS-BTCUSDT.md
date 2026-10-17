@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-17T12:29:10.878Z by the research loop. Do not edit — it is
+Generated 2026-10-17T18:29:45.750Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -55,15 +55,15 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 One tail's own mean against the depth curve, largest edge first. The detailed table below is the first row. Reading only that row is what hid a candidate with a tail three times the round trip for several weeks.
 
-| feature @ horizon | tail edge | best size | $/trip | verdict |
-| --- | --- | --- | --- | --- |
-| `oiChange` @ t30d | 4.66bp | — | — | no measured size pays |
-| `mom30` @ t60d | 3.30bp | — | — | no measured size pays |
-| `takerRatioFade` @ t5d | 2.10bp | — | — | no measured size pays |
-| `takerRatioFade` @ t15d | 2.06bp | — | — | no measured size pays |
-| `thinAskUp` @ t15d | 2.04bp | — | — | no measured size pays |
-| `takerRatioFade` @ t30d | 1.25bp | — | — | no measured size pays |
-| `takerRatioFade` @ t1d | 1.02bp | — | — | no measured size pays |
+| feature @ horizon | tail edge | profile | one day | best size | $/trip |
+| --- | --- | --- | --- | --- | --- |
+| `oiChange` @ t30d | 4.66bp | -0.31 **tails only** | 52% **episode** | — | — |
+| `mom30` @ t60d | 3.30bp | -0.94 | 62% **episode** | — | — |
+| `takerRatioFade` @ t5d | 2.10bp | -0.96 | 9% | — | — |
+| `takerRatioFade` @ t15d | 2.06bp | -0.92 | 24% | — | — |
+| `thinAskUp` @ t15d | 2.04bp | 0.09 **tails only** | 54% **episode** | — | — |
+| `takerRatioFade` @ t30d | 1.25bp | -0.73 | 49% **episode** | — | — |
+| `takerRatioFade` @ t1d | 1.02bp | -0.99 | 6% | — | — |
 
 #### Sizing — `oiChange` @ t30d, edge 4.66bp
 
