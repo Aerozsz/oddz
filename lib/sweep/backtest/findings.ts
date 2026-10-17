@@ -247,6 +247,16 @@ export interface RunSummary {
      * way and are each individually visible.
      */
     halves?: { aSigma: number; aBps: number; bSigma: number; bBps: number; agree: boolean } | null;
+    /**
+     * Rank correlation between decile index and mean return.
+     *
+     * Printed beside sigma because the two disagreeing is the finding. Sigma
+     * compares the extreme buckets; this one looks at all ten. A spread that
+     * lives entirely in one bucket is the shape `depth-inverted` was rejected
+     * for, and it went unnoticed on `mom30 @ t30d` for weeks because nothing
+     * measured it.
+     */
+    monotone?: number;
   }[];
   /** Extreme carry buckets, if the premium index was present. */
   /*
@@ -432,6 +442,10 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
               ? ` · halves ${h.aSigma.toFixed(1)}/${h.bSigma.toFixed(1)} sigma, ` +
                 `${h.aBps.toFixed(1)}/${h.bBps.toFixed(1)}bp — ` +
                 (h.agree ? "**holds in both**" : "DOES NOT HOLD IN BOTH")
+              : "") +
+            (typeof s.monotone === "number"
+              ? ` · profile ${s.monotone.toFixed(2)}` +
+                (Math.abs(s.monotone) < 0.6 ? " — **spread lives in the tails, not a gradient**" : "")
               : ""),
         );
       }

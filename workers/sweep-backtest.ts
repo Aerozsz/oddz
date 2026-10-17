@@ -409,6 +409,16 @@ function main() {
     sigma: number;
     spreadBps: number;
     tailLift: number;
+    /**
+     * Rank correlation between decile index and mean return, -1 to 1.
+     *
+     * `sigma` sees two buckets. This sees all ten, and the two disagreeing is
+     * the signature that cost a month of mis-stated verdicts: `mom30 @ t30d`
+     * reached -11.9 sigma on a profile that was flat across nine deciles and
+     * fell off a cliff in the tenth. A continuous feature the market responds
+     * to produces a response that varies continuously with it.
+     */
+    monotone: number;
     survives: boolean;
     /**
      * The same measurement on each half of the window, fitted separately.
@@ -489,6 +499,7 @@ function main() {
         sigma: e.sigma,
         spreadBps: e.spreadBps,
         tailLift: e.tailLift,
+        monotone: e.monotone,
         survives: Math.abs(e.sigma) >= bar,
         halves,
         top: scores[scores.length - 1],
@@ -795,6 +806,7 @@ function main() {
         sigma: r.sigma,
         spreadBps: r.spreadBps,
         halves: r.halves,
+        monotone: r.monotone,
       })),
     carry: eight.length
       ? [eight[0], eight[eight.length - 1]].map((b) => ({

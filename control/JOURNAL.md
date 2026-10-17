@@ -2041,3 +2041,62 @@ about it. If longs and shorts do not both pay with the sample's own drift
 removed, it joins the other three and the month's verdict stands unchanged.
 
 Nothing armed.
+
+## 2026-10-17 — the mom30 candidate is the wrong shape, measured
+
+Yesterday's entry surfaced `mom30 @ t30d` — top decile -26.89bp against a
+7.63bp round trip, both halves, robust to the entry delay — and said the side
+split would decide it. Two tests, both run this pass. It does not look like an
+edge.
+
+**Drift does not explain it, and that was the weaker hypothesis.** The
+unconditional thirty-minute return over the window is -1.62bp. Demeaned, the
+top decile is still -25.27bp. So this is not the sample falling and every
+bucket inheriting it, which is how `hold-longer` and the two-hour gross died.
+
+**The profile does explain it.** The decile means run 6.9, 1.2, -5.9, -2.9,
+0.7, 0.1, 5.3, 6.8, -1.4, **-26.9**. Nine buckets of noise and one cliff. A
+feature the market responds to continuously should produce a response that
+varies continuously with it, and `mom30` is a continuous feature. This is the
+shape `depth-inverted` was rejected for — "the 9.2bp came from the extreme
+532-row bucket, which is the widest and noisiest slice available".
+
+Sigma could never see that, because sigma compares two buckets and ignores the
+eight between them. So the profile now has a number: rank correlation between
+decile index and mean return, printed beside sigma on every survivor.
+
+| finding | sigma | spread | profile |
+| --- | --- | --- | --- |
+| `takerRatioFade` @ t1d | -17.1 | -6.1bp | **-0.988** |
+| `takerRatioFade` @ t5d | -13.5 | -11.4bp | **-0.976** |
+| `takerRatioFade` @ t15d | -9.0 | -13.5bp | **-0.915** |
+| `mom30` @ t30d | -11.9 | -33.8bp | **-0.321** |
+| `mom30` @ t30 | -11.7 | -33.5bp | **-0.236** |
+| `mom30` @ t15d | -6.0 | -13.7bp | **-0.079** |
+
+Every `takerRatioFade` horizon is a clean gradient. Every `mom30` horizon is
+flat with its whole spread in one bucket. The feature with the largest number
+attached to it is the one with no gradient behind it, which is the ordering a
+noise finding produces and not the one a mechanism produces.
+
+**Not closed, and I am not closing it.** A graded profile is evidence for a
+mechanism, not proof, and an ungraded one can still be a real effect that only
+fires in extremes — thirty-minute reversals after the largest moves are not an
+absurd thing to look for. What settles that is concentration: whether the
+bucket is thirty days of the effect or one afternoon. `scoreFeature` now
+reports `days` and `topDayShare` per decile — signed, so a day pulling against
+the bucket lowers the share rather than inflating it, and withheld when the
+bucket's total is near zero. The next run publishes it. If one day carries the
+bucket, this joins the other three rejections.
+
+**Shipped:** `monotone()` and per-decile concentration in
+`lib/sweep/backtest/features.ts`, both threaded into the ranked rows, the
+artefact and the FINDINGS survivor lines, which now flag "spread lives in the
+tails, not a gradient" below 0.6. New `checks/profile-check.ts` asserts both
+against data whose answer is known by construction — a gradient must score near
+-1, a cliff must not, one day must read as one day, thirty days must not, a
+cancelling day must raise the share rather than hide, and a near-zero bucket
+must report nothing rather than a ratio against noise. tsc, profile-check,
+backtest-check, findings-check and guicheck all pass.
+
+Nothing armed.

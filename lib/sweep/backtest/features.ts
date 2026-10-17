@@ -263,6 +263,23 @@ export interface Score {
   tail25: number;
   tail50: number;
   tail100: number;
+  /** Distinct UTC days contributing rows to this bucket. */
+  days?: number;
+  /**
+   * The share of this bucket's mean return contributed by its single largest
+   * day, as a fraction of the total.
+   *
+   * The statistic that decided the carry question and is being asked of the
+   * directional one for the same reason. A decile mean of -26.89bp can be a
+   * graded effect present on thirty days, or one afternoon that happens to sit
+   * in the extreme bucket because the extreme bucket is where crashes land.
+   * Those have the same mean and nothing else in common, and only this tells
+   * them apart. Near 1/days is diffuse; near 1 is an episode.
+   *
+   * Signed sums, so a day that contributed against the bucket's direction
+   * reduces the share rather than inflating it.
+   */
+  topDayShare?: number;
 }
 
 /**
@@ -275,7 +292,13 @@ export interface Score {
 export function scoreFeature(samples: Sample[], feature: string, horizon: string, buckets = 10): Score[] {
   const rows = samples
     .filter((s) => Number.isFinite(s.features[feature]) && Number.isFinite(s.ret[horizon]))
-    .map((s) => ({ x: s.features[feature], ret: s.ret[horizon], mfe: s.mfe[horizon], mae: s.mae[horizon] }))
+    .map((s) => ({
+      x: s.features[feature],
+      ret: s.ret[horizon],
+      mfe: s.mfe[horizon],
+      mae: s.mae[horizon],
+      day: Math.floor(s.ts / 86_400_000),
+    }))
     .sort((a, b) => a.x - b.x);
   if (rows.length < buckets * 20) return [];
 
@@ -287,6 +310,23 @@ export function scoreFeature(samples: Sample[], feature: string, horizon: string
     const mean = (f: (r: (typeof slice)[number]) => number) => slice.reduce((a, r) => a + f(r), 0) / n;
     const meanRet = mean((r) => r.ret);
     const varr = slice.reduce((a, r) => a + (r.ret - meanRet) ** 2, 0) / Math.max(1, n - 1);
+    /*
+     * How much of this bucket is one day.
+     *
+     * Totals rather than means per day, because a day contributing two rows
+     * out of four thousand should count for two rows' worth however extreme
+     * they are. The share is of the bucket's own signed total, so a day
+     * pulling the other way lowers it instead of raising it, and a bucket
+     * whose total is near zero reports nothing rather than a ratio against
+     * noise.
+     */
+    const byDay = new Map<number, number>();
+    for (const r of slice) byDay.set(r.day, (byDay.get(r.day) ?? 0) + r.ret);
+    const total = meanRet * n;
+    const biggest = [...byDay.values()].reduce(
+      (best, v) => (Math.abs(v) > Math.abs(best) ? v : best),
+      0,
+    );
     out.push({
       feature,
       bucket: i,
@@ -298,6 +338,8 @@ export function scoreFeature(samples: Sample[], feature: string, horizon: string
       tail25: slice.filter((r) => r.mfe >= 25).length / n,
       tail50: slice.filter((r) => r.mfe >= 50).length / n,
       tail100: slice.filter((r) => r.mfe >= 100).length / n,
+      days: byDay.size,
+      topDayShare: Math.abs(total) > 1e-9 ? biggest / total : undefined,
     });
   }
   return out;
@@ -311,8 +353,13 @@ export function scoreFeature(samples: Sample[], feature: string, horizon: string
  * between the top and the bottom, which is what a strategy can actually take a
  * side on.
  */
-export function edge(scores: Score[]): { sigma: number; spreadBps: number; tailLift: number } {
-  if (scores.length < 2) return { sigma: 0, spreadBps: 0, tailLift: 0 };
+export function edge(scores: Score[]): {
+  sigma: number;
+  spreadBps: number;
+  tailLift: number;
+  monotone: number;
+} {
+  if (scores.length < 2) return { sigma: 0, spreadBps: 0, tailLift: 0, monotone: 0 };
   const lo = scores[0];
   const hi = scores[scores.length - 1];
   const se = Math.sqrt(hi.seRet ** 2 + lo.seRet ** 2);
@@ -320,5 +367,42 @@ export function edge(scores: Score[]): { sigma: number; spreadBps: number; tailL
     sigma: se > 0 ? (hi.meanRet - lo.meanRet) / se : 0,
     spreadBps: hi.meanRet - lo.meanRet,
     tailLift: lo.tail50 > 0 ? hi.tail50 / lo.tail50 : hi.tail50 > 0 ? Infinity : 1,
+    monotone: monotone(scores),
   };
+}
+
+/**
+ * Rank correlation between the bucket index and its mean return.
+ *
+ * `sigma` compares two buckets and is blind to the eight between them, which
+ * is how a profile that is flat across nine deciles and falls off a cliff in
+ * the tenth scores the same as a clean gradient. Those are not the same claim.
+ * A feature the market responds to continuously should produce a response that
+ * varies continuously with it; one extreme bucket on its own says the rows in
+ * that bucket are unusual, which is true of every extreme bucket by
+ * construction and is the shape `depth-inverted` was rejected for.
+ *
+ * Near +/-1 is graded. Near zero with a large spread means the spread lives
+ * entirely in the tails and the feature is not grading anything.
+ */
+export function monotone(scores: Score[]): number {
+  const n = scores.length;
+  if (n < 3) return 0;
+  /* Buckets are already in feature order, so their index is their rank. */
+  const ranked = scores
+    .map((s, i) => ({ i, ret: s.meanRet }))
+    .sort((a, b) => a.ret - b.ret)
+    .map((r, rank) => ({ i: r.i, rank }));
+  const meanRank = (n - 1) / 2;
+  let num = 0;
+  let dx = 0;
+  let dy = 0;
+  for (const r of ranked) {
+    const a = r.i - meanRank;
+    const b = r.rank - meanRank;
+    num += a * b;
+    dx += a * a;
+    dy += b * b;
+  }
+  return dx > 0 && dy > 0 ? num / Math.sqrt(dx * dy) : 0;
 }
