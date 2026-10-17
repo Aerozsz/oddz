@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-17T00:27:46.457Z by the research loop. Do not edit — it is
+Generated 2026-10-17T06:27:56.319Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -42,14 +42,14 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 12 cleared the bar; **11 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t1: -22.7 sigma, -7.99bp — **beats fees** · halves -16.5/-15.6 sigma, -9.1/-7.3bp — **holds in both**
-- `takerRatioFade` @ t5: -22.4 sigma, -18.57bp — **beats fees** · halves -17.0/-15.1 sigma, -22.1/-16.3bp — **holds in both**
-- `takerRatioFade` @ t1d: -16.4 sigma, -5.92bp · halves -12.0/-11.3 sigma, -6.8/-5.4bp — **holds in both**
-- `takerRatioFade` @ t15: -14.5 sigma, -21.18bp — **beats fees** · halves -10.0/-10.7 sigma, -22.9/-20.4bp — **holds in both**
-- `takerRatioFade` @ t5d: -12.8 sigma, -10.76bp — **beats fees** · halves -9.9/-8.2 sigma, -13.2/-8.8bp — **holds in both**
-- `mom30` @ t30d: -11.6 sigma, -33.54bp — **beats fees** · halves -11.4/-2.3 sigma, -51.9/-7.5bp — **holds in both**
-- `mom30` @ t30: -11.4 sigma, -33.17bp — **beats fees** · halves -11.0/-2.3 sigma, -51.0/-7.5bp — **holds in both**
-- `takerRatioFade` @ t30: -9.5 sigma, -19.20bp — **beats fees** · halves -6.2/-9.6 sigma, -19.8/-24.9bp — **holds in both**
+- `takerRatioFade` @ t1: -22.7 sigma, -7.99bp — **beats fees** · halves -16.5/-15.6 sigma, -9.1/-7.3bp — **holds in both** · profile -1.00
+- `takerRatioFade` @ t5: -22.4 sigma, -18.57bp — **beats fees** · halves -17.0/-15.1 sigma, -22.1/-16.3bp — **holds in both** · profile -0.98
+- `takerRatioFade` @ t1d: -16.4 sigma, -5.92bp · halves -12.0/-11.3 sigma, -6.8/-5.4bp — **holds in both** · profile -1.00
+- `takerRatioFade` @ t15: -14.5 sigma, -21.18bp — **beats fees** · halves -10.0/-10.7 sigma, -22.9/-20.4bp — **holds in both** · profile -0.96
+- `takerRatioFade` @ t5d: -12.8 sigma, -10.76bp — **beats fees** · halves -9.9/-8.2 sigma, -13.2/-8.8bp — **holds in both** · profile -0.98
+- `mom30` @ t30d: -11.6 sigma, -33.54bp — **beats fees** · halves -11.4/-2.3 sigma, -51.9/-7.5bp — **holds in both** · profile -0.22 — **spread lives in the tails, not a gradient**
+- `mom30` @ t30: -11.4 sigma, -33.17bp — **beats fees** · halves -11.0/-2.3 sigma, -51.0/-7.5bp — **holds in both** · profile -0.22 — **spread lives in the tails, not a gradient**
+- `takerRatioFade` @ t30: -9.5 sigma, -19.20bp — **beats fees** · halves -6.2/-9.6 sigma, -19.8/-24.9bp — **holds in both** · profile -0.90
 
 #### Every surviving delayed horizon, priced
 

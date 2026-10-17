@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-17T00:29:15.154Z by the research loop. Do not edit — it is
+Generated 2026-10-17T06:29:46.292Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -42,14 +42,14 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 12 cleared the bar; **4 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t5: -28.5 sigma, -6.04bp · halves -23.1/-17.4 sigma, -7.3/-4.9bp — **holds in both**
-- `takerRatioFade` @ t1: -27.8 sigma, -2.54bp · halves -21.3/-18.3 sigma, -2.9/-2.1bp — **holds in both**
-- `takerRatioFade` @ t1d: -19.7 sigma, -1.85bp · halves -15.3/-12.9 sigma, -2.2/-1.6bp — **holds in both**
-- `takerRatioFade` @ t5d: -16.6 sigma, -3.48bp · halves -13.8/-9.6 sigma, -4.3/-2.7bp — **holds in both**
-- `takerRatioFade` @ t15: -15.1 sigma, -5.81bp · halves -10.4/-10.8 sigma, -6.1/-5.4bp — **holds in both**
-- `topTraderFollow` @ t60: 14.4 sigma, 14.89bp — **beats fees** · halves 13.7/2.2 sigma, 15.5/3.0bp — **holds in both**
-- `topTraderFollow` @ t60d: 14.4 sigma, 14.91bp — **beats fees** · halves 13.7/2.1 sigma, 15.5/3.0bp — **holds in both**
-- `topTraderFollow` @ t30: 10.8 sigma, 7.83bp — **beats fees** · halves 10.0/1.4 sigma, 8.4/1.4bp — DOES NOT HOLD IN BOTH
+- `takerRatioFade` @ t5: -28.5 sigma, -6.04bp · halves -23.1/-17.4 sigma, -7.3/-4.9bp — **holds in both** · profile -0.96
+- `takerRatioFade` @ t1: -27.8 sigma, -2.54bp · halves -21.3/-18.3 sigma, -2.9/-2.1bp — **holds in both** · profile -1.00
+- `takerRatioFade` @ t1d: -19.7 sigma, -1.85bp · halves -15.3/-12.9 sigma, -2.2/-1.6bp — **holds in both** · profile -0.99
+- `takerRatioFade` @ t5d: -16.6 sigma, -3.48bp · halves -13.8/-9.6 sigma, -4.3/-2.7bp — **holds in both** · profile -0.94
+- `takerRatioFade` @ t15: -15.1 sigma, -5.81bp · halves -10.4/-10.8 sigma, -6.1/-5.4bp — **holds in both** · profile -0.95
+- `topTraderFollow` @ t60: 14.4 sigma, 14.89bp — **beats fees** · halves 13.7/2.2 sigma, 15.5/3.0bp — **holds in both** · profile 0.82
+- `topTraderFollow` @ t60d: 14.4 sigma, 14.91bp — **beats fees** · halves 13.7/2.1 sigma, 15.5/3.0bp — **holds in both** · profile 0.84
+- `topTraderFollow` @ t30: 10.8 sigma, 7.83bp — **beats fees** · halves 10.0/1.4 sigma, 8.4/1.4bp — DOES NOT HOLD IN BOTH · profile 0.78
 
 #### Every surviving delayed horizon, priced
 
