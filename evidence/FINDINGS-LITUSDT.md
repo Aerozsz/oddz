@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-18T12:27:25.412Z by the research loop. Do not edit — it is
+Generated 2026-10-18T18:27:58.829Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -69,6 +69,8 @@ One tail's own mean against the depth curve, largest edge first. The detailed ta
 | `takerRatioFade` @ t30d | 7.36bp | -0.79 | 22% | — | — |
 | `takerRatioFade` @ t5d | 5.91bp | -0.96 | 12% | — | — |
 | `takerRatioFade` @ t1d | 2.98bp | -0.98 | 8% | — | — |
+
+**None of the 8 paying horizons both grades with the feature and spreads across the window.** Every one is either concentrated in the extreme deciles or carried by a single day, and the rows that are graded and diffuse — the `takerRatioFade` family — earn nothing at any measured size. That is the shape of a market whose cost exceeds its predictability, not of an opportunity waiting on better execution.
 
 #### Sizing — `hourCos` @ t60d, edge 23.72bp
 
