@@ -535,6 +535,41 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
         `#### Sizing — \`${z.feature}\` @ ${z.horizon}, edge ${Math.abs(z.edgeBps).toFixed(2)}bp`,
       );
       lines.push("");
+      /*
+       * The headline's own flags, immediately under its heading.
+       *
+       * The list is ordered by edge, which is the right order for a negative
+       * verdict — if the largest does not pay, none does — and the wrong one
+       * the moment something pays, because on this contract edge runs inverse
+       * to trustworthiness. So the first row is routinely the least supported
+       * one, and a reader who skips the summary table lands on a ladder of
+       * dollars with nothing beside it. On 2026-10-17 that row was `hourCos`:
+       * the hour of day, as a cosine, quoted at $14.48 a round trip.
+       */
+      {
+        const flags: string[] = [];
+        if (typeof z.monotone === "number" && Math.abs(z.monotone) < 0.6) {
+          flags.push(
+            `its decile profile is ${z.monotone.toFixed(2)}, so the spread sits in the extreme ` +
+              `buckets rather than grading with the feature`,
+          );
+        }
+        if (typeof z.topDayShare === "number" && z.topDayShare > 0.35) {
+          flags.push(
+            `${(z.topDayShare * 100).toFixed(0)}% of the priced tail comes from one day` +
+              (z.tailDays ? ` of ${z.tailDays}` : "") +
+              `, which is an episode rather than an effect`,
+          );
+        }
+        if (flags.length) {
+          lines.push(
+            `> **This row is the largest edge, not the best supported one.** ${flags.join("; and ")}. ` +
+              `The table below prices it anyway, because the ordering exists so that a verdict on ` +
+              `the largest covers the rest — not because this row is a recommendation.`,
+          );
+          lines.push("");
+        }
+      }
       if (typeof z.decileSpreadBps === "number" && z.tailsBps) {
         lines.push(
           `Priced on **one tail's own mean return**, not the decile spread. The spread is ` +

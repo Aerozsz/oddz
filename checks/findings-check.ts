@@ -139,11 +139,63 @@ function carryIsReportedWithItsCost() {
     /missing data/.test(renderFindings([missing])));
 }
 
+/**
+ * The page must not open on a clock and call it an opportunity.
+ *
+ * The candidate list is ordered by edge, which is correct for a negative
+ * verdict — if the largest does not pay, none does — and wrong the moment
+ * something does pay, because on this contract edge runs inverse to
+ * trustworthiness. So the detailed table routinely leads with the least
+ * supported row. On 2026-10-17 that row was `hourCos`, the hour of day as a
+ * cosine, quoted at $14.48 a round trip with nothing beside it.
+ *
+ * The warning is the only thing standing between a reader and that number, so
+ * it is asserted rather than trusted.
+ */
+function aFlaggedHeadlineSaysSoBeforeItsLadder() {
+  const flagged: RunSummary = {
+    symbol: "LITUSDT", samples: 40_000, spanDays: 30, bonferroniSigma: 3.7, roundTripBps: 7.67,
+    survivors: [{ feature: "hourCos", horizon: "t60d", sigma: 9.0, spreadBps: 41.0 }],
+    sizing: {
+      feature: "hourCos", horizon: "t60d", edgeBps: 20.57,
+      monotone: -0.18, topDayShare: 0.538, tailDays: 29,
+      rows: [{ usd: 25_000, totalBps: 6.1, stressTotalBps: 7.0, netBps: 14.48,
+        netUsd: 36.2, stressNetBps: 13.6, tradesPerDay: 9 }],
+      best: { usd: 25_000, netBps: 14.48, netUsd: 36.2, tradesPerDay: 9 },
+    },
+  };
+  const out = renderFindings([flagged]);
+  ok("the warning appears", /largest edge, not the best supported one/.test(out));
+  ok("it names the profile", /decile profile is -0\.18/.test(out));
+  ok("it names the concentration", /54% of the priced tail comes from one day of 29/.test(out));
+  /*
+   * Before the dollars, not after them. A caveat under a table has already
+   * lost to the number above it.
+   */
+  ok("and it precedes the ladder",
+    out.indexOf("largest edge, not the best supported") < out.indexOf("$36.20"),
+    `${out.indexOf("largest edge, not the best supported")} vs ${out.indexOf("$36.20")}`);
+
+  /*
+   * A graded, diffuse headline must NOT carry the warning, or it becomes
+   * boilerplate that readers learn to skip — which is the same as not having
+   * it.
+   */
+  const clean: RunSummary = {
+    ...flagged,
+    sizing: { ...flagged.sizing!, feature: "takerRatioFade", horizon: "t5d",
+      monotone: -0.96, topDayShare: 0.134 },
+  };
+  ok("a clean headline carries no warning",
+    !/largest edge, not the best supported one/.test(renderFindings([clean])));
+}
+
 console.log("findings page");
 everySettledClaimCarriesItsEvidence();
 rendersWithoutARun();
 separatesClearingTheBarFromBeatingFees();
 carryIsReportedWithItsCost();
+aFlaggedHeadlineSaysSoBeforeItsLadder();
 theInstructionsDoNotDirectSolvedWork();
 aTiedCarryBucketPrintsNoPriceNumber();
 

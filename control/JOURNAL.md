@@ -2288,3 +2288,44 @@ FINDINGS overstates, and anybody reading it in the interval should read this
 entry instead.
 
 Nothing armed.
+
+## 2026-10-18 — the page now carries its own caveat
+
+The profile and concentration columns reached the published page. The caveat
+flagged in yesterday's entry is resolved: `hourCos @ t60d` no longer reads as a
+$14.48 opportunity, it reads as
+
+    | `hourCos` @ t60d | 20.57bp | -0.18 **tails only** | 54% **episode** | $25,000 | $14.48 |
+
+and three of the six payers carry `**episode**` while all four non-payers carry
+neither flag. The table states the inverse relationship on its own now, without
+a reader needing this journal.
+
+**One gap was left and is closed this pass.** The candidate list is ordered by
+edge. That ordering is right for a negative verdict — if the largest does not
+pay, none does — and wrong the moment something pays, because edge here runs
+inverse to trustworthiness. So the detailed `#### Sizing` section, the part
+with the dollar ladder in it, routinely opens on the least supported row. A
+reader who skipped the summary table landed on a clock's order ladder.
+
+The detailed section now opens with the headline's own flags when it has any:
+
+> **This row is the largest edge, not the best supported one.** its decile
+> profile is -0.18, so the spread sits in the extreme buckets rather than
+> grading with the feature; and 54% of the priced tail comes from one day of
+> 29, which is an episode rather than an effect. The table below prices it
+> anyway, because the ordering exists so that a verdict on the largest covers
+> the rest — not because this row is a recommendation.
+
+I kept the ordering rather than sorting by trustworthiness, because reordering
+to put the best-supported row first would make the page agree with my current
+belief by construction, and the day that belief is wrong the page would hide
+it. Ordering by size and labelling honestly survives being wrong.
+
+`checks/findings-check.ts` asserts the warning renders, names both numbers,
+appears *before* the dollars — a caveat under a table has already lost to the
+number above it — and does *not* render for a graded, diffuse headline, so it
+cannot decay into boilerplate readers skip. tsc, findings-check, backtest-check,
+profile-check and guicheck pass.
+
+Nothing armed.
