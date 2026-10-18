@@ -190,12 +190,62 @@ function aFlaggedHeadlineSaysSoBeforeItsLadder() {
     !/largest edge, not the best supported one/.test(renderFindings([clean])));
 }
 
+/**
+ * The verdict line must be able to say yes.
+ *
+ * A summary that can only ever print one conclusion is decoration. This one
+ * exists to be falsifiable: three windows have produced "none of the paying
+ * horizons both grades and spreads", and the moment a row appears that does
+ * both, the page has to say so without anybody editing it. Asserted in both
+ * directions, because only the positive case proves the sentence is load
+ * bearing.
+ */
+function theVerdictLineCanSayYes() {
+  const row = (over: Partial<NonNullable<RunSummary["sizing"]>>) => ({
+    feature: "f", horizon: "t30d", edgeBps: 20,
+    rows: [{ usd: 10_000, totalBps: 6, stressTotalBps: 7, netBps: 14,
+      netUsd: 14, stressNetBps: 13, tradesPerDay: 9 }],
+    best: { usd: 10_000, netBps: 14, netUsd: 14, tradesPerDay: 9 },
+    ...over,
+  });
+  const base: RunSummary = {
+    symbol: "LITUSDT", samples: 40_000, spanDays: 30, bonferroniSigma: 3.7, roundTripBps: 7.66,
+    survivors: [{ feature: "f", horizon: "t30d", sigma: 9, spreadBps: 40 }],
+  };
+
+  /* Episodes and tail-only rows only: the standing answer. */
+  const none = renderFindings([{ ...base,
+    sizing: row({ monotone: -0.2, topDayShare: 0.5 }),
+    sizings: [
+      row({ feature: "episodic", monotone: -0.9, topDayShare: 0.55 }),
+      row({ feature: "ungraded", monotone: -0.2, topDayShare: 0.2 }),
+      row({ feature: "quiet", monotone: -0.98, topDayShare: 0.1, best: null }),
+    ] as NonNullable<RunSummary["sizing"]>[] }]);
+  ok("it reports none when none qualifies", /None of the 2 paying horizons/.test(none));
+  ok("and names the cost-exceeds-predictability reading",
+    /cost exceeds its predictability/.test(none));
+
+  /* One row that pays, grades and persists: the answer must change by itself. */
+  const yes = renderFindings([{ ...base,
+    sizing: row({ monotone: -0.2, topDayShare: 0.5 }),
+    sizings: [
+      row({ feature: "episodic", monotone: -0.9, topDayShare: 0.55 }),
+      row({ feature: "realthing", monotone: -0.88, topDayShare: 0.15 }),
+    ] as NonNullable<RunSummary["sizing"]>[] }]);
+  ok("it reports the survivor when one qualifies",
+    /\*\*1 of 2 paying horizons also grade/.test(yes), yes.slice(yes.indexOf("paying horizons") - 60, yes.indexOf("paying horizons") + 120));
+  ok("and names it", /`realthing` @ t30d/.test(yes));
+  ok("and does not name the episodic one", !/`episodic` @ t30d. That combination/.test(yes));
+  ok("and asks for a fresh window before belief", /fresh window before believing/.test(yes));
+}
+
 console.log("findings page");
 everySettledClaimCarriesItsEvidence();
 rendersWithoutARun();
 separatesClearingTheBarFromBeatingFees();
 carryIsReportedWithItsCost();
 aFlaggedHeadlineSaysSoBeforeItsLadder();
+theVerdictLineCanSayYes();
 theInstructionsDoNotDirectSolvedWork();
 aTiedCarryBucketPrintsNoPriceNumber();
 

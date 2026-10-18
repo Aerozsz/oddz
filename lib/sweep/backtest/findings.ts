@@ -528,6 +528,38 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
         );
       }
       lines.push("");
+      /*
+       * The one line that decides whether anything here is worth acting on.
+       *
+       * Three windows of LITUSDT have produced the same ordering: every
+       * horizon whose ladder pays is either ungraded or an episode, and the
+       * only diffuse graded rows earn nothing at any size. Stated as a count
+       * rather than left for a reader to derive, because the derivation is
+       * what nobody does, and because a count is falsifiable — the day a row
+       * appears that pays while grading and persisting, this sentence changes
+       * on its own and says so.
+       */
+      const graded = (s: NonNullable<RunSummary["sizing"]>) =>
+        typeof s.monotone === "number" && Math.abs(s.monotone) >= 0.6;
+      const diffuse = (s: NonNullable<RunSummary["sizing"]>) =>
+        typeof s.topDayShare === "number" && s.topDayShare <= 0.35;
+      const payers = r.sizings.filter((s) => s.best);
+      const survive = payers.filter((s) => graded(s) && diffuse(s));
+      lines.push(
+        survive.length
+          ? `**${survive.length} of ${payers.length} paying horizons also grade with the feature ` +
+            `and spread across the window**: ` +
+            survive.map((s) => `\`${s.feature}\` @ ${s.horizon}`).join(", ") +
+            `. That combination is what a tradeable signal looks like and it has not appeared ` +
+            `before — check it against a fresh window before believing it.`
+          : `**None of the ${payers.length} paying horizons both grades with the feature and ` +
+            `spreads across the window.** Every one is either concentrated in the extreme ` +
+            `deciles or carried by a single day, and the rows that are graded and diffuse — the ` +
+            `\`takerRatioFade\` family — earn nothing at any measured size. That is the shape of ` +
+            `a market whose cost exceeds its predictability, not of an opportunity waiting on ` +
+            `better execution.`,
+      );
+      lines.push("");
     }
     if (r.sizing) {
       const z = r.sizing;

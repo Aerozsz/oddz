@@ -2329,3 +2329,41 @@ cannot decay into boilerplate readers skip. tsc, findings-check, backtest-check,
 profile-check and guicheck pass.
 
 Nothing armed.
+
+## 2026-10-18 — the page now states the falsifiable version of the verdict
+
+Third window, same ordering, and I have been deriving the conclusion by hand
+each pass with a query: are there rows that pay while *also* grading with the
+feature and spreading across the window? Three windows, answer none. The
+`takerRatioFade` family grades and spreads and earns nothing; everything that
+pays is ungraded, or an episode, or both.
+
+That query is now a sentence the page writes itself:
+
+> **None of the 7 paying horizons both grades with the feature and spreads
+> across the window.** Every one is either concentrated in the extreme deciles
+> or carried by a single day, and the rows that are graded and diffuse — the
+> `takerRatioFade` family — earn nothing at any measured size. That is the
+> shape of a market whose cost exceeds its predictability, not of an
+> opportunity waiting on better execution.
+
+**Why this is worth a commit rather than a paragraph in here.** The derivation
+is the part nobody does. A table with two diagnostic columns still requires a
+reader to cross-reference them against the dollar column and notice that the
+two orderings are inverse; three days ago I had the table and still needed a
+hand-written query to see it. Stating the count removes that step.
+
+More to the point, the sentence is falsifiable and changes on its own. If a
+row ever appears that pays, grades past 0.6 and keeps its tail under a third
+in one day, the page prints its name, says that combination has not appeared
+before, and asks for a fresh window before anybody believes it. That is the
+difference between a conclusion and a monitor: this one can report that I was
+wrong without my involvement.
+
+`checks/findings-check.ts` asserts both directions — the standing "none",
+and the positive case with the row named and the episodic one not named. A
+summary that can only print one answer is decoration, so only the positive
+case proves the sentence is load bearing. 59 assertions in that suite now, no
+failures; tsc, backtest-check, profile-check and guicheck pass.
+
+Nothing armed.
