@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-18T00:27:58.393Z by the research loop. Do not edit — it is
+Generated 2026-10-18T06:27:35.655Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -70,6 +70,8 @@ One tail's own mean against the depth curve, largest edge first. The detailed ta
 | `takerRatioFade` @ t1d | 3.01bp | -1.00 | 8% | — | — |
 
 #### Sizing — `hourCos` @ t60d, edge 23.52bp
+
+> **This row is the largest edge, not the best supported one.** its decile profile is -0.37, so the spread sits in the extreme buckets rather than grading with the feature; and 49% of the priced tail comes from one day of 28, which is an episode rather than an effect. The table below prices it anyway, because the ordering exists so that a verdict on the largest covers the rest — not because this row is a recommendation.
 
 Priced on **one tail's own mean return**, not the decile spread. The spread is 23.19bp — bottom decile -5.63bp, top decile -28.82bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
 
