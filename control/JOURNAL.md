@@ -2367,3 +2367,40 @@ case proves the sentence is load bearing. 59 assertions in that suite now, no
 failures; tsc, backtest-check, profile-check and guicheck pass.
 
 Nothing armed.
+
+## 2026-10-18 — a forced update on the branch, investigated, benign
+
+`git fetch` reported a non-fast-forward on the loop's own branch:
+
+    + 4fbbe3c0...273ade63 claude/amm-liquidity-sweep-8qhnd0 -> ... (forced update)
+
+Recording it because a rewritten history under an unattended loop is the kind
+of thing that should be dated even when it turns out to be nothing, so the next
+one can be compared against this one rather than investigated from scratch.
+
+**It was nothing.** Checked before touching anything:
+
+- all six of this week's commits (`40ed475e` through `466a2ea6`) are ancestors
+  of the new head;
+- the new head `273ade63` is a publish commit whose parent is `466a2ea6`, my
+  most recent push, so the chain is linear and complete;
+- every shipped change is present in the tree — the verdict line, the
+  `delayedSurvivors` set, the per-decile concentration, `profile-check.ts`.
+
+Nothing was rewritten on the remote. The old value in that fetch line,
+`4fbbe3c0`, is the head of `claude/refactor-project-structure-JIiXS` as seen in
+snapshot runs on 2026-10-08 — a stale remote-tracking ref left in this
+container, not a state the branch was ever in. The container was recycled this
+pass (the environment announced `gh` as absent, and it is present), which is
+the likely source.
+
+**What I did not do.** No force push, no reset beyond the usual
+`reset --hard FETCH_HEAD` onto a verified-superset head, no rewriting to
+"restore" anything. The investigation came first and found nothing to restore;
+had it found a divergence, the recovery would have been to rebase the missing
+commits forward, never to overwrite the remote.
+
+The 12:32 run published from `343da75f`, which predates `466a2ea6`, so the new
+verdict line is not on the page yet. Next run carries it.
+
+Nothing armed.
