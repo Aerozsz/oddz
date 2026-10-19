@@ -1,6 +1,6 @@
 # Findings
 
-Generated 2026-10-18T18:27:58.829Z by the research loop. Do not edit — it is
+Generated 2026-10-19T00:27:58.857Z by the research loop. Do not edit — it is
 rewritten every pass. Read this before the journal; the journal carries intent and
 this carries what is currently true.
 
@@ -38,18 +38,18 @@ Each of these cost real time to establish. Re-deriving one is a wasted pass.
 
 ### LITUSDT
 
-40,184 samples over 30 days. Bar 3.72 sigma, round trip 7.66bp.
+38,744 samples over 29 days. Bar 3.72 sigma, round trip 7.66bp.
 
 12 cleared the bar; **11 also beat the round trip** at an infinitesimal order — see the sizing table for what that is worth at a real one.
 
-- `takerRatioFade` @ t5: -23.3 sigma, -18.68bp — **beats fees** · halves -15.5/-16.6 sigma, -20.1/-16.9bp — **holds in both** · profile -0.96
-- `takerRatioFade` @ t1: -23.0 sigma, -7.89bp — **beats fees** · halves -16.1/-16.0 sigma, -8.9/-7.3bp — **holds in both** · profile -0.99
-- `takerRatioFade` @ t1d: -16.7 sigma, -5.85bp · halves -11.5/-11.8 sigma, -6.5/-5.4bp — **holds in both** · profile -0.98
-- `takerRatioFade` @ t15: -15.5 sigma, -21.82bp — **beats fees** · halves -10.8/-11.9 sigma, -24.7/-20.8bp — **holds in both** · profile -0.96
-- `takerRatioFade` @ t5d: -13.8 sigma, -11.14bp — **beats fees** · halves -8.3/-9.9 sigma, -11.0/-10.0bp — **holds in both** · profile -0.96
-- `takerRatioFade` @ t30: -11.4 sigma, -22.07bp — **beats fees** · halves -7.7/-11.4 sigma, -25.1/-27.3bp — **holds in both** · profile -0.93
-- `mom30` @ t30d: -10.2 sigma, -29.07bp — **beats fees** · halves -11.4/-0.2 sigma, -50.3/-0.8bp — DOES NOT HOLD IN BOTH · profile -0.22 — **spread lives in the tails, not a gradient**
-- `mom30` @ t30: -9.9 sigma, -28.60bp — **beats fees** · halves -11.1/-0.1 sigma, -50.1/-0.3bp — DOES NOT HOLD IN BOTH · profile -0.22 — **spread lives in the tails, not a gradient**
+- `takerRatioFade` @ t1: -23.0 sigma, -7.88bp — **beats fees** · halves -15.7/-16.4 sigma, -8.6/-7.5bp — **holds in both** · profile -1.00
+- `takerRatioFade` @ t5: -22.9 sigma, -18.41bp — **beats fees** · halves -15.5/-16.8 sigma, -19.8/-17.4bp — **holds in both** · profile -0.96
+- `takerRatioFade` @ t1d: -16.6 sigma, -5.85bp · halves -11.5/-11.8 sigma, -6.4/-5.5bp — **holds in both** · profile -0.98
+- `takerRatioFade` @ t15: -15.0 sigma, -21.09bp — **beats fees** · halves -10.8/-11.5 sigma, -24.5/-20.4bp — **holds in both** · profile -0.95
+- `takerRatioFade` @ t5d: -13.2 sigma, -10.70bp — **beats fees** · halves -8.5/-9.8 sigma, -11.1/-10.0bp — **holds in both** · profile -0.96
+- `takerRatioFade` @ t30: -11.6 sigma, -22.56bp — **beats fees** · halves -8.1/-11.1 sigma, -26.3/-27.2bp — **holds in both** · profile -0.89
+- `mom30` @ t30d: -9.8 sigma, -28.49bp — **beats fees** · halves -11.2/0.2 sigma, -50.6/0.8bp — DOES NOT HOLD IN BOTH · profile -0.31 — **spread lives in the tails, not a gradient**
+- `mom30` @ t30: -9.6 sigma, -28.25bp — **beats fees** · halves -10.9/0.3 sigma, -50.4/1.1bp — DOES NOT HOLD IN BOTH · profile -0.31 — **spread lives in the tails, not a gradient**
 
 #### Every surviving delayed horizon, priced
 
@@ -57,60 +57,57 @@ One tail's own mean against the depth curve, largest edge first. The detailed ta
 
 | feature @ horizon | tail edge | profile | one day | best size | $/trip |
 | --- | --- | --- | --- | --- | --- |
-| `hourCos` @ t60d | 23.72bp | -0.37 **tails only** | 47% **episode** | $25,000 | $22.59 |
-| `hourCos` @ t30d | 16.69bp | -0.15 **tails only** | 63% **episode** | $10,000 | $6.22 |
-| `tradeSurge` @ t60d | 15.06bp | -0.89 | 50% **episode** | $10,000 | $4.59 |
-| `volatility` @ t30d | 14.76bp | -0.25 **tails only** | 28% | $10,000 | $4.29 |
-| `spreadProxy` @ t60d | 12.75bp | -0.43 **tails only** | 31% | $10,000 | $2.28 |
-| `volatility` @ t15d | 11.32bp | -0.28 **tails only** | 29% | $5,000 | $1.13 |
-| `hourCos` @ t15d | 9.37bp | 0.10 **tails only** | 53% **episode** | $5,000 | $0.15 |
-| `spreadProxy` @ t30d | 8.80bp | -0.66 | 62% **episode** | $1,000 | $0.09 |
-| `takerRatioFade` @ t15d | 7.92bp | -0.90 | 22% | — | — |
-| `takerRatioFade` @ t30d | 7.36bp | -0.79 | 22% | — | — |
-| `takerRatioFade` @ t5d | 5.91bp | -0.96 | 12% | — | — |
+| `hourCos` @ t60d | 22.37bp | -0.37 **tails only** | 51% **episode** | $25,000 | $19.30 |
+| `hourCos` @ t30d | 15.84bp | -0.20 **tails only** | 68% **episode** | $10,000 | $5.39 |
+| `tradeSurge` @ t60d | 14.20bp | -0.88 | 54% **episode** | $10,000 | $3.75 |
+| `volatility` @ t15d | 11.02bp | -0.16 **tails only** | 30% | $5,000 | $0.98 |
+| `hourCos` @ t15d | 9.27bp | -0.22 **tails only** | 56% **episode** | $1,000 | $0.13 |
+| `takerRatioFade` @ t15d | 7.87bp | -0.89 | 16% | — | — |
+| `takerRatioFade` @ t30d | 7.62bp | -0.75 | 21% | — | — |
+| `takerRatioFade` @ t5d | 5.72bp | -0.96 | 13% | — | — |
 | `takerRatioFade` @ t1d | 2.98bp | -0.98 | 8% | — | — |
 
-**None of the 8 paying horizons both grades with the feature and spreads across the window.** Every one is either concentrated in the extreme deciles or carried by a single day, and the rows that are graded and diffuse — the `takerRatioFade` family — earn nothing at any measured size. That is the shape of a market whose cost exceeds its predictability, not of an opportunity waiting on better execution.
+**None of the 5 paying horizons both grades with the feature and spreads across the window.** Every one is either concentrated in the extreme deciles or carried by a single day, and the rows that are graded and diffuse — the `takerRatioFade` family — earn nothing at any measured size. That is the shape of a market whose cost exceeds its predictability, not of an opportunity waiting on better execution.
 
-#### Sizing — `hourCos` @ t60d, edge 23.72bp
+#### Sizing — `hourCos` @ t60d, edge 22.37bp
 
-> **This row is the largest edge, not the best supported one.** its decile profile is -0.37, so the spread sits in the extreme buckets rather than grading with the feature; and 47% of the priced tail comes from one day of 29, which is an episode rather than an effect. The table below prices it anyway, because the ordering exists so that a verdict on the largest covers the rest — not because this row is a recommendation.
+> **This row is the largest edge, not the best supported one.** its decile profile is -0.37, so the spread sits in the extreme buckets rather than grading with the feature; and 51% of the priced tail comes from one day of 28, which is an episode rather than an effect. The table below prices it anyway, because the ordering exists so that a verdict on the largest covers the rest — not because this row is a recommendation.
 
-Priced on **one tail's own mean return**, not the decile spread. The spread is 22.25bp — bottom decile -6.91bp, top decile -29.16bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
+Priced on **one tail's own mean return**, not the decile spread. The spread is 21.77bp — bottom decile -6.10bp, top decile -27.87bp — and capturing it means trading both tails, each paying its own round trip. A single trade earns one tail.
 
-Priced on the tail with the window's own drift removed. The contract returned -5.44bp unconditionally over this horizon, the raw tail reads 29.16bp, and 5.44bp of that is the market moving rather than the signal working. Nothing harvests drift per trade without a view on direction.
+Priced on the tail with the window's own drift removed. The contract returned -5.50bp unconditionally over this horizon, the raw tail reads 27.87bp, and 5.50bp of that is the market moving rather than the signal working. Nothing harvests drift per trade without a view on direction.
 
-Priced on the delayed entry. The same feature entered at the decision close reads 21.84bp, and the -1.88bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
+Priced on the delayed entry. The same feature entered at the decision close reads 21.45bp, and the -0.92bp between them is the entry price sitting on the side of the book the signal fired from, not edge.
 
 | size | cost RT | net | $/trade | trades/day for $300 | p90 net |
 | --- | --- | --- | --- | --- | --- |
-| $1,000 | 7.94bp | **+15.78**bp | $1.58 | 191 | 15.58bp |
-| $5,000 | 9.07bp | **+14.65**bp | $7.33 | 41 | 13.69bp |
-| $10,000 | 10.47bp | **+13.25**bp | $13.25 | 23 | 11.32bp |
-| $25,000 | 14.68bp | **+9.04**bp | $22.59 | 14 | 4.21bp |
-| $50,000 | 21.70bp | **+2.01**bp | $10.07 | 30 | -24.95bp |
-| $100,000 | 51.10bp | -27.38bp | $-273.83 | never | -32.42bp |
+| $1,000 | 7.94bp | **+14.43**bp | $1.44 | 208 | 14.24bp |
+| $5,000 | 9.06bp | **+13.31**bp | $6.66 | 46 | 12.35bp |
+| $10,000 | 10.46bp | **+11.91**bp | $11.91 | 26 | 9.98bp |
+| $25,000 | 14.65bp | **+7.72**bp | $19.30 | 16 | 2.89bp |
+| $50,000 | 21.64bp | **+0.73**bp | $3.64 | 83 | -26.28bp |
+| $100,000 | 51.07bp | -28.69bp | $-286.94 | never | -33.78bp |
 
 Against impact measured on executed sweeps rather than modelled from resting depth — the full move a real order of this size made, and the part of it that reverted within a minute:
 
 | size | net if it pays the whole move | net if it pays only the revert |
 | --- | --- | --- |
-| $1,000 | **+14.74**bp | **+16.06**bp |
-| $5,000 | **+8.34**bp | **+14.00**bp |
-| $10,000 | **+3.57**bp | **+13.47**bp |
-| $25,000 | -2.28bp | **+16.06**bp |
-| $50,000 | -6.60bp | **+16.06**bp |
+| $1,000 | **+13.43**bp | **+14.71**bp |
+| $5,000 | **+7.28**bp | **+13.09**bp |
+| $10,000 | **+2.81**bp | **+12.49**bp |
+| $25,000 | -2.86bp | **+13.57**bp |
+| $50,000 | -5.80bp | **+14.14**bp |
 
 The truth is between the two columns. A mechanical signal carries no private information, so it should not pay the whole move; it does arrive alongside informed flow, so it will not pay only the revert either.
 
-Best size $25,000: **$22.59 a round trip**, so 14 of them a day for $300. At the ninetieth-percentile minute it is $11.32 at $10,000.
+Best size $25,000: **$19.30 a round trip**, so 16 of them a day for $300. At the ninetieth-percentile minute it is $9.98 at $10,000.
 
 The first table prices *resting* depth. That was assumed to be optimistic — quotes are pulled as an order arrives — but 380,411 executed sweeps say otherwise above $5,000: real sweeps meet a book that refreshes, so the modelled curve runs dearer than the reverting cost, not cheaper. It is optimistic only at the smallest sizes. Read the bracket, not this table alone.
 
 Carry at 8h, the two most crowded deciles, oriented to the side that collects:
 
-- basis -11.5bp: **carry +11.53bp**, price -80.34bp ±5.65, total -68.81bp. The carry is the mechanical part; the price term needs a view or a hedge. Spans 28 days, largest day 13% of it — and the price term points the same way in both halves.
-- basis 0.4bp: **carry +0.39bp**. The price term is withheld — this bucket's rows share one basis value, so its boundaries came from array order and any return on it is a slice of the calendar, not a finding about carry.
+- basis -11.6bp: **carry +11.56bp**, price -90.24bp ±5.75, total -78.69bp. The carry is the mechanical part; the price term needs a view or a hedge. Spans 27 days, largest day 14% of it — and the price term points the same way in both halves.
+- basis 0.4bp: **carry +0.38bp**. The price term is withheld — this bucket's rows share one basis value, so its boundaries came from array order and any return on it is a slice of the calendar, not a finding about carry.
 
 ## What a pass should do
 
