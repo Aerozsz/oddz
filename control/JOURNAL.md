@@ -2404,3 +2404,57 @@ The 12:32 run published from `343da75f`, which predates `466a2ea6`, so the new
 verdict line is not on the page yet. Next run carries it.
 
 Nothing armed.
+
+## 2026-10-20 — the falsification line fired, and it was worth three cents
+
+The sentence I added on 2026-10-18 to make the verdict falsifiable fired for
+the first time. `takerRatioFade @ t30d` paid *and* graded *and* spread:
+
+- demeaned tail **8.30bp** (raw 11.03, drift -2.72)
+- profile **-0.879** — a real gradient
+- **18.4%** of the priced tail in its largest day, over 29 days
+- halves -23.1 / -14.3bp, a factor of 1.6 — the tightest of any payer here
+
+By the test I wrote, that is the combination I said to look for. So I looked.
+
+**It earns $0.04 a round trip.** The only size that pays is $1,000, netting
+0.37bp, and it needs **8,198 round trips a day** to make $300. Every larger
+size is negative: -0.76bp at $5,000, -2.16 at $10,000, -42.75 at $100,000. The
+realized-impact bracket at the one working size runs -0.57bp to +0.65bp, so it
+straddles zero where it matters.
+
+So the row is exactly what the `takerRatioFade` family has been all along — a
+real, graded, persistent effect that is smaller than the cost of touching it.
+The new thing is that it crossed the paying line by a third of a basis point
+at the smallest priceable order, not that anything changed about the market.
+
+**The monitor was about to oversell it, and that is my defect.** The test
+checked *shape* and said nothing about *size*. It would have announced three
+and a half cents in the same words it would use for a real finding: "that
+combination is what a tradeable signal looks like". A monitor that cannot tell
+0.04 dollars from 40 is not a monitor.
+
+Fixed: the line now prints, for each qualifying row, the dollars a round trip,
+the size that does it, and **how many trips a day it would take to reach
+$300**. No threshold — 8,198 trips a day, one every ten seconds, says what it
+is without my having to pick a cutoff and defend it. This is the same framing
+`cost-reduction` was settled with ("13,477 decisions daily, one every 6.4
+seconds"), which I should have reused the first time.
+
+**Separately: the typecheck gate was down and I nearly reported on it.**
+`node_modules` was empty — the container recycled and nothing reinstalled — so
+`npx tsc --noEmit` emitted 502 errors, all of them "cannot find @types/node"
+and missing JSX types, none of them real. The `checks/` suites still passed
+because `npx` fetches `tsx` on demand and it strips types without needing
+declarations, which is exactly the failure mode that would let a type error
+through while every green light stays on. Ran `npm ci` (448 packages, 16s) and
+re-verified: tsc clean, findings-check 59/59, profile-check, backtest-check,
+sizing-check and guicheck all pass.
+
+Worth recording as a fault shape in its own right: **a verification that cannot
+run is not the same as a verification that passed**, and the distinction is
+invisible unless the count of errors is read rather than the exit line. Five
+passes today reported "tsc passes" and the last of them nearly did so without
+tsc having been able to run at all.
+
+Nothing armed.

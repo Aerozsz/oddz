@@ -549,9 +549,32 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
         survive.length
           ? `**${survive.length} of ${payers.length} paying horizons also grade with the feature ` +
             `and spread across the window**: ` +
-            survive.map((s) => `\`${s.feature}\` @ ${s.horizon}`).join(", ") +
-            `. That combination is what a tradeable signal looks like and it has not appeared ` +
-            `before — check it against a fresh window before believing it.`
+            survive
+              .map(
+                (s) =>
+                  `\`${s.feature}\` @ ${s.horizon} — $${(s.best as NonNullable<typeof s.best>).netUsd.toFixed(2)} a round trip at ` +
+                  `$${(s.best as NonNullable<typeof s.best>).usd.toLocaleString()}, ` +
+                  `${Number.isFinite((s.best as NonNullable<typeof s.best>).tradesPerDay) ? Math.ceil((s.best as NonNullable<typeof s.best>).tradesPerDay).toLocaleString() : "infinitely many"} ` +
+                  `of them a day for $300`,
+              )
+              .join("; ") +
+            `. The shape is right, which the rest of this table is not. Whether the size is, ` +
+            /*
+             * The trade count rather than a verdict on it.
+             *
+             * This line fired for the first time on 2026-10-20, on a row paying
+             * $0.04 a round trip at the only size that worked — three and a
+             * half cents, needing 8,198 trips a day, with the realized-impact
+             * bracket straddling zero underneath it. The test as first written
+             * checked shape and said nothing about magnitude, so it was about
+             * to announce three cents in the same words it would use for a
+             * real finding. It now prints what the row would have to do, and
+             * lets a number that absurd speak for itself rather than picking a
+             * threshold I would have to defend.
+             */
+            `the trades-a-day figure above decides: a signal needing one trip every few seconds ` +
+            `is a statement about the cost floor, not an opportunity. Check it against a fresh ` +
+            `window before believing any of it.`
           : `**None of the ${payers.length} paying horizons both grades with the feature and ` +
             `spreads across the window.** Every one is either concentrated in the extreme ` +
             `deciles or carried by a single day, and the rows that are graded and diffuse — the ` +
