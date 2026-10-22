@@ -1,0 +1,579 @@
+<title>Triple Run Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: desk split. Left rail holds the market strip, the position and saved chats; the chat fills the right. One column under 900px, chat first. Same tokens as the Vercel monitor. */
+:root{
+  --bg:#eef1f6; --panel:#ffffff; --sunk:#f5f7fb; --line:#d5dbe6;
+  --fg:#111827; --muted:#5a6578;
+  --accent:#2457c5; --accent-soft:rgba(36,87,197,.12);
+  --up:#0f8a6c; --up-soft:rgba(15,138,108,.12);
+  --down:#cc4436; --down-soft:rgba(204,68,54,.12);
+  --warn:#a86400; --warn-soft:rgba(168,100,0,.13);
+  --font-ui:"IBM Plex Sans Condensed","Arial Narrow",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-num:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0c111b; --panel:#131a27; --sunk:#0f1521; --line:#25304a;
+  --fg:#e5eaf3; --muted:#8e9aaf;
+  --accent:#7ba3ff; --accent-soft:rgba(123,163,255,.15);
+  --up:#36c49d; --up-soft:rgba(54,196,157,.15);
+  --down:#f26b5b; --down-soft:rgba(242,107,91,.15);
+  --warn:#e8a33d; --warn-soft:rgba(232,163,61,.15);
+  color-scheme:dark;
+}}
+:root[data-theme="dark"]{
+  --bg:#0c111b; --panel:#131a27; --sunk:#0f1521; --line:#25304a;
+  --fg:#e5eaf3; --muted:#8e9aaf;
+  --accent:#7ba3ff; --accent-soft:rgba(123,163,255,.15);
+  --up:#36c49d; --up-soft:rgba(54,196,157,.15);
+  --down:#f26b5b; --down-soft:rgba(242,107,91,.15);
+  --warn:#e8a33d; --warn-soft:rgba(232,163,61,.15);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 var(--font-ui);
+  padding-block:12px 24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.num{font-family:var(--font-num);font-variant-numeric:tabular-nums}
+h1,h2{margin:0;text-wrap:balance}
+h1{font-size:19px;font-weight:700;letter-spacing:.01em}
+h2{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+button,select,input,textarea{font:inherit;color:var(--fg)}
+select,input,textarea{background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:6px 8px;min-width:0;width:100%}
+textarea{resize:vertical;line-height:1.4}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn{background:var(--sunk);border:1px solid var(--line);border-radius:6px;padding:6px 12px;cursor:pointer;white-space:nowrap}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--panel);font-weight:600}
+.btn.small{padding:3px 9px;font-size:13px}
+.btn:disabled{opacity:.5;cursor:default}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.top{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 16px;margin-bottom:12px}
+.top .sub{color:var(--muted);font-size:13px}
+.top a{color:var(--accent)}
+.grid{display:grid;grid-template-columns:minmax(260px,330px) minmax(0,1fr);gap:12px;align-items:start}
+@media (max-width:900px){.grid{grid-template-columns:minmax(0,1fr)}.chatPanel{order:-1}}
+.rail{display:grid;gap:12px;min-width:0}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;min-width:0}
+.panel>h2{margin-bottom:8px}
+
+/* market strip */
+.mkt{display:grid;gap:6px}
+.mkt .px{font-size:26px;font-weight:600;line-height:1.1}
+.mkt dl{display:grid;grid-template-columns:auto 1fr;gap:2px 10px;margin:0;font-size:13px}
+.mkt dt{color:var(--muted)}
+.mkt dd{margin:0;text-align:right}
+.up{color:var(--up)} .down{color:var(--down)}
+.state{font-size:13px;color:var(--muted)}
+.state.bad{color:var(--down)}
+
+/* position */
+.pos .read{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.pos .cell{background:var(--sunk);border-radius:6px;padding:6px 8px}
+.pos .k{font-size:11px;letter-spacing:.07em;text-transform:uppercase;color:var(--muted)}
+.pos .v{font-size:15px;font-weight:600}
+.pos .s{font-size:12px;color:var(--muted)}
+.chip{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent)}
+.chip.short{background:var(--down-soft);color:var(--down)} .chip.long{background:var(--up-soft);color:var(--up)}
+.chip.warn{background:var(--warn-soft);color:var(--warn)}
+.posHead{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-top:10px}
+.field{display:grid;gap:3px;min-width:0}
+.field label{font-size:12px;color:var(--muted)}
+.field.full{grid-column:1/-1}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.err{color:var(--down);font-size:13px;margin:6px 0 0}
+
+/* saved chats */
+.chats{list-style:none;margin:0;padding:0;display:grid;gap:2px;max-height:260px;overflow:auto}
+.chats button{width:100%;text-align:left;background:none;border:0;border-radius:6px;padding:6px 8px;cursor:pointer;display:grid;gap:1px}
+.chats button:hover{background:var(--sunk)}
+.chats button.on{background:var(--accent-soft)}
+.chats .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.chats .d{font-size:12px;color:var(--muted)}
+.empty{color:var(--muted);font-size:13px;margin:0}
+
+/* chat */
+.chatPanel{display:grid;grid-template-rows:auto minmax(0,1fr) auto;gap:10px;height:min(78vh,860px);min-height:460px}
+.chatHead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.chatHead .title{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;flex:1}
+.log{overflow-y:auto;display:flex;flex-direction:column;gap:12px;padding-right:4px;min-width:0}
+.msg{max-width:min(720px,92%);min-width:0;overflow-wrap:anywhere}
+.msg.user{align-self:flex-end;background:var(--accent-soft);border-radius:10px 10px 2px 10px;padding:8px 12px;white-space:pre-wrap}
+.msg.assistant{align-self:flex-start}
+.msg.assistant p{margin:0 0 8px}
+.msg.assistant p:last-child,.msg.assistant ul:last-child{margin-bottom:0}
+.msg.assistant ul{margin:0 0 8px;padding-left:20px}
+.msg.assistant code{font-family:var(--font-num);font-size:13px;background:var(--sunk);border-radius:4px;padding:0 4px}
+.msg .meta{font-size:12px;color:var(--muted);margin-top:4px}
+.msg.note{align-self:center;font-size:13px;color:var(--muted);text-align:center}
+.thinking{color:var(--muted);font-style:italic}
+.starters{display:flex;flex-wrap:wrap;gap:6px;justify-content:center}
+.welcome{margin:auto;display:grid;gap:10px;text-align:center;max-width:520px}
+.welcome p{margin:0;color:var(--muted)}
+.compose{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+.compose .acts{display:grid;gap:6px}
+.opts{display:flex;gap:12px;align-items:center;font-size:13px;color:var(--muted);flex-wrap:wrap}
+.opts label{display:flex;gap:5px;align-items:center}
+.opts input{width:auto}
+.tooling{font-size:12px;color:var(--muted)}
+</style>
+
+<header class="top">
+  <div>
+    <h1>Triple Run Desk</h1>
+    <div class="sub">Ask Claude about the BTC run. Answers use live Hyperliquid data from your Coinversa connector, and every chat is saved to your Claude account.</div>
+  </div>
+  <div class="sub">Live tick monitor: <a href="https://triplerun.vercel.app" target="_blank" rel="noopener">triplerun.vercel.app</a></div>
+</header>
+
+<main class="grid">
+  <div class="rail">
+    <section class="panel mkt" aria-label="BTC market">
+      <h2>BTC perp, Hyperliquid</h2>
+      <div class="row" style="justify-content:space-between;align-items:baseline">
+        <span id="mPx" class="px num">...</span>
+        <span id="mCh" class="num"></span>
+      </div>
+      <dl>
+        <dt>Index</dt><dd id="mIdx" class="num">...</dd>
+        <dt>Funding, hourly</dt><dd id="mFund" class="num">...</dd>
+        <dt>Open interest</dt><dd id="mOi" class="num">...</dd>
+        <dt>24h volume</dt><dd id="mVol" class="num">...</dd>
+      </dl>
+      <div id="mState" class="state">Connecting to Coinversa...</div>
+      <button id="mAllow" class="btn small" type="button" hidden>Allow Coinversa for this page</button>
+    </section>
+
+    <section class="panel pos" aria-label="Position">
+      <div class="posHead"><h2>The position</h2><button id="posEdit" class="btn small" type="button">Edit</button></div>
+      <div id="posRead"></div>
+      <form id="posForm" class="form" hidden>
+        <div class="field"><label for="pSide">Side</label><select id="pSide"><option value="short">Short</option><option value="long">Long</option></select></div>
+        <div class="field"><label for="pOpened">Opened (your time)</label><input id="pOpened" type="datetime-local"></div>
+        <div class="field"><label for="pEntry">Entry ($)</label><input id="pEntry" type="number" step="0.1" inputmode="decimal" placeholder="82709.5"></div>
+        <div class="field"><label for="pBust">Bust ($)</label><input id="pBust" type="number" step="0.1" inputmode="decimal" placeholder="83496.8"></div>
+        <div class="field"><label for="pTarget">Target ($)</label><input id="pTarget" type="number" step="0.1" inputmode="decimal" placeholder="optional"></div>
+        <div class="field"><label for="pNotional">Notional ($)</label><input id="pNotional" type="number" step="100" inputmode="decimal" placeholder="299900"></div>
+        <div class="field"><label for="pMargin">Margin ($)</label><input id="pMargin" type="number" step="0.01" inputmode="decimal" placeholder="2999.44"></div>
+        <div class="field"><label for="pGoal">Goal ($)</label><input id="pGoal" type="number" step="100" inputmode="decimal" placeholder="9000"></div>
+        <div class="field full"><label for="pNotes">Notes for Claude</label><textarea id="pNotes" rows="2" placeholder="Pressure level, exit level, anything Claude should keep in mind"></textarea></div>
+        <div class="row field full"><button class="btn primary" type="submit">Save position</button><button id="posClear" class="btn" type="button">No position</button><button id="posCancel" class="btn" type="button">Cancel</button></div>
+        <p id="posErr" class="err full" hidden></p>
+      </form>
+    </section>
+
+    <section class="panel" aria-label="Saved chats">
+      <div class="posHead"><h2>Saved chats</h2><button id="newChat" class="btn small" type="button">New chat</button></div>
+      <ul id="chats" class="chats"></ul>
+      <p id="saveState" class="empty" style="margin-top:6px"></p>
+    </section>
+  </div>
+
+  <section class="panel chatPanel" aria-label="Chat with Claude">
+    <div class="chatHead"><span id="chatTitle" class="title">New chat</span><span id="tooling" class="tooling"></span></div>
+    <div id="log" class="log" aria-live="polite"></div>
+    <form id="compose" class="compose">
+      <div style="display:grid;gap:6px;min-width:0">
+        <label for="q" class="tooling">Message</label>
+        <textarea id="q" rows="2" placeholder="Where are the nearest liquidation clusters toward my bust?"></textarea>
+        <div class="opts"><label><input id="deep" type="checkbox"> Think harder (slower)</label><span>Enter sends, Shift+Enter adds a line</span></div>
+      </div>
+      <div class="acts"><button id="send" class="btn primary" type="submit">Send</button><button id="stop" class="btn" type="button" hidden>Stop</button></div>
+    </form>
+  </section>
+</main>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const SERVER = 'Coinversa Pulse';
+const MAX_TURNS = 40;          // turns sent to Claude per message; the full chat stays saved
+const DOC_SOFT_LIMIT = 200000; // bytes; a chat doc is capped at 256 KiB
+const S = { db: null, uid: null, mcp: null, sample: null, tools: false, pos: null, mark: null,
+  chats: [], cur: null, busy: false, ctl: null, unsubChat: null, local: false, writeQ: Promise.resolve() };
+
+// ----- formatting -----
+const nf = (n, d) => Number(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
+const usd = (n, d = 1) => '$' + nf(n, d);
+const usdM = n => '$' + (n / 1e6).toFixed(n >= 1e8 ? 0 : 1) + 'M';
+const pct = (x, d = 2) => (x * 100).toFixed(d) + '%';
+const spct = (x, d = 2) => (x > 0 ? '+' : x < 0 ? '-' : '') + Math.abs(x * 100).toFixed(d) + '%';
+const when = ms => { const d = new Date(ms), now = new Date();
+  return d.toDateString() === now.toDateString() ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ', ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }); };
+const localInput = ms => new Date(ms - new Date(ms).getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+const use = n => (window.claude && window.claude.use ? window.claude.use(n).catch(() => null) : Promise.resolve(null));
+const lsGet = k => { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch (e) { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+
+// ----- market strip -----
+function renderMarket() {
+  const m = S.mark;
+  if (!m) return;
+  $('mPx').textContent = nf(m.mark, 1);
+  const ch = m.change24h / 100;
+  $('mCh').textContent = spct(ch) + ' 24h'; $('mCh').className = 'num ' + (ch > 0 ? 'up' : ch < 0 ? 'down' : '');
+  $('mIdx').textContent = nf(m.index, 1);
+  $('mFund').textContent = (m.funding * 100).toFixed(4) + '%';
+  $('mOi').textContent = nf(m.oi, 0) + ' BTC';
+  $('mVol').textContent = usdM(m.vol);
+  renderPosition();
+}
+function marketState(text, bad) { $('mState').textContent = text; $('mState').className = 'state' + (bad ? ' bad' : ''); }
+function onPrice(ev) {
+  if (ev.type === 'data') {
+    const p = ev.result.payload || {};
+    const mark = +p.markPrice;
+    if (!isFinite(mark)) { marketState('Coinversa answered without a price.', true); return; }
+    S.mark = { mark, index: +p.indexPrice, funding: +p.fundingRate, oi: +p.openInterest, vol: +p.volume24h, change24h: +p.change24h,
+      at: (ev.result.cache && ev.result.cache.storedAt) || Date.now() };
+    marketState('Updated ' + new Date(S.mark.at).toLocaleTimeString() + ', refreshes every 30 s');
+    $('mAllow').hidden = true;
+    renderMarket();
+    return;
+  }
+  mcpTrouble(ev.error);
+}
+function mcpTrouble(e) {
+  const code = e && e.code;
+  if (code === 'needs_reauth') { S.mark = null; marketState(`Reconnect ${SERVER} in claude.ai Settings, Connectors.`, true); }
+  else if (code === 'server_not_connected' || code === 'server_not_found') { S.mark = null; marketState(`Add ${SERVER} in claude.ai Settings, Connectors, then reload.`, true); }
+  else if (code === 'selection_required') marketState(`Pick which ${SERVER} connector to use when claude.ai asks, then reload.`, true);
+  else if (code === 'approval_required' || code === 'not_in_manifest') { marketState('This page needs your OK to read Coinversa.', true); $('mAllow').hidden = false; }
+  else if (code === 'blocked_by_policy') marketState('Your organization blocks this Coinversa tool.', true);
+  else marketState('Coinversa did not answer just now' + (S.mark ? '; showing the last price.' : '.'), true);
+}
+$('mAllow').addEventListener('click', async () => {
+  if (!S.mcp) return;
+  $('mAllow').disabled = true;
+  try { onPrice({ type: 'data', result: await S.mcp.callTool(SERVER, 'market_price', { symbol: 'BTC', useToonFormat: false }) }); }
+  catch (e) { mcpTrouble(e); }
+  finally { $('mAllow').disabled = false; }
+});
+
+// ----- position -----
+const POS_IDS = { side: 'pSide', opened: 'pOpened', entry: 'pEntry', bust: 'pBust', target: 'pTarget', notional: 'pNotional', margin: 'pMargin', goal: 'pGoal', notes: 'pNotes' };
+function posMath(p, mark) {
+  const sgn = p.side === 'long' ? 1 : -1;
+  const out = { sgn };
+  if (mark) {
+    out.pnl = sgn * (mark / p.entry - 1) * p.notional;
+    out.equity = p.margin + out.pnl;
+    out.toBust = Math.abs(p.bust / mark - 1);
+    if (p.target) out.toTarget = sgn * (p.target / mark - 1);
+  }
+  return out;
+}
+function renderPosition() {
+  const el = $('posRead'); el.textContent = '';
+  const p = S.pos;
+  if (!p) {
+    const e = document.createElement('p'); e.className = 'empty';
+    e.textContent = 'No position saved. Press Edit to enter the one you are running, so Claude can measure everything against your entry, bust and target.';
+    el.appendChild(e); return;
+  }
+  const m = posMath(p, S.mark && S.mark.mark);
+  const head = document.createElement('div'); head.className = 'row'; head.style.marginBottom = '8px';
+  const chip = document.createElement('span'); chip.className = 'chip ' + p.side; chip.textContent = p.side;
+  const sub = document.createElement('span'); sub.className = 'num s'; sub.textContent = `${usd(p.notional, 0)} on ${usd(p.margin, 2)}` + (p.opened ? `, opened ${when(p.opened)}` : '');
+  head.append(chip, sub);
+  if (m.toBust != null && m.toBust < 0.003) { const w = document.createElement('span'); w.className = 'chip warn'; w.textContent = 'near bust'; head.appendChild(w); }
+  const grid = document.createElement('div'); grid.className = 'read';
+  const cell = (k, v, s, cls) => { const c = document.createElement('div'); c.className = 'cell';
+    c.innerHTML = '<div class="k"></div><div class="v num"></div><div class="s num"></div>';
+    c.children[0].textContent = k; c.children[1].textContent = v; c.children[2].textContent = s || '';
+    if (cls) c.children[1].classList.add(cls); grid.appendChild(c); };
+  cell('Entry', usd(p.entry), '');
+  cell('Bust', usd(p.bust), m.toBust != null ? pct(m.toBust) + ' away' : '');
+  cell('Target', p.target ? usd(p.target) : 'not set', m.toTarget != null ? (m.toTarget > 0 ? pct(m.toTarget) + ' away' : 'through it') : '');
+  cell('Open P&L', m.pnl != null ? (m.pnl >= 0 ? '+' : '-') + usd(Math.abs(m.pnl), 0) : '...', m.equity != null ? 'equity ' + usd(m.equity, 0) + (p.goal ? ` of ${usd(p.goal, 0)} goal` : '') : 'at mark', m.pnl > 0 ? 'up' : m.pnl < 0 ? 'down' : '');
+  el.append(head, grid);
+  if (p.notes) { const n = document.createElement('p'); n.className = 'empty'; n.style.marginTop = '8px'; n.textContent = p.notes; el.appendChild(n); }
+}
+function openPosForm() {
+  const p = S.pos || {};
+  for (const [k, id] of Object.entries(POS_IDS)) {
+    const v = p[k];
+    $(id).value = k === 'opened' ? (v ? localInput(v) : '') : v == null ? (k === 'side' ? 'short' : '') : v;
+  }
+  $('posErr').hidden = true; $('posForm').hidden = false; $('posEdit').hidden = true;
+}
+function closePosForm() { $('posForm').hidden = true; $('posEdit').hidden = false; }
+$('posEdit').addEventListener('click', openPosForm);
+$('posCancel').addEventListener('click', closePosForm);
+$('posForm').addEventListener('submit', async ev => {
+  ev.preventDefault();
+  const num = id => { const v = parseFloat($(id).value); return v > 0 ? v : null; };
+  const p = { side: $('pSide').value, entry: num('pEntry'), bust: num('pBust'), target: num('pTarget'), notional: num('pNotional'), margin: num('pMargin'), goal: num('pGoal'),
+    opened: $('pOpened').value ? Date.parse($('pOpened').value) : null, notes: $('pNotes').value.trim().slice(0, 1000) };
+  const errs = [];
+  if (!p.entry || !p.bust || !p.notional || !p.margin) errs.push('Entry, bust, notional and margin are needed.');
+  else if (p.side === 'short' ? p.bust <= p.entry : p.bust >= p.entry) errs.push(`For a ${p.side} the bust sits ${p.side === 'short' ? 'above' : 'below'} the entry.`);
+  else if (p.target && (p.side === 'short' ? p.target >= p.entry : p.target <= p.entry)) errs.push(`For a ${p.side} the target sits ${p.side === 'short' ? 'below' : 'above'} the entry.`);
+  if (errs.length) { $('posErr').textContent = errs.join(' '); $('posErr').hidden = false; return; }
+  await savePosition({ type: 'position', ...p, updated: Date.now() });
+  closePosForm();
+});
+$('posClear').addEventListener('click', async () => { await savePosition(null); closePosForm(); });
+async function savePosition(p) {
+  S.pos = p; renderPosition();
+  if (S.local) { lsSet('desk-position', p); return; }
+  try { const ref = S.db.doc(`data/users/${S.uid}/position`); p ? await ref.set(p) : await ref.delete(); }
+  catch (e) { saveState('Could not save the position: ' + (e && e.message || 'unknown error'), true); }
+}
+
+// ----- saved chats -----
+function saveState(text, bad) { const el = $('saveState'); el.textContent = text; el.style.color = bad ? 'var(--down)' : ''; }
+function renderChats() {
+  const ul = $('chats'); ul.textContent = '';
+  if (!S.chats.length) { const li = document.createElement('li'); li.className = 'empty'; li.textContent = 'Your chats will be listed here.'; ul.appendChild(li); return; }
+  for (const c of S.chats) {
+    const li = document.createElement('li'); const b = document.createElement('button'); b.type = 'button';
+    b.className = S.cur && S.cur.id === c.id ? 'on' : '';
+    const t = document.createElement('span'); t.className = 't'; t.textContent = c.title || 'Untitled';
+    const d = document.createElement('span'); d.className = 'd num'; d.textContent = `${when(c.updated)}, ${c.count} message${c.count === 1 ? '' : 's'}`;
+    b.append(t, d); b.addEventListener('click', () => openChat(c.id)); li.appendChild(b); ul.appendChild(li);
+  }
+}
+function newChat() {
+  if (S.busy) return;
+  if (S.unsubChat) { S.unsubChat(); S.unsubChat = null; }
+  S.cur = { id: 'chat-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6), title: '', messages: [], created: Date.now(), saved: false };
+  renderChat(); renderChats(); $('q').focus();
+}
+function openChat(id) {
+  if (S.busy || (S.cur && S.cur.id === id)) return;
+  if (S.unsubChat) { S.unsubChat(); S.unsubChat = null; }
+  if (S.local) { const all = lsGet('desk-chats') || {}; S.cur = all[id] ? { ...all[id], saved: true } : null; if (!S.cur) newChat(); renderChat(); renderChats(); return; }
+  S.cur = { id, title: '', messages: [], saved: true, loading: true }; renderChat(); renderChats();
+  // Live: the same chat open on another device shows new messages here too.
+  S.unsubChat = S.db.collection(`data/users/${S.uid}`).doc(id).onSnapshot(snap => {
+    if (!S.cur || S.cur.id !== id || S.busy) return;
+    const d = snap.exists ? snap.data() : null;
+    if (!d) { newChat(); return; }
+    S.cur = { id, title: d.title || '', messages: (d.messages || []).slice(), created: d.created, saved: true };
+    renderChat(); renderChats();
+  }, () => {});
+}
+$('newChat').addEventListener('click', newChat);
+// One write at a time per chat document: each save waits for the previous one.
+function persistChat() { S.writeQ = S.writeQ.then(writeChat, writeChat); return S.writeQ; }
+async function writeChat() {
+  const c = S.cur; if (!c || !c.messages.length) return;
+  if (!c.title) c.title = c.messages[0].content.replace(/\s+/g, ' ').slice(0, 70);
+  const body = { type: 'chat', title: c.title, created: c.created || Date.now(), updated: Date.now(), count: c.messages.length, messages: c.messages };
+  if (S.local) {
+    const all = lsGet('desk-chats') || {}; all[c.id] = body; lsSet('desk-chats', all);
+    S.chats = Object.entries(all).map(([id, d]) => ({ id, title: d.title, updated: d.updated, count: d.count })).sort((a, b) => b.updated - a.updated);
+    renderChats(); return;
+  }
+  const size = new Blob([JSON.stringify(body)]).size;
+  if (size > DOC_SOFT_LIMIT) { saveState('This chat is nearly full. Start a new chat to keep saving.', true); if (size > 255000) return; }
+  try { await S.db.collection(`data/users/${S.uid}`).doc(c.id).set(body); c.saved = true; }
+  catch (e) { saveState(e && e.code === 'quota_exceeded' ? 'Storage is full. Delete old chats to save new ones.' : 'Could not save this chat just now. It stays on screen.', true); }
+}
+
+// ----- chat rendering -----
+function inline(parent, text) {
+  // **bold** and `code`, everything else as text
+  const re = /(\*\*[^*]+\*\*|`[^`]+`)/g; let last = 0, m;
+  while ((m = re.exec(text))) {
+    if (m.index > last) parent.appendChild(document.createTextNode(text.slice(last, m.index)));
+    const tok = m[0], el = document.createElement(tok[0] === '*' ? 'strong' : 'code');
+    el.textContent = tok[0] === '*' ? tok.slice(2, -2) : tok.slice(1, -1); parent.appendChild(el); last = m.index + tok.length;
+  }
+  if (last < text.length) parent.appendChild(document.createTextNode(text.slice(last)));
+}
+function renderMd(el, text) {
+  el.textContent = '';
+  let ul = null, para = [];
+  const flush = () => { if (para.length) { const p = document.createElement('p'); inline(p, para.join(' ')); el.appendChild(p); para = []; } };
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    const li = /^([-*•]|\d+[.)])\s+(.*)$/.exec(line);
+    if (li) { flush(); if (!ul) { ul = document.createElement('ul'); el.appendChild(ul); } const item = document.createElement('li'); inline(item, li[2]); ul.appendChild(item); continue; }
+    ul = null;
+    if (!line) { flush(); continue; }
+    const h = /^#{1,6}\s+(.*)$/.exec(line);
+    if (h) { flush(); const p = document.createElement('p'); const s = document.createElement('strong'); s.textContent = h[1]; p.appendChild(s); el.appendChild(p); continue; }
+    para.push(line);
+  }
+  flush();
+}
+function bubble(m) {
+  const d = document.createElement('div'); d.className = 'msg ' + m.role;
+  if (m.role === 'user') d.textContent = m.content; else renderMd(d, m.content);
+  if (m.meta) { const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = m.meta; d.appendChild(meta); }
+  return d;
+}
+const STARTERS = ['Where are the nearest liquidation clusters toward my bust?', 'Read the last hour of 1m candles for me.', 'Who is positioned long vs short on BTC right now?', 'How much got liquidated in the last 30 minutes?'];
+function renderChat() {
+  const log = $('log'); log.textContent = '';
+  $('chatTitle').textContent = S.cur && S.cur.title ? S.cur.title : 'New chat';
+  if (S.cur && S.cur.loading) { const n = document.createElement('div'); n.className = 'msg note'; n.textContent = 'Loading chat...'; log.appendChild(n); return; }
+  if (!S.cur || !S.cur.messages.length) {
+    const w = document.createElement('div'); w.className = 'welcome';
+    const p = document.createElement('p');
+    p.textContent = S.sample ? 'Claude sees your position and the BTC mark with every message, and pulls liquidation maps, candles, positioning and liquidations from Coinversa when it needs them.'
+      : 'Claude is not available on this view. Open the page in claude.ai, signed in, to chat.';
+    w.appendChild(p);
+    if (S.sample) { const s = document.createElement('div'); s.className = 'starters';
+      for (const t of STARTERS) { const b = document.createElement('button'); b.type = 'button'; b.className = 'btn small'; b.textContent = t; b.addEventListener('click', () => { $('q').value = t; send(); }); s.appendChild(b); }
+      w.appendChild(s); }
+    log.appendChild(w); return;
+  }
+  for (const m of S.cur.messages) log.appendChild(bubble(m));
+  log.scrollTop = log.scrollHeight;
+}
+
+// ----- asking Claude -----
+const RULES = `You are the trading desk assistant on "Triple Run Desk", a page the trader uses next to a live BTC monitor.
+How the trader works: one BTC paper position at a time on a venue that fills at Hyperliquid's best bid and offer. The venue has no take-profit or stop orders, so every close is a manual press of Close. "Bust" is the liquidation price. The goal is to grow the margin toward the stated goal.
+How to answer:
+- Use the tools for any live number (price, liquidation map, candles, liquidations, positioning). Never invent or guess market data. If a tool fails, say what is missing.
+- Measure things against the trader's entry, bust and target when a position is set: distances in % and $, which side of price a cluster sits on, whether liquidations there would push price toward the target or toward the bust (long liquidations are forced selling, short liquidations are forced buying).
+- Be brief and concrete. Lead with the answer. Use short paragraphs or bullets, numbers with units, and say how fresh the data is.
+- You describe and explain; you do not place trades. When the trader asks what to do, lay out the trade-offs plainly and say what would change the picture.
+- Coinversa's liquidation map is a model of where open positions would be liquidated, refreshed every few minutes, not an order book.`;
+
+function deskState() {
+  const lines = [`Desk state at ${new Date().toISOString().slice(0, 16).replace('T', ' ')} UTC:`];
+  if (S.mark) lines.push(`BTC mark ${nf(S.mark.mark, 1)}, index ${nf(S.mark.index, 1)}, 24h ${spct(S.mark.change24h / 100)}, funding ${(S.mark.funding * 100).toFixed(4)}%/h (as of ${new Date(S.mark.at).toISOString().slice(11, 19)} UTC).`);
+  else lines.push('BTC mark not loaded on the page; use get_price.');
+  const p = S.pos;
+  if (p) {
+    const m = posMath(p, S.mark && S.mark.mark);
+    lines.push(`Position: ${p.side} BTC, entry ${p.entry}, bust ${p.bust}, target ${p.target || 'not set'}, notional $${p.notional}, margin $${p.margin}${p.goal ? ', goal $' + p.goal : ''}${p.opened ? ', opened ' + new Date(p.opened).toISOString().slice(0, 16).replace('T', ' ') + ' UTC' : ''}.`);
+    if (m.pnl != null) lines.push(`At the mark: open P&L ${m.pnl >= 0 ? '+' : '-'}$${Math.abs(m.pnl).toFixed(0)}, equity $${m.equity.toFixed(0)}, ${pct(m.toBust)} to bust${m.toTarget != null ? ', ' + pct(Math.abs(m.toTarget)) + (m.toTarget > 0 ? ' to target' : ' past target') : ''}.`);
+    if (p.notes) lines.push('Trader notes: ' + p.notes);
+  } else lines.push('No position is set on the page.');
+  return lines.join('\n');
+}
+
+const sym = v => { const s = String(v || 'BTC').trim(); return /^[A-Za-z0-9:#]{1,20}$/.test(s) ? s : 'BTC'; };
+const clampInt = (v, lo, hi, d) => { const n = Math.round(Number(v)); return isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+const since = (v, d) => (/^\d{1,3}[mhd]$/.test(String(v || '')) ? String(v) : d);
+async function cv(tool, input, signal, label) {
+  if (!S.mcp) throw new Error('Coinversa is not available on this view.');
+  status(label);
+  let r;
+  try { r = await S.mcp.callTool(SERVER, tool, { ...input, useToonFormat: false, maxResponseTokens: 12000 }, { signal, cache: { staleTime: 10000, gcTime: 60000 } }); }
+  catch (e) { throw new Error(`${SERVER} ${tool} failed: ${e && e.code ? e.code + ' ' : ''}${e && e.message ? e.message : ''}`.trim()); }
+  const p = r.payload;
+  const s = typeof p === 'string' ? p : JSON.stringify(p);
+  return s.length > 30000 ? s.slice(0, 30000) + ' ...[cut]' : s;
+}
+const TOOLS = [
+  { name: 'get_price', description: 'Current Hyperliquid mark and index price, hourly funding rate, open interest, 24h volume and 24h % change for a perp. Defaults to BTC.',
+    inputSchema: { type: 'object', properties: { symbol: { type: 'string', description: 'BTC, ETH, SOL ...' } } },
+    execute: (i, c) => cv('market_price', { symbol: sym(i.symbol) }, c.signal, 'Reading the price') },
+  { name: 'get_liquidation_map', description: 'Coinversa liquidation heatmap: price buckets around the current price with long and short notional that would be liquidated there, totals, and the biggest cluster. range is % either side (whole number).',
+    inputSchema: { type: 'object', properties: { symbol: { type: 'string' }, range: { type: 'integer', minimum: 1, maximum: 50, description: 'default 5' }, buckets: { type: 'integer', minimum: 10, maximum: 80, description: 'default 40' } } },
+    execute: (i, c) => cv('live_liquidation_heatmap', { coin: sym(i.symbol), range: clampInt(i.range, 1, 50, 5), buckets: clampInt(i.buckets, 10, 80, 40) }, c.signal, 'Reading the liquidation map') },
+  { name: 'get_candles', description: 'Recent OHLCV candles plus RSI, MACD, EMA/SMA and Bollinger readings and a one-line read. Returns the latest bar, the range over the window and the last 12 bars.',
+    inputSchema: { type: 'object', properties: { symbol: { type: 'string' }, interval: { type: 'string', enum: ['1m', '5m', '15m', '1h', '4h', '1d'] }, limit: { type: 'integer', minimum: 2, maximum: 500, description: 'bars in the window, default 60' } } },
+    execute: (i, c) => cv('market_recent_candles', { symbol: sym(i.symbol), interval: ['1m', '5m', '15m', '1h', '4h', '1d'].includes(i.interval) ? i.interval : '1m', limit: clampInt(i.limit, 2, 500, 60) }, c.signal, 'Reading candles') },
+  { name: 'get_liquidation_summary', description: 'How much was liquidated over a window: count, notional long vs short, wallets, penalty fees and a timeline. since like 15m, 1h, 1d.',
+    inputSchema: { type: 'object', properties: { symbol: { type: 'string' }, since: { type: 'string', description: 'e.g. 30m, 4h, 1d' } } },
+    execute: (i, c) => cv('live_liquidation_summary', { coin: sym(i.symbol), since: since(i.since, '1h') }, c.signal, 'Reading liquidations') },
+  { name: 'get_recent_liquidations', description: 'Individual liquidation fills over a window (wallet, time, penalty fee, closed PnL; no side or size). One large liquidation can be many fills.',
+    inputSchema: { type: 'object', properties: { symbol: { type: 'string' }, since: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } },
+    execute: (i, c) => cv('live_recent_liquidations', { coin: sym(i.symbol), since: since(i.since, '1h'), limit: clampInt(i.limit, 1, 100, 50) }, c.signal, 'Listing liquidation fills') },
+  { name: 'get_positioning', description: 'Who is long or short the coin now, split by trader profitability tier (Apex, Sharps, ... The Crowd, Blown Out): wallet counts, notional and net bias per tier.',
+    inputSchema: { type: 'object', properties: { symbol: { type: 'string' } } },
+    execute: (i, c) => cv('live_cohort_bias', { coin: sym(i.symbol) }, c.signal, 'Reading positioning') },
+];
+
+let thinkingEl = null;
+function status(text) { if (thinkingEl) thinkingEl.textContent = text + '...'; }
+const ERR = {
+  not_granted: 'You did not allow this page to use Claude. Reload the page to be asked again.',
+  sampling_disabled: 'Claude is not available on this account.',
+  rate_limited: 'You have hit a usage limit. Try again in a little while.',
+  session_expired: 'Your claude.ai session expired. Sign in again, then resend.',
+  refused: 'Claude declined that message. Rephrase it and send again.',
+  prompt_too_large: 'This chat is too long to send. Start a new chat.',
+  empty_completion: 'Claude returned nothing. Ask again in a different way.',
+  tools_unavailable: 'This view cannot run the Coinversa tools.',
+};
+async function send() {
+  const text = $('q').value.trim();
+  if (!text || S.busy || !S.sample) return;
+  if (!S.cur) newChat();
+  S.busy = true; $('send').disabled = true; $('stop').hidden = false; $('q').value = '';
+  const c = S.cur;
+  c.messages.push({ role: 'user', content: text, at: Date.now() });
+  renderChat(); persistChat();
+  const log = $('log');
+  const out = document.createElement('div'); out.className = 'msg assistant';
+  thinkingEl = document.createElement('span'); thinkingEl.className = 'thinking'; thinkingEl.textContent = 'Thinking...';
+  out.appendChild(thinkingEl); log.appendChild(out); log.scrollTop = log.scrollHeight;
+
+  // Failed turns are shown and saved but never sent back to Claude as its own words.
+  const history = c.messages.filter(m => !m.failed).slice(-MAX_TURNS).map(m => ({ role: m.role, content: m.content }));
+  while (history.length && history[0].role !== 'user') history.shift();
+  history[history.length - 1] = { role: 'user', content: deskState() + '\n\nTrader: ' + text };
+  const input = [{ role: 'user', content: RULES }, ...history];
+  const ctl = new AbortController(); S.ctl = ctl;
+  const opts = { cache: false, signal: ctl.signal, modelTier: $('deep').checked ? 'complex' : 'default',
+    onText: ({ text: t }) => { thinkingEl = null; renderMd(out, t); log.scrollTop = log.scrollHeight; } };
+  if (S.tools) opts.tools = TOOLS;
+  let reply = null, note = '';
+  try {
+    const r = await S.sample(input, opts);
+    reply = r.text; if (r.truncated) note = 'Cut short. Ask for less at a time.';
+  } catch (e) {
+    reply = e && e.text ? e.text : null;
+    if (e && e.code === 'cancelled') note = 'Stopped.';
+    else note = ERR[e && e.code] || 'Claude did not finish answering. Send again to retry.';
+    if (e && e.code === 'refused') reply = null;
+  }
+  thinkingEl = null; S.ctl = null;
+  if (reply) c.messages.push({ role: 'assistant', content: reply, at: Date.now(), meta: note || undefined });
+  else c.messages.push({ role: 'assistant', content: note || 'No answer.', at: Date.now(), meta: 'Not answered', failed: true });
+  S.busy = false; $('send').disabled = false; $('stop').hidden = true;
+  renderChat(); await persistChat(); renderChats();
+  $('q').focus();
+}
+$('compose').addEventListener('submit', e => { e.preventDefault(); send(); });
+$('q').addEventListener('keydown', e => { if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); } });
+$('stop').addEventListener('click', () => { if (S.ctl) S.ctl.abort(); });
+
+// ----- boot -----
+renderPosition(); renderChats(); newChat();
+(async () => {
+  const [user, db, mcp, sample] = await Promise.all([use('user'), use('db'), use('mcp'), use('sample')]);
+  S.mcp = mcp; S.sample = sample;
+  S.uid = user ? await user.id().catch(() => null) : null;
+  if (db && S.uid) {
+    S.db = db;
+    saveState('Saved to your Claude account. Open this page on any device to pick up a chat.');
+    db.doc(`data/users/${S.uid}/position`).onSnapshot(snap => { S.pos = snap.exists ? snap.data() : null; renderPosition(); }, () => {});
+    db.collection(`data/users/${S.uid}`).where('type', '==', 'chat').orderBy('updated', 'desc').limit(100).onSnapshot(q => {
+      S.chats = q.docs.map(d => { const x = d.data(); return { id: d.id, title: x.title, updated: x.updated, count: x.count || 0 }; });
+      renderChats();
+    }, () => saveState('Saved chats could not be loaded. New messages still save.', true));
+  } else {
+    S.local = true;
+    S.pos = lsGet('desk-position'); renderPosition();
+    const all = lsGet('desk-chats') || {};
+    S.chats = Object.entries(all).map(([id, d]) => ({ id, title: d.title, updated: d.updated, count: d.count })).sort((a, b) => b.updated - a.updated);
+    renderChats();
+    saveState('Sign in to claude.ai to save chats to your account. For now they stay in this browser.', true);
+  }
+  if (sample) {
+    const lim = await sample.limits().catch(() => null);
+    S.tools = !!(lim && lim.tools && mcp);
+    $('tooling').textContent = S.tools ? 'Claude can read Coinversa live' : mcp ? 'Claude sees the price and position only' : '';
+  } else { $('send').disabled = true; $('q').placeholder = 'Open this page in claude.ai to chat with Claude.'; }
+  renderChat();
+  if (mcp) mcp.watchTool(SERVER, 'market_price', { symbol: 'BTC', useToonFormat: false }, onPrice, { refetchInterval: 30000, cache: { staleTime: 15000, gcTime: 300000 } });
+  else marketState('Coinversa is not available on this view. Open the page in claude.ai.', true);
+})();
+setInterval(() => { if (S.mark) renderPosition(); }, 30000);
+})();
+</script>
