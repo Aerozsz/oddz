@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>BTC Triple Run</title>
+<meta name="description" content="Watches the Hyperliquid BTC 1-minute chart for a tracked paper position and says when something needs doing.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <h1>BTC Triple Run</h1>
+    <span class="sub">Watches the Hyperliquid 1-minute chart and tells you when something needs doing.</span>
+  </div>
+  <div class="headRight">
+    <div class="conn"><span id="connDot" class="dot" aria-hidden="true"></span><span id="connText">Monitoring off</span></div>
+    <button id="monBtn" class="btn monitor" type="button" aria-pressed="false"><span class="knob" aria-hidden="true"></span><span id="monText">Monitoring off</span></button>
+  </div>
+</header>
+
+<div id="banner" class="banner" role="alert" hidden><strong>No live prices.</strong> <span id="bannerText"></span></div>
+
+<main class="grid">
+  <div class="mainCol">
+    <section class="panel chartPanel" aria-label="Live chart">
+      <div class="ticker">
+        <span id="price" class="price num">...</span>
+        <span id="chip" class="chip">No position</span>
+        <span id="venue" class="venue">Monitoring off</span>
+      </div>
+      <div id="chart"></div>
+      <div class="stats">
+        <div class="stat"><div class="k">This minute</div><div id="sNow" class="v num">...</div><div id="sNowS" class="s"></div></div>
+        <div class="stat"><div class="k">Last 5m</div><div id="s5" class="v num">...</div><div id="s5S" class="s"></div></div>
+        <div class="stat"><div class="k">Last 15m</div><div id="s15" class="v num">...</div><div id="s15S" class="s"></div></div>
+        <div class="stat"><div class="k">To bust</div><div id="sStop" class="v num">...</div><div id="sStopS" class="s"></div></div>
+        <div class="stat"><div class="k">To target</div><div id="sTp" class="v num">...</div><div id="sTpS" class="s"></div></div>
+        <div class="stat"><div class="k">Target first</div><div id="sProb" class="v num">...</div><div id="sProbS" class="s">Driftless geometry</div></div>
+      </div>
+    </section>
+
+    <section class="panel mapPanel" aria-label="Liquidation map">
+      <div class="mapHead"><h2>Liquidation map</h2><span id="mapAge" class="mapAge">Not loaded</span></div>
+      <div class="bal">
+        <div class="balSide target"><div id="balTK" class="k">Toward target</div><div id="balTV" class="v num">...</div><div id="balTS" class="s"></div></div>
+        <div class="balSide bust"><div id="balBK" class="k">Toward bust</div><div id="balBV" class="v num">...</div><div id="balBS" class="s"></div></div>
+      </div>
+      <div class="balBar" aria-hidden="true"><span id="balBarT" class="t" style="width:50%"></span><span id="balBarB" class="b" style="width:50%"></span></div>
+      <p id="balNote" class="balNote"></p>
+      <dl id="clusters" class="clusters"></dl>
+    </section>
+  </div>
+
+  <section id="callBox" class="panel sec call" aria-live="polite">
+    <div class="callHead"><h2>Instructions</h2><div class="btns"><button id="wakeBtn" class="btn small" type="button">Keep screen on</button><button id="alertBtn" class="btn small" type="button">Turn on alerts</button></div></div>
+    <div id="callAction" class="callAction wait">OFF</div>
+    <p id="callText" class="callText">Monitoring is off.</p>
+    <ol id="actions" class="actions" hidden></ol>
+  </section>
+
+  <aside class="side">
+
+    <section class="panel sec" aria-label="Feeds">
+      <h2>Feeds</h2>
+      <dl class="src">
+        <dt>Hyperliquid stream</dt><dd id="srcWs">Off</dd>
+        <dt>Best bid / ask</dt><dd id="srcBbo">Off</dd>
+        <dt>1m candles</dt><dd id="srcCandles">Off</dd>
+        <dt>Mark and oracle</dt><dd id="srcMark">Off</dd>
+        <dt>Taker flow, 60s</dt><dd id="srcFlow">Off</dd>
+        <dt>Liquidations</dt><dd id="srcLiq">Off</dd>
+        <dt>Liquidation map</dt><dd id="srcFuel">Off</dd>
+        <dt>Coinversa calls</dt><dd id="srcBudget">0</dd>
+      </dl>
+      <p id="srcFix" class="fix" hidden></p>
+      <div id="passRow" class="field" hidden>
+        <label for="passIn">Dashboard passcode (unlocks the liquidation data and the history backup)</label>
+        <div class="row"><input id="passIn" type="password" autocomplete="current-password"><button id="passBtn" class="btn" type="button">Save</button></div>
+      </div>
+      <div class="field">
+        <label for="manualPx">Manual price, if the stream stops (the ask, for a short)</label>
+        <div class="row"><input id="manualPx" type="number" step="0.1" inputmode="decimal" placeholder="81800"><button id="manualBtn" class="btn" type="button">Use price</button><button id="resumeBtn" class="btn" type="button" hidden>Back to Hyperliquid</button></div>
+      </div>
+    </section>
+
+    <section class="panel sec" aria-label="The position">
+      <h2>The position</h2>
+      <div class="field"><label for="mode">Mode</label>
+        <select id="mode"><option value="track">Track an existing position</option><option value="plan">Open a new paper plan</option></select></div>
+      <div id="trackFields" class="form">
+        <div class="field"><label for="tSide">Side</label>
+          <select id="tSide"><option value="short">Short</option><option value="long">Long</option></select></div>
+        <div class="field"><label for="tOpened">Opened at (your time)</label><div class="row"><input id="tOpened" type="datetime-local"><button id="nowBtn" class="btn small" type="button">Now</button></div></div>
+        <div class="field"><label for="tEntry">Entry ($)</label><input id="tEntry" type="number" step="0.1" placeholder="82709.5" inputmode="decimal"></div>
+        <div class="field"><label for="tBust">Bust ($)</label><input id="tBust" type="number" step="0.1" placeholder="83496.8" inputmode="decimal"></div>
+        <div class="field"><label for="tNotional">Notional ($)</label><input id="tNotional" type="number" step="100" placeholder="299900" inputmode="decimal"></div>
+        <div class="field"><label for="tMargin">Margin ($)</label><input id="tMargin" type="number" step="0.01" placeholder="2999.44" inputmode="decimal"></div>
+        <div class="field"><label for="tFee">Fee the venue nets ($)</label><input id="tFee" type="number" step="1" min="0" value="0" inputmode="decimal"></div>
+        <div class="field"><label for="tGoal">Goal ($)</label><input id="tGoal" type="number" step="100" value="9000" inputmode="decimal"></div>
+        <div class="field"><label for="tPressure">Pressure level, 1m close beyond ($)</label><input id="tPressure" type="number" step="0.1" placeholder="optional" inputmode="decimal"></div>
+        <div class="field"><label for="tInvalid">Exit level, 1m close beyond ($)</label><input id="tInvalid" type="number" step="0.1" placeholder="optional" inputmode="decimal"></div>
+      </div>
+      <div id="planFields" class="form" hidden>
+        <div class="field"><label for="side">Side</label>
+          <select id="side"><option value="short">Short</option><option value="long">Long</option></select></div>
+        <div class="field"><label for="lev">Leverage (x)</label><input id="lev" type="number" min="1" max="1000" step="1" value="100" inputmode="decimal"></div>
+        <div class="field"><label for="margin">Margin ($)</label><input id="margin" type="number" min="1" step="100" value="3000" inputmode="decimal"></div>
+        <div class="field"><label for="goal">Goal ($)</label><input id="goal" type="number" min="1" step="100" value="9000" inputmode="decimal"></div>
+        <div class="field"><label for="entryMode">Entry</label>
+          <select id="entryMode"><option value="market">Market on Start</option><option value="limit">Limit price</option></select></div>
+        <div class="field"><label for="limitPx">Limit price ($)</label><input id="limitPx" type="number" step="0.1" inputmode="decimal"></div>
+      </div>
+      <div class="derived">
+        <div><div class="k">Entry</div><div id="dEntry" class="v num">...</div></div>
+        <div><div class="k">Bust / liq</div><div id="dStop" class="v num">...</div></div>
+        <div><div class="k">Target</div><div id="dTp" class="v num">...</div></div>
+      </div>
+      <p id="formErr" class="err" hidden></p>
+      <div class="btns">
+        <button id="startBtn" class="btn primary" type="button">Track position</button>
+        <button id="resetBtn" class="btn" type="button">Reset</button>
+      </div>
+      <p class="hint">Pressure and exit levels can be changed while a tracked position is open.</p>
+    </section>
+
+    <section class="panel sec" aria-label="Scenario rules">
+      <h2>If this happens, I do this</h2>
+      <dl id="rules" class="rules"></dl>
+    </section>
+
+    <section class="panel sec" aria-label="Calendar">
+      <h2>On the calendar <span style="text-transform:none;letter-spacing:0;font-weight:400">(your time)</span></h2>
+      <ul id="events" class="events"></ul>
+    </section>
+
+    <section class="panel sec" aria-label="Log">
+      <div class="logHead"><h2>Log</h2><label for="showTicks"><input id="showTicks" type="checkbox"> Every minute</label></div>
+      <ol id="log" class="log"></ol>
+    </section>
+  </aside>
+</main>
+
+<footer>
+  <p>Prices stream from Hyperliquid's public WebSocket: best bid and ask, 1-minute candles, mark and oracle, and every trade. Your paper venue fills at Hyperliquid's BBO, so the target counts when the side you'd close at, the ask for a short, is at or through it, and closing is a manual press of Close. The bust is checked on candle highs, on the book and on Hyperliquid's mark. The liquidation map and liquidation events come from Coinversa through this site's server, which holds the API key. Nothing runs while monitoring is off; turning it on loads the candles since the position opened (up to 5,000 minutes) and checks them against the bust before going live. Instructions come in three grades: heads-up (no action), get ready, and act now.</p>
+</footer>
+
+<script src="https://unpkg.com/lightweight-charts@4.2.0/dist/lightweight-charts.standalone.production.js"></script>
+<script src="/config.js"></script>
+<script src="/engine.js"></script>
+<script src="/feeds.js"></script>
+<script src="/app.js"></script>
+</body>
+</html>
