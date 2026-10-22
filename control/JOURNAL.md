@@ -2458,3 +2458,55 @@ passes today reported "tsc passes" and the last of them nearly did so without
 tsc having been able to run at all.
 
 Nothing armed.
+
+## 2026-10-22 — the same row qualified again, better, and it bounds the answer
+
+`takerRatioFade @ t30d` tripped the falsification line a second time, two days
+after the first. Everything that mattered improved:
+
+| | 2026-10-20 | 2026-10-22 |
+| --- | --- | --- |
+| demeaned tail | 8.30bp | **9.08bp** |
+| profile | -0.879 | -0.636 |
+| one day's share | 18.4% | 20.3% |
+| net at $1,000 | +0.37bp | **+1.15bp** |
+| dollars a round trip | $0.04 | **$0.12** |
+| trips a day for $300 | 8,198 | **2,599** |
+| sizes that pay | $1,000 | **$1,000 and $5,000** |
+| realized bracket at $1,000 | -0.57 to +0.65 | **+0.16 to +1.43** |
+| halves | -23.1 / -14.3 | **-21.4 / -16.0** |
+
+Three of those are qualitative, not incremental. A second size pays for the
+first time. The realized-impact bracket — the honest range between paying the
+whole move a real sweep made and paying only the part that reverted — is now
+**positive at both ends** where two days ago it straddled zero. The halves are
+within a factor of 1.3, tighter than anything else the search has produced.
+The stress case, priced at the ninetieth-percentile minute, also pays.
+
+**This is the best-supported directional finding in the project, and it is
+still not a business.** 2,599 round trips a day is one every thirty-three
+seconds, sustained, for $300. At $10,000 it is negative; at $100,000 it loses
+41.73bp. So the shape of the thing is now measured precisely: there is a real,
+graded, persistent, cost-surviving directional edge on this contract, and it
+is worth about **twelve cents a round trip at a thousand dollars** and nothing
+at any size that matters.
+
+**That is the same verdict `cost-reduction` reached, with a number on it.**
+That entry said the gross price contribution was about two cents a decision
+and no fee schedule repairs an edge that size. This is twelve cents, measured
+better, against a cost bar measured from the tape rather than assumed. The
+conclusion does not move; its error bar shrinks a lot.
+
+**What I am not doing.** Not arming anything — 2,599 trips a day is not a
+strategy this account can run, and the operator's three questions (spot
+access, which contract, whether $300/day stands) are unchanged by a twelve-cent
+edge. Not declaring it settled either: it qualified, lapsed, and requalified
+across three windows, and its profile slipped from -0.879 to -0.636, which is
+close to the 0.6 bar I set. Two qualifications are not a track record.
+
+**What would change my mind.** The per-trip figure growing by an order of
+magnitude, or the $10,000 rung turning positive, across several consecutive
+windows rather than alternating ones. The loop prints both every pass without
+being asked, so that will surface on its own.
+
+Nothing armed.
