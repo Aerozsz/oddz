@@ -555,7 +555,25 @@ export function renderFindings(runs: RunSummary[], at = Date.now()): string {
                   `\`${s.feature}\` @ ${s.horizon} — $${(s.best as NonNullable<typeof s.best>).netUsd.toFixed(2)} a round trip at ` +
                   `$${(s.best as NonNullable<typeof s.best>).usd.toLocaleString()}, ` +
                   `${Number.isFinite((s.best as NonNullable<typeof s.best>).tradesPerDay) ? Math.ceil((s.best as NonNullable<typeof s.best>).tradesPerDay).toLocaleString() : "infinitely many"} ` +
-                  `of them a day for $300`,
+                  `of them a day for $300` +
+                  /*
+                   * The margins, not just the pass.
+                   *
+                   * On 2026-10-22 `takerRatioFade @ t60d` qualified with a
+                   * profile of exactly -0.6000 against a 0.60 bar and a
+                   * concentration of 33.3% against a 35% bar — two tests
+                   * passed by a margin of zero and of one and a half points,
+                   * on a decile profile that reads 3.8 4.3 -10.5 -0.4 4.6 3.7
+                   * -3.9 -1.5 -8.3 -11.9, which is a tilt through noise and
+                   * not a gradient. A binary filter calls that the same thing
+                   * as -0.95, and the sentence would have named both rows
+                   * identically. Printing the two numbers lets a reader see
+                   * which side of a line a row is sitting on, and how close.
+                   */
+                  ` (profile ${typeof s.monotone === "number" ? s.monotone.toFixed(2) : "—"}` +
+                  `${typeof s.monotone === "number" && Math.abs(s.monotone) < 0.7 ? ", barely graded" : ""}` +
+                  `, ${typeof s.topDayShare === "number" ? `${(s.topDayShare * 100).toFixed(0)}% in one day` : "concentration unknown"}` +
+                  `${typeof s.topDayShare === "number" && s.topDayShare > 0.3 ? ", close to the episode line" : ""})`,
               )
               .join("; ") +
             `. The shape is right, which the rest of this table is not. Whether the size is, ` +

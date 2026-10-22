@@ -2510,3 +2510,52 @@ windows rather than alternating ones. The loop prints both every pass without
 being asked, so that will surface on its own.
 
 Nothing armed.
+
+## 2026-10-22 (second entry) — a second row qualified, by a margin of zero
+
+The window rolled to 30 days and the falsification line now names two rows.
+One of them should not be read as a pass.
+
+**`takerRatioFade @ t60d`** — new, and the better-looking of the two on money:
+9.88bp demeaned, **$0.44 a round trip** at $1,000, **690 trips a day** for
+$300, paying at $1,000 and $5,000. That is 3.7x the per-trip of the t30d row
+and a quarter of its trade count — one trade every two minutes rather than
+every thirty-three seconds.
+
+**And it passes both shape tests by nothing.** Profile **exactly -0.6000**
+against a 0.60 bar. Concentration **33.3%** against a 35% bar. Its deciles
+read 3.8 4.3 **-10.5** -0.4 **4.6 3.7** -3.9 -1.5 -8.3 -11.9 — a tilt through
+noise with a crater in bucket two and a bump in the middle, not a gradient.
+Its halves are -12.6 / -22.8, the second half nearly twice the first, where
+every other qualifying reading has had the first half larger. Sigma -5.53, the
+weakest of the set.
+
+So the honest reading is that this row qualified because two thresholds I
+picked happen to sit just above where it landed, and I said on 2026-10-21 that
+when a row lands near both boundaries at once I would report the raw numbers
+rather than the verdict. Doing that: profile -0.6000, concentration 0.3330,
+and the decile vector above. Make of it what the numbers support, which is not
+much.
+
+**`takerRatioFade @ t30d`** — third qualification, and the steadier one:
+8.99bp, profile -0.697, 20.3% in one day, halves -20.7 / -17.4 (factor 1.2,
+the tightest the search has produced), sigma -7.81. But it **lost the $5,000
+rung** it gained two days ago and is back to $0.11 a round trip at $1,000
+only, 2,819 trips a day. So it is oscillating around the paying line rather
+than climbing: $0.04, $0.12, $0.11, with the second paying size appearing and
+then going again.
+
+**The defect this exposed, and the fix.** The qualifying sentence printed
+dollars, size and trade count — which I added on 2026-10-20 after it nearly
+oversold three cents — but not the two shape numbers. So it was about to name
+a row that passes by 0.0000 in the same breath as one that passes by 0.097,
+with no way for a reader to tell them apart. Same class of defect as the
+magnitude gap, one layer down: the line asserted a category without the
+measure. It now prints each row's profile and concentration inline, and says
+"barely graded" under 0.7 and "close to the episode line" over 30%.
+
+tsc clean, findings-check 59/59, profile-check and guicheck pass.
+
+Nothing armed. Nothing here is tradeable; 690 trips a day is still not a
+strategy this account can run, and the better-looking of the two rows is the
+one the evidence supports least.
