@@ -41,6 +41,9 @@ The code is complete and tested locally (`npm test` passes). It has **not** been
 | `public/feeds.js` | Every network call. Hyperliquid WebSocket, Hyperliquid candle history, Coinversa polling through `/api/cv`. No DOM; talks to the page through callbacks. |
 | `public/app.js` | State, rules, rendering. Sections are marked with `// -----` headers. |
 | `public/sw.js` | Service worker used only for notifications (Android needs one). Caches nothing. |
+| `public/layout.js` | Movable, resizable panels (GridStack, vendored in `public/vendor/`). Locked until **Edit layout**; saved per browser in `btc-run-layout-v1`; one stacked column under 760px. |
+| `public/chat.js` | The **Ask Claude** panel. Sends `window.__btcRun.snapshot()` with each message to `/api/chat`, streams the answer, keeps chats per browser in `btc-run-chats-v1` (history stored exactly as the server returned it, append-only). |
+| `api/chat.js` | Claude chat route. Holds `ANTHROPIC_API_KEY`. Model `claude-opus-5-5`, effort medium, server-side refusal fallback, tools: liquidation map and fills (Coinversa), Hyperliquid candles, web search. Streams NDJSON. |
 | `api/cv.js` | Coinversa proxy. Holds `COINVERSA_API_KEY`, allows three routes, validates params, caches 5 to 60 s per route, forwards `x-ratelimit-*` headers. |
 | `api/hl.js` | Hyperliquid `candleSnapshot` proxy, used only if the browser can't call Hyperliquid directly. |
 | `api/_auth.js` | Passcode check (`x-dashboard-key` header vs `DASHBOARD_KEY`) and JSON response helper. Underscore files are not routes on Vercel. |
@@ -70,6 +73,7 @@ The code is complete and tested locally (`npm test` passes). It has **not** been
 | `DASHBOARD_KEY` | yes in production | Passcode for `/api/cv` and `/api/hl`. Without it those routes are open to anyone with the URL. |
 | `COINVERSA_API_KEY` | for the liquidation features | Coinversa REST key. Without it the map and liquidation feeds show "Not set up"; everything else works. |
 | `COINVERSA_API_URL` | no | Override the Coinversa base URL. |
+| `ANTHROPIC_API_KEY` | for the chat | Anthropic API key from console.anthropic.com (billed per use, separate from a Claude plan). Without it the chat panel says it is not set up. |
 
 Environment variable changes need a redeploy to take effect.
 
@@ -95,11 +99,11 @@ Grades: `watch` = HEADS-UP (no action), `prepare` = GET READY, `act` = ACT NOW. 
 npm install
 npm test
 ```
-`test/engine.test.cjs` (trade math), `test/api.test.cjs` (both functions with mocked upstream), `test/app.test.cjs` (whole page in jsdom with a fake WebSocket and mocked fetch: off by default, gap replay, stream, map, taker print, used-up cluster, target, off switch, proxy fallback, passcode prompt, resume on reload).
+`test/engine.test.cjs` (trade math), `test/api.test.cjs` (both functions with mocked upstream), `test/chat.test.cjs` (chat route with a fake Claude client, chat panel in jsdom), `test/app.test.cjs` (whole page in jsdom with a fake WebSocket and mocked fetch: off by default, gap replay, stream, map, taker print, used-up cluster, target, off switch, proxy fallback, passcode prompt, resume on reload).
 
 ## Deploy
 
-Vercel team `aeriaszs-projects`, project `btc-triple-run`, no build step (`outputDirectory: public`). From this folder: `npx vercel deploy --prod`. Connecting a Git repository to the project makes every push deploy.
+Vercel team `aeriaszs-projects`, project `triplerun` (https://triplerun.vercel.app), root directory `btc-run-dashboard` of `Aerozsz/oddz`, install `npm install`, no build step (`outputDirectory: public`). `api/chat.js` runs up to 300 s. From this folder: `npx vercel deploy --prod`. Connecting a Git repository to the project makes every push deploy.
 
 ## Known limits
 

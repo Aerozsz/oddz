@@ -1312,5 +1312,44 @@ if (monitorOn) monitorStart('Monitoring resumed on page load.'); else setConn(''
 if ('serviceWorker' in navigator) navigator.serviceWorker.getRegistration().then(r => { if (r) swReg = r; }).catch(() => {});
 setInterval(() => { const now = Date.now(); eventReminders(now); feedWatch(now); expireWatches(now); renderEvents(); render(); if (mkt.heat) renderMap(); }, 1000);
 window.addEventListener('beforeunload', save);
-window.__btcRun = { get sim() { return sim; }, get bars() { return bars; }, mkt, feeds, src };
+// What the chat sends Claude with each message: the dashboard as the trader sees it right now.
+function snapshot() {
+  const now = Date.now();
+  const r = n => (n == null || !isFinite(n) ? null : Math.round(n * 10) / 10);
+  const pl = sim.status === 'idle' || sim.status === 'pending' ? previewPlan() : sim.plan;
+  const p = lastPrice;
+  const out = { at: new Date(now).toISOString(), monitoring: monitorOn, manualPrice: manualMode, status: sim.status,
+    price: r(p), priceAgeSec: lastUpdate ? Math.round((now - lastUpdate) / 1000) : null,
+    bid: r(mkt.bid), ask: r(mkt.ask), mark: r(mkt.mark), oracle: r(mkt.index) };
+  if (pl) {
+    out.position = { side: pl.side, entry: r(pl.entry), bust: r(pl.stop), target: r(pl.tp), notional: Math.round(pl.notional), margin: pl.margin, goal: pl.goal,
+      fee: pl.feeDrag || 0, opened: sim.params && sim.params.manual && sim.params.manual.openedMs ? new Date(sim.params.manual.openedMs).toISOString() : null,
+      pressure: sim.params && sim.params.manual && sim.params.manual.pressure > 0 ? sim.params.manual.pressure : null,
+      exitLevel: sim.params && sim.params.manual && sim.params.manual.invalid > 0 ? sim.params.manual.invalid : null };
+    if (p != null && sim.status === 'open') {
+      const d = Engine.distances(pl, p);
+      Object.assign(out.position, { pnl: Math.round(Engine.pnl(pl, p)), equity: Math.round(Engine.equity(pl, p)),
+        toBustPct: r(d.toStop * 100), toTargetPct: r(d.toTarget * 100), targetFirstPct: r(Engine.probTargetFirst(pl, p) * 100) });
+    }
+    if (sim.exit) out.position.exit = sim.exit;
+  }
+  const c = currentCall(now);
+  out.instruction = { grade: c.action, text: c.text.replace(/\s{2,}/g, ' ').trim() };
+  out.openActions = pendingActions().slice(0, 8).map(a => ({ grade: LABEL[a.level || 'act'], text: a.text }));
+  out.recentLog = (sim.log || []).filter(l => l.kind !== 'tick').slice(-15).map(l => ({ at: new Date(l.t || 0).toISOString().slice(11, 16), text: l.text }));
+  const t = tape();
+  if (t) out.tape = { last1mPct: r(t.c1 * 100), streak: t.streak, ch5Pct: r(t.ch5 * 100), ch15Pct: r(t.ch15 * 100), spike: t.spike };
+  out.candles1m = { columns: ['time', 'open', 'high', 'low', 'close'], rows: bars.slice(-40).map(b => [new Date(b.time * 1000).toISOString().slice(11, 16), b.open, b.high, b.low, b.close]) };
+  const buy = mkt.flows.filter(f => f.side === 'B').reduce((a, f) => a + f.n, 0), sell = mkt.flows.filter(f => f.side === 'A').reduce((a, f) => a + f.n, 0);
+  out.takerFlow60s = { buyUSD: Math.round(buy), sellUSD: Math.round(sell) };
+  out.liquidationFills = { recent: mkt.liqRecent, wallets: mkt.liqWallets };
+  if (mkt.heat) out.liquidationMap = { ageSec: Math.round((now - mkt.heatAt) / 1000), summary: $('balNote').textContent,
+    sides: [$('balTK').textContent + ': ' + $('balTV').textContent + ' (' + $('balTS').textContent + ')', $('balBK').textContent + ': ' + $('balBV').textContent + ' (' + $('balBS').textContent + ')'],
+    clusters: [...$('clusters').querySelectorAll('dt')].map(dt => dt.textContent + ': ' + (dt.nextElementSibling ? dt.nextElementSibling.textContent : '')) };
+  out.feeds = Object.fromEntries(['ws', 'bbo', 'candles', 'mark', 'flow', 'liq', 'fuel'].map(k => [k, src[k]]));
+  out.calendar = EVENTS.filter(e => e.t > now - 3600e3).slice(0, 5).map(e => ({ name: e.name, utc: e.utc, note: e.note }));
+  out.chartLevels = LEVELS;
+  return out;
+}
+window.__btcRun = { get sim() { return sim; }, get bars() { return bars; }, mkt, feeds, src, snapshot, passcode, askPasscode };
 })();

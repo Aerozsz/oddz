@@ -3,11 +3,17 @@
   "version": "1.0.0",
   "private": true,
   "description": "Live monitor for a tracked BTC paper position on Hyperliquid prices, with Coinversa liquidation data.",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
-    "test": "node test/engine.test.cjs && node test/api.test.cjs && node test/app.test.cjs"
+    "test": "node test/engine.test.cjs && node test/api.test.cjs && node test/app.test.cjs && node test/chat.test.cjs"
   },
   "devDependencies": {
+    "gridstack": "13.1.1",
     "jsdom": "^24.1.0"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "1.1.0"
   }
 }
