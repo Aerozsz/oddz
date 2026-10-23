@@ -2559,3 +2559,48 @@ tsc clean, findings-check 59/59, profile-check and guicheck pass.
 Nothing armed. Nothing here is tradeable; 690 trips a day is still not a
 strategy this account can run, and the better-looking of the two rows is the
 one the evidence supports least.
+
+## 2026-10-23 — t60d held across a window roll, and it is no longer on the bar
+
+The window rolled from 30 days to 29 and both qualifying rows came back. For
+`takerRatioFade @ t60d` that is the first time a qualification has survived a
+genuine change of window, and the margins moved the right way:
+
+| | 30-day window | 29-day window |
+| --- | --- | --- |
+| demeaned tail | 9.88bp | 9.89bp |
+| profile | **-0.6000** (on the bar) | **-0.636** |
+| one day's share | 33.3% | **31.2%** |
+| dollars a round trip | $0.44 | $0.45 |
+| trips a day for $300 | 690 | 673 |
+| sizes paying | $1k, $5k | $1k, $5k |
+
+**I called this a threshold artefact yesterday and that call is now partly
+answered.** The reasoning was sound — a profile of exactly -0.6000 against a
+0.60 bar and 33.3% against a 35% bar is two passes by nothing, and the decile
+vector was visibly ragged. But the prediction that follows from "artefact" is
+that it moves around or vanishes when the window changes, and instead it came
+back with the same money to two cents and both shape numbers further from
+their bars. That is not what an artefact of my thresholds does.
+
+It is still not what a clean finding looks like either: -0.636 is a tilt, not
+a gradient, and 31% in one day of 29 is six times diffuse. The honest status
+is that it is better supported than it was and still weakly supported.
+
+`takerRatioFade @ t30d` qualified a fourth time and drifted the other way:
+8.86bp, $0.09 a round trip, 3,201 trips a day, $1,000 only. Its sequence is
+now $0.04, $0.12, $0.11, $0.09 — noise around a tenth of a dollar.
+
+**What this does and does not change.** It does not change the verdict: 673
+round trips a day is one every two minutes, sustained, and $10,000 is still
+negative. The account cannot run that and the operator's three open questions
+are untouched by a forty-five cent edge. What it changes is that the per-trip
+number has a floor under it that has now survived two windows rather than
+alternating: call it **forty-odd cents a round trip at a thousand dollars** as
+the best measured directional edge on this contract, with a trade count that
+makes it unreachable.
+
+Watching for: whether it survives a third and fourth distinct window, and
+whether the $10,000 rung ever turns. Both print every pass.
+
+Nothing armed.
