@@ -2604,3 +2604,55 @@ Watching for: whether it survives a third and fourth distinct window, and
 whether the $10,000 rung ever turns. Both print every pass.
 
 Nothing armed.
+
+## 2026-10-27 — STOPPED at the operator's instruction
+
+The operator pulled the plug. Everything automated is off. This is the last
+entry; nothing will write here again unless a person restarts it deliberately.
+
+**What was switched off, and verified off:**
+
+- Routine `trig_01FMpuDsfufHomhPnEjDnK63` ("Sweep research kick") — **disabled**.
+  It was the only thing waking this session every six hours, and so the only
+  thing that pushed `control/RUN_RESEARCH`. Not deleted, because deleting a
+  Routine also deletes the sessions it is bound to and this one binds to the
+  live session; the operator can delete it from their Routines list, or ask.
+- Routine `trig_01235ps6CNVCoxQWBGj8R3ki` ("Sweep agent — unattended
+  iteration") — **deleted**. Disabled since 2026-08-28, now gone.
+- `sweep-research.yml` and `sweep-probe.yml` fire only on a push to
+  `control/RUN_RESEARCH` / `control/RUN_PROBE`. With both Routines off nothing
+  pushes those paths, so neither workflow can run again. The `schedule:` block
+  in sweep-research has never fired — GitHub raises schedule events only from
+  the default branch and this workflow has never been on it.
+- No process of this project is running in the container. The only process is
+  the sandbox's own `/process_api`.
+- The last research run (40493479825, 11:05Z) completed before the stop; there
+  was nothing in flight to cancel.
+
+**Left alone deliberately:** `snapshot.yml` (every 5 minutes on the default
+branch) and `deploy.yml`. Both predate this work and belong to the operator's
+Vercel app, not to the sweep agent. Touching them would mean committing to the
+default branch, which was never authorised.
+
+**Not reachable from here:** the laptop side. The Windows scheduled task
+`SweepAgentKeepalive`, registered by `sweep:keepalive --install`, runs
+`data\sweep-start.cmd` at logon, which supervises the control server; and
+`sweep:share --watch` is what pushed `evidence/snapshot.json` here every five
+minutes. Both run on the operator's machine and only they can remove them. The
+exact commands were given in the final message.
+
+**State at stop.** No position was ever opened, nothing was ever armed, and no
+money was made or lost. The research result stands: on LITUSDT the measured
+round trip is 7.65bp from the tape, the best directional edge found in 158
+replay passes is about $0.45 a round trip at $1,000 and needs 673 trips a day
+to make $300, and carry needs $1.57M to $3.73M of capital for the same target
+against an account of $10,000. Everything larger than that in the search was an
+episode or had no gradient. The conclusion is that cost exceeds predictability
+on this contract at this size, and it is well evidenced.
+
+**The failure worth remembering.** This loop depended on a cloud session being
+awake to push a trigger file. Between 2026-10-23 06:32 and 2026-10-27 11:05 it
+was not, nine kicks queued unprocessed, and nothing ran for four days. A
+scheduled workflow on the default branch would have been immune and was never
+built, because that needed a commit the operator had not authorised and I did
+not ask for it until the day they stopped the project.
