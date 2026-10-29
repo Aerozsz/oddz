@@ -48,6 +48,7 @@ public final class BatteryService extends Service {
             if (b.equalsTo(battery)) return;
             battery = b;
             render();
+            applyLayout();
         }
     };
 
@@ -137,7 +138,7 @@ public final class BatteryService extends Service {
                         | WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
                         | WindowManager.LayoutParams.FLAG_HARDWARE_ACCELERATED,
                 PixelFormat.TRANSLUCENT);
-        lp.gravity = Gravity.TOP | Gravity.END;
+        lp.gravity = Gravity.TOP | Gravity.LEFT;
         lp.setTitle("BatteryGlance");
         if (Build.VERSION.SDK_INT >= 30) {
             lp.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
@@ -149,6 +150,18 @@ public final class BatteryService extends Service {
             pill.setOnApplyWindowInsetsListener(new View.OnApplyWindowInsetsListener() {
                 @Override
                 public WindowInsets onApplyWindowInsets(View v, WindowInsets insets) {
+                    Integer right = Placement.topCutoutRight(insets.getDisplayCutout(),
+                            Placement.screenWidth(BatteryService.this));
+                    int known = right != null ? right : -1;
+                    if (known != Placement.knownCutoutRight) {
+                        Placement.knownCutoutRight = known;
+                        v.post(new Runnable() {
+                            @Override
+                            public void run() {
+                                applyLayout();
+                            }
+                        });
+                    }
                     boolean visible = insets.isVisible(WindowInsets.Type.statusBars());
                     if (visible) statusBarSeen = true;
                     // Only trust "hidden" once the status bar has been reported visible at least once.
@@ -197,7 +210,8 @@ public final class BatteryService extends Service {
         SharedPreferences sp = Prefs.get(this);
         int h = pillHeight();
         pill.setHeightPx(h);
-        lp.x = dp(sp.getInt(Prefs.END_MARGIN, Prefs.DEF_END_MARGIN));
+        pill.measure(View.MeasureSpec.UNSPECIFIED, View.MeasureSpec.UNSPECIFIED);
+        lp.x = Placement.leftPx(this, pill.getMeasuredWidth());
         lp.y = Math.max(0, (statusBarHeight() - h) / 2 + dp(sp.getInt(Prefs.Y_NUDGE, 0)));
         updatePillVisibility();
         if (pillAttached) {

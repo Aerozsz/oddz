@@ -41,6 +41,7 @@ public final class MainActivity extends Activity {
     private TextView status;
     private Button overlayBtn, notifBtn, batteryOptBtn;
     private LinearLayout setupCard;
+    private LinearLayout posSlider;
 
     private final BroadcastReceiver batteryRx = new BroadcastReceiver() {
         @Override
@@ -172,7 +173,15 @@ public final class MainActivity extends Activity {
             }
         }));
         look.addView(slider("Size", Prefs.SIZE, 40, 100, Prefs.DEF_SIZE));
-        look.addView(slider("Distance from right edge", Prefs.END_MARGIN, 0, 360, Prefs.DEF_END_MARGIN));
+        posSlider = slider("Position (left ↔ right)", Prefs.POS_X, 0, 1000, Placement.autoPermille(this));
+        look.addView(posSlider);
+        look.addView(button("Auto-place next to camera", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                sp.edit().remove(Prefs.POS_X).apply();
+                ((SeekBar) posSlider.getChildAt(1)).setProgress(Placement.autoPermille(MainActivity.this));
+            }
+        }), margins(0, dp(8), 0, 0));
         look.addView(slider("Vertical nudge", Prefs.Y_NUDGE, -12, 12, 0));
         look.addView(toggle("Hide in fullscreen apps", Prefs.HIDE_FULLSCREEN, true, null));
         look.addView(toggle("Number in notification icons too", Prefs.NOTIF_ICON, true, null));
@@ -324,7 +333,7 @@ public final class MainActivity extends Activity {
         return wrap;
     }
 
-    private View slider(String label, final String key, final int min, int max, int def) {
+    private LinearLayout slider(String label, final String key, final int min, int max, int def) {
         LinearLayout box = vertical();
         box.setPadding(0, dp(10), 0, 0);
         box.addView(text(label, 15, fg()));
