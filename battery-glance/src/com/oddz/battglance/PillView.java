@@ -17,6 +17,7 @@ final class PillView extends View {
     private final Path boltPath = new Path();
     private Battery battery = new Battery(0, false, false);
     private int heightPx;
+    private int minWidthPx;
 
     PillView(Context c, int heightPx) {
         super(c);
@@ -33,6 +34,12 @@ final class PillView extends View {
         text.setTextSize(heightPx * 0.86f);
         requestLayout();
         invalidate();
+    }
+
+    /** Lets the badge be widened to fully cover the stock icon underneath it. */
+    void setMinWidthPx(int w) {
+        minWidthPx = w;
+        requestLayout();
     }
 
     void setBattery(Battery b) {
@@ -54,7 +61,7 @@ final class PillView extends View {
         float pad = heightPx * 0.32f;
         float textW = text.measureText(String.valueOf(battery.level));
         int w = (int) Math.ceil(pad * 2 + textW + boltWidth());
-        w = Math.max(w, (int) (heightPx * 1.5f));
+        w = Math.max(w, Math.max(minWidthPx, (int) (heightPx * 1.5f)));
         setMeasuredDimension(w, heightPx);
     }
 

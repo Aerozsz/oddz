@@ -1,17 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="com.oddz.battglance"
-    android:versionCode="2"
-    android:versionName="1.1">
+    android:versionCode="3"
+    android:versionName="2.0">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="33" />
 
-    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.WRITE_SECURE_SETTINGS" />
+    <queries>
+        <package android:name="com.android.systemui" />
+    </queries>
 
     <application
         android:label="Battery Glance"
@@ -29,17 +26,19 @@
             </intent-filter>
         </activity>
 
+        <!-- Accessibility overlays are the only app windows drawn above the status bar,
+             which lets the badge sit exactly on top of the stock battery icon. -->
         <service
-            android:name=".BatteryService"
-            android:exported="false" />
-
-        <receiver
-            android:name=".BootReceiver"
-            android:exported="true">
+            android:name=".BadgeService"
+            android:label="Battery Glance"
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
-        </receiver>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/badge_service" />
+        </service>
     </application>
 </manifest>

@@ -1,22 +1,17 @@
 package com.oddz.battglance;
 
-import android.Manifest;
 import android.app.Activity;
 import android.content.BroadcastReceiver;
-import android.content.ClipData;
-import android.content.ClipboardManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.SharedPreferences;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.os.PowerManager;
 import android.provider.Settings;
 import android.text.TextUtils;
 import android.view.Gravity;
@@ -30,18 +25,12 @@ import android.widget.ScrollView;
 import android.widget.SeekBar;
 import android.widget.Switch;
 import android.widget.TextView;
-import android.widget.Toast;
 
 public final class MainActivity extends Activity {
-    private static final String ADB_HIDE_CMD =
-            "adb shell pm grant com.oddz.battglance android.permission.WRITE_SECURE_SETTINGS";
-
     private SharedPreferences sp;
     private PillView preview;
     private TextView status;
-    private Button overlayBtn, notifBtn, batteryOptBtn;
     private LinearLayout setupCard;
-    private LinearLayout posSlider;
 
     private final BroadcastReceiver batteryRx = new BroadcastReceiver() {
         @Override
@@ -62,10 +51,6 @@ public final class MainActivity extends Activity {
             getWindow().setNavigationBarColor(bg());
         }
         setContentView(buildUi());
-        if (Build.VERSION.SDK_INT >= 33
-                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1);
-        }
     }
 
     @Override
@@ -73,7 +58,6 @@ public final class MainActivity extends Activity {
         super.onResume();
         registerReceiver(batteryRx, new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
         refreshSetup();
-        if (sp.getBoolean(Prefs.ENABLED, true)) BatteryService.start(this);
     }
 
     @Override
@@ -128,83 +112,49 @@ public final class MainActivity extends Activity {
 
         root.addView(legend(), margins(0, dp(14), 0, dp(10)));
 
-        // Setup card (only the items still missing).
+        // Setup card (hidden once the service is running).
         setupCard = card();
-        setupCard.addView(heading("Finish setup"));
-        overlayBtn = button("Allow showing over the status bar", new View.OnClickListener() {
+        setupCard.addView(heading("Turn it on"));
+        setupCard.addView(text("Accessibility is the only way an app can draw on top of the status bar, "
+                + "so the badge can sit exactly over Samsung's icon.", 14, muted()), margins(0, dp(6), 0, dp(8)));
+        setupCard.addView(button("Open Accessibility → Installed apps → Battery Glance", new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                startActivity(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                startActivity(new Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS));
+            }
+        }));
+        setupCard.addView(text("Switch greyed out? App info → ⋮ (top right) → Allow restricted settings, then try again.",
+                14, muted()), margins(0, dp(10), 0, dp(8)));
+        setupCard.addView(button("Open App info", new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                startActivity(new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
                         Uri.parse("package:" + getPackageName())));
             }
-        });
-        notifBtn = button("Allow notifications", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                startActivity(new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
-                        .putExtra(Settings.EXTRA_APP_PACKAGE, getPackageName()));
-            }
-        });
-        batteryOptBtn = button("Keep running in background", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                try {
-                    startActivity(new Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
-                            Uri.parse("package:" + getPackageName())));
-                } catch (RuntimeException e) {
-                    startActivity(new Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS));
-                }
-            }
-        });
-        setupCard.addView(overlayBtn, margins(0, dp(8), 0, 0));
-        setupCard.addView(notifBtn, margins(0, dp(8), 0, 0));
-        setupCard.addView(batteryOptBtn, margins(0, dp(8), 0, 0));
+        }));
         root.addView(setupCard, margins(0, dp(8), 0, dp(12)));
+
+        // Stock icon must stay on so SystemUI keeps its slot and spacing.
+        LinearLayout stock = card();
+        stock.addView(heading("Keep Samsung's battery icon ON"));
+        stock.addView(text("The badge covers it, so wifi and signal stay exactly where they belong. "
+                + "If you turned it off: Good Lock → QuickStar → Indicator icons → Battery on. "
+                + "Tip: turning off \"Show battery percentage\" makes the stock icon smaller and easier to cover.",
+                14, muted()), margins(0, dp(6), 0, 0));
+        root.addView(stock, margins(0, 0, 0, dp(12)));
 
         // Appearance.
         LinearLayout look = card();
-        look.addView(heading("Status bar badge"));
-        look.addView(toggle("Show badge", Prefs.ENABLED, true, new CompoundButton.OnCheckedChangeListener() {
-            @Override
-            public void onCheckedChanged(CompoundButton b, boolean on) {
-                sp.edit().putBoolean(Prefs.ENABLED, on).apply();
-                if (on) BatteryService.start(MainActivity.this);
-                else BatteryService.stop(MainActivity.this);
-            }
-        }));
-        look.addView(slider("Size", Prefs.SIZE, 40, 100, Prefs.DEF_SIZE));
-        posSlider = slider("Position (left ↔ right)", Prefs.POS_X, 0, 1000, Placement.autoPermille(this));
-        look.addView(posSlider);
-        look.addView(button("Auto-place next to camera", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                sp.edit().remove(Prefs.POS_X).apply();
-                ((SeekBar) posSlider.getChildAt(1)).setProgress(Placement.autoPermille(MainActivity.this));
-            }
-        }), margins(0, dp(8), 0, 0));
+        look.addView(heading("Badge"));
+        look.addView(toggle("Show badge", Prefs.ENABLED, true, null));
+        look.addView(slider("Height", Prefs.SIZE, 40, 100, Prefs.DEF_SIZE));
+        look.addView(slider("Width (widen until the stock icon is fully covered)", Prefs.WIDTH, 100, 300,
+                Prefs.DEF_WIDTH));
+        int autoMargin = Math.round(BadgeService.systemUiEndPadding(this) / getResources().getDisplayMetrics().density);
+        look.addView(slider("Distance from right edge", Prefs.RIGHT_MARGIN, 0, 48, autoMargin));
         look.addView(slider("Vertical nudge", Prefs.Y_NUDGE, -12, 12, 0));
         look.addView(toggle("Hide in fullscreen apps", Prefs.HIDE_FULLSCREEN, true, null));
-        look.addView(toggle("Number in notification icons too", Prefs.NOTIF_ICON, true, null));
-        root.addView(look, margins(0, 0, 0, dp(12)));
-
-        // Hiding Samsung's icon.
-        LinearLayout hide = card();
-        hide.addView(heading("Hide Samsung's battery icon"));
-        hide.addView(text("Good Lock → QuickStar → Indicator icons → turn off Battery.", 14, muted()),
-                margins(0, dp(6), 0, dp(8)));
-        hide.addView(button("Hide it directly", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                setStockIconHidden(true);
-            }
-        }));
-        hide.addView(button("Bring it back", new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                setStockIconHidden(false);
-            }
-        }), margins(0, dp(8), 0, 0));
-        root.addView(hide);
+        root.addView(look);
 
         return scroll;
     }
@@ -235,35 +185,19 @@ public final class MainActivity extends Activity {
     }
 
     private void refreshSetup() {
-        boolean overlay = Settings.canDrawOverlays(this);
-        boolean notif = getSystemService(android.app.NotificationManager.class).areNotificationsEnabled();
-        PowerManager pm = getSystemService(PowerManager.class);
-        boolean unrestricted = pm != null && pm.isIgnoringBatteryOptimizations(getPackageName());
-        overlayBtn.setVisibility(overlay ? View.GONE : View.VISIBLE);
-        notifBtn.setVisibility(notif ? View.GONE : View.VISIBLE);
-        batteryOptBtn.setVisibility(unrestricted ? View.GONE : View.VISIBLE);
-        setupCard.setVisibility(overlay && notif && unrestricted ? View.GONE : View.VISIBLE);
+        setupCard.setVisibility(serviceEnabled() ? View.GONE : View.VISIBLE);
     }
 
-    private void setStockIconHidden(boolean hidden) {
-        String key = "icon_blacklist";
-        try {
-            String cur = Settings.Secure.getString(getContentResolver(), key);
-            java.util.LinkedHashSet<String> set = new java.util.LinkedHashSet<>();
-            if (!TextUtils.isEmpty(cur)) {
-                for (String s : cur.split(",")) if (!s.trim().isEmpty()) set.add(s.trim());
-            }
-            if (hidden) set.add("battery");
-            else set.remove("battery");
-            Settings.Secure.putString(getContentResolver(), key, TextUtils.join(",", set));
-            Toast.makeText(this, hidden ? "Samsung battery icon hidden" : "Samsung battery icon restored",
-                    Toast.LENGTH_SHORT).show();
-        } catch (SecurityException e) {
-            ClipboardManager cm = getSystemService(ClipboardManager.class);
-            cm.setPrimaryClip(ClipData.newPlainText("adb", ADB_HIDE_CMD));
-            Toast.makeText(this, "Needs one-time ADB grant — command copied. Or use Good Lock.",
-                    Toast.LENGTH_LONG).show();
+    private boolean serviceEnabled() {
+        String enabled = Settings.Secure.getString(getContentResolver(),
+                Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES);
+        if (TextUtils.isEmpty(enabled)) return false;
+        String me = getPackageName() + "/" + BadgeService.class.getName();
+        String meShort = getPackageName() + "/.BadgeService";
+        for (String s : enabled.split(":")) {
+            if (s.equalsIgnoreCase(me) || s.equalsIgnoreCase(meShort)) return true;
         }
+        return false;
     }
 
     // ---- small view helpers -------------------------------------------------------------------
