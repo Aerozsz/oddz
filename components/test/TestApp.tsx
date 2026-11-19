@@ -199,7 +199,7 @@ function SystemCheck({ onContinue, name }: { onContinue: () => void; name: strin
         </div>
       </div>
       <div className="mt-8 flex justify-end">
-        <button className="btn-primary btn-lg" onClick={onContinue}>I’m ready — go to Listening <IconArrowRight className="h-4 w-4" /></button>
+        <button className="btn-primary btn-lg" onClick={onContinue}>I’m ready, go to Listening <IconArrowRight className="h-4 w-4" /></button>
       </div>
     </div>
   );
@@ -352,7 +352,7 @@ export default function TestApp({ content }: { content: Content }) {
       saveState(null);
     } catch (e) {
       if (e instanceof ApiError && e.status === 409) { update((d) => ({ ...d, stage: "done" })); saveState(null); return; }
-      setSubmitError("We couldn’t submit your test. Your answers are still saved on this device — check your connection and try again.");
+      setSubmitError("We couldn’t submit your test. Your answers are still saved on this device. Check your connection and try again.");
     } finally {
       setSubmitting(false);
     }
@@ -442,7 +442,7 @@ export default function TestApp({ content }: { content: Content }) {
               ["Listening", `${Object.values(s.listening.answers).filter(Boolean).length} of 40 answered`],
               ["Reading", `${Object.values(s.reading.answers).filter(Boolean).length} of 40 answered`],
               ["Writing", `Task 1: ${s.writing.task1.trim().split(/\s+/).filter(Boolean).length} words · Task 2: ${s.writing.task2.trim().split(/\s+/).filter(Boolean).length} words`],
-              ["Speaking", s.speaking.skipped ? "Skipped — to be done live" : `${Object.keys(s.speaking.done).length} of 3 parts recorded`],
+              ["Speaking", s.speaking.skipped ? "Skipped, to be done live" : `${Object.keys(s.speaking.done).length} of 3 parts recorded`],
             ].map(([k, v]) => (
               <li key={k} className="flex items-center justify-between gap-4 px-5 py-4">
                 <span className="flex items-center gap-3 font-medium"><span className="grid h-6 w-6 place-items-center rounded-full bg-emerald-100 text-emerald-700"><IconCheck className="h-4 w-4" /></span>{k}</span>

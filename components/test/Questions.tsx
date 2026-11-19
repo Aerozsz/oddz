@@ -99,9 +99,9 @@ function ItemView({ item, group, answers, set }: { item: Item; group: Group; ans
       return (
         <div id={`q-${item.n}`} className="flex scroll-mt-28 flex-col gap-2 py-1 sm:flex-row sm:items-center sm:gap-4">
           <label htmlFor={`sel-${item.n}`} className="flex flex-1 items-start gap-3"><Num n={item.n} answered={!!v} /><span className="pt-0.5">{item.prompt}</span></label>
-          <select id={`sel-${item.n}`} value={v} onChange={(e) => set(item.n, e.target.value)} className="input w-full sm:w-72" data-q={item.n}>
+          <select id={`sel-${item.n}`} value={v} onChange={(e) => set(item.n, e.target.value)} className="input w-full sm:w-auto sm:min-w-[18rem] sm:max-w-[30rem] sm:shrink-0" data-q={item.n}>
             <option value="">Choose…</option>
-            {group.options?.map((o) => <option key={o.key} value={o.key}>{o.key} — {o.text.length > 48 ? o.text.slice(0, 46) + "…" : o.text}</option>)}
+            {group.options?.map((o) => <option key={o.key} value={o.key}>{o.key}. {o.text.length > 48 ? o.text.slice(0, 46) + "…" : o.text}</option>)}
           </select>
         </div>
       );

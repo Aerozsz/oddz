@@ -48,7 +48,7 @@ export const listening: ListeningPart[] = [
         id: "l1g1",
         range: "Questions 1–10",
         instructions: "Complete the form below. Write ONE WORD AND/OR A NUMBER for each answer.",
-        title: "Harbourside Community Centre — Course Booking Form",
+        title: "Harbourside Community Centre: Course Booking Form",
         boxed: true,
         items: [
           { kind: "gap", n: 1, before: "Course: Introduction to", after: "cooking" },
@@ -245,7 +245,7 @@ export const listening: ListeningPart[] = [
         items: [
           { kind: "heading", text: "Early uses" },
           { kind: "gap", n: 31, before: "Before refrigeration, salt was mainly used to preserve" },
-          { kind: "gap", n: 32, before: "The story that Roman soldiers were paid in salt — many historians", after: "this" },
+          { kind: "gap", n: 32, before: "The story that Roman soldiers were paid in salt: many historians", after: "this" },
           { kind: "heading", text: "Production" },
           { kind: "gap", n: 33, before: "Seawater evaporated in shallow", after: "on the coast" },
           { kind: "gap", n: 34, before: "Rock salt formed when ancient", after: "dried up" },

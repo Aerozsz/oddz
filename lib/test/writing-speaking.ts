@@ -41,7 +41,7 @@ export const writing: WritingTask[] = [
 export const speaking: SpeakingPart[] = [
   {
     id: "part1",
-    title: "Part 1 — Introduction and interview",
+    title: "Part 1: Introduction and interview",
     intro: "The examiner will ask you some questions about yourself and familiar topics. Answer each question in 2–4 sentences. This part lasts about 4–5 minutes.",
     topics: [
       { topic: "Your home", questions: ["Let's talk about where you live. Do you live in a house or an apartment?", "What do you like most about your home?", "Is there anything you would like to change about it?", "Do you think you will live in the same place in five years' time?"] },
@@ -50,7 +50,7 @@ export const speaking: SpeakingPart[] = [
   },
   {
     id: "part2",
-    title: "Part 2 — Long turn",
+    title: "Part 2: Long turn",
     intro: "You will be given a topic card. You have one minute to prepare and make notes, then you should speak for one to two minutes.",
     cue: {
       topic: "Describe a skill that took you a long time to learn.",
@@ -63,7 +63,7 @@ export const speaking: SpeakingPart[] = [
   },
   {
     id: "part3",
-    title: "Part 3 — Discussion",
+    title: "Part 3: Discussion",
     intro: "The examiner will ask you more abstract questions linked to the Part 2 topic. Give longer, developed answers with reasons and examples. This part lasts about 4–5 minutes.",
     topics: [
       { topic: "Learning skills", questions: ["What skills do you think are most important for young people to learn today?", "Is it better to learn a skill from a teacher or by yourself, for example from online videos?", "Why do some people give up when they are learning something new?"] },

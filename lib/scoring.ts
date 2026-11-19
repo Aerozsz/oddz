@@ -87,7 +87,7 @@ export function overallBand(parts: (number | undefined)[]): number | undefined {
 }
 
 export function cefr(band?: number): string {
-  if (band === undefined) return "—";
+  if (band === undefined) return "n/a";
   if (band >= 8.5) return "C2";
   if (band >= 7) return "C1";
   if (band >= 5.5) return "B2";

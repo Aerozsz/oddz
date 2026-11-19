@@ -43,7 +43,7 @@ export async function GET(req: Request) {
         for (const it of sc.items) {
           rows.push([...base, section === "listening" ? "Listening" : "Reading", it.part, it.n, QUESTION_TYPE_LABEL[it.type], questionPrompt(section, it.n), it.given, it.correct, it.ok ? "Correct" : it.given ? "Incorrect" : "Blank", it.ok ? 1 : 0, "", ""]);
         }
-        rows.push([...base, section === "listening" ? "Listening" : "Reading", "", "TOTAL", "", "", "", "", "", `${sc.raw}/40 — band ${sc.band.toFixed(1)}`, "", ""]);
+        rows.push([...base, section === "listening" ? "Listening" : "Reading", "", "TOTAL", "", "", "", "", "", `${sc.raw}/40, band ${sc.band.toFixed(1)}`, "", ""]);
       }
       for (const bd of breakdownByType(a)) {
         rows.push([...base, `${bd.section} breakdown`, "", "", bd.label, "", "", "", "", `${bd.correct}/${bd.total} (${bd.pct}%)`, "", ""]);
@@ -61,7 +61,7 @@ export async function GET(req: Request) {
         const recs = a.speaking.recordings.map((r) => `${r.part}: ${Math.round(r.durationSec)}s`).join("; ");
         rows.push([...base, "Speaking", "", "", "", "", "", "", "",
           sg ? `Band ${b(g?.speakingBand)} (FC ${sg.fc}, LR ${sg.lr}, GRA ${sg.gra}, P ${sg.p})` : "Not graded", "",
-          a.speaking.skipped ? `Skipped: ${a.speaking.skipReason ?? ""}` : `Recordings — ${recs || "none"}`]);
+          a.speaking.skipped ? `Skipped: ${a.speaking.skipReason ?? ""}` : `Recordings: ${recs || "none"}`]);
       }
       rows.push([...base, "Overall", "", "", "", "", "", "", "", `Overall ${b(summarize(a).overall)} (${summarize(a).provisional ? "provisional" : "final"})`, "", g?.notes ?? ""]);
     }

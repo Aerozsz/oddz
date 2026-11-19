@@ -87,7 +87,7 @@ export default function Assessment({ id, writing, speaking, grading }: { id: str
       <section className="mt-10" aria-labelledby="writing-h">
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h2 id="writing-h" className="text-xl font-bold">Writing</h2>
-          <p className="text-sm text-ink-soft">Writing band: <strong className="tabular-nums text-ink">{wBand?.toFixed(1) ?? "—"}</strong> <span className="text-ink-muted">(Task 2 counts double)</span></p>
+          <p className="text-sm text-ink-soft">Writing band: <strong className="tabular-nums text-ink">{wBand?.toFixed(1) ?? "n/a"}</strong> <span className="text-ink-muted">(Task 2 counts double)</span></p>
         </div>
         {!writing ? <p className="card p-5 text-ink-soft">The student has not reached the Writing section yet.</p> : (
           <div className="space-y-5">
@@ -109,7 +109,7 @@ export default function Assessment({ id, writing, speaking, grading }: { id: str
                     {WRITING_CRITERIA.map((c) => (
                       <BandPicker key={c.key} id={`${t.key}-${c.key}`} label={t.key === "task1" ? c.t1 : c.t2} hint={c.hint} value={t.g[c.key]} onChange={(v) => t.set((p) => ({ ...p, [c.key]: v }))} />
                     ))}
-                    <p className="pt-3 text-sm">Task band: <strong className="tabular-nums">{t.band?.toFixed(1) ?? "—"}</strong></p>
+                    <p className="pt-3 text-sm">Task band: <strong className="tabular-nums">{t.band?.toFixed(1) ?? "n/a"}</strong></p>
                   </div>
                 </div>
               );
@@ -121,7 +121,7 @@ export default function Assessment({ id, writing, speaking, grading }: { id: str
       <section className="mt-10" aria-labelledby="speaking-h">
         <div className="mb-3 flex items-baseline justify-between gap-3">
           <h2 id="speaking-h" className="text-xl font-bold">Speaking</h2>
-          <p className="text-sm text-ink-soft">Speaking band: <strong className="tabular-nums text-ink">{bs?.toFixed(1) ?? "—"}</strong></p>
+          <p className="text-sm text-ink-soft">Speaking band: <strong className="tabular-nums text-ink">{bs?.toFixed(1) ?? "n/a"}</strong></p>
         </div>
         <div className="card grid overflow-hidden lg:grid-cols-[1.5fr_1fr]">
           <div className="space-y-4 border-slate-100 p-5 sm:p-6 lg:border-r">
@@ -154,7 +154,7 @@ export default function Assessment({ id, writing, speaking, grading }: { id: str
       <div className="no-print sticky bottom-4 z-20 mt-8 flex justify-end">
         <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-surface/95 px-4 py-3 shadow-card backdrop-blur">
           <span className={`text-sm ${state === "error" ? "text-rose-700" : "text-ink-soft"}`} aria-live="polite">
-            {state === "dirty" ? "Unsaved changes" : state === "saving" ? "Saving…" : state === "saved" ? "Grades saved" : state === "error" ? "Couldn’t save — try again" : "Grades are only saved when you press Save"}
+            {state === "dirty" ? "Unsaved changes" : state === "saving" ? "Saving…" : state === "saved" ? "Grades saved" : state === "error" ? "Couldn’t save. Try again." : "Grades are only saved when you press Save"}
           </span>
           <button className="btn-primary" onClick={save} disabled={state === "saving" || state === "clean" || state === "saved"}>Save grades</button>
         </div>

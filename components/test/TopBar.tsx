@@ -16,7 +16,7 @@ export function TopBar({ section, name, remaining, save, right }: { section?: st
         <div className="ml-auto flex items-center gap-3">
           {save && save !== "idle" && (
             <span className={`hidden text-xs font-medium md:inline ${save === "error" ? "text-rose-600" : "text-ink-muted"}`} aria-live="polite">
-              {save === "saving" ? "Saving…" : save === "saved" ? "All changes saved" : "Offline — answers kept on this device, retrying"}
+              {save === "saving" ? "Saving…" : save === "saved" ? "All changes saved" : "Offline: answers kept on this device, retrying"}
             </span>
           )}
           {name && <span className="hidden max-w-[14rem] truncate text-sm text-ink-soft lg:inline">{name}</span>}

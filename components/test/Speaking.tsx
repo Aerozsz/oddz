@@ -259,7 +259,7 @@ export function Speaking({ parts, done, upload, onPartSaved, onSkip, onFinish, p
                 <Meter level={r.level} />
                 <p className="text-sm text-ink-soft">Say something to check your microphone. The bars should move.</p>
               </div>
-              <button className="btn-primary btn-lg mt-6" onClick={startPart}><IconMic /> Start {part.title.split(" — ")[0]}</button>
+              <button className="btn-primary btn-lg mt-6" onClick={startPart}><IconMic /> Start {part.title.split(": ")[0]}</button>
             </>
           )}
 
@@ -279,7 +279,7 @@ export function Speaking({ parts, done, upload, onPartSaved, onSkip, onFinish, p
                   </div>
                   <label className="label" htmlFor="prep-notes">Notes (optional, for you only)</label>
                   <textarea id="prep-notes" className="input min-h-28" value={prepNotes} onChange={(e) => setPrepNotes(e.target.value)} placeholder="Jot down key words…" />
-                  <button className="btn-primary" onClick={beginTalk}>I’m ready — start speaking</button>
+                  <button className="btn-primary" onClick={beginTalk}>I’m ready, start speaking</button>
                 </>
               ) : (
                 <>
@@ -287,7 +287,7 @@ export function Speaking({ parts, done, upload, onPartSaved, onSkip, onFinish, p
                     <div className="h-full bg-brand-500 transition-all" style={{ width: `${Math.min(100, (r.elapsed / part.talkSeconds) * 100)}%` }} />
                   </div>
                   <p className="text-sm text-ink-soft">
-                    {r.elapsed < 60 ? "Keep talking — aim for the full two minutes." : r.elapsed < part.talkSeconds ? "Good. Keep going until the two minutes are up." : <><strong>Examiner:</strong> {part.followUp}</>}
+                    {r.elapsed < 60 ? "Keep talking. Aim for the full two minutes." : r.elapsed < part.talkSeconds ? "Good. Keep going until the two minutes are up." : <><strong>Examiner:</strong> {part.followUp}</>}
                   </p>
                   {prepNotes && <p className="whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-sm text-ink-soft"><span className="font-semibold">Your notes: </span>{prepNotes}</p>}
                   <button className="btn-primary" onClick={finishPart} disabled={r.elapsed < 20}><IconStop className="h-4 w-4" /> Finish Part 2</button>
@@ -304,7 +304,7 @@ export function Speaking({ parts, done, upload, onPartSaved, onSkip, onFinish, p
               <div className="mt-6 flex flex-wrap gap-3">
                 {q < questions.length - 1
                   ? <button className="btn-primary" onClick={nextQuestion}>Next question</button>
-                  : <button className="btn-primary" onClick={finishPart}><IconStop className="h-4 w-4" /> Finish {part.title.split(" — ")[0]}</button>}
+                  : <button className="btn-primary" onClick={finishPart}><IconStop className="h-4 w-4" /> Finish {part.title.split(": ")[0]}</button>}
               </div>
             </div>
           )}
@@ -320,7 +320,7 @@ export function Speaking({ parts, done, upload, onPartSaved, onSkip, onFinish, p
 
           {phase === "saved" && (
             <div>
-              <p className="flex items-center gap-2 font-semibold text-emerald-700"><IconCheck /> {part.title.split(" — ")[0]} saved.</p>
+              <p className="flex items-center gap-2 font-semibold text-emerald-700"><IconCheck /> {part.title.split(": ")[0]} saved.</p>
               {idx < parts.length - 1
                 ? <button className="btn-primary mt-5" onClick={nextPart}>Continue to Part {idx + 2}</button>
                 : <button className="btn-primary mt-5" onClick={onFinish}>Finish Speaking</button>}
@@ -329,7 +329,7 @@ export function Speaking({ parts, done, upload, onPartSaved, onSkip, onFinish, p
         </div>
       </div>
       {allDone && phase !== "saved" && (
-        <div className="mt-6 text-center"><button className="btn-primary" onClick={onFinish}>All parts recorded — continue</button></div>
+        <div className="mt-6 text-center"><button className="btn-primary" onClick={onFinish}>All parts recorded, continue</button></div>
       )}
     </div>
   );

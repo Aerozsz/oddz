@@ -58,7 +58,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
     { label: "Listening", band: s.listening?.band, sub: s.listening ? `${s.listening.raw}/40` : "Not taken" },
     { label: "Reading", band: s.reading?.band, sub: s.reading ? `${s.reading.raw}/40` : "Not taken" },
     { label: "Writing", band: s.writing, sub: s.writing === undefined ? "Needs grading" : "Teacher graded" },
-    { label: "Speaking", band: s.speaking, sub: s.speaking === undefined ? (a.speaking?.skipped ? "Skipped — do live" : "Needs grading") : "Teacher graded" },
+    { label: "Speaking", band: s.speaking, sub: s.speaking === undefined ? (a.speaking?.skipped ? "Skipped, do live" : "Needs grading") : "Teacher graded" },
   ];
 
   return (
@@ -89,13 +89,13 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           {cards.map((c) => (
             <div key={c.label} className="card p-5">
               <p className="text-sm text-ink-soft">{c.label}</p>
-              <p className="mt-1 text-3xl font-bold tabular-nums">{c.band === undefined ? "—" : c.band.toFixed(1)}</p>
+              <p className="mt-1 text-3xl font-bold tabular-nums">{c.band === undefined ? "N/A" : c.band.toFixed(1)}</p>
               <p className="text-xs text-ink-muted">{c.sub}</p>
             </div>
           ))}
           <div className="card col-span-2 bg-contrast p-5 text-white md:col-span-1">
             <p className="text-sm text-white/70">Overall {s.provisional && s.overall !== undefined ? "(provisional)" : ""}</p>
-            <p className="mt-1 text-3xl font-bold tabular-nums">{s.overall === undefined ? "—" : s.overall.toFixed(1)}</p>
+            <p className="mt-1 text-3xl font-bold tabular-nums">{s.overall === undefined ? "N/A" : s.overall.toFixed(1)}</p>
             <p className="text-xs text-white/70">≈ CEFR {cefr(s.overall)}</p>
           </div>
         </section>
@@ -104,7 +104,7 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
           <section className="mt-8 grid gap-6 lg:grid-cols-[1.4fr_1fr]">
             <div className="card p-5 sm:p-6">
               <h2 className="font-bold">Accuracy by question type</h2>
-              <p className="text-sm text-ink-soft">Weakest first — the best place to start tutoring.</p>
+              <p className="text-sm text-ink-soft">Weakest first: the best place to start tutoring.</p>
               <ul className="mt-5 space-y-3">
                 {types.map((t) => (
                   <li key={`${t.section}-${t.type}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[14rem_minmax(0,1fr)_4.5rem]">

@@ -156,7 +156,7 @@ export default function Dashboard({ rows }: { rows: AttemptSummary[] }) {
                       <td className="px-3 py-3 text-center"><BandPill value={r.writing} /></td>
                       <td className="px-3 py-3 text-center"><BandPill value={r.speaking} /></td>
                       <td className="px-3 py-3 text-center text-base"><BandPill value={r.overall} provisional={r.provisional && r.overall !== undefined} /></td>
-                      <td className="max-w-[16rem] px-3 py-3 text-xs text-ink-soft">{r.weakest ?? "—"}</td>
+                      <td className="max-w-[16rem] px-3 py-3 text-xs text-ink-soft">{r.weakest ?? "n/a"}</td>
                     </tr>
                   );
                 })}
