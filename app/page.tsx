@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Logo } from "@/components/Logo";
 import { IconArrowRight, IconBook, IconCheck, IconClock, IconHeadphones, IconMic, IconPen } from "@/components/Icons";
 import { SITE } from "@/lib/site";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const SECTIONS = [
   { icon: IconHeadphones, name: "Listening", time: "35 min", detail: "4 recordings · 40 questions", desc: "Conversations and talks on everyday and academic topics. Each recording plays once." },
@@ -26,13 +27,14 @@ const FAQ = [
 
 export default function Landing() {
   return (
-    <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-white/85 backdrop-blur">
+    <div className="min-h-screen bg-surface">
+      <header className="sticky top-0 z-20 border-b border-slate-200/70 bg-surface/85 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4 sm:px-6">
           <Logo />
           <nav className="flex items-center gap-1 text-sm">
             <a href="#sections" className="btn-ghost hidden sm:inline-flex">What’s included</a>
             <a href="#faq" className="btn-ghost hidden sm:inline-flex">FAQ</a>
+            <ThemeToggle />
             <Link href="/test" className="btn-primary">Start test</Link>
           </nav>
         </div>
@@ -40,7 +42,7 @@ export default function Landing() {
 
       <main>
         <section className="relative overflow-hidden">
-          <div aria-hidden className="pointer-events-none absolute inset-0 bg-[radial-gradient(60rem_30rem_at_70%_-10%,#dbe6fe,transparent),radial-gradient(40rem_20rem_at_0%_10%,#eef4ff,transparent)]" />
+          <div aria-hidden className="hero-glow pointer-events-none absolute inset-0" />
           <div className="relative mx-auto grid max-w-6xl items-center gap-12 px-4 py-16 sm:px-6 md:py-24 lg:grid-cols-[1.1fr_.9fr]">
             <div>
               <p className="chip mb-5 bg-brand-50 text-brand-700 ring-1 ring-brand-100">IELTS Academic · Full mock test</p>
@@ -134,7 +136,7 @@ export default function Landing() {
         <section id="faq" className="border-t border-slate-100 bg-slate-50 py-16 md:py-20">
           <div className="mx-auto max-w-3xl px-4 sm:px-6">
             <h2 className="text-2xl font-bold tracking-tight sm:text-3xl">Frequently asked questions</h2>
-            <div className="mt-8 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-white">
+            <div className="mt-8 divide-y divide-slate-200 rounded-2xl border border-slate-200 bg-surface">
               {FAQ.map((f) => (
                 <details key={f.q} className="group p-5 [&_summary::-webkit-details-marker]:hidden">
                   <summary className="flex cursor-pointer list-none items-center justify-between gap-4 font-semibold">

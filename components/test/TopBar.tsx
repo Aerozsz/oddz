@@ -1,5 +1,6 @@
 "use client";
 import { Logo } from "@/components/Logo";
+import { ThemeToggle } from "@/components/ThemeToggle";
 import { IconClock } from "@/components/Icons";
 import { mmss } from "./useCountdown";
 import type { SaveStatus } from "./api";
@@ -8,7 +9,7 @@ export function TopBar({ section, name, remaining, save, right }: { section?: st
   const warn = remaining !== undefined && remaining <= 300;
   const caution = remaining !== undefined && remaining <= 600 && !warn;
   return (
-    <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <header className="no-print sticky top-0 z-30 border-b border-slate-200 bg-surface/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-4">
         <div className={section ? "hidden sm:block" : ""}><Logo href="/" /></div>
         {section && <span className="chip bg-slate-100 text-ink-soft">{section}</span>}
@@ -26,6 +27,7 @@ export function TopBar({ section, name, remaining, save, right }: { section?: st
             </span>
           )}
           {right}
+          <ThemeToggle />
         </div>
       </div>
       {remaining !== undefined && (warn || caution) && (

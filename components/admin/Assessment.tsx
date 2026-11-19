@@ -152,7 +152,7 @@ export default function Assessment({ id, writing, speaking, grading }: { id: str
       </section>
 
       <div className="no-print sticky bottom-4 z-20 mt-8 flex justify-end">
-        <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-white/95 px-4 py-3 shadow-card backdrop-blur">
+        <div className="flex items-center gap-4 rounded-2xl border border-slate-200 bg-surface/95 px-4 py-3 shadow-card backdrop-blur">
           <span className={`text-sm ${state === "error" ? "text-rose-700" : "text-ink-soft"}`} aria-live="polite">
             {state === "dirty" ? "Unsaved changes" : state === "saving" ? "Saving…" : state === "saved" ? "Grades saved" : state === "error" ? "Couldn’t save — try again" : "Grades are only saved when you press Save"}
           </span>

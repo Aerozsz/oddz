@@ -234,7 +234,7 @@ export function Speaking({ parts, done, upload, onPartSaved, onSkip, onFinish, p
     <div className="mx-auto max-w-3xl px-4 py-8">
       <ol className="mb-6 grid grid-cols-3 gap-2" aria-label="Speaking parts">
         {parts.map((p, i) => (
-          <li key={p.id} className={`rounded-xl px-3 py-2 text-sm ${i === idx ? "bg-ink text-white" : done[p.id] ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-white text-ink-soft ring-1 ring-slate-200"}`}>
+          <li key={p.id} className={`rounded-xl px-3 py-2 text-sm ${i === idx ? "bg-contrast text-white" : done[p.id] ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200" : "bg-surface text-ink-soft ring-1 ring-slate-200"}`}>
             <span className="font-semibold">Part {i + 1}</span>{done[p.id] && <span className="ml-1">✓</span>}
           </li>
         ))}

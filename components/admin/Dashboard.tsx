@@ -106,7 +106,7 @@ export default function Dashboard({ rows }: { rows: AttemptSummary[] }) {
           <div className="flex flex-wrap gap-1.5" role="group" aria-label="Filter by status">
             {(["all", "needs-grading", "graded", "in-progress"] as Filter[]).map((f) => (
               <button key={f} onClick={() => setFilter(f)} aria-pressed={filter === f}
-                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${filter === f ? "bg-ink text-white" : "text-ink-soft hover:bg-slate-100"}`}>
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition ${filter === f ? "bg-contrast text-white" : "text-ink-soft hover:bg-slate-100"}`}>
                 {f === "all" ? "All" : STATUS_UI[f].label} <span className="tabular-nums opacity-70">{counts[f]}</span>
               </button>
             ))}

@@ -35,7 +35,7 @@ function Modal({ title, children, onClose }: { title: string; children: React.Re
     return () => { window.removeEventListener("keydown", onKey); prev?.focus(); };
   }, [onClose]);
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4" onClick={onClose}>
       <div ref={ref} role="dialog" aria-modal="true" aria-labelledby="modal-title" className="card w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
         <h2 id="modal-title" className="text-lg font-bold">{title}</h2>
         {children}
@@ -211,10 +211,10 @@ function SectionIntro({ index, icon: Icon, title, duration, items, instructions,
   return (
     <div className="mx-auto max-w-2xl px-4 py-10 sm:py-16">
       <div className="card overflow-hidden">
-        <div className="bg-gradient-to-br from-brand-600 to-brand-800 p-6 text-white sm:p-8">
-          <p className="text-sm font-semibold text-brand-100">Section {index} of 4</p>
+        <div className="bg-gradient-to-br from-[#2552eb] to-[#1e36af] p-6 text-white sm:p-8">
+          <p className="text-sm font-semibold text-white/80">Section {index} of 4</p>
           <div className="mt-2 flex items-center gap-3"><Icon className="h-7 w-7" /><h1 className="text-3xl font-bold">{title}</h1></div>
-          <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-brand-100"><span className="flex items-center gap-1.5"><IconClock className="h-4 w-4" />{duration}</span><span>{items}</span></p>
+          <p className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-white/80"><span className="flex items-center gap-1.5"><IconClock className="h-4 w-4" />{duration}</span><span>{items}</span></p>
         </div>
         <div className="p-6 sm:p-8">
           <p className="mb-3 font-semibold">Instructions</p>

@@ -4,11 +4,11 @@ import { useState } from "react";
 type Series = { name: string; values: number[] };
 
 // Categorical slots 1–4 from the validated reference palette (adjacent pairs pass CVD checks).
-const COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"];
+const COLORS = [1, 2, 3, 4].map((i) => `rgb(var(--c-series-${i}))`);
 const MARKERS = ["circle", "square", "triangle", "diamond"] as const;
 
 function Marker({ kind, x, y, color }: { kind: (typeof MARKERS)[number]; x: number; y: number; color: string }) {
-  const common = { fill: color, stroke: "#fff", strokeWidth: 2 };
+  const common = { style: { fill: color, stroke: "rgb(var(--c-surface))" }, strokeWidth: 2 };
   if (kind === "circle") return <circle cx={x} cy={y} r={5} {...common} />;
   if (kind === "square") return <rect x={x - 4.5} y={y - 4.5} width={9} height={9} rx={1.5} {...common} />;
   if (kind === "triangle") return <path d={`M${x},${y - 6} L${x + 5.5},${y + 4} L${x - 5.5},${y + 4}Z`} {...common} />;
@@ -30,26 +30,26 @@ export function LineChart({ title, years, series, yLabel, note }: { title: strin
   const labelY = new Map(ends.map((e) => [e.i, e.y]));
 
   return (
-    <figure className="rounded-xl border border-slate-200 bg-white p-4">
+    <figure className="rounded-xl border border-slate-200 bg-surface p-4">
       <figcaption className="mb-2 text-center text-sm font-semibold text-ink">{title}</figcaption>
       <div className="relative">
         <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`${title}. Line chart with ${series.length} countries.`}
           onMouseLeave={() => setHover(null)}>
           {ticks.map((t) => (
             <g key={t}>
-              <line x1={m.l} x2={m.l + iw} y1={y(t)} y2={y(t)} stroke={t === 0 ? "#94a3b8" : "#e2e8f0"} strokeWidth={1} />
-              <text x={m.l - 10} y={y(t)} dy="0.32em" textAnchor="end" fontSize="12" fill="#64748b">{t}{yLabel}</text>
+              <line x1={m.l} x2={m.l + iw} y1={y(t)} y2={y(t)} style={{ stroke: t === 0 ? "rgb(var(--c-slate-400))" : "rgb(var(--c-slate-200))" }} strokeWidth={1} />
+              <text x={m.l - 10} y={y(t)} dy="0.32em" textAnchor="end" fontSize="12" style={{ fill: "rgb(var(--c-ink-muted))" }}>{t}{yLabel}</text>
             </g>
           ))}
           {years.map((yr, i) => (
-            <text key={yr} x={x(i)} y={H - m.b + 22} textAnchor="middle" fontSize="12" fill="#64748b">{yr}</text>
+            <text key={yr} x={x(i)} y={H - m.b + 22} textAnchor="middle" fontSize="12" style={{ fill: "rgb(var(--c-ink-muted))" }}>{yr}</text>
           ))}
-          {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={m.t} y2={m.t + ih} stroke="#94a3b8" strokeDasharray="3 3" />}
+          {hover !== null && <line x1={x(hover)} x2={x(hover)} y1={m.t} y2={m.t + ih} style={{ stroke: "rgb(var(--c-slate-400))" }} strokeDasharray="3 3" />}
           {series.map((s, si) => (
             <g key={s.name}>
-              <path d={s.values.map((v, i) => `${i ? "L" : "M"}${x(i)},${y(v)}`).join(" ")} fill="none" stroke={COLORS[si]} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+              <path d={s.values.map((v, i) => `${i ? "L" : "M"}${x(i)},${y(v)}`).join(" ")} fill="none" style={{ stroke: COLORS[si] }} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
               {s.values.map((v, i) => <Marker key={i} kind={MARKERS[si]} x={x(i)} y={y(v)} color={COLORS[si]} />)}
-              <text x={m.l + iw + 12} y={labelY.get(si)} dy="0.32em" fontSize="12" fontWeight={600} fill="#334155">{s.name}</text>
+              <text x={m.l + iw + 12} y={labelY.get(si)} dy="0.32em" fontSize="12" fontWeight={600} style={{ fill: "rgb(var(--c-ink-soft))" }}>{s.name}</text>
             </g>
           ))}
           {years.map((yr, i) => (
@@ -57,7 +57,7 @@ export function LineChart({ title, years, series, yLabel, note }: { title: strin
           ))}
         </svg>
         {hover !== null && (
-          <div className="pointer-events-none absolute top-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs shadow-card"
+          <div className="pointer-events-none absolute top-2 rounded-lg border border-slate-200 bg-surface px-3 py-2 text-xs shadow-card"
             style={{ left: `${(x(hover) / W) * 100}%`, transform: hover > years.length / 2 ? "translateX(calc(-100% - 12px))" : "translateX(12px)" }}>
             <p className="mb-1 font-semibold text-ink">{years[hover]}</p>
             {series.map((s, si) => (

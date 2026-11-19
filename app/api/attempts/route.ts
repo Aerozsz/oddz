@@ -1,5 +1,5 @@
 import { randomBytes, randomUUID } from "crypto";
-import { saveAttempt } from "@/lib/store";
+import { StorageNotConfigured, saveAttempt } from "@/lib/store";
 import { fail, json } from "@/lib/http";
 import type { Attempt } from "@/lib/types";
 
@@ -30,6 +30,13 @@ export async function POST(req: Request) {
     currentStage: "intro",
     userAgent: req.headers.get("user-agent")?.slice(0, 200) ?? undefined,
   };
-  await saveAttempt(attempt);
+  try {
+    await saveAttempt(attempt);
+  } catch (e) {
+    console.error("create attempt failed", e);
+    return fail(e instanceof StorageNotConfigured
+      ? "The test can’t start right now because the site’s storage isn’t set up. Please let your teacher know."
+      : "We couldn’t start your test. Please try again in a moment.", 503);
+  }
   return json({ id: attempt.id, token: attempt.token }, 201);
 }

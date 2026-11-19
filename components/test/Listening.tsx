@@ -82,9 +82,9 @@ export function Listening({ parts, answers, played, setAnswer, setPlayed, onFini
             const s = status(p);
             return (
               <button key={p.id} role="tab" aria-selected={i === active} onClick={() => setActive(i)}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${i === active ? "bg-ink text-white" : "bg-white text-ink ring-1 ring-slate-200 hover:ring-slate-300"}`}>
+                className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${i === active ? "bg-contrast text-white" : "bg-surface text-ink ring-1 ring-slate-200 hover:ring-slate-300"}`}>
                 {p.title}
-                <span className={`ml-2 text-xs font-medium ${i === active ? "text-slate-300" : "text-ink-muted"}`}>
+                <span className={`ml-2 text-xs font-medium ${i === active ? "text-white/70" : "text-ink-muted"}`}>
                   {s === "done" ? "✓ played" : s === "playing" ? "● playing" : s === "interrupted" ? "paused" : ""}
                 </span>
               </button>

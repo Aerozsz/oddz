@@ -58,7 +58,7 @@ function ItemView({ item, group, answers, set }: { item: Item; group: Group; ans
             {item.options.map((o) => {
               const checked = answers[item.n] === o.key;
               return (
-                <label key={o.key} className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3.5 py-2.5 transition ${checked ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                <label key={o.key} className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3.5 py-2.5 transition ${checked ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500" : "border-slate-200 bg-surface hover:border-slate-300"}`}>
                   <input type="radio" name={`q${item.n}`} value={o.key} checked={checked} onChange={() => set(item.n, o.key)} className="mt-1 accent-brand-600" data-q={item.n} />
                   <span><strong className="mr-2">{o.key}</strong>{o.text}</span>
                 </label>
@@ -84,7 +84,7 @@ function ItemView({ item, group, answers, set }: { item: Item; group: Group; ans
             {item.options.map((o) => {
               const checked = chosen.includes(o.key);
               return (
-                <label key={o.key} className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3.5 py-2.5 transition ${checked ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500" : "border-slate-200 bg-white hover:border-slate-300"}`}>
+                <label key={o.key} className={`flex cursor-pointer items-start gap-3 rounded-xl border px-3.5 py-2.5 transition ${checked ? "border-brand-500 bg-brand-50 ring-1 ring-brand-500" : "border-slate-200 bg-surface hover:border-slate-300"}`}>
                   <input type="checkbox" checked={checked} onChange={() => toggle(o.key)} className="mt-1 accent-brand-600" data-q={item.ns[0]} />
                   <span><strong className="mr-2">{o.key}</strong>{o.text}</span>
                 </label>
@@ -114,7 +114,7 @@ function ItemView({ item, group, answers, set }: { item: Item; group: Group; ans
           <legend className="mb-2 flex items-start gap-3"><Num n={item.n} answered={!!v} /><span className="pt-0.5">{item.prompt}</span></legend>
           <div className="flex flex-wrap gap-2 pl-10" role="radiogroup">
             {choices.map((c) => (
-              <label key={c} className={`cursor-pointer rounded-lg border px-3.5 py-1.5 text-sm font-semibold transition focus-within:ring-4 focus-within:ring-brand-100 ${v === c ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-white text-ink hover:border-slate-400"}`}>
+              <label key={c} className={`cursor-pointer rounded-lg border px-3.5 py-1.5 text-sm font-semibold transition focus-within:ring-4 focus-within:ring-brand-100 ${v === c ? "border-brand-600 bg-brand-600 text-white" : "border-slate-300 bg-surface text-ink hover:border-slate-400"}`}>
                 <input type="radio" className="sr-only" name={`q${item.n}`} checked={v === c} onChange={() => set(item.n, c)} data-q={item.n} />
                 {c}
               </label>
@@ -135,7 +135,7 @@ export function QuestionGroups({ groups, answers, set }: { groups: Group[]; answ
           <p className="mb-4 mt-1 text-[15px] text-ink-soft">{g.instructions}</p>
           {g.options && <OptionsBox title={g.optionsTitle} options={g.options} />}
           {g.boxed ? (
-            <div className="rounded-xl border border-slate-300 bg-white p-4 sm:p-5">
+            <div className="rounded-xl border border-slate-300 bg-surface p-4 sm:p-5">
               {g.title && <p className="mb-2 text-center font-semibold">{g.title}</p>}
               {g.items.map((it, i) => <ItemView key={i} item={it} group={g} answers={answers} set={set} />)}
             </div>
@@ -161,7 +161,7 @@ export function QuestionNav({ parts, answers, activePart, onJump }: {
   const total = parts.reduce((s, p) => s + (p.to - p.from + 1), 0);
   const done = parts.reduce((s, p) => { for (let n = p.from; n <= p.to; n++) if (answers[n]) s++; return s; }, 0);
   return (
-    <nav aria-label="Question navigator" className="no-print sticky bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur">
+    <nav aria-label="Question navigator" className="no-print sticky bottom-0 z-20 border-t border-slate-200 bg-surface/95 backdrop-blur">
       <div className="mx-auto flex max-w-[1400px] items-center gap-4 overflow-x-auto px-4 py-2.5">
         <span className="shrink-0 text-xs font-semibold text-ink-muted tabular-nums">{done}/{total} answered</span>
         {parts.map((p, pi) => (
@@ -170,7 +170,7 @@ export function QuestionNav({ parts, answers, activePart, onJump }: {
             {Array.from({ length: p.to - p.from + 1 }, (_, i) => p.from + i).map((n) => (
               <button key={n} type="button" onClick={() => onJump(pi, n)}
                 aria-label={`Question ${n}${answers[n] ? ", answered" : ", not answered"}`}
-                className={`h-7 w-7 rounded-md text-xs font-semibold tabular-nums transition focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 ${answers[n] ? "bg-brand-600 text-white hover:bg-brand-700" : "border border-slate-300 bg-white text-ink hover:border-slate-400"}`}>
+                className={`h-7 w-7 rounded-md text-xs font-semibold tabular-nums transition focus:outline-none focus-visible:ring-4 focus-visible:ring-brand-200 ${answers[n] ? "bg-brand-600 text-white hover:bg-brand-500" : "border border-slate-300 bg-surface text-ink hover:border-slate-400"}`}>
                 {n}
               </button>
             ))}

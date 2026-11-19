@@ -18,21 +18,21 @@ export function Writing({ tasks, values, setValue, onFinish }: {
 
   return (
     <div className="flex h-[calc(100dvh-3.5rem)] flex-col">
-      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-4 py-2.5" role="tablist" aria-label="Writing tasks">
+      <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-surface px-4 py-2.5" role="tablist" aria-label="Writing tasks">
         {tasks.map((task, i) => {
           const n = words(values[task.id]);
           return (
             <button key={task.id} role="tab" aria-selected={i === active} onClick={() => setActive(i)}
-              className={`rounded-xl px-3.5 py-1.5 text-sm font-semibold transition ${i === active ? "bg-ink text-white" : "bg-white text-ink ring-1 ring-slate-200 hover:ring-slate-300"}`}>
+              className={`rounded-xl px-3.5 py-1.5 text-sm font-semibold transition ${i === active ? "bg-contrast text-white" : "bg-surface text-ink ring-1 ring-slate-200 hover:ring-slate-300"}`}>
               {task.title.replace("Writing ", "")}
-              <span className={`ml-2 text-xs font-medium tabular-nums ${i === active ? "text-slate-300" : "text-ink-muted"}`}>{n} words</span>
+              <span className={`ml-2 text-xs font-medium tabular-nums ${i === active ? "text-white/70" : "text-ink-muted"}`}>{n} words</span>
             </button>
           );
         })}
         <span className="ml-auto hidden text-sm text-ink-muted sm:inline">Suggested time: {t.minutes} minutes</span>
       </div>
       <div className="grid min-h-0 flex-1 lg:grid-cols-2">
-        <section className="min-h-0 overflow-y-auto border-slate-200 bg-white px-5 py-6 sm:px-8 lg:border-r" aria-label="Task instructions">
+        <section className="min-h-0 overflow-y-auto border-slate-200 bg-surface px-5 py-6 sm:px-8 lg:border-r" aria-label="Task instructions">
           <p className="text-xs font-semibold uppercase tracking-wider text-ink-muted">{t.title}</p>
           <p className="mt-1 text-sm text-ink-soft">You should spend about {t.minutes} minutes on this task.</p>
           <div className="mt-5 space-y-3 rounded-xl border border-slate-300 p-5 text-[16px] leading-relaxed">

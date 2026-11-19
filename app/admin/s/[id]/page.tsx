@@ -93,10 +93,10 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
               <p className="text-xs text-ink-muted">{c.sub}</p>
             </div>
           ))}
-          <div className="card col-span-2 bg-ink p-5 text-white md:col-span-1">
-            <p className="text-sm text-slate-300">Overall {s.provisional && s.overall !== undefined ? "(provisional)" : ""}</p>
+          <div className="card col-span-2 bg-contrast p-5 text-white md:col-span-1">
+            <p className="text-sm text-white/70">Overall {s.provisional && s.overall !== undefined ? "(provisional)" : ""}</p>
             <p className="mt-1 text-3xl font-bold tabular-nums">{s.overall === undefined ? "—" : s.overall.toFixed(1)}</p>
-            <p className="text-xs text-slate-300">≈ CEFR {cefr(s.overall)}</p>
+            <p className="text-xs text-white/70">≈ CEFR {cefr(s.overall)}</p>
           </div>
         </section>
 
@@ -110,16 +110,16 @@ export default async function StudentPage({ params }: { params: Promise<{ id: st
                   <li key={`${t.section}-${t.type}`} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1 sm:grid-cols-[14rem_minmax(0,1fr)_4.5rem]">
                     <span className="text-sm"><span className="font-medium">{t.label}</span> <span className="text-ink-muted">· {t.section}</span></span>
                     <span className="order-3 col-span-2 h-2.5 rounded-full bg-slate-100 sm:order-none sm:col-span-1">
-                      <span className="block h-2.5 rounded-full" style={{ width: `${Math.max(t.pct, 2)}%`, background: t.pct < 50 ? "#e34948" : t.pct < 75 ? "#eda100" : "#1baf7a" }} />
+                      <span className="block h-2.5 rounded-full" style={{ width: `${Math.max(t.pct, 2)}%`, background: t.pct < 50 ? "rgb(var(--c-bad))" : t.pct < 75 ? "rgb(var(--c-warn))" : "rgb(var(--c-good))" }} />
                     </span>
                     <span className="text-right text-sm font-semibold tabular-nums">{t.correct}/{t.total} <span className="font-normal text-ink-muted">{t.pct}%</span></span>
                   </li>
                 ))}
               </ul>
               <p className="mt-4 flex flex-wrap gap-4 text-xs text-ink-muted">
-                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#e34948]" />Below 50%</span>
-                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#eda100]" />50–74%</span>
-                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#1baf7a]" />75%+</span>
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-status-bad" />Below 50%</span>
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-status-warn" />50–74%</span>
+                <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-status-good" />75%+</span>
               </p>
             </div>
             <div className="card p-5 sm:p-6">

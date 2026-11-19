@@ -8,8 +8,17 @@ import type { Attempt } from "./types";
  * Storage: a private Vercel Blob store in production (BLOB_READ_WRITE_TOKEN),
  * or the local ./.data folder during development.
  */
-const useBlob = !!process.env.BLOB_READ_WRITE_TOKEN;
+const blobConfigured = !!(process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID);
+// Never fall back to local disk on Vercel: it is read-only and not persistent.
+const useBlob = blobConfigured || !!process.env.VERCEL;
 const LOCAL = path.join(process.cwd(), ".data");
+
+export class StorageNotConfigured extends Error {
+  constructor() { super("Storage is not connected. Connect a Vercel Blob store to this project, then redeploy."); }
+}
+function ensureConfigured() {
+  if (useBlob && !blobConfigured) throw new StorageNotConfigured();
+}
 
 async function streamToBuffer(stream: ReadableStream<Uint8Array>): Promise<Buffer> {
   const chunks: Uint8Array[] = [];
@@ -23,6 +32,7 @@ async function streamToBuffer(stream: ReadableStream<Uint8Array>): Promise<Buffe
 }
 
 async function writeFile(p: string, body: Buffer | string, contentType: string) {
+  ensureConfigured();
   if (useBlob) {
     await put(p, body, { access: "private", contentType, allowOverwrite: true, addRandomSuffix: false, cacheControlMaxAge: 60 });
     return;
@@ -33,6 +43,7 @@ async function writeFile(p: string, body: Buffer | string, contentType: string) 
 }
 
 export async function readFile(p: string): Promise<{ body: Buffer; contentType: string } | null> {
+  ensureConfigured();
   if (useBlob) {
     const r = await get(p, { access: "private", useCache: false });
     if (!r || r.statusCode !== 200) return null;
@@ -49,6 +60,7 @@ export async function readFile(p: string): Promise<{ body: Buffer; contentType: 
 }
 
 async function listPaths(prefix: string): Promise<string[]> {
+  ensureConfigured();
   if (useBlob) {
     const out: string[] = [];
     let cursor: string | undefined;
@@ -115,4 +127,4 @@ export async function deleteAttempt(id: string) {
   await removePaths([attemptPath(id), ...audio]);
 }
 
-export const storageMode = useBlob ? "blob" : "local";
+export const storageMode = blobConfigured ? "blob" : useBlob ? "missing" : "local";
